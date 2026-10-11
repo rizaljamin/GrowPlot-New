@@ -173,6 +173,7 @@ public class MainActivity extends Activity {
     private VLCVideoLayout ipWebcam3VlcLayout;
     private TextView ipWebcam3RefreshButton;
     private boolean cctv03OverlayShown;
+    private boolean cctvVlcFeedsAllowedOnActiveScreen;
     private boolean cctv03CredentialsPromptShowing;
     private boolean activityResumed;
     private volatile long cctvSnapshotIntervalMillis = 30_000L;
@@ -603,7 +604,26 @@ public class MainActivity extends Activity {
 
     private void installCctv01VlcPositionListener() {
         if (web == null || isFinishing()) return;
-        web.evaluateJavascript("(()=>{const host=document.querySelector('#cameras');if(!host)return false;let css=document.getElementById('growplot-vlc-cctv-style');if(!css){css=document.createElement('style');css.id='growplot-vlc-cctv-style';css.textContent='#cameras .camera:nth-child(-n+3) .feedimg,#cameras .camera:nth-child(-n+3) .mocktag,#cameras .camera:nth-child(-n+3) .stamp{display:none!important}';document.head.appendChild(css)}let scheduled=false,last=['','',''];const send=()=>{if(scheduled)return true;scheduled=true;requestAnimationFrame(()=>{scheduled=false;const dashboard=document.getElementById('mainDashboard'),health=document.getElementById('healthPanel'),auth=document.getElementById('authScreen'),modalOpen=!!document.querySelector('.modal.open'),homeActive=!!dashboard&&!dashboard.hidden&&(!health||health.hidden)&&!modalOpen&&(!auth||auth.hidden);for(let i=0;i<3;i++){const e=document.querySelector('#cameras .camera:nth-child('+(i+1)+') .feed');if(!e)continue;const im=e.querySelector('.feedimg');if(im&&im.hasAttribute('src'))im.removeAttribute('src');const r=e.getBoundingClientRect(),offscreen=r.bottom<=0||r.top>=window.innerHeight,coords=[r.left,r.top,r.width,r.height,offscreen?1:0,homeActive?1:0].join(',');if(coords!==last[i]){last[i]=coords;if(i===0)GrowPlotBridge.updateCctv01VlcPosition(coords);else if(i===1)GrowPlotBridge.updateCctv02VlcPosition(coords);else GrowPlotBridge.updateCctv03VlcPosition(coords)}}});return true};if(!window.__growplotVlcPositionInstalled){window.addEventListener('scroll',send,{passive:true});window.addEventListener('resize',send,{passive:true});new MutationObserver(send).observe(host,{childList:true,subtree:true});new MutationObserver(send).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['hidden','class']});window.__growplotVlcPositionInstalled=true}send();setTimeout(send,400);setTimeout(send,1200);return true})()", null);
+        web.evaluateJavascript("(()=>{const host=document.querySelector('#cameras');if(!host)return false;let css=document.getElementById('growplot-vlc-cctv-style');if(!css){css=document.createElement('style');css.id='growplot-vlc-cctv-style';css.textContent='#cameras .camera:nth-child(-n+3) .feedimg,#cameras .camera:nth-child(-n+3) .mocktag,#cameras .camera:nth-child(-n+3) .stamp{display:none!important}';document.head.appendChild(css)}let scheduled=false,last=['','',''];const send=()=>{if(scheduled)return true;scheduled=true;requestAnimationFrame(()=>{scheduled=false;const dashboard=document.getElementById('mainDashboard'),health=document.getElementById('healthPanel'),auth=document.getElementById('authScreen'),modalOpen=!!document.querySelector('.modal.open'),homeActive=!!dashboard&&!dashboard.hidden&&(!health||health.hidden)&&!modalOpen&&(!auth||auth.hidden);if(window.GrowPlotBridge)GrowPlotBridge.setCctvVlcFeedsAllowedOnActiveScreen(homeActive);for(let i=0;i<3;i++){const e=document.querySelector('#cameras .camera:nth-child('+(i+1)+') .feed');if(!e)continue;const im=e.querySelector('.feedimg');if(im&&im.hasAttribute('src'))im.removeAttribute('src');const r=e.getBoundingClientRect(),offscreen=r.bottom<=0||r.top>=window.innerHeight,coords=[r.left,r.top,r.width,r.height,offscreen?1:0,homeActive?1:0].join(',');if(coords!==last[i]){last[i]=coords;if(i===0)GrowPlotBridge.updateCctv01VlcPosition(coords);else if(i===1)GrowPlotBridge.updateCctv02VlcPosition(coords);else GrowPlotBridge.updateCctv03VlcPosition(coords)}}});return true};if(!window.__growplotVlcPositionInstalled){window.addEventListener('scroll',send,{passive:true});window.addEventListener('resize',send,{passive:true});new MutationObserver(send).observe(host,{childList:true,subtree:true});new MutationObserver(send).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['hidden','class']});window.__growplotVlcPositionInstalled=true}send();setTimeout(send,400);setTimeout(send,1200);return true})()", null);
+    }
+
+    /** Keep native VLC children out of the way unless the dashboard is active. */
+    private void setCctvVlcFeedsAllowedOnActiveScreen(boolean allowed) {
+        cctvVlcFeedsAllowedOnActiveScreen = allowed;
+        if (allowed) return; // Position callbacks reveal feeds after valid dashboard bounds arrive.
+        hideVlcFrame(ipWebcamVlcFrame);
+        hideVlcFrame(ipWebcam2VlcFrame);
+        hideVlcFrame(ipWebcam3VlcFrame);
+        cctv01OverlayShown = false;
+        cctv02OverlayShown = false;
+        cctv03OverlayShown = false;
+    }
+
+    private void hideVlcFrame(FrameLayout frame) {
+        if (frame == null) return;
+        frame.animate().cancel();
+        frame.setAlpha(0f);
+        frame.setVisibility(View.INVISIBLE);
     }
 
     private void positionCctv01Vlc(String coordinates) {
@@ -618,7 +638,7 @@ public class MainActivity extends Activity {
             int height = Math.round(Float.parseFloat(values[3]) * density);
             boolean offscreen = "1".equals(values[4]);
             boolean homeActive = "1".equals(values[5]);
-            boolean shouldShow = !offscreen && homeActive;
+            boolean shouldShow = !offscreen && homeActive && cctvVlcFeedsAllowedOnActiveScreen;
             if (width <= 0 || height <= 0) return;
 
             if (ipWebcamVlcFrame == null) {
@@ -732,7 +752,7 @@ public class MainActivity extends Activity {
             int height = Math.round(Float.parseFloat(values[3]) * density);
             boolean offscreen = "1".equals(values[4]);
             boolean homeActive = "1".equals(values[5]);
-            boolean shouldShow = !offscreen && homeActive;
+            boolean shouldShow = !offscreen && homeActive && cctvVlcFeedsAllowedOnActiveScreen;
             if (width <= 0 || height <= 0) return;
 
             if (ipWebcam2VlcFrame == null) {
@@ -814,7 +834,7 @@ public class MainActivity extends Activity {
             int height = Math.round(Float.parseFloat(values[3]) * density);
             boolean offscreen = "1".equals(values[4]);
             boolean homeActive = "1".equals(values[5]);
-            boolean shouldShow = !offscreen && homeActive;
+            boolean shouldShow = !offscreen && homeActive && cctvVlcFeedsAllowedOnActiveScreen;
             if (width <= 0 || height <= 0) return;
 
             if (ipWebcam3VlcFrame == null) {
@@ -2789,6 +2809,10 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface public void openIpWebcam() {
             runOnUiThread(MainActivity.this::installCctv01VlcPositionListener);
+        }
+
+        @JavascriptInterface public void setCctvVlcFeedsAllowedOnActiveScreen(boolean allowed) {
+            runOnUiThread(() -> MainActivity.this.setCctvVlcFeedsAllowedOnActiveScreen(allowed));
         }
 
         @JavascriptInterface public void updateCctv01VlcPosition(String coordinates) {
