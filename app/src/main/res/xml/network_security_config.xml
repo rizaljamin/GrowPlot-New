@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Camera IPs are editable in Settings and restricted to RFC1918 private addresses in the app. -->
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

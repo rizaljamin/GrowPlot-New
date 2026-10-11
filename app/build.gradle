@@ -1,0 +1,61 @@
+plugins { id 'com.android.application' }
+
+def releaseIdentity = new Properties()
+file('../version.properties').withInputStream { releaseIdentity.load(it) }
+def buildConfigLiteral = { value -> '"' + value.toString().replace('\\', '\\\\').replace('"', '\\"') + '"' }
+def configuredSigningStore = System.getenv('GROWPLOT_DEBUG_KEYSTORE')
+def configuredSigningAlias = System.getenv('GROWPLOT_DEBUG_KEY_ALIAS') ?: 'androiddebugkey'
+def configuredSigningStorePassword = System.getenv('GROWPLOT_DEBUG_KEYSTORE_PASSWORD')
+def configuredSigningKeyPassword = System.getenv('GROWPLOT_DEBUG_KEY_PASSWORD') ?: configuredSigningStorePassword
+def requestedAbiFilter = project.findProperty('growplotAbi')?.toString()
+def configuredAbis = requestedAbiFilter ? [requestedAbiFilter] : ['arm64-v8a', 'armeabi-v7a']
+
+android {
+    namespace 'com.growplot.farm'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.growplot.farm'
+        minSdk 24
+        targetSdk 35
+        ndk { abiFilters(*configuredAbis) }
+        versionCode releaseIdentity.getProperty('versionCode').toInteger()
+        versionName releaseIdentity.getProperty('versionName')
+    }
+
+    buildFeatures { buildConfig true }
+    buildTypes {
+        debug {
+            buildConfigField 'String', 'DIAGNOSIS_API_URL', buildConfigLiteral(project.findProperty('growplotDiagnosisApiUrl') ?: '')
+            buildConfigField 'String', 'DIAGNOSIS_PROXY_TOKEN', buildConfigLiteral(project.findProperty('growplotDiagnosisProxyToken') ?: '')
+            buildConfigField 'String', 'PLANTNET_API_KEY', buildConfigLiteral(project.findProperty('growplotPlantNetApiKey') ?: '')
+        }
+        release {
+            buildConfigField 'String', 'DIAGNOSIS_API_URL', buildConfigLiteral(project.findProperty('growplotDiagnosisApiUrl') ?: '')
+            buildConfigField 'String', 'DIAGNOSIS_PROXY_TOKEN', buildConfigLiteral(project.findProperty('growplotDiagnosisProxyToken') ?: '')
+            buildConfigField 'String', 'PLANTNET_API_KEY', buildConfigLiteral(project.findProperty('growplotPlantNetApiKey') ?: '')
+        }
+    }
+
+    if (configuredSigningStore) {
+        signingConfigs {
+            stableDebug {
+                storeFile file(configuredSigningStore)
+                storePassword configuredSigningStorePassword
+                keyAlias configuredSigningAlias
+                keyPassword configuredSigningKeyPassword
+            }
+        }
+        buildTypes.getByName('debug').signingConfig = signingConfigs.getByName('stableDebug')
+    }
+
+}
+
+dependencies {
+    implementation 'org.videolan.android:libvlc-all:3.6.5'
+}
+
+// The package task otherwise may reuse an APK built for the previous version identity.
+tasks.configureEach {
+    if (name == 'packageDebug') inputs.file(file('../version.properties'))
+}

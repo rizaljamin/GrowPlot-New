@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "rootPath": "GrowPlot",
+  "imageFeedPattern": "Image_Feed/<plot-folder>",
+  "imageFeeds": {
+    "plot-1": {
+      "relativePath": "Image_Feed/Plot01_demo",
+      "displayPath": "Google Drive: /GrowPlot/Image_Feed/Plot01_demo"
+    },
+    "plot-2": {
+      "relativePath": "Image_Feed/plot02_fertigation_gesing",
+      "displayPath": "Google Drive: /GrowPlot/Image_Feed/plot02_fertigation_gesing"
+    },
+    "plot-3": {
+      "relativePath": "Image_Feed/plot03_plot",
+      "displayPath": "Google Drive: /GrowPlot/Image_Feed/plot03_plot"
+    },
+    "plot-4": {
+      "relativePath": "Image_Feed/plot04_plot",
+      "displayPath": "Google Drive: /GrowPlot/Image_Feed/plot04_plot"
+    }
+  },
+  "cameraFeeds": {
+    "plot-1": {
+      "relativePath": "Image_Feed/Plot01_demo",
+      "cameras": [
+        {
+          "camera": 1,
+          "ipAddress": "192.168.1.241",
+          "protocol": "http",
+          "port": 8080,
+          "path": "/videofeed"
+        },
+        {
+          "camera": 2,
+          "ipAddress": "192.168.1.227",
+          "protocol": "http",
+          "port": 8080,
+          "path": "/videofeed"
+        },
+        {
+          "camera": 3,
+          "ipAddress": "192.168.1.228",
+          "protocol": "rtsp",
+          "port": 554,
+          "path": "/stream1"
+        },
+        {
+          "camera": 4,
+          "ipAddress": "",
+          "protocol": "http",
+          "port": 8080,
+          "path": "/videofeed"
+        },
+        {
+          "camera": 5,
+          "ipAddress": "",
+          "protocol": "http",
+          "port": 8080,
+          "path": "/videofeed"
+        },
+        {
+          "camera": 6,
+          "ipAddress": "",
+          "protocol": "http",
+          "port": 8080,
+          "path": "/videofeed"
+        }
+      ]
+    }
+  },
+  "diagnosis": {
+    "rootPath": "Diagnosis",
+    "mediaPattern": "Diagnosis/Plot_<n>/Quadrant_<01-06>",
+    "displayPath": "Google Drive: /GrowPlot/Diagnosis"
+  }
+}

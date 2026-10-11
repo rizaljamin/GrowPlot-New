@@ -1,0 +1,17 @@
+# Local credentials and machine-specific configuration
+local.properties
+gradle.properties
+*.jks
+*.keystore
+*.key
+
+# Build state and generated artifacts
+.gradle/
+.gradle-cache/
+build/
+**/build/
+.android-sdk/
+release/
+*.apk
+*.aab
+*.sha256
