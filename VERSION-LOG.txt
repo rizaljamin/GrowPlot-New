@@ -1,3 +1,9 @@
+2026-10-11 | v0.6.01 Build 3 | versionCode 130 | com.growplot.farm
+---------------------------------------------------------------------
+Files: universal APK, arm64 APK, debug AAB, matching source ZIP, and build manifest.
+Change: All three native VLC feed frames are hidden immediately when the dashboard is inactive. Screen visibility is independent of feed position, so a hidden dashboard with zero-sized feed bounds cannot skip the hide action. Frames reappear only after Home is active and valid camera-card positions arrive.
+Status: Gradle compilation, JavaScript syntax, APK signatures, version metadata, alignment, ABI contents, and AAB archive checks passed. Android screen switching and camera playback still need device verification. Development certificate does not match the saved Build 30 certificate; Pl@ntNet key is absent.
+
 2026-10-11 | v0.6.01 Build 2 | versionCode 129 | com.growplot.farm
 ---------------------------------------------------------------------
 Planned outputs: universal APK, arm64-only APK, debug AAB, matching source ZIP, and build manifest.
