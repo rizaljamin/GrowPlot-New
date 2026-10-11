@@ -1,3 +1,14 @@
+## BUG-065 — Put detected scene objects and readable text before color changes
+
+**Reported:** 2026-10-11
+**Status:** Source implementation in progress for the next build; APK/runtime verification pending.
+
+**Requested behavior:** For the latest camera snapshot, name likely visible objects and any obvious writing first, then describe the estimated color change against the previous snapshot.
+
+**Change:** Add on-device ML Kit image labels and Latin text recognition. The compact comparison is ordered as object labels, up to two readable text lines, then visible-green and brightness changes. Label and OCR models use Google Play services to keep APK growth low; first use may need an internet connection while those models download. Recognition is described as an estimate and color comparison remains a rough pixel measurement.
+
+**Verification limit:** Java compilation, package size, and first-use model download still need testing after the next build. No camera frame has been available here to validate what labels or OCR text it returns.
+
 ## BUG-064 — Hide live-feed frames when another screen opens
 
 **Reported:** 2026-10-11 (repeated report)
