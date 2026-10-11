@@ -1,3 +1,14 @@
+## BUG-064 — Hide live-feed frames when another screen opens
+
+**Reported:** 2026-10-11 (repeated report)
+**Status:** Implemented in v0.6.01 Build 3 (versionCode 130); device verification pending.
+
+**Cause:** The previous visibility update depended on feed geometry. Opening a menu hides the dashboard, and a feed can measure zero width or height; the native positioning handler then returned before hiding the VLC frame. The delayed fade also left the frame visible briefly over the new screen.
+
+**Fix:** The page now reports active dashboard state separately from feed position. Android immediately cancels animations and hides all three VLC frames whenever another screen is active. Frames reappear only after Home is active and valid card coordinates arrive.
+
+**Verification / limits:** Build checks passed. Confirm CCTV01, CCTV02, and CCTV03 disappear on menu/modal open and return to their matching cards after returning Home on the Android device.
+
 ## BUG-063 — Reduce GrowPlot download size by device architecture
 
 **Reported:** 2026-10-11
