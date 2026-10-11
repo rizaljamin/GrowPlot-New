@@ -53,6 +53,9 @@ android {
 
 dependencies {
     implementation 'org.videolan.android:libvlc-all:3.6.5'
+    implementation 'androidx.appcompat:appcompat:1.7.1'
+    implementation 'com.google.android.gms:play-services-mlkit-image-labeling:16.0.8'
+    implementation 'com.google.android.gms:play-services-mlkit-text-recognition:19.0.1'
 }
 
 // The package task otherwise may reuse an APK built for the previous version identity.
