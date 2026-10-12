@@ -1238,3 +1238,7 @@ Signing: Build 5 uses the same development certificate as Build 4. Pl@ntNet key 
 
 2026-10-12 | v0.6.01 Build 6 | versionCode 133
 Packages the Settings diskette Save button beside Home. Saves current plot details, camera IP/login, snapshot and rescan intervals with validation and partial-failure reporting. ARM64 only. Regression checks, Gradle ARM64 compilation, APK version/signature/alignment passed. Same signing certificate as Build 5. Android device validation pending.
+
+2026-10-12 | v0.6.01 Build 7 | versionCode 134
+Adds collapsed Plugins · API Keys Settings with Pl@ntNet and Kindwise key portal links. Masked fields save encrypted on-device via the diskette Save button; blank fields preserve saved keys. Pl@ntNet requests prefer the device key over the build fallback. Kindwise key storage is provided; Kindwise diagnosis is not yet connected. Live service validation pending.
+Build 7 validation: Gradle ARM64 build, package version, signature, alignment, Settings and feed-history regression checks passed. Signature matches Build 6. User API keys must be entered in Settings; no provider credentials are bundled. Provider/device validation pending.
