@@ -175,6 +175,8 @@ public class MainActivity extends Activity {
     private boolean cctv03OverlayShown;
     private boolean cctvVlcFeedsAllowedOnActiveScreen;
     private boolean cctv03CredentialsPromptShowing;
+    private boolean cctv03CredentialCheckInProgress;
+    private boolean cctv03CredentialsRejected;
     private boolean activityResumed;
     private volatile long cctvSnapshotIntervalMillis = 30_000L;
     private final Runnable cctv01SnapshotTicker = new Runnable() {
@@ -478,8 +480,7 @@ public class MainActivity extends Activity {
     private boolean saveVigiCctv03Credentials(String username, String password) {
         try {
             if ((username == null || username.isEmpty()) && (password == null || password.isEmpty())) {
-                getPrefs().edit().remove(PREF_VIGI_CCTV03_CREDENTIALS).apply();
-                return true;
+                return true; // Empty Settings fields must not erase a saved camera login.
             }
             if (password == null || password.isEmpty()) {
                 String[] previous = vigiCctv03Credentials();
@@ -507,7 +508,8 @@ public class MainActivity extends Activity {
             byte[] combined = new byte[cipher.getIV().length + ciphertext.length];
             System.arraycopy(cipher.getIV(), 0, combined, 0, cipher.getIV().length);
             System.arraycopy(ciphertext, 0, combined, cipher.getIV().length, ciphertext.length);
-            getPrefs().edit().putString(PREF_VIGI_CCTV03_CREDENTIALS, Base64.encodeToString(combined, Base64.NO_WRAP)).apply();
+            if (!getPrefs().edit().putString(PREF_VIGI_CCTV03_CREDENTIALS, Base64.encodeToString(combined, Base64.NO_WRAP)).commit()) return false;
+            cctv03CredentialsRejected = false;
             return true;
         } catch (Exception ignored) { return false; }
     }
@@ -985,7 +987,7 @@ public class MainActivity extends Activity {
             showCctv03VigiMessage(videoLayout, "Set the CCTV03 VIGI IP address in Settings");
             return;
         }
-        if (credentials[0].isEmpty() || credentials[1].isEmpty()) {
+        if (credentials[0].isEmpty() || credentials[1].isEmpty() || cctv03CredentialsRejected) {
             showCctv03VigiMessage(videoLayout, "Enter the VIGI camera account to connect");
             promptForCctv03VigiCredentials();
             return;
@@ -998,6 +1000,12 @@ public class MainActivity extends Activity {
             ipWebcam3Vlc = new LibVLC(this, options);
             ipWebcam3VlcPlayer = new org.videolan.libvlc.MediaPlayer(ipWebcam3Vlc);
             ipWebcam3VlcPlayer.attachViews(videoLayout, null, true, false);
+            final org.videolan.libvlc.MediaPlayer sessionPlayer = ipWebcam3VlcPlayer;
+            sessionPlayer.setEventListener(event -> {
+                if (event.type == org.videolan.libvlc.MediaPlayer.Event.EncounteredError) {
+                    mainHandler.post(() -> checkCctv03RejectedCredentials(sessionPlayer, ip, credentials));
+                }
+            });
             String rtspUrl = "rtsp://" + Uri.encode(credentials[0]) + ":" + Uri.encode(credentials[1])
                     + "@" + ip + ":554/stream1";
             Media media = new Media(ipWebcam3Vlc, Uri.parse(rtspUrl));
@@ -1033,6 +1041,25 @@ public class MainActivity extends Activity {
         layout.addView(message, new FrameLayout.LayoutParams(-1, -1));
     }
 
+    private void checkCctv03RejectedCredentials(org.videolan.libvlc.MediaPlayer player, String ip, String[] credentials) {
+        if (player != ipWebcam3VlcPlayer || cctv03CredentialCheckInProgress) return;
+        cctv03CredentialCheckInProgress = true;
+        cctvSnapshotWorker.execute(() -> {
+            RtspCredentialVerifier.Result result = RtspCredentialVerifier.verify(ip, 554, credentials[0], credentials[1]);
+            mainHandler.post(() -> {
+                cctv03CredentialCheckInProgress = false;
+                if (player != ipWebcam3VlcPlayer || !ip.equals(cctvIp(3))) return;
+                if (result == RtspCredentialVerifier.Result.REJECTED) {
+                    cctv03CredentialsRejected = true;
+                    if (ipWebcam3VlcLayout != null) showCctv03VigiMessage(ipWebcam3VlcLayout, "VIGI rejected the saved login. Update the camera username or password.");
+                    if (cctvVlcFeedsAllowedOnActiveScreen) promptForCctv03VigiCredentials();
+                } else if (ipWebcam3VlcLayout != null) {
+                    showCctv03VigiMessage(ipWebcam3VlcLayout, "VIGI stream unavailable. Saved login retained; tap Refresh to reconnect.");
+                }
+            });
+        });
+    }
+
     private void promptForCctv03VigiCredentials() {
         if (!activityResumed || isFinishing() || cctv03CredentialsPromptShowing) return;
         cctv03CredentialsPromptShowing = true;
@@ -1045,11 +1072,14 @@ public class MainActivity extends Activity {
         EditText username = new EditText(this);
         username.setSingleLine(true);
         username.setHint("VIGI username");
+        String[] savedCredentials = vigiCctv03Credentials();
+        username.setText(savedCredentials[0]);
         username.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD);
         form.addView(username, new LinearLayout.LayoutParams(-1, -2));
         EditText password = new EditText(this);
         password.setSingleLine(true);
         password.setHint("VIGI password");
+        if (!cctv03CredentialsRejected) password.setText(savedCredentials[1]);
         password.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
         form.addView(password, new LinearLayout.LayoutParams(-1, -2));
 

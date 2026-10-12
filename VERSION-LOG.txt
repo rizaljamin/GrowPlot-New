@@ -1227,3 +1227,11 @@ Snapshot/history correction batch:
 - CCTV02 source is labelled IP Webcam / Live, with the same snapshot timestamp and saved-photo diagnosis handling as CCTV01/03. History refresh does not replace live feed backing images with still photos.
 - Routine builds produce one ARM64 APK and source ZIP; universal APK and debug AAB generation removed.
 Validation: JavaScript syntax, shell syntax, and executable feed/history UI regression checks passed. MainActivity and TimelineBuckets compiled with the Java 17 compiler against Android API 35 and actual LibVLC 3.6.5 classes. Gradle packaging did not complete: direct dependency access was blocked by the environment policy, and offline mode lacks the VLC/AndroidX dependency cache. No Build 4 APK was generated. Android live capture, Drive scanning and comparison verification remain pending. Build tools are pinned to the bootstrapped 35.0.0 version.
+
+2026-10-12 | v0.6.01 Build 5 | versionCode 132
+- Live Feed Configuration, camera IP/VLC login, Plot Management and nested settings start collapsed each time Settings opens; tap a heading to expand.
+- Keep encrypted VIGI credentials across reconnects/restarts and preserve saved login when Settings fields are blank. Saved username is shown; password stays masked with a saved-password hint.
+- Check RTSP authentication after a VLC error. Prompt again on confirmed authentication rejection or missing fields; network/service failures keep saved credentials. Native correction dialog preloads saved username.
+Validation: JVM RTSP accepted/rejected/service/unreachable and Digest-challenge tests, Settings details/nesting check, feed-history regression, JS syntax, complete Gradle ARM64 assemble, APK version/signature/alignment checks passed. Android device verification pending.
+Build 4 follow-up: APK generation subsequently succeeded; uploaded to Drive as file 1Nmw0gAll1_XIWCfvZebVDjbkViDuAJlo. User confirmed CCTV02 live feed, snapshot intervals and ARM64 packaging corrected. Photo-history comparison was not separately confirmed by the user.
+Signing: Build 5 uses the same development certificate as Build 4. Pl@ntNet key remains absent.
