@@ -653,3 +653,7 @@ Validation: JavaScript syntax, shell syntax, and executable feed/history UI regr
 Validation: JVM RTSP accepted/rejected/service/unreachable and Digest-challenge tests, Settings details/nesting check, feed-history regression, JS syntax, complete Gradle ARM64 assemble, APK version/signature/alignment checks passed. Android device verification pending.
 Build 4 follow-up: APK generation subsequently succeeded; uploaded to Drive as file 1Nmw0gAll1_XIWCfvZebVDjbkViDuAJlo. User confirmed CCTV02 live feed, snapshot intervals and ARM64 packaging corrected. Photo-history comparison was not separately confirmed by the user.
 Signing: Build 5 uses the same development certificate as Build 4. Pl@ntNet key remains absent.
+
+2026-10-12 | Pending next build after v0.6.01 Build 5
+Settings: Added a diskette Save button beside Home, visible only in Settings. It validates current plot details, GPS, camera IPs/login, snapshot interval and rescan interval, then saves all those edits without leaving Settings. Blank VIGI password keeps the saved login. Reports partial save failures instead of unconditional success. Existing folder grants/config remain unchanged.
+Validation: executable combined-save regression, saved-password reuse, invalid GPS/no writes, partial failure and plot rollback checks passed; JS syntax and feed-history regression passed. Android UI verification pending. One change queued under the existing 2–3-change build batching rule; no new APK generated.
