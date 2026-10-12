@@ -1,8 +1,10 @@
 # GrowPlot enhancement batch
 
-- Current test baseline: v0.6.01 Build 2 (versionCode 129); universal APK, arm64 APK, debug AAB, source ZIP, and build manifest produced.
-- Verification: Java/JavaScript compilation, APK signature, package/version, alignment, ABI contents, and AAB archive checks passed. Device install and VIGI playback checks remain pending.
-- Enhancements queued after Build 1: none recorded yet. Keep the 2–3 enhancement batch before generating the next APK unless the user asks sooner. BUG-046 remains open outside the current batch.
+- Verified GitHub source baseline: v0.6.01 Build 7 (versionCode 134), commit a803ae919bf8db1acbe6217a87d151fd794e997e.
+- Current source/build: v0.6.01 Build 8 (versionCode 135), ARM64 only; based on the verified GitHub Build 7 baseline.
+- Batch: connects crop.health diagnosis to the encrypted Kindwise Settings key for photo and video-frame analysis; stores and shows Kindwise results alongside Pl@ntNet; adds a build-time regression gate.
+- Build 8 ARM64 debug compilation, package/version, APK signature, and alignment checks passed. Its signer differs from the saved Build 30 certificate, so it is development-only and must not replace the installed app. Pl@ntNet key, live Kindwise request, and Android device checks remain pending.
+- Keep the 2–3 enhancement batch before the next APK. BUG-046 remains open outside this batch.
 
 ## Build 16 delivered
 

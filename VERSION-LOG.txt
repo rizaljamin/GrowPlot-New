@@ -1242,3 +1242,9 @@ Packages the Settings diskette Save button beside Home. Saves current plot detai
 2026-10-12 | v0.6.01 Build 7 | versionCode 134
 Adds collapsed Plugins · API Keys Settings with Pl@ntNet and Kindwise key portal links. Masked fields save encrypted on-device via the diskette Save button; blank fields preserve saved keys. Pl@ntNet requests prefer the device key over the build fallback. Kindwise key storage is provided; Kindwise diagnosis is not yet connected. Live service validation pending.
 Build 7 validation: Gradle ARM64 build, package version, signature, alignment, Settings and feed-history regression checks passed. Signature matches Build 6. User API keys must be entered in Settings; no provider credentials are bundled. Provider/device validation pending.
+
+
+2026-10-12 | v0.6.01 Build 8 | versionCode 135
+Adds automatic Kindwise crop.health image diagnosis using the encrypted device API key from Settings. The same clearest selected images/video frames go to Kindwise and Pl@ntNet; their reports remain separate. Kindwise crop and health-issue candidates, model confidence, symptoms, and available treatment details are displayed and saved with section diagnosis history. Adds a Kindwise integration regression gate to the ARM64 build.
+Validation: JavaScript syntax, feed-history, settings-save and Kindwise regression checks passed. Gradle ARM64 assemble passed; package/version, APK signature and alignment checks passed. APK SHA-256: dbc035018fc123e09302a18ed6d08d670f502150ffbf7c6d38d5da861637c6c6. Android device and live provider requests remain pending.
+Signing / provider keys: This APK's certificate does not match the saved Build 30 certificate; do not install it as an update over the existing app. The Pl@ntNet build key is absent; Kindwise requires a user-entered key in Settings. No API keys are bundled.

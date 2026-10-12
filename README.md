@@ -1,11 +1,13 @@
-# GrowPlot v0.6.01 Build 7
+# GrowPlot v0.6.01 Build 8
 
 GrowPlot is an Android A.I driven app for farm camera monitoring, plant health workflows, plot management, and diagnosis media.Fully coded by A.I Agents with human directive guided by the requirement specification documents.
 
-GrowPlot retains the selected Google Drive folder grant and storage paths between normal launches. Android may require a new one-time grant after reinstall, cleared app data, or permission revocation. Build 11 corrects diagnosis history so only successful Pl@ntNet results count, and prevents a delayed result from one section replacing another section’s open diagnosis.
+GrowPlot retains the selected Google Drive folder grant and storage paths between normal launches. Android may require a new one-time grant after reinstall, cleared app data, or permission revocation. Build 8 connects the saved Kindwise crop.health key to automatic photo and video-frame diagnosis alongside Pl@ntNet; provider results remain separate and are saved with the section history.
 
 Batch the next 2–3 discrete enhancements before generating an APK, unless the user explicitly asks for an earlier build. Keep source changes tracked between builds; then use `tools/build-apk.sh` to validate and package the batch. It uses the included Gradle wrapper and bootstraps the Android SDK once for this project environment. Use `tools/release-growplot.sh` for the stricter installable-candidate gate that requires the existing Build 30 signing key and the private Pl@ntNet key. Details are in `AGENTS.md` and `RELEASE-PROCESS.md`
-The next source batch is v0.6.01 Build 7 (versionCode 134). It retains the dashboard-only VLC frames and corrects shared snapshot intervals, selected-plot capture routing, CCTV02 source labelling, and immediate photo-history refresh. Android menu switching and VIGI playback need same-device verification. See `VERSION-LOG.txt` and `BUG-LOG.md` for details.
+Current source is v0.6.01 Build 8 (versionCode 135), based on GitHub main commit a803ae919bf8db1acbe6217a87d151fd794e997e. Kindwise key storage uses encrypted Android preferences; the key stays in native code. See `VERSION-LOG.txt` and `BUG-LOG.md` for the batch and verification record.
+
+The Build 8 ARM64 debug APK compiled and passed package/version, APK signature and alignment checks. Its signing certificate differs from the saved Build 30 certificate, and the Pl@ntNet build key is absent, so this APK is development-only and is not a safe update to Build 7. Android device and live provider verification remain pending. Keep the existing installed app and its data; use only an APK signed by the saved Build 30 key for an in-place update.
 
 ## APK distribution and device compatibility
 

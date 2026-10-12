@@ -149,6 +149,7 @@ public class MainActivity extends Activity {
     private final ExecutorService geocodeWorker = Executors.newSingleThreadExecutor();
     private final ExecutorService diagnosisWorker = Executors.newSingleThreadExecutor();
     private final ExecutorService diagnosisCvWorker = Executors.newSingleThreadExecutor();
+    private final ExecutorService kindwiseWorker = Executors.newSingleThreadExecutor();
     private final ExecutorService farmDataWorker = Executors.newSingleThreadExecutor();
     private final ExecutorService cctvSnapshotWorker = Executors.newSingleThreadExecutor();
     private Uri pendingDiagnosisOutput;
@@ -1795,6 +1796,7 @@ public class MainActivity extends Activity {
         scanWorker.shutdownNow();
         geocodeWorker.shutdownNow();
         diagnosisWorker.shutdownNow();
+        kindwiseWorker.shutdownNow();
         diagnosisCvWorker.shutdownNow();
         if (web != null) {
             web.removeJavascriptInterface("GrowPlotBridge");
@@ -3082,7 +3084,12 @@ public class MainActivity extends Activity {
                     }
                     if (candidates.isEmpty()) throw new IllegalStateException("No readable photos are available for this quadrant");
                     List<PlantNetImageCandidate> selected = selectBestPlantNetImages(candidates);
-                    response = identifyWithPlantNet(candidateBytes(selected));
+                    List<byte[]> selectedImages = candidateBytes(selected);
+                    requestKindwiseDiagnosis(camera, id, selectedImages, candidates.size(), selected,
+                            species, symptom, pixelMetrics, "quadrant_photos",
+                            "Diagnosis/" + diagnosisPlotFolder(id) + "/Quadrant_" + String.format(Locale.US, "%02d", camera),
+                            "Selected the clearest available quadrant photos using approximate sharpness, exposure, and visible-plant-area checks.");
+                    response = identifyWithPlantNet(selectedImages);
                     response.put("speciesContext", species == null ? "" : species);
                     response.put("symptomContext", symptom == null ? "" : symptom);
                     response.put("pixelContext", pixelMetrics == null ? "" : pixelMetrics);
@@ -3432,6 +3439,107 @@ public class MainActivity extends Activity {
         finally { if (connection != null) connection.disconnect(); }
     }
 
+    private void requestKindwiseDiagnosis(int camera, String plotId, List<byte[]> images, int candidateCount,
+                                          List<PlantNetImageCandidate> selected, String species, String symptom,
+                                          String pixelMetrics, String mediaType, String sourceFolder, String selectionNote) {
+        final List<byte[]> submitted = new ArrayList<>(images);
+        final JSONArray selectedSources = candidateSources(selected);
+        kindwiseWorker.execute(() -> {
+            JSONObject result = identifyWithKindwise(submitted);
+            try {
+                result.put("speciesContext", species == null ? "" : species);
+                result.put("symptomContext", symptom == null ? "" : symptom);
+                result.put("pixelContext", pixelMetrics == null ? "" : pixelMetrics);
+                result.put("mediaType", mediaType);
+                result.put("sourceFolder", sourceFolder);
+                result.put("candidateImageCount", candidateCount);
+                result.put("imageCountSubmitted", Math.min(5, submitted.size()));
+                result.put("selectionNote", selectionNote);
+                result.put("selectedSources", selectedSources);
+            } catch (Exception ignored) { }
+            sendKindwiseResult(camera, plotId, result);
+        });
+    }
+
+    private JSONObject identifyWithKindwise(List<byte[]> images) {
+        String key = pluginApiKey("kindwise");
+        if (key == null || key.trim().isEmpty()) {
+            return kindwiseStatus("not_configured", "Add the Kindwise crop.health API key in Settings → Plugins · API Keys.");
+        }
+        if (images == null || images.isEmpty()) {
+            return kindwiseStatus("error", "No readable photos or video frames were available for Kindwise.");
+        }
+        HttpURLConnection connection = null;
+        try {
+            JSONArray encodedImages = new JSONArray();
+            for (int i = 0; i < Math.min(5, images.size()); i++) {
+                encodedImages.put(Base64.encodeToString(images.get(i), Base64.NO_WRAP));
+            }
+            JSONObject payload = new JSONObject().put("images", encodedImages);
+            URL url = new URL("https://crop.kindwise.com/api/v1/identification");
+            connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("POST");
+            connection.setConnectTimeout(15000);
+            connection.setReadTimeout(45000);
+            connection.setDoOutput(true);
+            connection.setRequestProperty("Api-Key", key);
+            connection.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+            try (OutputStream out = connection.getOutputStream()) {
+                out.write(payload.toString().getBytes(StandardCharsets.UTF_8));
+            }
+            int status = connection.getResponseCode();
+            InputStream stream = status >= 200 && status < 300 ? connection.getInputStream() : connection.getErrorStream();
+            StringBuilder body = new StringBuilder();
+            if (stream != null) try (InputStream input = stream) {
+                byte[] buffer = new byte[8192]; int count;
+                while ((count = input.read(buffer)) != -1) body.append(new String(buffer, 0, count, StandardCharsets.UTF_8));
+            }
+            if (status < 200 || status >= 300) {
+                String message = status == 401 || status == 403 ? "Kindwise rejected the saved API key. Check it in Settings."
+                        : status == 429 ? "Kindwise request quota is exhausted or rate-limited."
+                        : "Kindwise returned HTTP " + status + ".";
+                return kindwiseStatus("error", message);
+            }
+            JSONObject response = new JSONObject(body.toString());
+            JSONObject modelResult = response.optJSONObject("result");
+            if (modelResult == null) return kindwiseStatus("error", "Kindwise returned an unreadable diagnosis result.");
+            JSONArray candidates = new JSONArray();
+            appendKindwiseCandidates(candidates, modelResult.optJSONObject("crop"), "crop");
+            appendKindwiseCandidates(candidates, modelResult.optJSONObject("disease"), "health issue");
+            JSONObject result = kindwiseStatus("ok", "");
+            result.put("model", response.optString("model_version", ""));
+            result.put("candidates", candidates);
+            result.put("imageCountSubmitted", Math.min(5, images.size()));
+            return result;
+        } catch (Exception error) {
+            return kindwiseStatus("error", error.getMessage() == null ? "Kindwise network request failed." : error.getMessage());
+        } finally { if (connection != null) connection.disconnect(); }
+    }
+
+    private void appendKindwiseCandidates(JSONArray target, JSONObject group, String type) throws Exception {
+        if (group == null) return;
+        JSONArray suggestions = group.optJSONArray("suggestions");
+        if (suggestions == null) return;
+        for (int i = 0; i < suggestions.length() && i < 5; i++) {
+            JSONObject suggestion = suggestions.optJSONObject(i);
+            if (suggestion == null) continue;
+            JSONObject item = new JSONObject();
+            item.put("type", type);
+            item.put("name", suggestion.optString("name", "Unlabelled result"));
+            item.put("confidence", suggestion.optDouble("probability", 0));
+            JSONObject details = suggestion.optJSONObject("details");
+            if (details != null) item.put("details", details);
+            target.put(item);
+        }
+    }
+
+    private JSONObject kindwiseStatus(String status, String message) {
+        JSONObject result = new JSONObject();
+        try { result.put("provider", "Kindwise crop.health"); result.put("status", status); result.put("message", message); result.put("candidates", new JSONArray()); }
+        catch (Exception ignored) { }
+        return result;
+    }
+
     private int remainingPlantNetQuota(String rateLimitHeader) {
         if (rateLimitHeader == null) return -1;
         Matcher matcher = Pattern.compile("(?:^|[;,])\\s*r=(\\d+)").matcher(rateLimitHeader);
@@ -3461,7 +3569,12 @@ public class MainActivity extends Activity {
             if (videoFrames != null) candidates.addAll(videoFrames);
             if (candidates.isEmpty()) throw new IllegalStateException(photoNotice.isEmpty() ? "No quadrant photos or readable video frames were available" : photoNotice);
             List<PlantNetImageCandidate> selected = selectBestPlantNetImages(candidates);
-            response = identifyWithPlantNet(candidateBytes(selected));
+            List<byte[]> selectedImages = candidateBytes(selected);
+            requestKindwiseDiagnosis(camera, plotId, selectedImages, candidates.size(), selected,
+                    species, symptom, pixelMetrics, "quadrant_photos_and_video_frames",
+                    "Diagnosis/" + diagnosisPlotFolder(plotId) + "/Quadrant_" + String.format(Locale.US, "%02d", camera),
+                    "Compared saved quadrant photos and sampled video frames using approximate sharpness, exposure, and visible-plant-area checks; submitted the clearest five.");
+            response = identifyWithPlantNet(selectedImages);
             response.put("speciesContext", species == null ? "" : species);
             response.put("symptomContext", symptom == null ? "" : symptom);
             response.put("pixelContext", pixelMetrics == null ? "" : pixelMetrics);
@@ -3479,6 +3592,13 @@ public class MainActivity extends Activity {
         runOnUiThread(() -> {
             if (web == null) return;
             web.evaluateJavascript("window.onPlantNetDiagnosis&&window.onPlantNetDiagnosis(" + camera + "," + JSONObject.quote(plotId) + "," + JSONObject.quote(result.toString()) + ")", null);
+        });
+    }
+
+    private void sendKindwiseResult(int camera, String plotId, JSONObject result) {
+        runOnUiThread(() -> {
+            if (web == null) return;
+            web.evaluateJavascript("window.onKindwiseDiagnosis&&window.onKindwiseDiagnosis(" + camera + "," + JSONObject.quote(plotId) + "," + JSONObject.quote(result.toString()) + ")", null);
         });
     }
 

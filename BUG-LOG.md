@@ -668,3 +668,13 @@ Validation: Java 17 compilation against Android API 35/VLC and existing Settings
 2026-10-12 | v0.6.01 Build 7 | versionCode 134
 Adds collapsed Plugins · API Keys Settings with Pl@ntNet and Kindwise key portal links. Masked fields save encrypted on-device via the diskette Save button; blank fields preserve saved keys. Pl@ntNet requests prefer the device key over the build fallback. Kindwise key storage is provided; Kindwise diagnosis is not yet connected. Live service validation pending.
 Build 7 validation: Gradle ARM64 build, package version, signature, alignment, Settings and feed-history regression checks passed. Signature matches Build 6. User API keys must be entered in Settings; no provider credentials are bundled. Provider/device validation pending.
+
+
+## BUG-063 — Connect the saved Kindwise key to crop.health diagnosis
+
+**Reported:** 2026-10-12  
+**Status:** Implemented in source and built for v0.6.01 Build 8 (versionCode 135); Android and live-provider verification pending.
+
+**Change:** After pixel/photo or video-frame analysis, GrowPlot sends up to five clearest selected images to Kindwise crop.health and Pl@ntNet independently. Kindwise uses the encrypted API key already stored in Settings; the key remains in the native Android layer and is sent in the provider Api-Key header. Kindwise crop and health issue candidates, confidence scores, and available symptom/treatment details appear in a separate result card. Kindwise results are saved with the section's diagnosis history. A build regression check covers the key use, endpoint, image limit, photo/video fan-out, and result display.
+
+**Verification / limits:** JavaScript syntax, feed-history, settings-save, and Kindwise integration regression checks pass. Gradle ARM64 packaging, package/version, APK signature, and alignment checks pass. A live provider request with a user-entered key and Android photo/video/history behavior remain pending. crop.health analyzes submitted images; GrowPlot's species, symptom, and pixel fields are report context and are not provider inputs. No Kindwise credentials are bundled. The debug APK certificate differs from the saved Build 30 signer, so this artifact is not an in-place update.

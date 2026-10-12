@@ -41,6 +41,7 @@ scripts = re.findall(r'<script(?:\s[^>]*)?>(.*?)</script\s*>', html, flags=re.S|
 print('\n'.join(scripts))
 PY
 node --check "$TEMP_JS" || fail "inline JavaScript syntax check failed"
+node "$ROOT/tools/tests/kindwise-regression.js" || fail "Kindwise integration regression check failed"
 
 cd "$ROOT"
 APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"

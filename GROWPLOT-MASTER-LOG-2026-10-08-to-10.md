@@ -1,7 +1,7 @@
 # GrowPlot Master Development Log
 
-**Coverage:** 8–10 October 2026  
-**Current build at end of period:** v0.5.08 Build 27 (versionCode 108)  
+**Coverage:** 8–12 October 2026  
+**Current source build:** v0.6.01 Build 8 (versionCode 135), ARM64 only  
 **Source records consolidated:** `VERSION-LOG.txt` and `BUG-LOG.md`
 
 **Build 22 update (2026-10-10):** Compiled the authorized Build 19 source baseline with the CCTV01 `/videofeed` display correction. Google Drive snapshots remain available for diagnosis/history but cannot replace the live view. Package/version, signature, and alignment checks passed. Build 20/21 source changes were not available in this workspace. Android playback verification remains pending; signing is development-only and Pl@ntNet is disabled without its local key.
@@ -102,9 +102,20 @@ This is a chronological summary of work and defects recorded during the period, 
 - **History sync:** diagnosis history remains local to the device; cross-device history sync is not implemented.
 - **Install/update signing:** Build 16’s signing certificate differs from the saved Build 30 release certificate. Android may reject it as an in-place update. Do not uninstall the installed app to work around this, because that may risk local data and the saved Drive grant.
 
+## 12 October 2026
+
+### Diagnosis
+
+- Verified GitHub main at v0.6.01 Build 7 (versionCode 134), commit `a803ae919bf8db1acbe6217a87d151fd794e997e`, then connected the encrypted Kindwise Settings key to automatic crop.health diagnosis.
+- The same selected photos and video frames are submitted to Kindwise and Pl@ntNet. Kindwise crop/health candidates and available symptom/treatment details display separately and are retained with section diagnosis history.
+- Kindwise, Settings-save, feed/history, and inline JavaScript checks passed. Gradle ARM64 assemble, package/version, signature, and alignment checks passed.
+- The resulting debug APK is signed with a certificate different from Build 30 and is not a safe in-place update. Pl@ntNet is disabled in this artifact because no build key is configured. Live provider and Android-device verification remain pending.
+
 ## End-of-period status
 
-- **Latest build:** v0.5.08 Build 19, versionCode 100.
-- **Build checks recorded:** Gradle/Java, JavaScript syntax, APK signature, alignment, and package metadata passed.
-- **Still pending:** phone/tablet UI and behavior checks, live Google Drive provider read/write/sync, and confirmation of section-specific diagnosis history on the device.
+- **Latest verified GitHub baseline:** v0.6.01 Build 7 (versionCode 134), commit a803ae919bf8db1acbe6217a87d151fd794e997e.
+- **Current local source:** v0.6.01 Build 8 (versionCode 135), adds automatic Kindwise crop.health analysis for selected photo/video frames and saves separate provider results with diagnosis history.
+- **Build checks:** Kindwise, Settings-save, feed/history regression and JavaScript syntax checks passed. Gradle ARM64 assemble, package/version, APK signature and alignment checks passed.
+- **Distribution limit:** Build 8 debug APK certificate differs from the saved Build 30 signer; do not use it as an update. The Pl@ntNet build key is absent. Android device and live-provider checks remain pending.
+- **Still pending:** phone/tablet behavior checks, live Google Drive read/write/sync, and confirmation of section-specific diagnosis history on-device. BUG-046 remains open.
 
