@@ -200,7 +200,7 @@ public class MainActivity extends Activity {
     private final Runnable cctv03SnapshotTicker = new Runnable() {
         @Override public void run() {
             if (!activityResumed || ipWebcam3VlcPlayer == null || ipWebcam3VlcLayout == null) return;
-            captureCctvVlcFrame(3);
+            checkIpWebcamBeforeSnapshot(3);
             mainHandler.postDelayed(this, cctvSnapshotIntervalMillis);
         }
     };
@@ -1152,7 +1152,10 @@ public class MainActivity extends Activity {
                 ? ipWebcamVlcPlayer != null && ipWebcamVlcLayout != null && ipWebcamVlcFrame != null && ipWebcamVlcFrame.getVisibility() == View.VISIBLE
                 : camera == 2 ? ipWebcam2VlcPlayer != null && ipWebcam2VlcLayout != null && ipWebcam2VlcFrame != null && ipWebcam2VlcFrame.getVisibility() == View.VISIBLE
                 : ipWebcam3VlcPlayer != null && ipWebcam3VlcLayout != null && ipWebcam3VlcFrame != null && ipWebcam3VlcFrame.getVisibility() == View.VISIBLE;
-        if (!activityResumed || !ready) return;
+        org.videolan.libvlc.MediaPlayer player = camera == 1 ? ipWebcamVlcPlayer
+                : camera == 2 ? ipWebcam2VlcPlayer : ipWebcam3VlcPlayer;
+        if (!activityResumed || !ready || !cctvVlcFeedsAllowedOnActiveScreen || !player.isPlaying()) return;
+        if (camera == 3) { captureCctvVlcFrame(camera); return; }
         try {
             cctvSnapshotWorker.execute(() -> {
                 boolean available = isIpWebcamFrameAvailable(camera);
@@ -1213,7 +1216,11 @@ public class MainActivity extends Activity {
                 ? ipWebcamVlcPlayer != null && ipWebcamVlcLayout != null && ipWebcamVlcFrame != null && ipWebcamVlcFrame.getVisibility() == View.VISIBLE
                 : camera == 2 ? ipWebcam2VlcPlayer != null && ipWebcam2VlcLayout != null && ipWebcam2VlcFrame != null && ipWebcam2VlcFrame.getVisibility() == View.VISIBLE
                 : ipWebcam3VlcPlayer != null && ipWebcam3VlcLayout != null && ipWebcam3VlcFrame != null && ipWebcam3VlcFrame.getVisibility() == View.VISIBLE;
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N || !activityResumed || !ready) return;
+        org.videolan.libvlc.MediaPlayer player = camera == 1 ? ipWebcamVlcPlayer
+                : camera == 2 ? ipWebcam2VlcPlayer : ipWebcam3VlcPlayer;
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N || !activityResumed || !ready
+                || !cctvVlcFeedsAllowedOnActiveScreen || !player.isPlaying()) return;
+        final String capturePlotId = safePlotId(getPrefs().getString(PREF_ACTIVE_PLOT_ID, DEFAULT_PLOT_ID));
         VLCVideoLayout layout = camera == 1 ? ipWebcamVlcLayout : camera == 2 ? ipWebcam2VlcLayout : ipWebcam3VlcLayout;
         SurfaceView surface = findVlcSurfaceView(layout);
         if (surface != null && surface.getWidth() > 0 && surface.getHeight() > 0
@@ -1224,23 +1231,24 @@ public class MainActivity extends Activity {
                     if (!frame.isRecycled()) frame.recycle();
                     return;
                 }
-                saveCctvVlcFrameToDrive(camera, frame);
+                saveCctvVlcFrameToDrive(camera, frame, capturePlotId);
             }, mainHandler);
             return;
         }
         android.view.TextureView texture = findVlcTextureView(layout);
         if (texture != null && texture.getWidth() > 0 && texture.getHeight() > 0 && texture.isAvailable()) {
             Bitmap frame = texture.getBitmap();
-            if (frame != null) saveCctvVlcFrameToDrive(camera, frame);
+            if (frame != null) saveCctvVlcFrameToDrive(camera, frame, capturePlotId);
         }
     }
 
-    private void saveCctvVlcFrameToDrive(int camera, Bitmap frame) {
+    private void saveCctvVlcFrameToDrive(int camera, Bitmap frame, String plotId) {
         cctvSnapshotWorker.execute(() -> {
             try {
-                saveFeedPhotoToDrive(null, frame, DEFAULT_PLOT_ID, camera, false);
+                saveFeedPhotoToDrive(null, frame, plotId, camera, false);
+                mainHandler.post(() -> scanSnapshotFolder(plotId));
             } catch (Exception error) {
-                runOnUiThread(() -> notifyFeedCaptureStatus("CCTV" + String.format(Locale.US, "%02d", camera) + " frame could not be saved to the Plot 1 Google Drive image feed: "
+                runOnUiThread(() -> notifyFeedCaptureStatus("CCTV" + String.format(Locale.US, "%02d", camera) + " frame could not be saved to the selected plot Google Drive image feed: "
                         + (error.getMessage() == null ? "check the saved folder permission" : error.getMessage())));
             } finally {
                 if (!frame.isRecycled()) frame.recycle();
@@ -1954,8 +1962,10 @@ public class MainActivity extends Activity {
             orientedBitmap = portraitBitmap;
             bitmap = portraitBitmap;
         }
+        SimpleDateFormat snapshotClock = new SimpleDateFormat("yyyyMMdd_HHmmss_SSS", Locale.US);
+        snapshotClock.setTimeZone(TimeZone.getTimeZone("Asia/Kuala_Lumpur"));
         String fileName = "CCTV" + String.format(Locale.US, "%02d", camera) + "_"
-                + new SimpleDateFormat("yyyyMMdd_HHmmss_SSS", Locale.US).format(new Date()) + ".jpg";
+                + snapshotClock.format(new Date()) + ".jpg";
         Uri folderUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, folderId);
         Uri destination = DocumentsContract.createDocument(getContentResolver(), folderUri, "image/jpeg", fileName);
         if (destination == null) throw new IllegalStateException("Google Drive could not create the photo in the image-feed folder");
@@ -2931,11 +2941,15 @@ public class MainActivity extends Activity {
                 getPrefs().edit().putLong(PREF_CCTV_SNAPSHOT_INTERVAL_MILLIS, intervalMillis).apply();
                 mainHandler.removeCallbacks(cctv01SnapshotTicker);
                 mainHandler.removeCallbacks(cctv02SnapshotTicker);
+                mainHandler.removeCallbacks(cctv03SnapshotTicker);
                 if (activityResumed && ipWebcamVlcPlayer != null && ipWebcamVlcLayout != null) {
                     mainHandler.postDelayed(cctv01SnapshotTicker, cctvSnapshotIntervalMillis);
                 }
                 if (activityResumed && ipWebcam2VlcPlayer != null && ipWebcam2VlcLayout != null) {
                     mainHandler.postDelayed(cctv02SnapshotTicker, cctvSnapshotIntervalMillis);
+                }
+                if (activityResumed && ipWebcam3VlcPlayer != null && ipWebcam3VlcLayout != null) {
+                    mainHandler.postDelayed(cctv03SnapshotTicker, cctvSnapshotIntervalMillis);
                 }
             });
         }
@@ -3935,8 +3949,13 @@ public class MainActivity extends Activity {
     private JSONObject compareCameraFrames(Photo current, Photo previous) throws JSONException {
         JSONObject result = new JSONObject();
         try {
-            FrameFeatures now = analyzeFrameColors(current.uri);
-            FrameFeatures before = analyzeFrameColors(previous.uri);
+            String currentArchive = archivePhoto(current);
+            String previousArchive = archivePhoto(previous);
+            File historyDirectory = new File(new File(getFilesDir(), "photo_history"), safePlotId(current.plotId));
+            FrameFeatures now = analyzeFrameColors(currentArchive == null ? current.uri
+                    : Uri.fromFile(new File(historyDirectory, currentArchive)));
+            FrameFeatures before = analyzeFrameColors(previousArchive == null ? previous.uri
+                    : Uri.fromFile(new File(historyDirectory, previousArchive)));
             double greenDelta = now.greenPercent - before.greenPercent;
             double brightnessDelta = now.brightness - before.brightness;
             double magnitude = Math.abs(greenDelta);
@@ -4030,7 +4049,12 @@ public class MainActivity extends Activity {
             long size = getDocumentSize(fileUri);
             long modifiedAt = getDocumentLastModified(fileUri);
             String sourceKey = fileUri + "|" + size + "|" + modifiedAt;
-            Photo photo = readPhotoMetadata(fileUri, name, camera, modifiedAt, sourceKey);
+            Photo photo;
+            try {
+                photo = readPhotoMetadata(fileUri, name, camera, modifiedAt, sourceKey);
+            } catch (Exception unavailablePhoto) {
+                continue;
+            }
             photo.plotId = plotId;
             photos.add(photo);
             if (camera > 0) {
@@ -4098,7 +4122,7 @@ public class MainActivity extends Activity {
             item.put("photoCount", count);
             item.put("similarPhotoCount", count > 1 ? count : 0);
             item.put("frameInsight", count > 1
-                    ? "Comparing the two newest snapshots…"
+                    ? "No distinct previous snapshot is available to compare."
                     : count == 1 ? "Waiting for a second snapshot to compare." : "No snapshots are available to compare.");
             item.put("frameExplanation", "The comparison estimates visible green pixels and brightness. It cannot confirm growth or diagnose plant health.");
             if (count == 0) {
@@ -4125,7 +4149,7 @@ public class MainActivity extends Activity {
                     Photo current = ordered.get(0);
                     Photo previous = null;
                     for (int i = 1; i < ordered.size(); i++) {
-                        if (!ordered.get(i).sourceKey.equals(current.sourceKey)) {
+                        if (!ordered.get(i).uri.equals(current.uri)) {
                             previous = ordered.get(i);
                             break;
                         }

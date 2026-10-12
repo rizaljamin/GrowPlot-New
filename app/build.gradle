@@ -8,11 +8,12 @@ def configuredSigningAlias = System.getenv('GROWPLOT_DEBUG_KEY_ALIAS') ?: 'andro
 def configuredSigningStorePassword = System.getenv('GROWPLOT_DEBUG_KEYSTORE_PASSWORD')
 def configuredSigningKeyPassword = System.getenv('GROWPLOT_DEBUG_KEY_PASSWORD') ?: configuredSigningStorePassword
 def requestedAbiFilter = project.findProperty('growplotAbi')?.toString()
-def configuredAbis = requestedAbiFilter ? [requestedAbiFilter] : ['arm64-v8a', 'armeabi-v7a']
+def configuredAbis = requestedAbiFilter ? [requestedAbiFilter] : ['arm64-v8a']
 
 android {
     namespace 'com.growplot.farm'
     compileSdk 35
+    buildToolsVersion '35.0.0'
 
     defaultConfig {
         applicationId 'com.growplot.farm'

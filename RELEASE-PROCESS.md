@@ -27,3 +27,7 @@ The build manifest records source/APK hashes and whether the stable signing key 
 ## Source-of-truth gate
 
 Follow the golden-source governance in `AGENTS.md`. Copy the verified GitHub revision into the working source folder when required. Publish source changes back to GitHub and link installable artifacts to their exact source commit and SHA-256 checksum. Documentation-only changes do not require a new APK or version bump.
+
+## ARM64 build policy
+
+The routine build produces one `arm64-v8a` APK, source ZIP and checksum manifest. It does not generate a universal APK or debug AAB. Both build scripts explicitly request ARM64. Run `node tools/tests/feed-history-regression.js` for the snapshot-history UI regression check. Compilation and static checks do not replace live-camera and Google Drive testing on the target Android device.

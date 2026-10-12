@@ -1,0 +1,10 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert');const html=fs.readFileSync('app/src/main/assets/index.html','utf8');
+const body=html.slice(html.indexOf('function render(){'),html.indexOf('let saveToastTimer='));const cards=[];
+function card(){const nodes={};return {dataset:{},querySelector:q=>nodes[q]||(nodes[q]={dataset:{},style:{},addEventListener(){}}),className:'',innerHTML:''}}
+const ctx={plots:[{id:'plot-1'}],plotLabel:()=> 'Demo',quadrantSeeds:Array(6).fill({}),plantIds:Array(6).fill({}),selectedPlotId:'plot-1',ipWebcamStreamUrl:()=> 'http://camera/videofeed',cameraRoot:{children:cards,appendChild:c=>cards.push(c)},applyPlotFeedSummary(){},document:{getElementById:id=>({dataset:{},hidden:true,value:id==='plot'?'plot-1':'1'}),createElement:()=>card()}};vm.createContext(ctx);vm.runInContext(body+';render()',ctx);
+assert(cards[1].innerHTML.includes('● IP Webcam · Live'));assert(cards[1].innerHTML.includes('Last Drive snapshot'));assert(cards[1].innerHTML.includes('Live IP Webcam stream'));assert(cards[3].innerHTML.includes('● CCTV · Image Feed'));
+const scan=html.slice(html.indexOf('window.onSnapshotScan=function'),html.indexOf("if(window.GrowPlotBridge){document.getElementById('refreshInterval')"));
+Object.assign(ctx,{window:{},updateFeedScope(){},setText(){},setFeedStats(){},defaultFeedFolder:()=>'',localStorage:{setItem(){}},formatCapture:()=>({iso:'2026-10-12T03:00:00Z',date:'12 Oct 2026',time:'11 AM MYT'}),timelineModes:{},cameraTimeline:[],timelineInterval:'weekly'});vm.runInContext(scan,ctx);
+ctx.window.onSnapshotScan({connected:true,plotId:'plot-1',cameraStats:[],currentPhotos:[1,2,3,4].map(camera=>({camera,timestamp:1}))});
+for(let n=0;n<3;n++)assert(!cards[n].querySelector('.feedimg').src,'Live feed must not be replaced by a snapshot');assert(cards[3].querySelector('.feedimg').src.includes('cctv_04.jpg'));
+console.log('PASS: CCTV02 label, consistent live timestamps, and snapshot refresh preserves all three live feeds.');

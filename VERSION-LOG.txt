@@ -1219,3 +1219,11 @@ Description: The **IP webcam** button opens the camera's own HTTP page in a full
 Signing / diagnosis: Development signing key does not match the saved Build 30 certificate, so Android may reject this APK as an update. Do not uninstall the current app to install it. Pl@ntNet is disabled because its key was not present in this environment.
 APK SHA-256: fe86d01a656e97618f738ebfe17a8e0e7ca24b8d4e4112a5577b8aacd32e2452
 
+
+2026-10-12 | v0.6.01 Build 4 | versionCode 131
+Snapshot/history correction batch:
+- All three live feeds use the same saved snapshot interval; interval changes restart CCTV03 as well as CCTV01/02. Require visible, active playback before capture, and capture the selected plot at request time instead of hardcoding Plot 1.
+- Successful live saves request an immediate history scan. Comparison reads stable local archived frames and an unavailable metadata entry no longer aborts all camera histories.
+- CCTV02 source is labelled IP Webcam / Live, with the same snapshot timestamp and saved-photo diagnosis handling as CCTV01/03. History refresh does not replace live feed backing images with still photos.
+- Routine builds produce one ARM64 APK and source ZIP; universal APK and debug AAB generation removed.
+Validation: JavaScript syntax, shell syntax, and executable feed/history UI regression checks passed. MainActivity and TimelineBuckets compiled with the Java 17 compiler against Android API 35 and actual LibVLC 3.6.5 classes. Gradle packaging did not complete: direct dependency access was blocked by the environment policy, and offline mode lacks the VLC/AndroidX dependency cache. No Build 4 APK was generated. Android live capture, Drive scanning and comparison verification remain pending. Build tools are pinned to the bootstrapped 35.0.0 version.

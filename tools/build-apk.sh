@@ -46,10 +46,10 @@ cd "$ROOT"
 APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
 AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
 ZIPALIGN="$ANDROID_HOME/build-tools/35.0.0/zipalign"
-./gradlew --no-daemon --max-workers=1 -Pandroid.useAndroidX=true clean assembleDebug
+./gradlew --no-daemon --max-workers=1 -Pandroid.useAndroidX=true -PgrowplotAbi=arm64-v8a clean assembleDebug
 APK="$ROOT/app/build/outputs/apk/debug/app-debug.apk"
-[[ -s "$APK" ]] || fail "Gradle completed without producing the expected universal debug APK"
-"$APKSIGNER" verify --verbose "$APK" >/dev/null || fail "universal debug APK signature verification failed"
+[[ -s "$APK" ]] || fail "Gradle completed without producing the expected ARM64 debug APK"
+"$APKSIGNER" verify --verbose "$APK" >/dev/null || fail "ARM64 debug APK signature verification failed"
 CERT="$("$APKSIGNER" verify --print-certs "$APK" | sed -n 's/.*certificate SHA-256 digest: //p' | head -n1 | tr '[:upper:]' '[:lower:]')"
 EXPECTED_CERT="${GROWPLOT_EXPECTED_CERT_SHA256:-d3da38540a84c06815beaec70f23d2c98dc927e5216bf83f49d3640760816466}"
 verify_apk() {
@@ -60,7 +60,7 @@ verify_apk() {
   grep -Fq "package: name='com.growplot.farm' versionCode='$VERSION_CODE' versionName='$VERSION_NAME'" <<<"$badging" || fail "$label APK package/version metadata does not match version.properties"
   "$ZIPALIGN" -c -v 4 "$apk_path" >/dev/null || fail "$label APK alignment check failed"
 }
-verify_apk "$APK" universal
+verify_apk "$APK" arm64
 
 mkdir -p "$ROOT/release"
 SAFE_VERSION="$(printf '%s' "$VERSION_NAME" | tr '[:upper:] ' '[:lower:]-' | tr -cd 'a-z0-9.-')"
@@ -75,34 +75,13 @@ if [[ "$CERT" == "${EXPECTED_CERT,,}" ]]; then
 else
   SIGNING_STATE="Does not match the saved Build 30 certificate; Android may reject it as an update. Do not uninstall the installed app to install this file."
 fi
-APK_OUT="$ROOT/release/v${SAFE_VERSION}-GrowPlot-universal-${APK_SUFFIX}.apk"
 ARM64_OUT="$ROOT/release/v${SAFE_VERSION}-GrowPlot-arm64-${APK_SUFFIX}.apk"
-AAB_OUT="$ROOT/release/v${SAFE_VERSION}-GrowPlot-debug.aab"
-cp "$APK" "$APK_OUT"
-
-# Build a device-focused APK containing only 64-bit ARM VLC libraries.
-./gradlew --no-daemon --max-workers=1 -Pandroid.useAndroidX=true -PgrowplotAbi=arm64-v8a clean assembleDebug
-ARM64_APK="$ROOT/app/build/outputs/apk/debug/app-debug.apk"
-verify_apk "$ARM64_APK" arm64
-ARM64_ENTRIES="$(unzip -Z1 "$ARM64_APK")"
+ARM64_ENTRIES="$(unzip -Z1 "$APK")"
 if ! grep -qx 'lib/arm64-v8a/libvlc.so' <<<"$ARM64_ENTRIES" || grep -q '^lib/armeabi-v7a/' <<<"$ARM64_ENTRIES"; then
-  fail "arm64 APK ABI contents are incorrect"
+  fail "ARM64 APK ABI contents are incorrect"
 fi
-cp "$ARM64_APK" "$ARM64_OUT"
+cp "$APK" "$ARM64_OUT"
 
-# Keep both supported ABIs in the bundle so Play can deliver only matching native code.
-if ! ./gradlew --no-daemon --max-workers=1 -Pandroid.useAndroidX=true clean bundleDebug; then
-  echo "Gradle bundle task failed once; retrying from a clean state." >&2
-  ./gradlew --no-daemon --max-workers=1 -Pandroid.useAndroidX=true clean bundleDebug || fail "Gradle failed to produce the debug Android App Bundle after retry"
-fi
-AAB="$ROOT/app/build/outputs/bundle/debug/app-debug.aab"
-[[ -s "$AAB" ]] || fail "Gradle completed without producing the debug Android App Bundle"
-unzip -t "$AAB" >/dev/null || fail "debug Android App Bundle archive check failed"
-AAB_ENTRIES="$(unzip -Z1 "$AAB")"
-if ! grep -qx 'base/lib/arm64-v8a/libvlc.so' <<<"$AAB_ENTRIES" || ! grep -qx 'base/lib/armeabi-v7a/libvlc.so' <<<"$AAB_ENTRIES"; then
-  fail "AAB does not contain both supported VLC ABIs"
-fi
-cp "$AAB" "$AAB_OUT"
 if [[ -n "${GROWPLOT_PLANTNET_API_KEY:-}" ]]; then
   PLANTNET_STATE="Pl@ntNet key injected from the local environment."
 else
@@ -123,12 +102,8 @@ GrowPlot development build
 Version: $VERSION_NAME
 versionCode: $VERSION_CODE
 Application ID: com.growplot.farm
-APK: $(basename "$APK_OUT")
-APK SHA-256: $(sha256sum "$APK_OUT" | awk '{print $1}')
 Arm64 APK: $(basename "$ARM64_OUT")
 Arm64 APK SHA-256: $(sha256sum "$ARM64_OUT" | awk '{print $1}')
-Debug AAB: $(basename "$AAB_OUT")
-Debug AAB SHA-256: $(sha256sum "$AAB_OUT" | awk '{print $1}')
 Source ZIP: $(basename "$ZIP_OUT")
 Source ZIP SHA-256: $(sha256sum "$ZIP_OUT" | awk '{print $1}')
 Signing certificate SHA-256: $CERT
@@ -136,5 +111,5 @@ Signing status: $SIGNING_STATE
 Pl@ntNet status: $PLANTNET_STATE
 Device verification: pending; install and test on the user's Android tablet.
 EOF
-printf 'Build outputs:\n%s\n%s\n%s\n%s\n' "$APK_OUT" "$ARM64_OUT" "$AAB_OUT" "$ZIP_OUT"
+printf 'Build outputs:\n%s\n%s\n' "$ARM64_OUT" "$ZIP_OUT"
 printf 'Build manifest:\n%s\n' "$MANIFEST"

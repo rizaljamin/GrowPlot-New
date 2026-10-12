@@ -65,7 +65,7 @@ PY
 node --check "$TEMP_JS" || fail "inline JavaScript syntax check failed"
 
 cd "$ROOT"
-./gradlew --no-daemon -Pandroid.useAndroidX=true clean assembleDebug
+./gradlew --no-daemon -Pandroid.useAndroidX=true -PgrowplotAbi=arm64-v8a clean assembleDebug
 APK="$ROOT/app/build/outputs/apk/debug/app-debug.apk"
 [[ -f "$APK" ]] || fail "Gradle completed without producing the expected debug APK"
 
@@ -94,7 +94,7 @@ fi
 
 mkdir -p "$OUT_DIR"
 SAFE_VERSION="$(printf '%s' "$VERSION_NAME" | tr '[:upper:] ' '[:lower:]-' | tr -cd 'a-z0-9.-')"
-APK_OUT="$OUT_DIR/v${SAFE_VERSION}-GrowPlot-test-candidate.apk"
+APK_OUT="$OUT_DIR/v${SAFE_VERSION}-GrowPlot-arm64-test-candidate.apk"
 ZIP_OUT="$OUT_DIR/v${SAFE_VERSION}-GrowPlot-source.zip"
 cp "$APK" "$APK_OUT"
 

@@ -637,3 +637,11 @@
 **Change:** Each CCTV card's Image history now compares its two newest distinct saved photos. A small sampled-pixel analysis estimates visible green coverage and average brightness, then reports whether visible green increased, decreased, or stayed similar. The explanation includes both frame times and before/after estimates, and notes that camera framing, shadows, and lighting can affect the result. If fewer than two photos exist, history explains that it is waiting for another snapshot.
 
 **Verification / limits:** Java compilation and inline JavaScript syntax passed. This is a coarse image-color comparison, not proof of plant growth and not a disease or crop-health diagnosis. The comparison is per camera, using snapshots scanned from that plot's configured image-feed source. Android-device verification is pending.
+
+2026-10-12 | v0.6.01 Build 4 | versionCode 131
+Snapshot/history correction batch:
+- All three live feeds use the same saved snapshot interval; interval changes restart CCTV03 as well as CCTV01/02. Require visible, active playback before capture, and capture the selected plot at request time instead of hardcoding Plot 1.
+- Successful live saves request an immediate history scan. Comparison reads stable local archived frames and an unavailable metadata entry no longer aborts all camera histories.
+- CCTV02 source is labelled IP Webcam / Live, with the same snapshot timestamp and saved-photo diagnosis handling as CCTV01/03. History refresh does not replace live feed backing images with still photos.
+- Routine builds produce one ARM64 APK and source ZIP; universal APK and debug AAB generation removed.
+Validation: JavaScript syntax, shell syntax, and executable feed/history UI regression checks passed. MainActivity and TimelineBuckets compiled with the Java 17 compiler against Android API 35 and actual LibVLC 3.6.5 classes. Gradle packaging did not complete: direct dependency access was blocked by the environment policy, and offline mode lacks the VLC/AndroidX dependency cache. No Build 4 APK was generated. Android live capture, Drive scanning and comparison verification remain pending. Build tools are pinned to the bootstrapped 35.0.0 version.

@@ -16,3 +16,5 @@
 - Keep each APK traceable to its exact source commit, package version, signing fingerprint, and SHA-256 checksum. Store release artifacts in GitHub Releases (or another explicitly recorded artifact location linked from the repository); source archives must identify the same source revision.
 - Report measured facts separately from estimates. For APK-size investigations, inspect the actual target APK and report compressed entry sizes, native-library sizes by ABI, assets, DEX, resources, and packaging overhead. Source-file sizes alone are not an APK breakdown. If the APK is unavailable, state that limitation without substituting an older APK.
 - Record verification performed and remaining device checks before claiming a release is verified. Never claim governance or artifacts were saved unless the remote write succeeded.
+
+- Generate only the ARM64 (`arm64-v8a`) APK moving forward. Do not generate a universal APK unless the user explicitly changes this policy.

@@ -1,15 +1,15 @@
-# GrowPlot v0.6.01 Build 3
+# GrowPlot v0.6.01 Build 4
 
 GrowPlot is an Android A.I driven app for farm camera monitoring, plant health workflows, plot management, and diagnosis media.Fully coded by A.I Agents with human directive guided by the requirement specification documents.
 
 GrowPlot retains the selected Google Drive folder grant and storage paths between normal launches. Android may require a new one-time grant after reinstall, cleared app data, or permission revocation. Build 11 corrects diagnosis history so only successful Pl@ntNet results count, and prevents a delayed result from one section replacing another section’s open diagnosis.
 
 Batch the next 2–3 discrete enhancements before generating an APK, unless the user explicitly asks for an earlier build. Keep source changes tracked between builds; then use `tools/build-apk.sh` to validate and package the batch. It uses the included Gradle wrapper and bootstraps the Android SDK once for this project environment. Use `tools/release-growplot.sh` for the stricter installable-candidate gate that requires the existing Build 30 signing key and the private Pl@ntNet key. Details are in `AGENTS.md` and `RELEASE-PROCESS.md`
-The active baseline is v0.6.01 Build 3 (versionCode 130). It hides all three native VLC feed frames immediately whenever the dashboard is not active, including when hidden feed cards have zero layout size. Android menu switching and VIGI playback need same-device verification. See `VERSION-LOG.txt` and `BUG-LOG.md` for details.
+The next source batch is v0.6.01 Build 4 (versionCode 131). It retains the dashboard-only VLC frames and corrects shared snapshot intervals, selected-plot capture routing, CCTV02 source labelling, and immediate photo-history refresh. Android menu switching and VIGI playback need same-device verification. See `VERSION-LOG.txt` and `BUG-LOG.md` for details.
 
 ## APK distribution and device compatibility
 
-From 12 October 2026 onward, distribute the ARM64-only APK (`arm64-v8a`) for GrowPlot. A universal APK is no longer required for future releases. This is the agreed distribution policy; the existing build scripts still generate universal artifacts until their packaging workflow is updated.
+From 12 October 2026 onward, distribute the ARM64-only APK (`arm64-v8a`) for GrowPlot. A universal APK is no longer required for future releases. The build and strict-release workflows generate one ARM64 APK; universal APK and debug AAB generation have been removed from the routine build.
 
 **Compatibility disclaimer:** The ARM64 APK requires Android 7.0 (API 24) or later and a device whose Android operating system supports the `arm64-v8a` ABI. It cannot be installed on ARM32-only devices, devices running a 32-bit Android operating system even with a 64-bit processor, or x86/x86_64 devices. Confirm ARM64 Android support before installation.
 
