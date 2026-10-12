@@ -514,6 +514,44 @@ public class MainActivity extends Activity {
         } catch (Exception ignored) { return false; }
     }
 
+    private String pluginApiKey(String provider) {
+        try {
+            String encoded = getPrefs().getString("plugin_api_keys_encrypted", "");
+            if (encoded.isEmpty()) return "";
+            byte[] bytes = Base64.decode(encoded, Base64.NO_WRAP);
+            KeyStore store = KeyStore.getInstance("AndroidKeyStore"); store.load(null);
+            SecretKey key = (SecretKey) store.getKey(VIGI_CCTV03_KEY_ALIAS, null);
+            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+            cipher.init(Cipher.DECRYPT_MODE, key, new GCMParameterSpec(128, java.util.Arrays.copyOfRange(bytes, 0, 12)));
+            JSONObject keys = new JSONObject(new String(cipher.doFinal(java.util.Arrays.copyOfRange(bytes, 12, bytes.length)), StandardCharsets.UTF_8));
+            return keys.optString(provider, "");
+        } catch (Exception unavailable) { return ""; }
+    }
+
+    private boolean savePluginApiKeys(String payload) {
+        try {
+            JSONObject updates = new JSONObject(payload), keys = new JSONObject();
+            for (String provider : new String[]{"plantnet", "kindwise"}) {
+                String entered = updates.optString(provider, "").trim();
+                keys.put(provider, entered.isEmpty() ? pluginApiKey(provider) : entered);
+            }
+            KeyStore store = KeyStore.getInstance("AndroidKeyStore"); store.load(null);
+            if (!store.containsAlias(VIGI_CCTV03_KEY_ALIAS)) {
+                KeyGenerator generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore");
+                generator.init(new KeyGenParameterSpec.Builder(VIGI_CCTV03_KEY_ALIAS, KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
+                        .setBlockModes(KeyProperties.BLOCK_MODE_GCM).setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                        .setRandomizedEncryptionRequired(true).build()); generator.generateKey(); store.load(null);
+            }
+            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+            cipher.init(Cipher.ENCRYPT_MODE, (SecretKey) store.getKey(VIGI_CCTV03_KEY_ALIAS, null));
+            byte[] encrypted = cipher.doFinal(keys.toString().getBytes(StandardCharsets.UTF_8));
+            byte[] bytes = new byte[cipher.getIV().length + encrypted.length];
+            System.arraycopy(cipher.getIV(), 0, bytes, 0, cipher.getIV().length);
+            System.arraycopy(encrypted, 0, bytes, cipher.getIV().length, encrypted.length);
+            return getPrefs().edit().putString("plugin_api_keys_encrypted", Base64.encodeToString(bytes, Base64.NO_WRAP)).commit();
+        } catch (Exception error) { return false; }
+    }
+
     private boolean isPrivateIpv4OrBlank(String address) {
         if (address == null || address.trim().isEmpty()) return true;
         String[] octets = address.trim().split("\\.", -1);
@@ -2770,6 +2808,20 @@ public class MainActivity extends Activity {
             } catch (Exception ignored) { return false; }
         }
 
+        @JavascriptInterface public String getPluginApiKeyStatus() {
+            try { return new JSONObject().put("plantnet", !pluginApiKey("plantnet").isEmpty() || !BuildConfig.PLANTNET_API_KEY.isEmpty())
+                    .put("kindwise", !pluginApiKey("kindwise").isEmpty()).toString(); }
+            catch (Exception error) { return "{}"; }
+        }
+        @JavascriptInterface public boolean savePluginApiKeys(String payload) {
+            return MainActivity.this.savePluginApiKeys(payload);
+        }
+        @JavascriptInterface public void openPluginKeyPortal(String provider) {
+            final String url = "plantnet".equals(provider) ? "https://my.plantnet.org/settings/api-key"
+                    : "kindwise".equals(provider) ? "https://admin.kindwise.com/login" : "";
+            if (!url.isEmpty()) runOnUiThread(() -> { try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); } catch (Exception ignored) { } });
+        }
+
         @JavascriptInterface public String getVigiCctv03Credentials() {
             try {
                 String[] credentials = vigiCctv03Credentials();
@@ -3337,8 +3389,9 @@ public class MainActivity extends Activity {
     }
 
     private JSONObject identifyWithPlantNet(List<byte[]> images) {
-        String key = BuildConfig.PLANTNET_API_KEY;
-        if (key == null || key.trim().isEmpty()) return plantNetStatus("not_configured", "Pl@ntNet API key is not configured in this private build.");
+        String key = pluginApiKey("plantnet");
+        if (key.isEmpty()) key = BuildConfig.PLANTNET_API_KEY;
+        if (key == null || key.trim().isEmpty()) return plantNetStatus("not_configured", "Add the Pl@ntNet API key in Settings → Plugins · API Keys.");
         if (images == null || images.isEmpty()) return plantNetStatus("error", "No readable photos or video frames were available for Pl@ntNet.");
         HttpURLConnection connection = null;
         try {

@@ -660,3 +660,7 @@ Validation: executable combined-save regression, saved-password reuse, invalid G
 
 2026-10-12 | v0.6.01 Build 6 | versionCode 133
 Packages the Settings diskette Save button beside Home. Saves current plot details, camera IP/login, snapshot and rescan intervals with validation and partial-failure reporting. ARM64 only. Regression checks, Gradle ARM64 compilation, APK version/signature/alignment passed. Same signing certificate as Build 5. Android device validation pending.
+
+2026-10-12 | Pending next build after Build 6
+Added collapsed Plugins · API Keys Settings menu with default Pl@ntNet key portal and Kindwise admin links. Masked key fields save through the overall diskette Save action; blank fields retain saved keys. Keys use Android Keystore AES-GCM encrypted device preferences and are never returned to the WebView. Pl@ntNet requests use the saved device key first, then the existing build-key fallback. Kindwise key storage is available; diagnosis provider integration remains unconnected.
+Validation: Java 17 compilation against Android API 35/VLC and existing Settings/feed regression checks passed. Live provider validation and Android device checks pending; no new APK generated.
