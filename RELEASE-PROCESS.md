@@ -2,7 +2,7 @@
 
 ## Every development change
 
-Keep v0.5.08 Build 11 as the current test baseline. Accumulate 2–3 discrete app enhancements before generating the next APK, unless the user explicitly requests a sooner build. Track each source change and its verification limits; once the batch is ready, run `tools/build-apk.sh`. It uses the checked-in Gradle wrapper, checks the inline JavaScript and APK metadata/signature, and writes the APK, source ZIP, and SHA-256 manifest to `release/`. It does not depend on a system `gradle` command.
+Read the current test baseline from `version.properties` on GitHub `rizaljamin/GrowPlot-New/main` before beginning work; do not use a hardcoded historical baseline. Accumulate 2–3 discrete app enhancements before generating the next APK, unless the user explicitly requests a sooner build. Track each source change and its verification limits; once the batch is ready, run `tools/build-apk.sh`. It uses the checked-in Gradle wrapper, checks the inline JavaScript and APK metadata/signature, and writes the APK, source ZIP, and SHA-256 manifest to `release/`. It does not depend on a system `gradle` command.
 
 On a Linux project environment, the first run installs Google's Android command-line tools into the ignored project-local `.android-sdk`, accepts the SDK licenses non-interactively, and installs Android API 35, Build Tools 35.0.0, and platform tools. Later runs reuse that SDK and the Gradle wrapper/cache. A Java 17 runtime and working network are needed for the first bootstrap. Set `ANDROID_HOME`, `ANDROID_SDK_ROOT`, or `GROWPLOT_ANDROID_SDK` to reuse an existing SDK.
 
@@ -23,3 +23,7 @@ Choose Google Drive → My Drive → Projects → GrowPlot once. GrowPlot saves 
 ## Device verification
 
 The build manifest records source/APK hashes and whether the stable signing key and Pl@ntNet credential were used. A compiled APK does not prove Google Drive provider, camera, playback, or diagnosis behavior. Test those on the target tablet and log the result before calling a build verified.
+
+## Source-of-truth gate
+
+Follow the golden-source governance in `AGENTS.md`. Copy the verified GitHub revision into the working source folder when required. Publish source changes back to GitHub and link installable artifacts to their exact source commit and SHA-256 checksum. Documentation-only changes do not require a new APK or version bump.
