@@ -6,3 +6,11 @@ GrowPlot retains the selected Google Drive folder grant and storage paths betwee
 
 Batch the next 2–3 discrete enhancements before generating an APK, unless the user explicitly asks for an earlier build. Keep source changes tracked between builds; then use `tools/build-apk.sh` to validate and package the batch. It uses the included Gradle wrapper and bootstraps the Android SDK once for this project environment. Use `tools/release-growplot.sh` for the stricter installable-candidate gate that requires the existing Build 30 signing key and the private Pl@ntNet key. Details are in `AGENTS.md` and `RELEASE-PROCESS.md`
 The active baseline is v0.6.01 Build 3 (versionCode 130). It hides all three native VLC feed frames immediately whenever the dashboard is not active, including when hidden feed cards have zero layout size. Android menu switching and VIGI playback need same-device verification. See `VERSION-LOG.txt` and `BUG-LOG.md` for details.
+
+## APK distribution and device compatibility
+
+From 12 October 2026 onward, distribute the ARM64-only APK (`arm64-v8a`) for GrowPlot. A universal APK is no longer required for future releases. This is the agreed distribution policy; the existing build scripts still generate universal artifacts until their packaging workflow is updated.
+
+**Compatibility disclaimer:** The ARM64 APK requires Android 7.0 (API 24) or later and a device whose Android operating system supports the `arm64-v8a` ABI. It cannot be installed on ARM32-only devices, devices running a 32-bit Android operating system even with a 64-bit processor, or x86/x86_64 devices. Confirm ARM64 Android support before installation.
+
+The VLC streaming libraries remain bundled in GrowPlot so CCTV playback stays inside the app; users do not need to install the separate VLC app. For v0.6.01 Build 3, the measured ARM64 APK is 61,445,519 bytes (61.45 MB), compared with 101,182,574 bytes (101.18 MB) for the historical universal APK. Future sizes may change.
