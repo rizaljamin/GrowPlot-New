@@ -696,6 +696,7 @@ public class MainActivity extends Activity {
                 ipWebcamVlcLayout = new VLCVideoLayout(this);
                 ipWebcamVlcLayout.setBackgroundColor(Color.BLACK);
                 ipWebcamVlcFrame.addView(ipWebcamVlcLayout, new FrameLayout.LayoutParams(-1, -1));
+                installCctvStatusDot(ipWebcamVlcFrame, 1);
                 ipWebcamRefreshButton = new TextView(this);
                 ipWebcamRefreshButton.setText("↻ Refresh");
                 ipWebcamRefreshButton.setTextColor(Color.WHITE);
@@ -750,6 +751,45 @@ public class MainActivity extends Activity {
                 }
             }
         } catch (Exception ignored) { }
+    }
+
+    // Blink red when inactive and green only while the VLC player reports playback.
+    private final TextView[] cctvStatusDots = new TextView[3];
+    private final Runnable cctvStatusRefresh = new Runnable() {
+        @Override public void run() {
+            org.videolan.libvlc.MediaPlayer[] players = {ipWebcamVlcPlayer, ipWebcam2VlcPlayer, ipWebcam3VlcPlayer};
+            for (int i = 0; i < players.length; i++) {
+                TextView dot = cctvStatusDots[i];
+                if (dot == null) continue;
+                boolean playing = false;
+                try { playing = players[i] != null && players[i].isPlaying(); }
+                catch (Exception ignored) { }
+                dot.setTextColor(playing ? Color.GREEN : Color.RED);
+                dot.setContentDescription("CCTV " + (i + 1) + (playing ? " active" : " inactive"));
+            }
+            mainHandler.postDelayed(this, 1000);
+        }
+    };
+
+    private void installCctvStatusDot(FrameLayout frame, int camera) {
+        TextView dot = new TextView(this);
+        dot.setText("●");
+        dot.setTextSize(19);
+        dot.setTextColor(Color.RED);
+        dot.setContentDescription("CCTV " + camera + " inactive");
+        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(dp(30), dp(30), Gravity.TOP | Gravity.LEFT);
+        params.leftMargin = dp(7);
+        params.topMargin = dp(5);
+        frame.addView(dot, params);
+        dot.bringToFront();
+        android.view.animation.AlphaAnimation blink = new android.view.animation.AlphaAnimation(1f, 0.25f);
+        blink.setDuration(650);
+        blink.setRepeatMode(android.view.animation.Animation.REVERSE);
+        blink.setRepeatCount(android.view.animation.Animation.INFINITE);
+        dot.startAnimation(blink);
+        cctvStatusDots[camera - 1] = dot;
+        mainHandler.removeCallbacks(cctvStatusRefresh);
+        mainHandler.post(cctvStatusRefresh);
     }
 
     private void startIpWebcamVlc(VLCVideoLayout videoLayout) {
@@ -810,6 +850,7 @@ public class MainActivity extends Activity {
                 ipWebcam2VlcLayout = new VLCVideoLayout(this);
                 ipWebcam2VlcLayout.setBackgroundColor(Color.BLACK);
                 ipWebcam2VlcFrame.addView(ipWebcam2VlcLayout, new FrameLayout.LayoutParams(-1, -1));
+                installCctvStatusDot(ipWebcam2VlcFrame, 2);
                 ipWebcam2RefreshButton = new TextView(this);
                 ipWebcam2RefreshButton.setText("↻ Refresh");
                 ipWebcam2RefreshButton.setTextColor(Color.WHITE);
@@ -892,6 +933,7 @@ public class MainActivity extends Activity {
                 ipWebcam3VlcLayout = new VLCVideoLayout(this);
                 ipWebcam3VlcLayout.setBackgroundColor(Color.BLACK);
                 ipWebcam3VlcFrame.addView(ipWebcam3VlcLayout, new FrameLayout.LayoutParams(-1, -1));
+                installCctvStatusDot(ipWebcam3VlcFrame, 3);
                 ipWebcam3RefreshButton = new TextView(this);
                 ipWebcam3RefreshButton.setText("↻ Refresh");
                 ipWebcam3RefreshButton.setTextColor(Color.WHITE);
