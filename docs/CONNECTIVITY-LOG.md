@@ -4,6 +4,14 @@ Status: PROOF OF CONCEPT VERIFIED BY USER; not yet automated in GrowPlot
 Scope: Remote access to local IP CCTV and IP Webcam from Android via a private tunnel.
 Source of evidence: User-reported Android/VLC/GrowPlot tests and troubleshooting observations. No automated network/device retest performed for this document.
 
+## Network connectivity diagram
+
+![GrowPlot private tunnelling network topology](assets/tailscale-farm-network.svg)
+
+The diagram shows multiple authorized remote endpoints reaching farm LAN services via the Tailscale subnet router. The **Tailscale Admin Console is the control plane for authentication, access policies and route approval; live CCTV video does not flow through the console**. Data uses encrypted connections between Tailscale devices (direct when possible, relayed when necessary).
+
+**Illustrative endpoints:** Samsung Android, Lenovo tablet, Windows laptop and MacBook. Only the devices and cameras explicitly documented in the test results were verified in the October 2026 field trial. NVR, NAS, IoT and dedicated router are potential integrations, not tested claims.
+
 ## 1. Architecture and tested addresses
 - Camera: TP-Link VIGI C340-W, LAN address `192.168.1.228`, RTSP over TCP port `554`, stream path `/stream1`.
 - Local subnet: `192.168.1.0/24`.
