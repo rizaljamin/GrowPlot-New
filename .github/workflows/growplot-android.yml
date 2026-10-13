@@ -38,6 +38,21 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      - name: Verify Java 17 toolchain
+        run: |
+          java -version
+          javac -version
+          test "$(java -version 2>&1 | sed -n '1s/.*version "\\([0-9]*\\).*/\\1/p')" = "17"
+      - name: Cache Gradle dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            .gradle-cache
+          key: growplot-gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle', 'gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: |
+            growplot-gradle-${{ runner.os }}-
       - name: Install Node.js
         uses: actions/setup-node@v4
         with:
