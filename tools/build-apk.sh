@@ -18,9 +18,9 @@ JAVA_VERSION="$(java -version 2>&1 | head -n 1 | grep -oE '[0-9]+\.[0-9]+' | hea
 
 ANDROID_HOME="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-${GROWPLOT_ANDROID_SDK:-}}}"
 if [[ -n "$ANDROID_HOME" ]]; then
-  ANDROID_HOME="$(ANDROID_HOME="$ANDROID_HOME" "$ROOT/tools/ensure-android-sdk.sh")" || fail "Android SDK setup failed"
+  ANDROID_HOME="$(ANDROID_HOME="$ANDROID_HOME" bash "$ROOT/tools/ensure-android-sdk.sh")" || fail "Android SDK setup failed"
 else
-  ANDROID_HOME="$("$ROOT/tools/ensure-android-sdk.sh")" || fail "Android SDK setup failed"
+  ANDROID_HOME="$(bash "$ROOT/tools/ensure-android-sdk.sh")" || fail "Android SDK setup failed"
 fi
 export ANDROID_HOME ANDROID_SDK_ROOT="$ANDROID_HOME"
 export GRADLE_USER_HOME="${GRADLE_USER_HOME:-$ROOT/.gradle-cache}"
