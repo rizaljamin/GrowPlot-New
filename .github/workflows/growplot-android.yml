@@ -73,7 +73,9 @@ jobs:
           test -f "$ANDROID_HOME/platforms/android-35/android.jar"
           test -x "$ANDROID_HOME/build-tools/35.0.0/aapt2"
       - name: Verify complete Android build environment
-        run: bash tools/check-build-environment.sh
+        run: |
+          chmod +x ./gradlew
+          bash tools/check-build-environment.sh
       - name: Prepare GrowPlot v0.6.02 Build 1
         run: python3 tools/prepare-v0.6.02-build1.py
       - name: Verify prepared version and crop layout
