@@ -564,10 +564,13 @@ public class MainActivity extends Activity {
             catch (NumberFormatException ignored) { return false; }
             if (values[i] < 0 || values[i] > 255) return false;
         }
+        // Tailscale assigns IPv4 node addresses from 100.64.0.0/10.
+        // Permit these VPN addresses without allowing arbitrary public endpoints.
         boolean privateAddress = values[0] == 10
                 || (values[0] == 172 && values[1] >= 16 && values[1] <= 31)
                 || (values[0] == 192 && values[1] == 168);
-        return privateAddress && values[3] > 0 && values[3] < 255;
+        boolean tailscaleAddress = values[0] == 100 && values[1] >= 64 && values[1] <= 127;
+        return (privateAddress || tailscaleAddress) && values[3] > 0 && values[3] < 255;
     }
 
     private boolean hasPersistedReadWriteGrant(Uri treeUri) {
