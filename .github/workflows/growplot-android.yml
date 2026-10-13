@@ -42,7 +42,7 @@ jobs:
         run: |
           java -version
           javac -version
-          test "$(java -version 2>&1 | awk 'NR==1 {print $2}' | tr -d '\"' | cut -d. -f1)" = "17"
+          test "$(java -version 2>&1 | head -n 1 | grep -oE '[0-9]+\.[0-9]+' | head -n 1 | cut -d. -f1)" = "17"
       - name: Cache Gradle dependencies
         uses: actions/cache@v4
         with:
