@@ -3816,6 +3816,32 @@ public class MainActivity extends Activity {
         }
     }
 
+    /**
+     * Group the existing camera-IP accordion without changing its fields, IDs,
+     * event handlers, credential inputs, or saved values.
+     */
+    private String withNetworkConfigurationSettings(String html) {
+        final String cameraStart = "<details id=\"cameraIpSettingsSection\"";
+        final String nextSection = "<details id=\"pluginApiSettingsSection\"";
+        int start = html.indexOf(cameraStart);
+        int next = html.indexOf(nextSection, start);
+        if (start < 0 || next < 0 || html.indexOf(cameraStart, start + 1) >= 0) return html;
+        String camera = html.substring(start, next);
+        final String oldTitle = "<span>Camera IP addresses and VLC login</span>";
+        if (!camera.contains(oldTitle) || !camera.endsWith("</details>")) return html;
+        camera = camera.replace(oldTitle, "<span>Camera IP Address</span>");
+        String open = "<details id=\"networkConfigurationSection\" class=\"settings-section plot-accordion\">"
+                + "<summary><span>Network Configuration</span><span class=\"accordion-chevron\" aria-hidden=\"true\"></span></summary>"
+                + "<div class=\"plot-accordion-body\">";
+        String additional = "<details id=\"vlcConnectivitySettingsSection\" class=\"settings-section plot-accordion\">"
+                + "<summary><span>VLC Connectivity</span><span class=\"accordion-chevron\" aria-hidden=\"true\"></span></summary>"
+                + "<div class=\"plot-accordion-body\"><p class=\"settings-feed-help\">VLC configuration options will be added later. Existing streaming behavior is unchanged.</p></div></details>"
+                + "<details id=\"tailscaleSettingsSection\" class=\"settings-section plot-accordion\">"
+                + "<summary><span>Tailscale Settings</span><span class=\"accordion-chevron\" aria-hidden=\"true\"></span></summary>"
+                + "<div class=\"plot-accordion-body\"><p class=\"settings-feed-help\">Tailscale options will be added later. Camera endpoints remain configurable under Camera IP Address.</p></div></details>";
+        return html.substring(0, start) + open + camera + additional + "</div></details>" + html.substring(next);
+    }
+
     private void loadMainPage() {
         try (InputStream input = getAssets().open("index.html");
              ByteArrayOutputStream output = new ByteArrayOutputStream()) {
@@ -3824,6 +3850,7 @@ public class MainActivity extends Activity {
             while ((read = input.read(buffer)) != -1) output.write(buffer, 0, read);
             String html = output.toString(StandardCharsets.UTF_8.name())
                     .replace("{{GROWPLOT_VERSION}}", "v" + BuildConfig.VERSION_NAME);
+            html = withNetworkConfigurationSettings(html);
             web.loadDataWithBaseURL("https://appassets.androidplatform.net/", html,
                     "text/html", "UTF-8", null);
         } catch (Exception error) {
