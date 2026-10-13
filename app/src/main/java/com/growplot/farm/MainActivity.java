@@ -1005,8 +1005,10 @@ public class MainActivity extends Activity {
             final org.videolan.libvlc.MediaPlayer sessionPlayer = ipWebcam3VlcPlayer;
             publishCctvVideoStatus(3, false);
             sessionPlayer.setEventListener(event -> {
-                if (event.type == org.videolan.libvlc.MediaPlayer.Event.Vout) {
-                    publishCctvVideoStatus(3, sessionPlayer.getVoutCount() > 0);
+                if (event.type == org.videolan.libvlc.MediaPlayer.Event.Playing) {
+                    publishCctvVideoStatus(3, true);
+                } else if (event.type == org.videolan.libvlc.MediaPlayer.Event.Vout) {
+                    publishCctvVideoStatus(3, sessionPlayer.isPlaying());
                 } else if (event.type == org.videolan.libvlc.MediaPlayer.Event.Stopped) {
                     publishCctvVideoStatus(3, false);
                 }
@@ -1138,15 +1140,17 @@ public class MainActivity extends Activity {
     private void publishCctvVideoStatus(int camera, boolean available) {
         mainHandler.post(() -> {
             if (web != null) web.evaluateJavascript(
-                "window.onGrowPlotVideoStatus&&window.onGrowPlotVideoStatus(" + camera + "," + available + ")", null);
+                "(()=>{const camera=" + camera + ",ok=" + available + ";window.onGrowPlotVideoStatus&&window.onGrowPlotVideoStatus(camera,ok);let host=document.querySelector('#cameras .camera:nth-child('+camera+')');if(!host)return;let badge=host.querySelector('.growplot-rtsp-led');if(!badge){badge=document.createElement('span');badge.className='growplot-rtsp-led';badge.setAttribute('role','status');host.style.position='relative';host.appendChild(badge)}badge.textContent=ok?'● LIVE':'● OFFLINE';badge.title=ok?'RTSP player connected (video not guaranteed)':'RTSP player disconnected';badge.style.cssText='position:absolute;top:8px;right:8px;z-index:25;padding:4px 8px;border-radius:12px;color:white;background:'+(ok?'#087f37':'#b42318')+';font:bold 11px sans-serif;animation:growplotPulse 1s infinite';if(!document.getElementById('growplot-led-css')){let style=document.createElement('style');style.id='growplot-led-css';style.textContent='@keyframes growplotPulse{50%{opacity:.35}}';document.head.appendChild(style)}})()", null);
         });
     }
 
     private void watchCctvVideo(int camera, org.videolan.libvlc.MediaPlayer player) {
         publishCctvVideoStatus(camera, false);
         player.setEventListener(event -> {
-            if (event.type == org.videolan.libvlc.MediaPlayer.Event.Vout) {
-                publishCctvVideoStatus(camera, player.getVoutCount() > 0);
+            if (event.type == org.videolan.libvlc.MediaPlayer.Event.Playing) {
+                publishCctvVideoStatus(camera, true);
+            } else if (event.type == org.videolan.libvlc.MediaPlayer.Event.Vout) {
+                publishCctvVideoStatus(camera, player.isPlaying());
             } else if (event.type == org.videolan.libvlc.MediaPlayer.Event.EncounteredError
                     || event.type == org.videolan.libvlc.MediaPlayer.Event.Stopped) {
                 publishCctvVideoStatus(camera, false);
