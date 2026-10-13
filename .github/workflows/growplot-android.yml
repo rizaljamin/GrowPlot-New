@@ -78,6 +78,16 @@ jobs:
           bash tools/check-build-environment.sh
       - name: Prepare GrowPlot v0.6.02 Build 1
         run: python3 tools/prepare-v0.6.02-build1.py
+      - name: Apply Manage Farm crop catalogue UI patch
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          html = Path('app/src/main/assets/index.html')
+          content = html.read_text(encoding='utf-8')
+          patch = Path('tools/ui-crop-patch.js').read_text(encoding='utf-8')
+          assert '</body>' in content
+          html.write_text(content.replace('</body>', '<script>\n' + patch + '\n</script>\n</body>', 1), encoding='utf-8')
+          PY
       - name: Verify prepared version and crop layout
         run: |
           grep -qx 'versionName=0.6.02 Build 1' version.properties
