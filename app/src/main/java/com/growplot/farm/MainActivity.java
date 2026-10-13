@@ -728,6 +728,7 @@ public class MainActivity extends Activity {
             media.addOption(":live-caching=250");
             ipWebcamVlcPlayer.setMedia(media);
             media.release();
+            watchCctvVideo(1, ipWebcamVlcPlayer);
             ipWebcamVlcPlayer.play();
             mainHandler.removeCallbacks(cctv01SnapshotTicker);
             mainHandler.postDelayed(cctv01SnapshotTicker, cctvSnapshotIntervalMillis);
@@ -923,6 +924,7 @@ public class MainActivity extends Activity {
             media.addOption(":live-caching=250");
             ipWebcam2VlcPlayer.setMedia(media);
             media.release();
+            watchCctvVideo(2, ipWebcam2VlcPlayer);
             ipWebcam2VlcPlayer.play();
             mainHandler.removeCallbacks(cctv02SnapshotTicker);
             mainHandler.postDelayed(cctv02SnapshotTicker, cctvSnapshotIntervalMillis);
@@ -1001,8 +1003,15 @@ public class MainActivity extends Activity {
             ipWebcam3VlcPlayer = new org.videolan.libvlc.MediaPlayer(ipWebcam3Vlc);
             ipWebcam3VlcPlayer.attachViews(videoLayout, null, true, false);
             final org.videolan.libvlc.MediaPlayer sessionPlayer = ipWebcam3VlcPlayer;
+            publishCctvVideoStatus(3, false);
             sessionPlayer.setEventListener(event -> {
+                if (event.type == org.videolan.libvlc.MediaPlayer.Event.Vout) {
+                    publishCctvVideoStatus(3, sessionPlayer.getVoutCount() > 0);
+                } else if (event.type == org.videolan.libvlc.MediaPlayer.Event.Stopped) {
+                    publishCctvVideoStatus(3, false);
+                }
                 if (event.type == org.videolan.libvlc.MediaPlayer.Event.EncounteredError) {
+                    publishCctvVideoStatus(3, false);
                     mainHandler.post(() -> checkCctv03RejectedCredentials(sessionPlayer, ip, credentials));
                 }
             });
@@ -1124,6 +1133,25 @@ public class MainActivity extends Activity {
         mainHandler.postDelayed(() -> {
             if (!isFinishing() && activityResumed && ipWebcam3VlcLayout == videoLayout) startVigiCctv03Vlc(videoLayout);
         }, 500);
+    }
+
+    private void publishCctvVideoStatus(int camera, boolean available) {
+        mainHandler.post(() -> {
+            if (web != null) web.evaluateJavascript(
+                "window.onGrowPlotVideoStatus&&window.onGrowPlotVideoStatus(" + camera + "," + available + ")", null);
+        });
+    }
+
+    private void watchCctvVideo(int camera, org.videolan.libvlc.MediaPlayer player) {
+        publishCctvVideoStatus(camera, false);
+        player.setEventListener(event -> {
+            if (event.type == org.videolan.libvlc.MediaPlayer.Event.Vout) {
+                publishCctvVideoStatus(camera, player.getVoutCount() > 0);
+            } else if (event.type == org.videolan.libvlc.MediaPlayer.Event.EncounteredError
+                    || event.type == org.videolan.libvlc.MediaPlayer.Event.Stopped) {
+                publishCctvVideoStatus(camera, false);
+            }
+        });
     }
 
     private void stopCctv03Vlc() {
