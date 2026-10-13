@@ -11,14 +11,15 @@
     const section=root.querySelector('.farm-crop-selector');
     if(!section)return;
     section.hidden=!catalogueOpen;
+    section.setAttribute('aria-label','Crop catalogue and crop planning selection');
     const button=document.createElement('button');
     button.type='button';button.className='farm-save';
-    button.textContent=catalogueOpen?'Close crop catalogue':'Create Crop';
+    button.textContent=catalogueOpen?'Close crop list':'Create Crop';
     button.setAttribute('aria-expanded',String(catalogueOpen));
     button.addEventListener('click',()=>{
       catalogueOpen=!catalogueOpen;
       section.hidden=!catalogueOpen;
-      button.textContent=catalogueOpen?'Close crop catalogue':'Create Crop';
+      button.textContent=catalogueOpen?'Close crop list':'Create Crop';
       button.setAttribute('aria-expanded',String(catalogueOpen));
       if(catalogueOpen)section.scrollIntoView({block:'nearest',behavior:'smooth'});
     });
