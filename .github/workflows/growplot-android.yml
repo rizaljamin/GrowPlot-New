@@ -48,6 +48,14 @@ jobs:
         run: |
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager 'platforms;android-35' 'build-tools;35.0.0' 'platform-tools'
+      - name: Prepare GrowPlot v0.6.02 Build 1
+        run: python3 tools/prepare-v0.6.02-build1.py
+      - name: Verify prepared version and crop layout
+        run: |
+          grep -qx 'versionName=0.6.02 Build 1' version.properties
+          grep -qx 'versionCode=133' version.properties
+          grep -q '<h4>Active Crops</h4>' app/src/main/assets/index.html
+          grep -q '<h4>Recommended Crops</h4>' app/src/main/assets/index.html
       - name: Check regression tests
         run: |
           node tools/tests/feed-history-regression.js
