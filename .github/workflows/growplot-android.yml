@@ -1,0 +1,99 @@
+name: GrowPlot ARM64 APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      signed_candidate:
+        description: 'Require original GrowPlot signing key and release checks'
+        required: true
+        type: boolean
+        default: false
+  push:
+    branches:
+      - 'ci/android-apk-build-signing'
+      - 'feature/**'
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: growplot-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      CI: 'true'
+      GRADLE_OPTS: '-Dorg.gradle.daemon=false'
+    steps:
+      - name: Checkout exact source revision
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install Android API 35 and build tools
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager 'platforms;android-35' 'build-tools;35.0.0' 'platform-tools'
+      - name: Check regression tests
+        run: |
+          node tools/tests/feed-history-regression.js
+      - name: Restore stable signing key only for explicit signed builds
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.signed_candidate }}
+        env:
+          KEYSTORE_B64: ${{ secrets.GROWPLOT_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.GROWPLOT_KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.GROWPLOT_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.GROWPLOT_KEY_ALIAS }}
+          PLANTNET_KEY: ${{ secrets.GROWPLOT_PLANTNET_API_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_B64" && test -n "$STORE_PASSWORD" && test -n "$PLANTNET_KEY" || { echo 'Required release secrets are not configured'; exit 1; }
+          mkdir -p "$RUNNER_TEMP/growplot-secrets"
+          umask 077
+          printf '%s' "$KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/growplot-secrets/signing.keystore"
+          echo "GROWPLOT_DEBUG_KEYSTORE=$RUNNER_TEMP/growplot-secrets/signing.keystore" >> "$GITHUB_ENV"
+          echo "GROWPLOT_DEBUG_KEYSTORE_PASSWORD=$STORE_PASSWORD" >> "$GITHUB_ENV"
+          echo "GROWPLOT_DEBUG_KEY_PASSWORD=${KEY_PASSWORD:-$STORE_PASSWORD}" >> "$GITHUB_ENV"
+          echo "GROWPLOT_DEBUG_KEY_ALIAS=${KEY_ALIAS:-androiddebugkey}" >> "$GITHUB_ENV"
+          echo "GROWPLOT_PLANTNET_API_KEY=$PLANTNET_KEY" >> "$GITHUB_ENV"
+          keytool -list -v -keystore "$RUNNER_TEMP/growplot-secrets/signing.keystore" -storepass "$STORE_PASSWORD" -alias "${KEY_ALIAS:-androiddebugkey}" | grep 'SHA256:' | sed -E 's/.*SHA256: //' | tr -d ':' | tr '[:upper:]' '[:lower:]' | grep -qx 'd3da38540a84c06815beaec70f23d2c98dc927e5216bf83f49d3640760816466' || { echo 'Signing certificate mismatch'; exit 1; }
+      - name: Build and validate ARM64 APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == 'workflow_dispatch' && "${{ inputs.signed_candidate }}" == 'true' ]]; then
+            bash tools/release-growplot.sh
+          else
+            bash tools/build-apk.sh
+          fi
+      - name: Record source revision
+        run: |
+          printf 'GitHub source commit: %s\nGitHub source ref: %s\n' "$GITHUB_SHA" "$GITHUB_REF" > release/source-revision.txt
+          sha256sum release/*.apk > release/apk-sha256.txt
+      - name: Upload APK, source archive and verification manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: growplot-arm64-${{ github.run_number }}-${{ github.sha }}
+          path: |
+            release/*.apk
+            release/*.zip
+            release/*.txt
+          if-no-files-found: error
+          retention-days: 30
+      - name: Remove temporary signing material
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/growplot-secrets"
