@@ -19,12 +19,6 @@ public final class AdminPolicy {
             BOOTSTRAP_USERNAME.equals(username.trim().toLowerCase(Locale.ROOT));
     }
 
-    /** Owner's growplot_admin has full creator-equivalent authority. */
-    public static boolean canManageAccounts(UserIdentity.Role trustedRole, boolean active) {
-        return active && (trustedRole == UserIdentity.Role.CREATOR ||
-                          trustedRole == UserIdentity.Role.POWER_USER);
-    }
-
     /**
      * For POWER_USER, only the trusted server-verified growplot_admin identity
      * can manage accounts. Ordinary power users are excluded.
