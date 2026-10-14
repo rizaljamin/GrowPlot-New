@@ -1,8 +1,8 @@
 2026-10-14 | v0.6.01 Build 24 | versionCode 151 | com.growplot.farm
 ---------------------------------------------------------------------
-Baseline: GitHub v0.6.01 Build 23, versionCode 150.
+Baseline: GitHub v0.6.01 Build 23, versionCode 150. Source commit: d4443919626407d8f6eb8422fa05a62d9df0f724.
 Changes: Enable the configured Firebase Google OAuth client in the Android app by adding the refreshed google-services.json for project growplot / package com.growplot.farm; update Google Services Gradle plugin to 4.5.0 and Firebase BoM to 35.0.0. Email/Password and Google providers are reported enabled by the project owner.
-Validation: APK build and package/signature checks pending GitHub Actions. Firebase config metadata confirms matching project/package and Android plus web OAuth client entries. Live registration, login, Firestore writes, Google sign-in, and Android device verification remain pending.
+Validation: GitHub Actions run #74 (https://github.com/rizaljamin/GrowPlot-New/actions/runs/38574209140) passed ARM64 build, regression checks, manifest/package/version/signature/alignment checks, and artifact upload. APK SHA-256: 1d565f7bdf5e5dbe90b3d0e39a855c1d2336717c201d049f6e64f22e54cd5e35. Source ZIP SHA-256: d90ed72cd14fcc2ff0be6949249d630f066e5c2baea1f61e4a48454be6b2d383. Signing certificate SHA-256: de0e99efbc5425c30ab8b6a655d183168201ecfd07993831b962fad0a16726d5; SHA-1: 90abc505a3aabd5760c09dc5f8d2da0fdf9244a7. The supplied google-services.json Android OAuth certificate hash is a789e505c817a122ea906ea6eaa3d48b3a30ab18, which does not match this APK's signer; Google sign-in needs matching Firebase SHA-1 configuration and a refreshed JSON. Email/password, live Firebase writes, and Android device verification remain untested. This is a development-only APK signed differently from the saved Build 30 certificate; Pl@ntNet is disabled because its build key is absent.
 
 2026-10-14 | v0.6.01 Build 23 | versionCode 150 | com.growplot.farm
 ---------------------------------------------------------------------
