@@ -44,15 +44,26 @@ function submit(e,action){
    const form=e.currentTarget;
    const username=((form.querySelector('#loginIdentity, input[name="username"], input[name="email"], input[type="email"], input[type="text"]')||{}).value||'').trim();
    const suppliedPassword=(form.querySelector('input[name="password"],input[type="password"]')||{}).value||'';
-   if(action==='login'&&username.toLowerCase()==='growplot_admin'&&suppliedPassword==='growplot_admin'){
-     msg('Development administrator access (cloud account verification pending).');
-     window.GrowPlotCurrentUser={username:'growplot_admin',role:'ADMIN',developmentOnly:true};
-     goHome();demo();
-     let p=document.getElementById('growplotAdminStats');if(!p){p=document.createElement('section');p.id='growplotAdminStats';const home=document.getElementById('mainDashboard');(home||document.body).prepend(p);}
-     p.textContent='User statistics unavailable until Google Drive account service is connected.';
+   if(action==='login'&&username.toLowerCase()==='growplot_admin'){
+     if(!window.GrowPlotBridge||!window.GrowPlotBridge.loginAdminOtpDemo){msg('Administrator verifier unavailable');return;}
+     window.GrowPlotBridge.loginAdminOtpDemo(suppliedPassword);
      return;
    }
-   msg('Development login failed or cloud account service unavailable.');return;
+   if(!/^[a-zA-Z0-9_.-]{3,64}$/.test(username)||suppliedPassword.length<8){msg('Username must be at least 3 characters and password at least 8.');return;}
+   const key='growplot_test_account_'+username.toLowerCase();
+   if(action==='register'){
+     if(localStorage.getItem(key)){msg('Account already exists on this device.');return;}
+     localStorage.setItem(key,JSON.stringify({password:suppliedPassword,plots:[],selectedPlotId:null}));
+   }
+   const record=JSON.parse(localStorage.getItem(key)||'null');
+   if(!record||record.password!==suppliedPassword){msg('Incorrect username or password.');return;}
+   currentUser={username,role:'USER',developmentOnly:true};window.GrowPlotCurrentUser=currentUser;
+   goHome();
+   if(record.plots&&record.plots.length){
+     if(typeof plots!=='undefined'&&Array.isArray(plots)){for(const p of record.plots)if(!plots.some(x=>x.id===p.id))plots.push(p);selectedPlotId=record.selectedPlotId||record.plots[0].id;if(typeof fillPlotSelectors==='function')fillPlotSelectors();if(typeof render==='function')render();}
+   }else if(typeof window.GrowPlotNewUserPreview==='function')window.GrowPlotNewUserPreview();
+   msg('Development account: stored on this device only; Google Drive sync pending.');
+   return;
  }
  const form=e.currentTarget;
  const username=(form.querySelector('#loginIdentity, input[name="username"], input[name="email"], input[type="email"], input[type="text"]')||{}).value||'';
@@ -62,8 +73,10 @@ function submit(e,action){
 }
 if(login)login.addEventListener('submit',e=>submit(e,'login'),true);
 if(create)create.addEventListener('submit',e=>submit(e,'register'),true);
+window.GrowPlotAdminVerified=function(){currentUser={username:'growplot_admin',role:'ADMIN',developmentOnly:true};window.GrowPlotCurrentUser=currentUser;goHome();demo();const home=document.getElementById('mainDashboard')||document.body;let panel=document.getElementById('growplotAdminStats');if(!panel){panel=document.createElement('section');panel.id='growplotAdminStats';home.prepend(panel);}const n=Object.keys(localStorage).filter(k=>k.startsWith('growplot_test_account_')).length;panel.textContent='Development user stats: '+n+' accounts on this device. Google Drive stats pending.';};
 window.GrowPlotSaveCloudProfile=function(){
  if(!currentUser||currentUser.role==='ADMIN')return;
+ if(!api||!api.configured()){const key='growplot_test_account_'+currentUser.username.toLowerCase();const record=JSON.parse(localStorage.getItem(key)||'null');if(record){record.plots=typeof plots==='undefined'?[]:plots.filter(p=>p&&p.id&&!/demo/i.test(String(p.name||'')));record.selectedPlotId=typeof selectedPlotId==='undefined'?null:selectedPlotId;localStorage.setItem(key,JSON.stringify(record));}return;}
  const mine=typeof plots==='undefined'?[]:plots.filter(p=>p&&p.id&&p.id!=='plot-1'&&!/demo/i.test(String(p.name||'')));
  request('saveProfile',{plots:mine,settings:{},selectedPlotId:typeof selectedPlotId==='undefined'?null:selectedPlotId});
 };
