@@ -42,7 +42,7 @@ function userPage(){
  if(currentUser.role==='ADMIN'){
    if(api&&api.configured()){details.textContent='Loading user statistics…';request('stats',{});}
    else {const n=Object.keys(localStorage).filter(k=>k.startsWith('growplot_test_account_')).length;details.textContent='Registered test users on this device: '+n+' (development only). Google Drive user statistics unavailable.';}
- }else details.textContent='Email: '+(currentUser.email||currentUser.username+' | Account type: Normal User';
+ }else details.textContent='Email: '+(currentUser.email||currentUser.username)+' | Account type: Normal User';
 }
 window.GrowPlotOpenUserManagement=userPage;
 document.addEventListener('click',function(e){
