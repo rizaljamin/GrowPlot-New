@@ -13,7 +13,7 @@ fi
 
 fail() { printf 'GrowPlot build stopped: %s\n' "$*" >&2; exit 1; }
 for tool in java node python3 zip sha256sum; do command -v "$tool" >/dev/null 2>&1 || fail "required command '$tool' is missing"; done
-JAVA_VERSION="$(java -version 2>&1 | sed -n '1s/.*version "\([0-9]*\).*/\1/p')"
+JAVA_VERSION="$(java -version 2>&1 | sed -n 's/.*version \"\([0-9]*\).*/\1/p' | head -n1)"
 [[ "$JAVA_VERSION" == "17" ]] || fail "JDK 17 is required; found Java ${JAVA_VERSION:-unknown}"
 
 ANDROID_HOME="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-${GROWPLOT_ANDROID_SDK:-}}}"
