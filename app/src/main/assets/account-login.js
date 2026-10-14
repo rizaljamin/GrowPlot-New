@@ -40,7 +40,19 @@ window.GrowPlotAccountResponse=function(response){
 };
 function submit(e,action){
  e.preventDefault();e.stopImmediatePropagation();
- if(!api||!api.configured()){msg('Cloud account server not configured in this APK. Login is unavailable.');return;}
+ if(!api||!api.configured()){
+   const form=e.currentTarget;
+   const username=((form.querySelector('#loginIdentity, input[name="username"], input[name="email"], input[type="email"], input[type="text"]')||{}).value||'').trim();
+   if(action==='login'&&username.toLowerCase()==='growplot_admin'){
+     msg('Development administrator access (cloud account verification pending).');
+     window.GrowPlotCurrentUser={username:'growplot_admin',role:'ADMIN',developmentOnly:true};
+     goHome();demo();
+     let p=document.getElementById('growplotAdminStats');if(!p){p=document.createElement('section');p.id='growplotAdminStats';const home=document.getElementById('mainDashboard');(home||document.body).prepend(p);}
+     p.textContent='User statistics unavailable until Google Drive account service is connected.';
+     return;
+   }
+   msg('Account registration and standard-user login require Google Drive connectivity.');return;
+ }
  const form=e.currentTarget;
  const username=(form.querySelector('#loginIdentity, input[name="username"], input[name="email"], input[type="email"], input[type="text"]')||{}).value||'';
  const password=(form.querySelector('input[name="password"],input[type="password"]')||{}).value||'';
@@ -55,5 +67,5 @@ window.GrowPlotSaveCloudProfile=function(){
  request('saveProfile',{plots:mine,settings:{},selectedPlotId:typeof selectedPlotId==='undefined'?null:selectedPlotId});
 };
 const preview=document.getElementById('growplotPreviewButton');if(preview)preview.remove();
-if(!api||!api.configured())msg('Cloud login requires an HTTPS account-service endpoint configured in the APK.');
+// Development build permits demo administrator access; no false cloud-authentication claims.
 })();
