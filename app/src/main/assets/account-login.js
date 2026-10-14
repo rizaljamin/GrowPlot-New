@@ -5,6 +5,18 @@ window.GrowPlotAccountLoginInstalled=true;
 const api=window.GrowPlotAccount;
 const login=document.getElementById('loginForm'),create=document.getElementById('createForm');
 const status=document.getElementById('authStatus');
+// Firebase email/password UI. This changes the form only; backend migration follows.
+function configureEmailFields(){
+ for(const form of [login,create]){
+  if(!form)continue;
+  const field=form.querySelector('#loginIdentity, input[name="username"], input[name="email"], input[type="email"], input[type="text"]');
+  if(!field)continue;
+  field.type='email';field.setAttribute('inputmode','email');field.setAttribute('autocomplete','email');field.setAttribute('name','email');field.setAttribute('placeholder','Email address');field.setAttribute('aria-label','Email address');field.required=true;
+  const label=field.id?form.querySelector('label[for="'+field.id+'"]'):null;
+  if(label)label.textContent='Email address';
+ }
+}
+configureEmailFields();
 let currentUser=null;
 function msg(t){if(status)status.textContent=t;}
 function request(action,payload){api.request(action,JSON.stringify(payload||{}));}
@@ -30,7 +42,7 @@ function userPage(){
  if(currentUser.role==='ADMIN'){
    if(api&&api.configured()){details.textContent='Loading user statistics…';request('stats',{});}
    else {const n=Object.keys(localStorage).filter(k=>k.startsWith('growplot_test_account_')).length;details.textContent='Registered test users on this device: '+n+' (development only). Google Drive user statistics unavailable.';}
- }else details.textContent='Username: '+currentUser.username+' | Account type: Normal User';
+ }else details.textContent='Email: '+(currentUser.email||currentUser.username+' | Account type: Normal User';
 }
 window.GrowPlotOpenUserManagement=userPage;
 document.addEventListener('click',function(e){
@@ -81,14 +93,14 @@ function submit(e,action){
      window.GrowPlotBridge.loginAdminOtpDemo(suppliedPassword);
      return;
    }
-   if(!/^[a-zA-Z0-9_.-]{3,64}$/.test(username)||suppliedPassword.length<8){msg('Username must be at least 3 characters and password at least 8.');return;}
+   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(username)||suppliedPassword.length<8){msg('Enter a valid email address and a password of at least 8 characters.');return;}
    const key='growplot_test_account_'+username.toLowerCase();
    if(action==='register'){
      if(localStorage.getItem(key)){msg('Account already exists on this device.');return;}
      localStorage.setItem(key,JSON.stringify({password:suppliedPassword,plots:[],selectedPlotId:null}));
    }
    const record=JSON.parse(localStorage.getItem(key)||'null');
-   if(!record||record.password!==suppliedPassword){msg('Incorrect username or password.');return;}
+   if(!record||record.password!==suppliedPassword){msg('Incorrect email or password.');return;}
    currentUser={username,role:'USER',developmentOnly:true};window.GrowPlotCurrentUser=currentUser;
    goHome();
    if(record.plots&&record.plots.length){
@@ -100,8 +112,8 @@ function submit(e,action){
  const form=e.currentTarget;
  const username=(form.querySelector('#loginIdentity, input[name="username"], input[name="email"], input[type="email"], input[type="text"]')||{}).value||'';
  const password=(form.querySelector('input[name="password"],input[type="password"]')||{}).value||'';
- msg(action==='login'?'Checking account on Google Drive…':'Creating account on Google Drive…');
- request(action,{username:username.trim(),password});
+ msg(action==='login'?'Checking account…':'Creating account…');
+ request(action,{email:username.trim(),username:username.trim(),password});
 }
 if(login)login.addEventListener('submit',e=>submit(e,'login'),true);
 if(create)create.addEventListener('submit',e=>submit(e,'register'),true);
