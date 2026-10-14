@@ -13,7 +13,7 @@ on:
       - 'settings.gradle'
       - 'build.gradle'
       - 'tools/**'
-      - '.github/workflows/android-arm64-build.yml'
+      - '.github/workflows/**'
 
 permissions:
   contents: read
@@ -35,10 +35,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Prepare Android SDK
-        uses: android-actions/setup-android@v3
-      - name: Install Android packages
-        run: sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
       - name: Build and verify ARM64
         env:
           GROWPLOT_PLANTNET_API_KEY: ${{ secrets.GROWPLOT_PLANTNET_API_KEY }}
@@ -47,16 +43,18 @@ jobs:
           ./tools/build-apk.sh
       - name: Verify release manifest and package
         run: |
+          VERSION_NAME="$(sed -n 's/^versionName=//p' version.properties | head -n1)"
+          VERSION_CODE="$(sed -n 's/^versionCode=//p' version.properties | head -n1)"
           test "$(find release -maxdepth 1 -name '*.apk' | wc -l)" -eq 1
           test "$(find release -maxdepth 1 -name '*-source.zip' | wc -l)" -eq 1
           test "$(find release -maxdepth 1 -name '*-build-manifest.txt' | wc -l)" -eq 1
-          grep -q '^Version: 0.6.01 Build 10$' release/*-build-manifest.txt
-          grep -q '^versionCode: 137$' release/*-build-manifest.txt
+          grep -Fxq "Version: $VERSION_NAME" release/*-build-manifest.txt
+          grep -Fxq "versionCode: $VERSION_CODE" release/*-build-manifest.txt
           sha256sum release/*
-      - name: Upload Build 10 artifacts
+      - name: Upload ARM64 artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: GrowPlot-v0.6.01-Build-10-ARM64
+          name: GrowPlot-${{ github.sha }}-ARM64
           path: |
             release/*.apk
             release/*-source.zip

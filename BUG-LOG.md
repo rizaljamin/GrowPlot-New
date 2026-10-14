@@ -678,3 +678,15 @@ Build 7 validation: Gradle ARM64 build, package version, signature, alignment, S
 **Change:** After pixel/photo or video-frame analysis, GrowPlot sends up to five clearest selected images to Kindwise crop.health and Pl@ntNet independently. Kindwise uses the encrypted API key already stored in Settings; the key remains in the native Android layer and is sent in the provider Api-Key header. Kindwise crop and health issue candidates, confidence scores, and available symptom/treatment details appear in a separate result card. Kindwise results are saved with the section's diagnosis history. A build regression check covers the key use, endpoint, image limit, photo/video fan-out, and result display.
 
 **Verification / limits:** JavaScript syntax, feed-history, settings-save, and Kindwise integration regression checks pass. Gradle ARM64 packaging, package/version, APK signature, and alignment checks pass. A live provider request with a user-entered key and Android photo/video/history behavior remain pending. crop.health analyzes submitted images; GrowPlot's species, symptom, and pixel fields are report context and are not provider inputs. No Kindwise credentials are bundled. The debug APK certificate differs from the saved Build 30 signer, so this artifact is not an in-place update.
+
+
+## BUG-064 — GitHub APK workflow stops before Gradle compilation
+
+**Reported:** 2026-10-14
+**Status:** Workflow repair committed locally; GitHub rerun and APK artifact verification pending.
+
+**Finding:** The Build 10 GitHub Actions run failed in `Prepare Android SDK`; Gradle compilation and APK packaging were skipped. The repository also had two workflows that could both start an APK build for a `main` source change. The manifest checks in the newer workflow were hardcoded to Build 10 / versionCode 137, so the workflow would need another edit for every future version.
+
+**Fix:** Removed the separate Android SDK setup steps and made the single build workflow use the repository's tested `tools/build-apk.sh` → `tools/ensure-android-sdk.sh` bootstrap. Removed the duplicate workflow and made artifact identity checks read `version.properties` dynamically. The workflow now includes workflow-file changes in its push trigger and uploads APK, source ZIP, and manifest together.
+
+**Verification / limits:** GitHub Actions job metadata confirms the failure occurred before build steps. Shell/YAML validation and a successful GitHub Actions rerun are still required before calling APK generation fixed; no new APK has yet been produced.

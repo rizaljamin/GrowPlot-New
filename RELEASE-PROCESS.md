@@ -31,3 +31,7 @@ Follow the golden-source governance in `AGENTS.md`. Copy the verified GitHub rev
 ## ARM64 build policy
 
 The routine build produces one `arm64-v8a` APK, source ZIP and checksum manifest. It does not generate a universal APK or debug AAB. Both build scripts explicitly request ARM64. Run `node tools/tests/feed-history-regression.js` for the snapshot-history UI regression check. Compilation and static checks do not replace live-camera and Google Drive testing on the target Android device.
+
+## GitHub Actions APK build
+
+`.github/workflows/android-arm64-build.yml` is the single APK build workflow. It invokes `tools/build-apk.sh`, which installs Android command-line tools and the pinned SDK packages through `tools/ensure-android-sdk.sh`; do not add a second SDK setup action or a duplicate APK workflow. CI reads the version and code from `version.properties` so version changes do not require hardcoded workflow edits. The workflow uploads the APK, source ZIP, and manifest as one SHA-traceable Actions artifact.
