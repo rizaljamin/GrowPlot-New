@@ -1,10 +1,10 @@
-## Build 23 prepared from GitHub Build 22
+## Build 24 prepared from GitHub Build 23
 
-- Baseline: GitHub `main` at commit `09b12d6dd608837a7aa7009052ba556127b6d2b4`, v0.6.01 Build 22 / versionCode 149.
+- Baseline: GitHub `main` at v0.6.01 Build 23 / versionCode 150.
 - Manage Farm now filters planting, irrigation, and maintenance records by plot, greenhouse, and section; all-section records remain visible when a single section is selected.
 - Maintenance shows overdue / due today / upcoming / completed cues; Mark complete saves a completion date and syncs. Irrigation records sort by their first scheduled date.
 - Added `tools/tests/manage-farm-regression.js` and made it a build gate. Static regressions and inline JavaScript syntax pass.
-- Build identity: v0.6.01 Build 23 / versionCode 150. Git executable-mode defects in `gradlew` and `tools/ensure-android-sdk.sh` are corrected. Login and registration use email/password/confirm password with only Username removed; Google Credential Manager/Firebase Auth is wired, and first-plot onboarding is shown in the login card with Firebase write status. GitHub Actions run 38563619546 (https://github.com/rizaljamin/GrowPlot-New/actions/runs/38563619546) passed and uploaded the ARM64 APK/source ZIP/manifest. APK SHA-256: `7aa3bf4fbc26c318337818a005e8829f1d57bc315a39a3396541f13fdd1739f2`. Firebase Google OAuth config is still missing from `google-services.json`; Android device verification remains pending.
+- Build 24 batch: Firebase Google OAuth config now targets project `growplot` / package `com.growplot.farm` and contains Android plus web OAuth client entries. The project owner reports Email/Password and Google providers are enabled. Google Services Gradle plugin updated to 4.5.0 and Firebase BoM to 35.0.0. Build identity: v0.6.01 Build 24 / versionCode 151. APK build and device verification are pending.
 
 # GrowPlot enhancement batch
 
@@ -55,7 +55,7 @@ APK: `release/v0.5.09-build-15-GrowPlot-development-only.apk`. Build, package/ve
 
 ## Pending
 
-- BUG-046: make all user-owned GrowPlot records consistent across devices through Google Drive. Existing crop/irrigation/maintenance Drive sync is partial; plot settings and diagnosis history remain local, and Account sign-in is still a preview. Implement stable per-user identity, cloud load/merge/save/delete for each data type, then validate sync and user isolation on two devices. A first Drive folder grant may be required once per device.
+- BUG-046: make all user-owned GrowPlot records consistent across devices through Google Drive. Existing crop/irrigation/maintenance Drive sync is partial; plot settings and diagnosis history remain local, and Firebase account authentication is now implemented; cross-device Drive data sync remains incomplete. Implement stable per-user identity, cloud load/merge/save/delete for each data type, then validate sync and user isolation on two devices. A first Drive folder grant may be required once per device.
 
 2026-10-12 | Pending next build after v0.6.01 Build 5
 Settings: Added a diskette Save button beside Home, visible only in Settings. It validates current plot details, GPS, camera IPs/login, snapshot interval and rescan interval, then saves all those edits without leaving Settings. Blank VIGI password keeps the saved login. Reports partial save failures instead of unconditional success. Existing folder grants/config remain unchanged.
