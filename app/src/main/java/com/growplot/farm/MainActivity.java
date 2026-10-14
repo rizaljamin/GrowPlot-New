@@ -389,7 +389,7 @@ public class MainActivity extends Activity {
                 super.onPageFinished(view, url);
                 if (url != null && url.startsWith("file:///android_asset/migrate.html")) return;
                 pageReady = true;
-                view.evaluateJavascript("(function(){var f=document.getElementById('loginForm');if(!f||f.dataset.growplotAdminHook)return;f.dataset.growplotAdminHook='1';f.addEventListener('submit',function(e){var u=document.getElementById('loginIdentity');if(u&&u.value.trim().toLowerCase()==='growplot_admin'){e.preventDefault();e.stopImmediatePropagation();document.getElementById('authStatus').textContent='Demo activation: send the prepared email, then open its link on this device to set your password.';GrowPlotBridge.requestAdminActivationDemo();}},true);})();", null);
+                view.evaluateJavascript("(function(){var f=document.getElementById('loginForm');if(!f||f.dataset.growplotAdminHook)return;f.dataset.growplotAdminHook='1';f.addEventListener('submit',function(e){var u=document.getElementById('loginIdentity');if(u&&u.value.trim().toLowerCase()==='growplot_admin'){e.preventDefault();e.stopImmediatePropagation();var p=f.querySelector('input[name=password]');document.getElementById('authStatus').textContent='Administrator verification: check the OTP email and enter the six-digit code.';GrowPlotBridge.loginAdminOtpDemo(p?p.value:'');}},true);})();", null);
                 if (pendingPageUpdate != null) {
                     String update = pendingPageUpdate;
                     pendingPageUpdate = null;
@@ -2836,6 +2836,9 @@ public class MainActivity extends Activity {
     }
 
     private final class SnapshotBridge {
+        @JavascriptInterface public void loginAdminOtpDemo(String password) {
+            runOnUiThread(() -> AdminOtpDemo.login(MainActivity.this, password));
+        }
         @JavascriptInterface public void requestAdminActivationDemo() {
             runOnUiThread(() -> AdminActivationDemo.request(MainActivity.this));
         }
