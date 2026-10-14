@@ -41,6 +41,7 @@ function openCreate(){
  if(typeof fillPlotSelectors==='function')fillPlotSelectors();
  if(typeof loadPlotForm==='function')loadPlotForm();
  if(typeof render==='function')render();
+ if(typeof window.GrowPlotSaveCloudProfile==='function')window.GrowPlotSaveCloudProfile();
  overlay.remove();const first=document.getElementById('growplotFirstPlotBanner');if(first)first.remove();
  });
 }
@@ -54,5 +55,5 @@ function addPreview(){
  b.style.cssText='display:block;margin:12px auto;border:1px solid #166534;border-radius:8px;padding:10px;background:transparent;color:#166534;cursor:pointer';
  b.onclick=window.GrowPlotNewUserPreview;login.appendChild(b);
 }
-addPreview();
+// Cloud login owns the onboarding entry; no unauthenticated preview button.
 })();
