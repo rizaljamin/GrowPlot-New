@@ -12,7 +12,20 @@
           "package_name": "com.growplot.farm"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "1052371761033-kdr27iimnek0au21nlt34pfqndt7p5tp.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.growplot.farm",
+            "certificate_hash": "a789e505c817a122ea906ea6eaa3d48b3a30ab18"
+          }
+        },
+        {
+          "client_id": "1052371761033-l0et83a9d4vpg563onkj0pol2o7seml7.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyA-H0VWrX9Lvmk9c8lQZMP8itd9aAcf-Dk"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1052371761033-l0et83a9d4vpg563onkj0pol2o7seml7.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }
