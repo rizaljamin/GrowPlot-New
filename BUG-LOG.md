@@ -683,10 +683,10 @@ Build 7 validation: Gradle ARM64 build, package version, signature, alignment, S
 ## BUG-064 — GitHub APK workflow stops before Gradle compilation
 
 **Reported:** 2026-10-14
-**Status:** Workflow repair committed locally; GitHub rerun and APK artifact verification pending.
+**Status:** Fixed in GitHub commit `e0135ce89e84456c24ea9823f495adeb168971dc`; Build 10 CI and artifact upload passed. Android device verification pending.
 
 **Finding:** The Build 10 GitHub Actions run failed in `Prepare Android SDK`; Gradle compilation and APK packaging were skipped. The repository also had two workflows that could both start an APK build for a `main` source change. The manifest checks in the newer workflow were hardcoded to Build 10 / versionCode 137, so the workflow would need another edit for every future version.
 
 **Fix:** Removed the separate Android SDK setup steps and made the single build workflow use the repository's tested `tools/build-apk.sh` → `tools/ensure-android-sdk.sh` bootstrap. Removed the duplicate workflow and made artifact identity checks read `version.properties` dynamically. The workflow now includes workflow-file changes in its push trigger and uploads APK, source ZIP, and manifest together.
 
-**Verification / limits:** GitHub Actions job metadata confirms the failure occurred before build steps. Shell/YAML validation and a successful GitHub Actions rerun are still required before calling APK generation fixed; no new APK has yet been produced.
+**Verification / limits:** Local shell syntax, workflow YAML parsing, `git diff --check`, and Kindwise, Settings-save, and feed-history regression checks passed. The repaired GitHub Actions run passed SDK bootstrap, Gradle build, manifest/package/version checks, and artifact upload. The ARM64 APK SHA-256 is `dc14b903a4bee044060dc541f828c75b41c20db68d509b70dab5a918c4fa8465`; the source ZIP SHA-256 is `c5528b7df0c7201bf1b5eb4c8d32e453e847e63bc9448ef86e817e6ff56127e0`. The generated artifact is development-only because its signer does not match the saved Build 30 certificate and the Pl@ntNet build key is absent. Install/update compatibility and app behavior still require Android device verification.

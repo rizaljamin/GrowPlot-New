@@ -1,3 +1,11 @@
+2026-10-14 | v0.6.01 Build 10 | versionCode 137 | com.growplot.farm
+---------------------------------------------------------------------
+GitHub Actions run: https://github.com/rizaljamin/GrowPlot-New/actions/runs/38506913894
+Source commit: e0135ce89e84456c24ea9823f495adeb168971dc
+Files: `v0.6.01-build-10-GrowPlot-arm64-development-only.apk`; `v0.6.01-build-10-GrowPlot-source.zip`; build manifest.
+Status: GitHub ARM64 build, manifest/package/version verification and artifact upload passed. APK is arm64-v8a only. APK SHA-256: dc14b903a4bee044060dc541f828c75b41c20db68d509b70dab5a918c4fa8465. Source ZIP SHA-256: c5528b7df0c7201bf1b5eb4c8d32e453e847e63bc9448ef86e817e6ff56127e0. Manifest records signer SHA-256 92c558556a76b6d4de5a43571274841796be74af355e7ea5687447d3d72858e9; it differs from the saved Build 30 certificate, and the Pl@ntNet build key is absent. Development-only; do not use as an in-place update. Android device verification pending.
+Build 10 advances version identity only; app feature source matches Build 9. No crop-planning changes are included.
+
 2026-10-14 | v0.6.01 Build 9 | versionCode 136 | com.growplot.farm
 ---------------------------------------------------------------------
 GitHub main synchronized with the archived Build 9 source. Preserved Build 8 Kindwise integration and CCTV01–03 blinking live/inactive indicators.
