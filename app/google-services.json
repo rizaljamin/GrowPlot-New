@@ -14,11 +14,11 @@
       },
       "oauth_client": [
         {
-          "client_id": "1052371761033-kdr27iimnek0au21nlt34pfqndt7p5tp.apps.googleusercontent.com",
+          "client_id": "1052371761033-5rru07erdu1p8f13nn482hs1ueh8hrle.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.growplot.farm",
-            "certificate_hash": "a789e505c817a122ea906ea6eaa3d48b3a30ab18"
+            "certificate_hash": "90abc505a3aabd5760c09dc5f8d2da0fdf9244a7"
           }
         },
         {
