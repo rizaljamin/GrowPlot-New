@@ -37,6 +37,7 @@ jobs:
           node-version: '22'
       - name: Build and verify ARM64
         env:
+          JAVA_TOOL_OPTIONS: -Xmx4g -XX:MaxMetaspaceSize=1g
           GROWPLOT_PLANTNET_API_KEY: ${{ secrets.GROWPLOT_PLANTNET_API_KEY }}
         run: |
           chmod +x gradlew tools/*.sh
