@@ -28,33 +28,29 @@ public final class AdminOtpDemo {
 
     public static void login(Activity activity, String password) {
         SharedPreferences prefs = activity.getSharedPreferences(PREF, Activity.MODE_PRIVATE);
-        if (prefs.getBoolean("activated", false)) {
-            Toast.makeText(activity, "Demo admin setup completed on this device. Production login is not connected.", Toast.LENGTH_LONG).show();
+        if (!prefs.getBoolean("activated", false)) {
+            if (!"growplot_admin".equals(password)) {
+                Toast.makeText(activity, "Incorrect initial administrator password.", Toast.LENGTH_LONG).show();
+                return;
+            }
+            setupPassword(activity);
             return;
         }
-        if (!"growplot_admin".equals(password)) {
-            Toast.makeText(activity, "Incorrect development default password.", Toast.LENGTH_LONG).show();
-            return;
-        }
-        long now = System.currentTimeMillis();
-        if (now - prefs.getLong("last", 0) < 60000L) {
-            showOtp(activity);
-            return;
-        }
-        String otp = String.format(Locale.US, "%06d", RNG.nextInt(1000000));
-        prefs.edit().putString("otp", hash(otp)).putLong("expires", now + 600000L)
-                .putLong("last", now).putInt("attempts", 0).apply();
-        Intent email = new Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:growplot2026@gmail.com"));
-        email.putExtra(Intent.EXTRA_SUBJECT, "GrowPlot admin test OTP");
-        email.putExtra(Intent.EXTRA_TEXT, "Your GrowPlot test OTP is: " + otp +
-                "\nValid for 10 minutes. Enter this code in the GrowPlot verification screen." +
-                "\n\nThis is a device-local demo, not secure production authentication.");
         try {
-            activity.startActivity(Intent.createChooser(email, "Send GrowPlot test OTP"));
+            byte[] salt = android.util.Base64.decode(prefs.getString("password_salt", ""), android.util.Base64.DEFAULT);
+            byte[] expected = android.util.Base64.decode(prefs.getString("password_hash", ""), android.util.Base64.DEFAULT);
+            javax.crypto.spec.PBEKeySpec spec = new javax.crypto.spec.PBEKeySpec(
+                    (password == null ? "" : password).toCharArray(), salt, 310000, 256);
+            byte[] actual = javax.crypto.SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
+                    .generateSecret(spec).getEncoded();
+            boolean valid = MessageDigest.isEqual(expected, actual);
+            new AlertDialog.Builder(activity).setTitle(valid ? "Administrator login" : "Incorrect password")
+                    .setMessage(valid ? "Password verified for this device-local test. Full account permissions are not yet connected." :
+                            "Please enter your new administrator password.")
+                    .setPositiveButton("OK", null).show();
         } catch (Exception ex) {
-            Toast.makeText(activity, "No email app found. Configure an email app to test.", Toast.LENGTH_LONG).show();
+            Toast.makeText(activity, "Unable to verify administrator password.", Toast.LENGTH_LONG).show();
         }
-        showOtp(activity);
     }
 
     private static void showOtp(Activity activity) {
