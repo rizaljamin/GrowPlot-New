@@ -328,8 +328,18 @@ public class MainActivity extends Activity {
         } catch (Exception ignored) { return null; }
     }
 
+    @Override protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        if (intent != null) AdminActivationDemo.handleLink(this, intent.getData());
+    }
+
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
+        if (getIntent() != null && getIntent().getData() != null) {
+            new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(
+                    () -> AdminActivationDemo.handleLink(this, getIntent().getData()), 900);
+        }
         if (state != null) {
             pendingDiagnosisKind = state.getString("diagnosis_kind", "");
             pendingDiagnosisPlotId = safePlotId(state.getString("diagnosis_plot", DEFAULT_PLOT_ID));
@@ -379,6 +389,7 @@ public class MainActivity extends Activity {
                 super.onPageFinished(view, url);
                 if (url != null && url.startsWith("file:///android_asset/migrate.html")) return;
                 pageReady = true;
+                view.evaluateJavascript("(function(){var f=document.getElementById('loginForm');if(!f||f.dataset.growplotAdminHook)return;f.dataset.growplotAdminHook='1';f.addEventListener('submit',function(e){var u=document.getElementById('loginIdentity');if(u&&u.value.trim().toLowerCase()==='growplot_admin'){e.preventDefault();e.stopImmediatePropagation();document.getElementById('authStatus').textContent='Demo activation: send the prepared email, then open its link on this device to set your password.';GrowPlotBridge.requestAdminActivationDemo();}},true);})();", null);
                 if (pendingPageUpdate != null) {
                     String update = pendingPageUpdate;
                     pendingPageUpdate = null;
@@ -2825,6 +2836,9 @@ public class MainActivity extends Activity {
     }
 
     private final class SnapshotBridge {
+        @JavascriptInterface public void requestAdminActivationDemo() {
+            runOnUiThread(() -> AdminActivationDemo.request(MainActivity.this));
+        }
         @JavascriptInterface public String getCctvCameraIpAddresses() {
             JSONArray addresses = new JSONArray();
             for (int camera = 1; camera <= 6; camera++) addresses.put(cctvIp(camera));
