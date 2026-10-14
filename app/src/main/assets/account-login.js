@@ -42,8 +42,13 @@ document.addEventListener('click',function(e){
  const identified=/^(userbtn|btnuser|accountbtn|myaccountbtn|navuser|navaccount|userbutton)$/.test(id);
  if(named||identified){e.preventDefault();e.stopImmediatePropagation();userPage();}
 },true);
+function saveNotice(message,success){
+ let el=document.getElementById('growplotSaveNotice');
+ if(!el){el=document.createElement('div');el.id='growplotSaveNotice';el.setAttribute('role','status');el.style.cssText='position:fixed;bottom:18px;left:16px;right:16px;z-index:100001;padding:14px;border-radius:10px;box-shadow:0 3px 14px #0003;font-weight:600;text-align:center';document.body.appendChild(el);}
+ el.style.background=success?'#d8f4df':'#ffe5df';el.style.color=success?'#164b2a':'#782319';el.textContent=message;
+}
 window.GrowPlotAccountResponse=function(response){
- if(!response.ok){msg(response.error||'Account request failed');return;}
+ if(!response.ok){msg(response.error||'Account request failed');if(response.action==='saveProfile')saveNotice('Google Drive save failed: '+(response.error||'Please retry.'),false);return;}
  const data=response.data||{};
  if(response.action==='login'||response.action==='register'){
    currentUser=data.user;window.GrowPlotCurrentUser=currentUser;
@@ -63,7 +68,7 @@ window.GrowPlotAccountResponse=function(response){
    }else{goHome();if(typeof window.GrowPlotNewUserPreview==='function')window.GrowPlotNewUserPreview();}
  }else if(response.action==='stats'){
    const p=document.getElementById('growplotAdminStats');if(p)p.textContent='GrowPlot users: '+data.totalUsers+' | Standard users: '+data.standardUsers+' | Administrators: '+data.administrators+' | Logged in last 7 days: '+data.loggedInLast7Days;const d=document.getElementById('growplotUserManagementDetails');if(d)d.textContent='Total users: '+data.totalUsers+' | Standard users: '+data.standardUsers+' | Administrators: '+data.administrators+' | Logged in last 7 days: '+data.loggedInLast7Days;
- }else if(response.action==='saveProfile'){msg('Plot profile saved to Google Drive.');}
+ }else if(response.action==='saveProfile'){if(data.saved===true){msg('Data saved successfully to Google Drive.');saveNotice('Data saved successfully to Google Drive.',true);}else saveNotice('Save was not confirmed by Google Drive.',false); }
 };
 function submit(e,action){
  e.preventDefault();e.stopImmediatePropagation();
@@ -102,10 +107,10 @@ if(login)login.addEventListener('submit',e=>submit(e,'login'),true);
 if(create)create.addEventListener('submit',e=>submit(e,'register'),true);
 window.GrowPlotAdminVerified=function(){currentUser={username:'growplot_admin',role:'ADMIN',developmentOnly:true};window.GrowPlotCurrentUser=currentUser;goHome();demo();const home=document.getElementById('mainDashboard')||document.body;let panel=document.getElementById('growplotAdminStats');if(!panel){panel=document.createElement('section');panel.id='growplotAdminStats';home.prepend(panel);}const n=Object.keys(localStorage).filter(k=>k.startsWith('growplot_test_account_')).length;panel.textContent='Development user stats: '+n+' accounts on this device. Google Drive stats pending.';};
 window.GrowPlotSaveCloudProfile=function(){
- if(!currentUser||currentUser.role==='ADMIN')return;
- if(!api||!api.configured()){const key='growplot_test_account_'+currentUser.username.toLowerCase();const record=JSON.parse(localStorage.getItem(key)||'null');if(record){record.plots=typeof plots==='undefined'?[]:plots.filter(p=>p&&p.id&&!/demo/i.test(String(p.name||'')));record.selectedPlotId=typeof selectedPlotId==='undefined'?null:selectedPlotId;localStorage.setItem(key,JSON.stringify(record));}return;}
+ if(!currentUser){saveNotice('Sign in before saving your user profile.',false);return;}if(currentUser.role==='ADMIN')return;
+ if(!api||!api.configured()){saveNotice('Saved on this device only. Google Drive is not connected.',false);const key='growplot_test_account_'+currentUser.username.toLowerCase();const record=JSON.parse(localStorage.getItem(key)||'null');if(record){record.plots=typeof plots==='undefined'?[]:plots.filter(p=>p&&p.id&&!/demo/i.test(String(p.name||'')));record.selectedPlotId=typeof selectedPlotId==='undefined'?null:selectedPlotId;localStorage.setItem(key,JSON.stringify(record));}return;}
  const mine=typeof plots==='undefined'?[]:plots.filter(p=>p&&p.id&&p.id!=='plot-1'&&!/demo/i.test(String(p.name||'')));
- request('saveProfile',{plots:mine,settings:{},selectedPlotId:typeof selectedPlotId==='undefined'?null:selectedPlotId});
+ saveNotice('Saving to Google Drive…',true);request('saveProfile',{plots:mine,settings:{},selectedPlotId:typeof selectedPlotId==='undefined'?null:selectedPlotId});
 };
 const preview=document.getElementById('growplotPreviewButton');if(preview)preview.remove();
 // Development build permits demo administrator access; no false cloud-authentication claims.
