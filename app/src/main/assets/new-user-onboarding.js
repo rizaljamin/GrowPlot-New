@@ -11,8 +11,10 @@ function banner(){
  const desc=document.createElement('p');desc.textContent=owned().length?'Your own plots are listed alongside the demonstration plot.':'The Demo Plot is available to explore. Create your first plot to start managing your farm.';desc.style.cssText='margin:0 0 14px;line-height:1.5';
  const btn=document.createElement('button');btn.type='button';btn.textContent=owned().length?'Create Another Plot':'Create First Plot';btn.style.cssText='background:#166534;color:white;border:0;border-radius:10px;padding:12px 18px;font-weight:700;min-height:44px;cursor:pointer';
  btn.addEventListener('click',openCreate);
- section.append(title,desc,btn);
- const dash=document.getElementById('mainDashboard');if(dash&&dash.parentNode)dash.parentNode.insertBefore(section,dash);
+ const demo=document.createElement('button');demo.type='button';demo.textContent='Show Me the Demo Plot';demo.style.cssText='background:white;color:#166534;border:1px solid #166534;border-radius:10px;padding:12px 18px;font-weight:700;min-height:44px;cursor:pointer';
+ demo.addEventListener('click',()=>{section.remove();const dp=(typeof plots!=='undefined'&&Array.isArray(plots))?plots.find(p=>/demo/i.test(String(p.name||'')+' '+String(p.id||''))):null;if(dp){selectedPlotId=dp.id;if(typeof fillPlotSelectors==='function')fillPlotSelectors();if(typeof render==='function')render();}const target=document.getElementById('mainDashboard')||document.getElementById('cameras');if(target)target.scrollIntoView({behavior:'smooth'});});
+ const actions=document.createElement('div');actions.style.cssText='display:flex;gap:10px;flex-wrap:wrap';actions.append(btn,demo);section.append(title,desc,actions);
+ const dash=document.getElementById('mainDashboard')||document.getElementById('cameras')||document.body.firstElementChild;if(dash&&dash.parentNode)dash.parentNode.insertBefore(section,dash);
 }
 function openCreate(){
  let overlay=document.getElementById('growplotCreateFirstPlot');if(overlay){overlay.hidden=false;return}
