@@ -26,14 +26,14 @@ public final class AdminOtpDemo {
         } catch (Exception ex) { throw new IllegalStateException(ex); }
     }
 
-    public static void login(Activity activity, String password) {
+    public static void login(Activity activity, String password, Runnable onSuccess) {
         SharedPreferences prefs = activity.getSharedPreferences(PREF, Activity.MODE_PRIVATE);
         if (!prefs.getBoolean("activated", false)) {
             if (!"growplot_admin".equals(password)) {
                 Toast.makeText(activity, "Incorrect initial administrator password.", Toast.LENGTH_LONG).show();
                 return;
             }
-            setupPassword(activity);
+            setupPassword(activity, onSuccess);
             return;
         }
         try {
@@ -44,10 +44,8 @@ public final class AdminOtpDemo {
             byte[] actual = javax.crypto.SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
                     .generateSecret(spec).getEncoded();
             boolean valid = MessageDigest.isEqual(expected, actual);
-            new AlertDialog.Builder(activity).setTitle(valid ? "Administrator login" : "Incorrect password")
-                    .setMessage(valid ? "Password verified for this device-local test. Full account permissions are not yet connected." :
-                            "Please enter your new administrator password.")
-                    .setPositiveButton("OK", null).show();
+            if (valid) onSuccess.run();
+            else Toast.makeText(activity, "Incorrect administrator password.", Toast.LENGTH_LONG).show();
         } catch (Exception ex) {
             Toast.makeText(activity, "Unable to verify administrator password.", Toast.LENGTH_LONG).show();
         }
@@ -76,12 +74,12 @@ public final class AdminOtpDemo {
                 return;
             }
             dialog.dismiss();
-            setupPassword(activity);
+            setupPassword(activity, () -> {});
         }));
         dialog.show();
     }
 
-    private static void setupPassword(Activity activity) {
+    private static void setupPassword(Activity activity, Runnable onSuccess) {
         android.widget.LinearLayout layout = new android.widget.LinearLayout(activity);
         layout.setOrientation(android.widget.LinearLayout.VERTICAL);
         EditText password = new EditText(activity);
