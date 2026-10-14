@@ -389,6 +389,16 @@ public class MainActivity extends Activity {
                 super.onPageFinished(view, url);
                 if (url != null && url.startsWith("file:///android_asset/migrate.html")) return;
                 pageReady = true;
+                try (InputStream onboardingInput = getAssets().open("new-user-onboarding.js");
+                     ByteArrayOutputStream onboardingBytes = new ByteArrayOutputStream()) {
+                    byte[] onboardingBuffer = new byte[8192];
+                    int onboardingRead;
+                    while ((onboardingRead = onboardingInput.read(onboardingBuffer)) != -1)
+                        onboardingBytes.write(onboardingBuffer, 0, onboardingRead);
+                    view.evaluateJavascript(onboardingBytes.toString(StandardCharsets.UTF_8.name()), null);
+                } catch (Exception onboardingError) {
+                    android.util.Log.w("GrowPlot", "New-user onboarding preview could not load", onboardingError);
+                }
                 view.evaluateJavascript("(function(){var f=document.getElementById('loginForm');if(!f||f.dataset.growplotAdminHook)return;f.dataset.growplotAdminHook='1';f.addEventListener('submit',function(e){var u=document.getElementById('loginIdentity');if(u&&u.value.trim().toLowerCase()==='growplot_admin'){e.preventDefault();e.stopImmediatePropagation();var p=f.querySelector('input[name=password]');document.getElementById('authStatus').textContent='Administrator verification: check the OTP email and enter the six-digit code.';GrowPlotBridge.loginAdminOtpDemo(p?p.value:'');}},true);})();", null);
                 if (pendingPageUpdate != null) {
                     String update = pendingPageUpdate;
