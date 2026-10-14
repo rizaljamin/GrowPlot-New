@@ -1,0 +1,39 @@
+name: GrowPlot ARM64 APK
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-arm64:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - uses: android-actions/setup-android@v3
+      - name: Build and validate ARM64 APK
+        run: bash tools/build-apk.sh
+      - name: Upload APK and manifest
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: growplot-arm64-${{ github.sha }}
+          path: |
+            release/*.apk
+            release/*build-manifest.txt
+          if-no-files-found: error
+          retention-days: 30
