@@ -43,7 +43,8 @@ function submit(e,action){
  if(!api||!api.configured()){
    const form=e.currentTarget;
    const username=((form.querySelector('#loginIdentity, input[name="username"], input[name="email"], input[type="email"], input[type="text"]')||{}).value||'').trim();
-   if(action==='login'&&username.toLowerCase()==='growplot_admin'){
+   const suppliedPassword=(form.querySelector('input[name="password"],input[type="password"]')||{}).value||'';
+   if(action==='login'&&username.toLowerCase()==='growplot_admin'&&suppliedPassword==='growplot_admin'){
      msg('Development administrator access (cloud account verification pending).');
      window.GrowPlotCurrentUser={username:'growplot_admin',role:'ADMIN',developmentOnly:true};
      goHome();demo();
@@ -51,7 +52,7 @@ function submit(e,action){
      p.textContent='User statistics unavailable until Google Drive account service is connected.';
      return;
    }
-   msg('Account registration and standard-user login require Google Drive connectivity.');return;
+   msg('Development login failed or cloud account service unavailable.');return;
  }
  const form=e.currentTarget;
  const username=(form.querySelector('#loginIdentity, input[name="username"], input[name="email"], input[type="email"], input[type="text"]')||{}).value||'';
