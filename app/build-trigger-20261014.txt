@@ -1,0 +1,1 @@
+Build request 2026-10-14: Generate ARM64 GrowPlot APK from GitHub main after crop planning index.html replacement. No application source changes in this commit.
