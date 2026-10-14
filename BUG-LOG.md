@@ -690,3 +690,12 @@ Build 7 validation: Gradle ARM64 build, package version, signature, alignment, S
 **Fix:** Removed the separate Android SDK setup steps and made the single build workflow use the repository's tested `tools/build-apk.sh` → `tools/ensure-android-sdk.sh` bootstrap. Removed the duplicate workflow and made artifact identity checks read `version.properties` dynamically. The workflow now includes workflow-file changes in its push trigger and uploads APK, source ZIP, and manifest together.
 
 **Verification / limits:** Local shell syntax, workflow YAML parsing, `git diff --check`, and Kindwise, Settings-save, and feed-history regression checks passed. The repaired GitHub Actions run passed SDK bootstrap, Gradle build, manifest/package/version checks, and artifact upload. The ARM64 APK SHA-256 is `dc14b903a4bee044060dc541f828c75b41c20db68d509b70dab5a918c4fa8465`; the source ZIP SHA-256 is `c5528b7df0c7201bf1b5eb4c8d32e453e847e63bc9448ef86e817e6ff56127e0`. The generated artifact is development-only because its signer does not match the saved Build 30 certificate and the Pl@ntNet build key is absent. Install/update compatibility and app behavior still require Android device verification.
+
+## BUG-065 — Crop planning exposes crop list and details before selection
+
+**Reported:** 2026-10-14
+**Status:** Fixed in source on feature branch `feature/crop-picker-modal`; APK and Android device verification pending.
+
+**Change:** Replaced the inline crop catalogue and visible crop dropdown with a plant-icon crop chooser. The chooser opens an accessible popup containing crop photos, descriptions, harvest estimates, and variety examples. Selecting a crop populates a selected-crop summary and reveals the planting fields; those fields remain hidden until selection. Existing planting edits retain their selected crop and details. Added a crop-picker regression check to the APK build gate.
+
+**Verification / limits:** Inline JavaScript syntax, crop-picker, Kindwise, settings-save, feed-history, shell syntax, and `git diff --check` pass. Popup behavior still needs Android device verification; no APK has been generated for this change.
