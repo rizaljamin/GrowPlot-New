@@ -1,3 +1,14 @@
+## BUG-068 — Manage Farm screen blank on open
+
+**Reported:** 2026-10-14
+**Status:** Fixed in v0.6.01 Build 25 (versionCode 152); Android device verification pending.
+
+**Cause:** `renderManageFarm()` built the greenhouse filter using `existing.greenhouse` before initializing `existing`. JavaScript's temporal dead zone raised a `ReferenceError`, preventing Crop Planning and the other Manage Farm tabs from rendering.
+
+**Fix:** Initialize the selected/editing planting record before generating plot and greenhouse filters.
+
+**Verification:** Added a runtime regression smoke test that opens Manage Farm and checks that Crop Planning, Irrigation & Fertiliser, and Maintenance render. JavaScript syntax and all three app regression scripts pass. Device layout and save/sync behavior still need device verification.
+
 ## BUG-065 — Firebase Google sign-in configuration missing
 
 **Reported:** 2026-10-14

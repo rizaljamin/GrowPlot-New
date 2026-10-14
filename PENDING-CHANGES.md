@@ -1,3 +1,10 @@
+## Build 25 — Manage Farm screen availability
+
+- Baseline: GitHub `main` at v0.6.01 Build 24 / versionCode 151, commit `b998170244f2baabf7bdd0568a2fae7d52f3b130`.
+- Fixed a JavaScript temporal-dead-zone error in `renderManageFarm()` that stopped the screen from opening.
+- Added a runtime render regression check covering Crop Planning, Irrigation & Fertiliser, and Maintenance tabs.
+- Version identity: v0.6.01 Build 25 / versionCode 152. Build and device verification pending.
+
 ## Build 24 prepared from GitHub Build 23
 
 - Baseline: GitHub `main` at v0.6.01 Build 23 / versionCode 150.
