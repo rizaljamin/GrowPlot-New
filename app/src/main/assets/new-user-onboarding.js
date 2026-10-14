@@ -8,8 +8,8 @@ function banner(){
  section.setAttribute('aria-label','First plot setup');
  section.style.cssText='margin:14px auto;padding:18px;border-radius:16px;border:1px solid #badac2;background:#f0faf2;color:#153f2a;max-width:980px;box-sizing:border-box';
  const title=document.createElement('h2');title.textContent=owned().length?'Your GrowPlot workspace':'Welcome to GrowPlot';title.style.cssText='font-size:1.2rem;margin:0 0 8px';
- const desc=document.createElement('p');desc.textContent=owned().length?'Your own plots are listed alongside the demonstration plot.':'The Demo Plot is available to explore. Create your first plot to start managing your farm.';desc.style.cssText='margin:0 0 14px;line-height:1.5';
- const btn=document.createElement('button');btn.type='button';btn.textContent=owned().length?'Create Another Plot':'Create First Plot';btn.style.cssText='background:#166534;color:white;border:0;border-radius:10px;padding:12px 18px;font-weight:700;min-height:44px;cursor:pointer';
+ const desc=document.createElement('p');desc.textContent=owned().length?'Choose your plot or continue exploring the demo.':'Choose Create My Plot to set up your farm, or Show Me the Demo Plot to explore the existing setup.';desc.style.cssText='margin:0 0 14px;line-height:1.5';
+ const btn=document.createElement('button');btn.type='button';btn.textContent=owned().length?'Create Another Plot':'Create My Plot';btn.style.cssText='background:#166534;color:white;border:0;border-radius:10px;padding:12px 18px;font-weight:700;min-height:44px;cursor:pointer';
  btn.addEventListener('click',openCreate);
  const demo=document.createElement('button');demo.type='button';demo.textContent='Show Me the Demo Plot';demo.style.cssText='background:white;color:#166534;border:1px solid #166534;border-radius:10px;padding:12px 18px;font-weight:700;min-height:44px;cursor:pointer';
  demo.addEventListener('click',()=>{section.remove();const dp=(typeof plots!=='undefined'&&Array.isArray(plots))?plots.find(p=>/demo/i.test(String(p.name||'')+' '+String(p.id||''))):null;if(dp){selectedPlotId=dp.id;if(typeof fillPlotSelectors==='function')fillPlotSelectors();if(typeof render==='function')render();}const target=document.getElementById('mainDashboard')||document.getElementById('cameras');if(target)target.scrollIntoView({behavior:'smooth'});});
@@ -22,7 +22,7 @@ function openCreate(){
  overlay.style.cssText='position:fixed;inset:0;z-index:99999;background:#0009;display:flex;align-items:center;justify-content:center;padding:20px';
  const form=document.createElement('form');form.style.cssText='background:white;border-radius:18px;padding:24px;max-width:420px;width:100%;box-shadow:0 16px 60px #0004';
  const heading=document.createElement('h2');heading.textContent='Create your first plot';heading.style.cssText='margin:0 0 12px;color:#153f2a';
- const help=document.createElement('p');help.textContent='Enter your plot name. Your Demo Plot remains available.';help.style.cssText='margin:0 0 16px';
+ const help=document.createElement('p');help.textContent='Enter a name for your new plot. You can still explore the Demo Plot later.';help.style.cssText='margin:0 0 16px';
  const input=document.createElement('input');input.required=true;input.maxLength=60;input.placeholder='e.g. Rubber Plot 1';input.setAttribute('aria-label','Plot name');input.style.cssText='width:100%;padding:12px;border:1px solid #aaa;border-radius:8px;box-sizing:border-box;font-size:16px';
  const status=document.createElement('p');status.setAttribute('role','status');
  const actions=document.createElement('div');actions.style.cssText='display:flex;gap:12px;justify-content:flex-end;margin-top:16px';
@@ -41,12 +41,12 @@ function openCreate(){
  if(typeof fillPlotSelectors==='function')fillPlotSelectors();
  if(typeof loadPlotForm==='function')loadPlotForm();
  if(typeof render==='function')render();
- overlay.remove();banner();
+ overlay.remove();const first=document.getElementById('growplotFirstPlotBanner');if(first)first.remove();
  });
 }
 window.GrowPlotNewUserPreview=function(){
  const auth=document.getElementById('authScreen');if(auth)auth.hidden=true;
- banner();window.scrollTo({top:0,behavior:'smooth'});
+ banner();const first=document.getElementById('growplotFirstPlotBanner');if(first)first.scrollIntoView({behavior:'smooth'});
 };
 function addPreview(){
  const login=document.getElementById('loginView');if(!login||document.getElementById('growplotPreviewButton'))return;
