@@ -18,3 +18,19 @@ From 12 October 2026 onward, distribute the ARM64-only APK (`arm64-v8a`) for Gro
 The VLC streaming libraries remain bundled in GrowPlot so CCTV playback stays inside the app; users do not need to install the separate VLC app. For v0.6.01 Build 3, the measured ARM64 APK is 61,445,519 bytes (61.45 MB), compared with 101,182,574 bytes (101.18 MB) for the historical universal APK. Future sizes may change.
 
 Settings sections open collapsed and expand on tap. VIGI login is encrypted on the device and reused after restart; blank password edits retain the saved password. Missing login prompts for input. A confirmed RTSP authentication rejection prompts for correction; a network failure retains the saved login.
+
+
+## Standard APK build workflow (14 October 2026)
+
+When the project owner instructs **build APK** or **generate APK**, follow this process without requesting separate GitHub build instructions:
+
+1. Implement and commit all approved source changes in a development branch. A version-number-only commit is not a completed implementation.
+2. Validate source syntax and regression tests, and review differences against the protected Build 9 baseline.
+3. Merge the completed, reviewed branch into `main` only when the actual source is present and checks pass. Preserve `archive/main-before-build9-recovery-20261013` for rollback.
+4. The `.github/workflows/growplot-arm64.yml` GitHub Actions workflow runs on source pushes to `main` and produces an ARM64 APK and build manifest.
+5. Inspect GitHub Actions success, APK package/version, signing certificate and ABI before sharing the artifact. Device installation and CCTV streaming remain user-device acceptance checks.
+6. **Do not sync to Google Drive as part of the APK build.** The existing separate Drive workflow is not a prerequisite for APK generation.
+
+Do not describe an APK as built merely because source was zipped, a version file changed, or a workflow was configured. If a step is blocked, report the exact blocked operation and last successful commit.
+
+**Build 10 status:** Crop Planning source has been prepared locally but has not yet been fully committed to GitHub or compiled. The existing `main` source remains Build 9 until the full source and tests are confirmed.
