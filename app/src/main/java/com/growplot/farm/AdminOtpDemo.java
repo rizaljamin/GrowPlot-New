@@ -110,7 +110,7 @@ public final class AdminOtpDemo {
                     .putString("password_hash", android.util.Base64.encodeToString(verifier, android.util.Base64.NO_WRAP))
                     .putBoolean("activated", true).remove("otp").remove("expires").apply();
                 dialog.dismiss();
-                Toast.makeText(activity, "Test admin password created on this device.", Toast.LENGTH_LONG).show();
+                onSuccess.run();
             } catch (Exception ex) {
                 Toast.makeText(activity, "Password setup failed.", Toast.LENGTH_LONG).show();
             }
