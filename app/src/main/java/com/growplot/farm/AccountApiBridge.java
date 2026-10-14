@@ -70,7 +70,7 @@ public final class AccountApiBridge {
                 db.collection("users").document(user.getUid()).set(update,SetOptions.merge())
                     .addOnSuccessListener(v->{JSONObject out=new JSONObject();try{out.put("saved",true);}catch(Exception ignored){}respond(action,true,"",out);})
                     .addOnFailureListener(e->respond(action,false,e.getMessage(),null));
-            }else if("stats")respond(action,false,"Administrator statistics require a secure server endpoint.",null);
+            }else if("stats".equals(action))respond(action,false,"Administrator statistics require a secure server endpoint.",null);
             else respond(action,false,"Unsupported action.",null);
         }catch(Exception e){respond(action,false,e.getMessage(),null);}
     }
