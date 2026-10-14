@@ -19,7 +19,7 @@ public final class AccountApiBridge {
     private final FirebaseAuth auth=FirebaseAuth.getInstance();
     private final FirebaseFirestore db=FirebaseFirestore.getInstance();
     public AccountApiBridge(Activity activity, WebView web){this.activity=activity;this.web=web;}
-    @JavascriptInterface public boolean configured(){return true;}
+    @JavascriptInterface public boolean configured(){return com.google.firebase.FirebaseApp.getApps(activity).size()>0;}
     @JavascriptInterface public void logout(){auth.signOut();}
     @JavascriptInterface public void request(String action,String payload){
         activity.runOnUiThread(()->execute(action,payload));
@@ -57,7 +57,7 @@ public final class AccountApiBridge {
                     try{
                         Object plots=snapshot.get("plots");
                         out.put("plots",new JSONArray(plots==null?"[]":new com.google.gson.Gson().toJson(plots)));
-                        out.put("selectedPlotId",snapshot.getString("selectedPlotId"));
+                        out.put("selectedPlotId",snapshot.getString("selectedPlotId")==null?JSONObject.NULL:snapshot.getString("selectedPlotId"));
                     }catch(Exception ignored){}
                     respond(action,true,"",out);
                 }).addOnFailureListener(e->respond(action,false,e.getMessage(),null));
