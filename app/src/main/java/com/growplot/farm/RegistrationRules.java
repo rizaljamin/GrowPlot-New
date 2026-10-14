@@ -18,8 +18,8 @@ public final class RegistrationRules {
             return "Username must be 5–30 letters, numbers or underscores";
         if (email == null || email.length() > 254 || !EMAIL.matcher(email.trim()).matches())
             return "Enter a valid email address";
-        if (password == null || password.length < 12 || password.length > 128)
-            return "Use a password between 12 and 128 characters";
+        if (password == null || password.length < 8 || password.length > 128)
+            return "Use a password between 8 and 128 characters";
         if (confirmation == null || !java.util.Arrays.equals(password, confirmation))
             return "Passwords do not match";
         String lowered = new String(password).toLowerCase(Locale.ROOT);
