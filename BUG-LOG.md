@@ -653,3 +653,28 @@ Validation: JavaScript syntax, shell syntax, and executable feed/history UI regr
 Validation: JVM RTSP accepted/rejected/service/unreachable and Digest-challenge tests, Settings details/nesting check, feed-history regression, JS syntax, complete Gradle ARM64 assemble, APK version/signature/alignment checks passed. Android device verification pending.
 Build 4 follow-up: APK generation subsequently succeeded; uploaded to Drive as file 1Nmw0gAll1_XIWCfvZebVDjbkViDuAJlo. User confirmed CCTV02 live feed, snapshot intervals and ARM64 packaging corrected. Photo-history comparison was not separately confirmed by the user.
 Signing: Build 5 uses the same development certificate as Build 4. Pl@ntNet key remains absent.
+
+2026-10-12 | Pending next build after v0.6.01 Build 5
+Settings: Added a diskette Save button beside Home, visible only in Settings. It validates current plot details, GPS, camera IPs/login, snapshot interval and rescan interval, then saves all those edits without leaving Settings. Blank VIGI password keeps the saved login. Reports partial save failures instead of unconditional success. Existing folder grants/config remain unchanged.
+Validation: executable combined-save regression, saved-password reuse, invalid GPS/no writes, partial failure and plot rollback checks passed; JS syntax and feed-history regression passed. Android UI verification pending. One change queued under the existing 2–3-change build batching rule; no new APK generated.
+
+2026-10-12 | v0.6.01 Build 6 | versionCode 133
+Packages the Settings diskette Save button beside Home. Saves current plot details, camera IP/login, snapshot and rescan intervals with validation and partial-failure reporting. ARM64 only. Regression checks, Gradle ARM64 compilation, APK version/signature/alignment passed. Same signing certificate as Build 5. Android device validation pending.
+
+2026-10-12 | Pending next build after Build 6
+Added collapsed Plugins · API Keys Settings menu with default Pl@ntNet key portal and Kindwise admin links. Masked key fields save through the overall diskette Save action; blank fields retain saved keys. Keys use Android Keystore AES-GCM encrypted device preferences and are never returned to the WebView. Pl@ntNet requests use the saved device key first, then the existing build-key fallback. Kindwise key storage is available; diagnosis provider integration remains unconnected.
+Validation: Java 17 compilation against Android API 35/VLC and existing Settings/feed regression checks passed. Live provider validation and Android device checks pending; no new APK generated.
+
+2026-10-12 | v0.6.01 Build 7 | versionCode 134
+Adds collapsed Plugins · API Keys Settings with Pl@ntNet and Kindwise key portal links. Masked fields save encrypted on-device via the diskette Save button; blank fields preserve saved keys. Pl@ntNet requests prefer the device key over the build fallback. Kindwise key storage is provided; Kindwise diagnosis is not yet connected. Live service validation pending.
+Build 7 validation: Gradle ARM64 build, package version, signature, alignment, Settings and feed-history regression checks passed. Signature matches Build 6. User API keys must be entered in Settings; no provider credentials are bundled. Provider/device validation pending.
+
+
+## BUG-063 — Connect the saved Kindwise key to crop.health diagnosis
+
+**Reported:** 2026-10-12  
+**Status:** Implemented in source and built for v0.6.01 Build 8 (versionCode 135); Android and live-provider verification pending.
+
+**Change:** After pixel/photo or video-frame analysis, GrowPlot sends up to five clearest selected images to Kindwise crop.health and Pl@ntNet independently. Kindwise uses the encrypted API key already stored in Settings; the key remains in the native Android layer and is sent in the provider Api-Key header. Kindwise crop and health issue candidates, confidence scores, and available symptom/treatment details appear in a separate result card. Kindwise results are saved with the section's diagnosis history. A build regression check covers the key use, endpoint, image limit, photo/video fan-out, and result display.
+
+**Verification / limits:** JavaScript syntax, feed-history, settings-save, and Kindwise integration regression checks pass. Gradle ARM64 packaging, package/version, APK signature, and alignment checks pass. A live provider request with a user-entered key and Android photo/video/history behavior remain pending. crop.health analyzes submitted images; GrowPlot's species, symptom, and pixel fields are report context and are not provider inputs. No Kindwise credentials are bundled. The debug APK certificate differs from the saved Build 30 signer, so this artifact is not an in-place update.

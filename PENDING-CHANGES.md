@@ -1,8 +1,10 @@
 # GrowPlot enhancement batch
 
-- Current test baseline: v0.6.01 Build 2 (versionCode 129); universal APK, arm64 APK, debug AAB, source ZIP, and build manifest produced.
-- Verification: Java/JavaScript compilation, APK signature, package/version, alignment, ABI contents, and AAB archive checks passed. Device install and VIGI playback checks remain pending.
-- Enhancements queued after Build 1: none recorded yet. Keep the 2–3 enhancement batch before generating the next APK unless the user asks sooner. BUG-046 remains open outside the current batch.
+- Verified GitHub source baseline: v0.6.01 Build 7 (versionCode 134), commit a803ae919bf8db1acbe6217a87d151fd794e997e.
+- Current source/build: v0.6.01 Build 8 (versionCode 135), ARM64 only; based on the verified GitHub Build 7 baseline.
+- Batch: connects crop.health diagnosis to the encrypted Kindwise Settings key for photo and video-frame analysis; stores and shows Kindwise results alongside Pl@ntNet; adds a build-time regression gate.
+- Build 8 ARM64 debug compilation, package/version, APK signature, and alignment checks passed. Its signer differs from the saved Build 30 certificate, so it is development-only and must not replace the installed app. Pl@ntNet key, live Kindwise request, and Android device checks remain pending.
+- Keep the 2–3 enhancement batch before the next APK. BUG-046 remains open outside this batch.
 
 ## Build 16 delivered
 
@@ -46,3 +48,11 @@ APK: `release/v0.5.09-build-15-GrowPlot-development-only.apk`. Build, package/ve
 ## Pending
 
 - BUG-046: make all user-owned GrowPlot records consistent across devices through Google Drive. Existing crop/irrigation/maintenance Drive sync is partial; plot settings and diagnosis history remain local, and Account sign-in is still a preview. Implement stable per-user identity, cloud load/merge/save/delete for each data type, then validate sync and user isolation on two devices. A first Drive folder grant may be required once per device.
+
+2026-10-12 | Pending next build after v0.6.01 Build 5
+Settings: Added a diskette Save button beside Home, visible only in Settings. It validates current plot details, GPS, camera IPs/login, snapshot interval and rescan interval, then saves all those edits without leaving Settings. Blank VIGI password keeps the saved login. Reports partial save failures instead of unconditional success. Existing folder grants/config remain unchanged.
+Validation: executable combined-save regression, saved-password reuse, invalid GPS/no writes, partial failure and plot rollback checks passed; JS syntax and feed-history regression passed. Android UI verification pending. Packaged in Build 6 on explicit user request; regression and APK build checks passed. Device verification pending.
+
+2026-10-12 | Pending next build after Build 6
+Added collapsed Plugins · API Keys Settings menu with default Pl@ntNet key portal and Kindwise admin links. Masked key fields save through the overall diskette Save action; blank fields retain saved keys. Keys use Android Keystore AES-GCM encrypted device preferences and are never returned to the WebView. Pl@ntNet requests use the saved device key first, then the existing build-key fallback. Kindwise key storage is available; diagnosis provider integration remains unconnected.
+Validation: Java 17 compilation against Android API 35/VLC and existing Settings/feed regression checks passed. Live provider validation and Android device checks pending; Packaged in Build 7; APK checks passed.

@@ -149,6 +149,7 @@ public class MainActivity extends Activity {
     private final ExecutorService geocodeWorker = Executors.newSingleThreadExecutor();
     private final ExecutorService diagnosisWorker = Executors.newSingleThreadExecutor();
     private final ExecutorService diagnosisCvWorker = Executors.newSingleThreadExecutor();
+    private final ExecutorService kindwiseWorker = Executors.newSingleThreadExecutor();
     private final ExecutorService farmDataWorker = Executors.newSingleThreadExecutor();
     private final ExecutorService cctvSnapshotWorker = Executors.newSingleThreadExecutor();
     private Uri pendingDiagnosisOutput;
@@ -514,6 +515,44 @@ public class MainActivity extends Activity {
         } catch (Exception ignored) { return false; }
     }
 
+    private String pluginApiKey(String provider) {
+        try {
+            String encoded = getPrefs().getString("plugin_api_keys_encrypted", "");
+            if (encoded.isEmpty()) return "";
+            byte[] bytes = Base64.decode(encoded, Base64.NO_WRAP);
+            KeyStore store = KeyStore.getInstance("AndroidKeyStore"); store.load(null);
+            SecretKey key = (SecretKey) store.getKey(VIGI_CCTV03_KEY_ALIAS, null);
+            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+            cipher.init(Cipher.DECRYPT_MODE, key, new GCMParameterSpec(128, java.util.Arrays.copyOfRange(bytes, 0, 12)));
+            JSONObject keys = new JSONObject(new String(cipher.doFinal(java.util.Arrays.copyOfRange(bytes, 12, bytes.length)), StandardCharsets.UTF_8));
+            return keys.optString(provider, "");
+        } catch (Exception unavailable) { return ""; }
+    }
+
+    private boolean savePluginApiKeys(String payload) {
+        try {
+            JSONObject updates = new JSONObject(payload), keys = new JSONObject();
+            for (String provider : new String[]{"plantnet", "kindwise"}) {
+                String entered = updates.optString(provider, "").trim();
+                keys.put(provider, entered.isEmpty() ? pluginApiKey(provider) : entered);
+            }
+            KeyStore store = KeyStore.getInstance("AndroidKeyStore"); store.load(null);
+            if (!store.containsAlias(VIGI_CCTV03_KEY_ALIAS)) {
+                KeyGenerator generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore");
+                generator.init(new KeyGenParameterSpec.Builder(VIGI_CCTV03_KEY_ALIAS, KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
+                        .setBlockModes(KeyProperties.BLOCK_MODE_GCM).setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                        .setRandomizedEncryptionRequired(true).build()); generator.generateKey(); store.load(null);
+            }
+            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+            cipher.init(Cipher.ENCRYPT_MODE, (SecretKey) store.getKey(VIGI_CCTV03_KEY_ALIAS, null));
+            byte[] encrypted = cipher.doFinal(keys.toString().getBytes(StandardCharsets.UTF_8));
+            byte[] bytes = new byte[cipher.getIV().length + encrypted.length];
+            System.arraycopy(cipher.getIV(), 0, bytes, 0, cipher.getIV().length);
+            System.arraycopy(encrypted, 0, bytes, cipher.getIV().length, encrypted.length);
+            return getPrefs().edit().putString("plugin_api_keys_encrypted", Base64.encodeToString(bytes, Base64.NO_WRAP)).commit();
+        } catch (Exception error) { return false; }
+    }
+
     private boolean isPrivateIpv4OrBlank(String address) {
         if (address == null || address.trim().isEmpty()) return true;
         String[] octets = address.trim().split("\\.", -1);
@@ -525,10 +564,13 @@ public class MainActivity extends Activity {
             catch (NumberFormatException ignored) { return false; }
             if (values[i] < 0 || values[i] > 255) return false;
         }
+        // Tailscale assigns IPv4 node addresses from 100.64.0.0/10.
+        // Permit these VPN addresses without allowing arbitrary public endpoints.
         boolean privateAddress = values[0] == 10
                 || (values[0] == 172 && values[1] >= 16 && values[1] <= 31)
                 || (values[0] == 192 && values[1] == 168);
-        return privateAddress && values[3] > 0 && values[3] < 255;
+        boolean tailscaleAddress = values[0] == 100 && values[1] >= 64 && values[1] <= 127;
+        return (privateAddress || tailscaleAddress) && values[3] > 0 && values[3] < 255;
     }
 
     private boolean hasPersistedReadWriteGrant(Uri treeUri) {
@@ -654,6 +696,7 @@ public class MainActivity extends Activity {
                 ipWebcamVlcLayout = new VLCVideoLayout(this);
                 ipWebcamVlcLayout.setBackgroundColor(Color.BLACK);
                 ipWebcamVlcFrame.addView(ipWebcamVlcLayout, new FrameLayout.LayoutParams(-1, -1));
+                installCctvStatusDot(ipWebcamVlcFrame, 1);
                 ipWebcamRefreshButton = new TextView(this);
                 ipWebcamRefreshButton.setText("↻ Refresh");
                 ipWebcamRefreshButton.setTextColor(Color.WHITE);
@@ -708,6 +751,45 @@ public class MainActivity extends Activity {
                 }
             }
         } catch (Exception ignored) { }
+    }
+
+    // Blink red when inactive and green only while the VLC player reports playback.
+    private final TextView[] cctvStatusDots = new TextView[3];
+    private final Runnable cctvStatusRefresh = new Runnable() {
+        @Override public void run() {
+            org.videolan.libvlc.MediaPlayer[] players = {ipWebcamVlcPlayer, ipWebcam2VlcPlayer, ipWebcam3VlcPlayer};
+            for (int i = 0; i < players.length; i++) {
+                TextView dot = cctvStatusDots[i];
+                if (dot == null) continue;
+                boolean playing = false;
+                try { playing = players[i] != null && players[i].isPlaying(); }
+                catch (Exception ignored) { }
+                dot.setTextColor(playing ? Color.GREEN : Color.RED);
+                dot.setContentDescription("CCTV " + (i + 1) + (playing ? " active" : " inactive"));
+            }
+            mainHandler.postDelayed(this, 1000);
+        }
+    };
+
+    private void installCctvStatusDot(FrameLayout frame, int camera) {
+        TextView dot = new TextView(this);
+        dot.setText("●");
+        dot.setTextSize(19);
+        dot.setTextColor(Color.RED);
+        dot.setContentDescription("CCTV " + camera + " inactive");
+        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(dp(30), dp(30), Gravity.TOP | Gravity.LEFT);
+        params.leftMargin = dp(7);
+        params.topMargin = dp(5);
+        frame.addView(dot, params);
+        dot.bringToFront();
+        android.view.animation.AlphaAnimation blink = new android.view.animation.AlphaAnimation(1f, 0.25f);
+        blink.setDuration(650);
+        blink.setRepeatMode(android.view.animation.Animation.REVERSE);
+        blink.setRepeatCount(android.view.animation.Animation.INFINITE);
+        dot.startAnimation(blink);
+        cctvStatusDots[camera - 1] = dot;
+        mainHandler.removeCallbacks(cctvStatusRefresh);
+        mainHandler.post(cctvStatusRefresh);
     }
 
     private void startIpWebcamVlc(VLCVideoLayout videoLayout) {
@@ -768,6 +850,7 @@ public class MainActivity extends Activity {
                 ipWebcam2VlcLayout = new VLCVideoLayout(this);
                 ipWebcam2VlcLayout.setBackgroundColor(Color.BLACK);
                 ipWebcam2VlcFrame.addView(ipWebcam2VlcLayout, new FrameLayout.LayoutParams(-1, -1));
+                installCctvStatusDot(ipWebcam2VlcFrame, 2);
                 ipWebcam2RefreshButton = new TextView(this);
                 ipWebcam2RefreshButton.setText("↻ Refresh");
                 ipWebcam2RefreshButton.setTextColor(Color.WHITE);
@@ -850,6 +933,7 @@ public class MainActivity extends Activity {
                 ipWebcam3VlcLayout = new VLCVideoLayout(this);
                 ipWebcam3VlcLayout.setBackgroundColor(Color.BLACK);
                 ipWebcam3VlcFrame.addView(ipWebcam3VlcLayout, new FrameLayout.LayoutParams(-1, -1));
+                installCctvStatusDot(ipWebcam3VlcFrame, 3);
                 ipWebcam3RefreshButton = new TextView(this);
                 ipWebcam3RefreshButton.setText("↻ Refresh");
                 ipWebcam3RefreshButton.setTextColor(Color.WHITE);
@@ -1757,6 +1841,7 @@ public class MainActivity extends Activity {
         scanWorker.shutdownNow();
         geocodeWorker.shutdownNow();
         diagnosisWorker.shutdownNow();
+        kindwiseWorker.shutdownNow();
         diagnosisCvWorker.shutdownNow();
         if (web != null) {
             web.removeJavascriptInterface("GrowPlotBridge");
@@ -2770,6 +2855,20 @@ public class MainActivity extends Activity {
             } catch (Exception ignored) { return false; }
         }
 
+        @JavascriptInterface public String getPluginApiKeyStatus() {
+            try { return new JSONObject().put("plantnet", !pluginApiKey("plantnet").isEmpty() || !BuildConfig.PLANTNET_API_KEY.isEmpty())
+                    .put("kindwise", !pluginApiKey("kindwise").isEmpty()).toString(); }
+            catch (Exception error) { return "{}"; }
+        }
+        @JavascriptInterface public boolean savePluginApiKeys(String payload) {
+            return MainActivity.this.savePluginApiKeys(payload);
+        }
+        @JavascriptInterface public void openPluginKeyPortal(String provider) {
+            final String url = "plantnet".equals(provider) ? "https://my.plantnet.org/settings/api-key"
+                    : "kindwise".equals(provider) ? "https://admin.kindwise.com/login" : "";
+            if (!url.isEmpty()) runOnUiThread(() -> { try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); } catch (Exception ignored) { } });
+        }
+
         @JavascriptInterface public String getVigiCctv03Credentials() {
             try {
                 String[] credentials = vigiCctv03Credentials();
@@ -3030,7 +3129,12 @@ public class MainActivity extends Activity {
                     }
                     if (candidates.isEmpty()) throw new IllegalStateException("No readable photos are available for this quadrant");
                     List<PlantNetImageCandidate> selected = selectBestPlantNetImages(candidates);
-                    response = identifyWithPlantNet(candidateBytes(selected));
+                    List<byte[]> selectedImages = candidateBytes(selected);
+                    requestKindwiseDiagnosis(camera, id, selectedImages, candidates.size(), selected,
+                            species, symptom, pixelMetrics, "quadrant_photos",
+                            "Diagnosis/" + diagnosisPlotFolder(id) + "/Quadrant_" + String.format(Locale.US, "%02d", camera),
+                            "Selected the clearest available quadrant photos using approximate sharpness, exposure, and visible-plant-area checks.");
+                    response = identifyWithPlantNet(selectedImages);
                     response.put("speciesContext", species == null ? "" : species);
                     response.put("symptomContext", symptom == null ? "" : symptom);
                     response.put("pixelContext", pixelMetrics == null ? "" : pixelMetrics);
@@ -3337,8 +3441,9 @@ public class MainActivity extends Activity {
     }
 
     private JSONObject identifyWithPlantNet(List<byte[]> images) {
-        String key = BuildConfig.PLANTNET_API_KEY;
-        if (key == null || key.trim().isEmpty()) return plantNetStatus("not_configured", "Pl@ntNet API key is not configured in this private build.");
+        String key = pluginApiKey("plantnet");
+        if (key.isEmpty()) key = BuildConfig.PLANTNET_API_KEY;
+        if (key == null || key.trim().isEmpty()) return plantNetStatus("not_configured", "Add the Pl@ntNet API key in Settings → Plugins · API Keys.");
         if (images == null || images.isEmpty()) return plantNetStatus("error", "No readable photos or video frames were available for Pl@ntNet.");
         HttpURLConnection connection = null;
         try {
@@ -3379,6 +3484,107 @@ public class MainActivity extends Activity {
         finally { if (connection != null) connection.disconnect(); }
     }
 
+    private void requestKindwiseDiagnosis(int camera, String plotId, List<byte[]> images, int candidateCount,
+                                          List<PlantNetImageCandidate> selected, String species, String symptom,
+                                          String pixelMetrics, String mediaType, String sourceFolder, String selectionNote) {
+        final List<byte[]> submitted = new ArrayList<>(images);
+        final JSONArray selectedSources = candidateSources(selected);
+        kindwiseWorker.execute(() -> {
+            JSONObject result = identifyWithKindwise(submitted);
+            try {
+                result.put("speciesContext", species == null ? "" : species);
+                result.put("symptomContext", symptom == null ? "" : symptom);
+                result.put("pixelContext", pixelMetrics == null ? "" : pixelMetrics);
+                result.put("mediaType", mediaType);
+                result.put("sourceFolder", sourceFolder);
+                result.put("candidateImageCount", candidateCount);
+                result.put("imageCountSubmitted", Math.min(5, submitted.size()));
+                result.put("selectionNote", selectionNote);
+                result.put("selectedSources", selectedSources);
+            } catch (Exception ignored) { }
+            sendKindwiseResult(camera, plotId, result);
+        });
+    }
+
+    private JSONObject identifyWithKindwise(List<byte[]> images) {
+        String key = pluginApiKey("kindwise");
+        if (key == null || key.trim().isEmpty()) {
+            return kindwiseStatus("not_configured", "Add the Kindwise crop.health API key in Settings → Plugins · API Keys.");
+        }
+        if (images == null || images.isEmpty()) {
+            return kindwiseStatus("error", "No readable photos or video frames were available for Kindwise.");
+        }
+        HttpURLConnection connection = null;
+        try {
+            JSONArray encodedImages = new JSONArray();
+            for (int i = 0; i < Math.min(5, images.size()); i++) {
+                encodedImages.put(Base64.encodeToString(images.get(i), Base64.NO_WRAP));
+            }
+            JSONObject payload = new JSONObject().put("images", encodedImages);
+            URL url = new URL("https://crop.kindwise.com/api/v1/identification");
+            connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("POST");
+            connection.setConnectTimeout(15000);
+            connection.setReadTimeout(45000);
+            connection.setDoOutput(true);
+            connection.setRequestProperty("Api-Key", key);
+            connection.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+            try (OutputStream out = connection.getOutputStream()) {
+                out.write(payload.toString().getBytes(StandardCharsets.UTF_8));
+            }
+            int status = connection.getResponseCode();
+            InputStream stream = status >= 200 && status < 300 ? connection.getInputStream() : connection.getErrorStream();
+            StringBuilder body = new StringBuilder();
+            if (stream != null) try (InputStream input = stream) {
+                byte[] buffer = new byte[8192]; int count;
+                while ((count = input.read(buffer)) != -1) body.append(new String(buffer, 0, count, StandardCharsets.UTF_8));
+            }
+            if (status < 200 || status >= 300) {
+                String message = status == 401 || status == 403 ? "Kindwise rejected the saved API key. Check it in Settings."
+                        : status == 429 ? "Kindwise request quota is exhausted or rate-limited."
+                        : "Kindwise returned HTTP " + status + ".";
+                return kindwiseStatus("error", message);
+            }
+            JSONObject response = new JSONObject(body.toString());
+            JSONObject modelResult = response.optJSONObject("result");
+            if (modelResult == null) return kindwiseStatus("error", "Kindwise returned an unreadable diagnosis result.");
+            JSONArray candidates = new JSONArray();
+            appendKindwiseCandidates(candidates, modelResult.optJSONObject("crop"), "crop");
+            appendKindwiseCandidates(candidates, modelResult.optJSONObject("disease"), "health issue");
+            JSONObject result = kindwiseStatus("ok", "");
+            result.put("model", response.optString("model_version", ""));
+            result.put("candidates", candidates);
+            result.put("imageCountSubmitted", Math.min(5, images.size()));
+            return result;
+        } catch (Exception error) {
+            return kindwiseStatus("error", error.getMessage() == null ? "Kindwise network request failed." : error.getMessage());
+        } finally { if (connection != null) connection.disconnect(); }
+    }
+
+    private void appendKindwiseCandidates(JSONArray target, JSONObject group, String type) throws Exception {
+        if (group == null) return;
+        JSONArray suggestions = group.optJSONArray("suggestions");
+        if (suggestions == null) return;
+        for (int i = 0; i < suggestions.length() && i < 5; i++) {
+            JSONObject suggestion = suggestions.optJSONObject(i);
+            if (suggestion == null) continue;
+            JSONObject item = new JSONObject();
+            item.put("type", type);
+            item.put("name", suggestion.optString("name", "Unlabelled result"));
+            item.put("confidence", suggestion.optDouble("probability", 0));
+            JSONObject details = suggestion.optJSONObject("details");
+            if (details != null) item.put("details", details);
+            target.put(item);
+        }
+    }
+
+    private JSONObject kindwiseStatus(String status, String message) {
+        JSONObject result = new JSONObject();
+        try { result.put("provider", "Kindwise crop.health"); result.put("status", status); result.put("message", message); result.put("candidates", new JSONArray()); }
+        catch (Exception ignored) { }
+        return result;
+    }
+
     private int remainingPlantNetQuota(String rateLimitHeader) {
         if (rateLimitHeader == null) return -1;
         Matcher matcher = Pattern.compile("(?:^|[;,])\\s*r=(\\d+)").matcher(rateLimitHeader);
@@ -3408,7 +3614,12 @@ public class MainActivity extends Activity {
             if (videoFrames != null) candidates.addAll(videoFrames);
             if (candidates.isEmpty()) throw new IllegalStateException(photoNotice.isEmpty() ? "No quadrant photos or readable video frames were available" : photoNotice);
             List<PlantNetImageCandidate> selected = selectBestPlantNetImages(candidates);
-            response = identifyWithPlantNet(candidateBytes(selected));
+            List<byte[]> selectedImages = candidateBytes(selected);
+            requestKindwiseDiagnosis(camera, plotId, selectedImages, candidates.size(), selected,
+                    species, symptom, pixelMetrics, "quadrant_photos_and_video_frames",
+                    "Diagnosis/" + diagnosisPlotFolder(plotId) + "/Quadrant_" + String.format(Locale.US, "%02d", camera),
+                    "Compared saved quadrant photos and sampled video frames using approximate sharpness, exposure, and visible-plant-area checks; submitted the clearest five.");
+            response = identifyWithPlantNet(selectedImages);
             response.put("speciesContext", species == null ? "" : species);
             response.put("symptomContext", symptom == null ? "" : symptom);
             response.put("pixelContext", pixelMetrics == null ? "" : pixelMetrics);
@@ -3426,6 +3637,13 @@ public class MainActivity extends Activity {
         runOnUiThread(() -> {
             if (web == null) return;
             web.evaluateJavascript("window.onPlantNetDiagnosis&&window.onPlantNetDiagnosis(" + camera + "," + JSONObject.quote(plotId) + "," + JSONObject.quote(result.toString()) + ")", null);
+        });
+    }
+
+    private void sendKindwiseResult(int camera, String plotId, JSONObject result) {
+        runOnUiThread(() -> {
+            if (web == null) return;
+            web.evaluateJavascript("window.onKindwiseDiagnosis&&window.onKindwiseDiagnosis(" + camera + "," + JSONObject.quote(plotId) + "," + JSONObject.quote(result.toString()) + ")", null);
         });
     }
 

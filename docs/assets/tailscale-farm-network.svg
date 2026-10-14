@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="650" viewBox="0 0 1120 650">
+<rect width="1120" height="650" fill="#f7faf9"/>
+<text x="560" y="39" text-anchor="middle" font-family="Arial" font-size="25" font-weight="bold" fill="#124b37">GrowPlot — Remote Farm Connectivity via Tailscale</text>
+<rect x="24" y="72" width="290" height="490" rx="16" fill="#e4f2ec" stroke="#168453" stroke-width="2"/>
+<text x="169" y="106" text-anchor="middle" font-family="Arial" font-size="19" font-weight="bold" fill="#145a3d">Remote endpoints</text>
+<g font-family="Arial" font-size="17" fill="#18382b">
+<rect x="45" y="134" width="248" height="74" rx="10" fill="white"/><text x="169" y="163" text-anchor="middle">Samsung S23 Ultra</text><text x="169" y="188" text-anchor="middle" font-size="13">GrowPlot + Tailscale</text>
+<rect x="45" y="222" width="248" height="74" rx="10" fill="white"/><text x="169" y="251" text-anchor="middle">Lenovo Android tablet</text><text x="169" y="276" text-anchor="middle" font-size="13">GrowPlot + Tailscale</text>
+<rect x="45" y="310" width="248" height="74" rx="10" fill="white"/><text x="169" y="339" text-anchor="middle">Windows laptop</text><text x="169" y="364" text-anchor="middle" font-size="13">Tailscale client</text>
+<rect x="45" y="398" width="248" height="74" rx="10" fill="white"/><text x="169" y="427" text-anchor="middle">MacBook</text><text x="169" y="452" text-anchor="middle" font-size="13">Tailscale client</text>
+</g>
+<rect x="369" y="155" width="348" height="115" rx="18" fill="#273c86"/><text x="543" y="190" text-anchor="middle" font-family="Arial" font-size="24" fill="white" font-weight="bold">Tailscale tailnet</text><text x="543" y="220" text-anchor="middle" font-family="Arial" font-size="16" fill="white">Encrypted peer-to-peer VPN</text><text x="543" y="245" text-anchor="middle" font-family="Arial" font-size="14" fill="white">Admin console: route approval + policy</text>
+<path d="M314 215 H369" stroke="#2571c6" stroke-width="5" stroke-dasharray="9 7" fill="none"/><path d="M717 215 H763" stroke="#2571c6" stroke-width="5" stroke-dasharray="9 7" fill="none"/>
+<rect x="763" y="72" width="333" height="490" rx="16" fill="#e4f2ec" stroke="#168453" stroke-width="2"/>
+<text x="930" y="106" text-anchor="middle" font-family="Arial" font-size="19" font-weight="bold" fill="#145a3d">Farm LAN 192.168.1.0/24</text>
+<rect x="785" y="129" width="289" height="100" rx="12" fill="#fff2d9" stroke="#c69d40"/>
+<text x="930" y="157" text-anchor="middle" font-family="Arial" font-size="17" font-weight="bold">Subnet router</text><text x="930" y="181" text-anchor="middle" font-family="Arial" font-size="14">Windows notebook (tested)</text><text x="930" y="203" text-anchor="middle" font-family="Arial" font-size="13">or compatible router (future)</text>
+<path d="M930 229 V260" stroke="#168453" stroke-width="3"/><path d="M811 260 H1049" stroke="#168453" stroke-width="3"/>
+<g font-family="Arial" fill="#18382b" font-size="14" text-anchor="middle">
+<rect x="783" y="279" width="135" height="83" rx="10" fill="white"/><text x="850" y="309" font-weight="bold">VIGI CCTV</text><text x="850" y="333">192.168.1.228</text><text x="850" y="351" font-size="12">RTSP :554</text>
+<rect x="930" y="279" width="145" height="83" rx="10" fill="white"/><text x="1002" y="310" font-weight="bold">NVR</text><text x="1002" y="337" font-size="12">Local recording</text>
+<rect x="783" y="377" width="135" height="83" rx="10" fill="white"/><text x="850" y="408" font-weight="bold">IP Webcam</text><text x="850" y="433" font-size="12">HTTP/MJPEG</text>
+<rect x="930" y="377" width="145" height="83" rx="10" fill="white"/><text x="1002" y="408" font-weight="bold">IoT / NAS</text><text x="1002" y="433" font-size="12">If permitted</text>
+</g>
+<rect x="352" y="317" width="381" height="177" rx="14" fill="#e8eefb" stroke="#779bd2"/>
+<text x="542" y="350" text-anchor="middle" font-family="Arial" font-size="19" font-weight="bold" fill="#1b4577">Connectivity rules</text>
+<g font-family="Arial" font-size="15" fill="#173957"><text x="373" y="380">Remote: Tailscale ON at both ends</text><text x="373" y="410">Route advertised: 192.168.1.0/24</text><text x="373" y="440">Admin route approval required</text><text x="373" y="470">Same-site Wi-Fi: direct LAN access</text></g>
+<text x="560" y="602" text-anchor="middle" font-family="Arial" font-size="15" fill="#47675b">Control plane is not the video relay. Actual stream travels over the private tunnel.</text>
+</svg>
