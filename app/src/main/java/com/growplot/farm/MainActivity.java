@@ -370,6 +370,7 @@ public class MainActivity extends Activity {
         settings.setBlockNetworkImage(false);
         settings.setUserAgentString(settings.getUserAgentString() + " GrowPlot/" + BuildConfig.VERSION_NAME.replace(' ', '-'));
         web.addJavascriptInterface(new SnapshotBridge(), "GrowPlotBridge");
+        web.addJavascriptInterface(new AccountApiBridge(this, web), "GrowPlotAccount");
         web.setWebViewClient(new WebViewClient() {
             @Override public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
                 WebResourceResponse diagnosis = localDiagnosisMediaResponse(request.getUrl().toString(), request.getRequestHeaders());
@@ -399,7 +400,11 @@ public class MainActivity extends Activity {
                 } catch (Exception onboardingError) {
                     android.util.Log.w("GrowPlot", "New-user onboarding preview could not load", onboardingError);
                 }
-                view.evaluateJavascript("(function(){var f=document.getElementById('loginForm');if(!f||f.dataset.growplotAdminHook)return;f.dataset.growplotAdminHook='1';f.addEventListener('submit',function(e){var u=document.getElementById('loginIdentity');if(u&&u.value.trim().toLowerCase()==='growplot_admin'){e.preventDefault();e.stopImmediatePropagation();var p=f.querySelector('input[name=password]');document.getElementById('authStatus').textContent='Administrator verification: check the OTP email and enter the six-digit code.';GrowPlotBridge.loginAdminOtpDemo(p?p.value:'');}},true);})();", null);
+                try (InputStream accountInput = getAssets().open("account-login.js"); ByteArrayOutputStream accountBytes = new ByteArrayOutputStream()) {
+                    byte[] accountBuffer = new byte[8192]; int accountRead;
+                    while ((accountRead = accountInput.read(accountBuffer)) != -1) accountBytes.write(accountBuffer, 0, accountRead);
+                    view.evaluateJavascript(accountBytes.toString(StandardCharsets.UTF_8.name()), null);
+                } catch (Exception accountError) { android.util.Log.e("GrowPlot", "Account login UI could not load", accountError); }
                 if (pendingPageUpdate != null) {
                     String update = pendingPageUpdate;
                     pendingPageUpdate = null;
