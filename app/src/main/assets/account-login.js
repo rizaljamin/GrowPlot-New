@@ -15,6 +15,33 @@ function adminStats(){
  if(!panel){panel=document.createElement('section');panel.id='growplotAdminStats';panel.style.cssText='margin:12px;padding:12px;border:1px solid #aac;border-radius:12px;background:#f7faf7';const home=document.getElementById('mainDashboard');(home||document.body).prepend(panel);}
  panel.textContent='Loading user statistics…';request('stats',{});
 }
+function userPage(){
+ if(!currentUser){msg('Please log in first.');return;}
+ const auth=document.getElementById('authScreen');if(auth)auth.hidden=true;
+ let page=document.getElementById('growplotUserManagementPage');
+ if(!page){page=document.createElement('section');page.id='growplotUserManagementPage';page.style.cssText='position:fixed;inset:0;z-index:99000;overflow:auto;background:#f5f8f5;padding:22px;color:#163b25;box-sizing:border-box';
+ const back=document.createElement('button');back.type='button';back.textContent='← Back to GrowPlot';back.style.cssText='padding:12px;border-radius:8px;border:1px solid #568b66;background:white';back.onclick=()=>{page.hidden=true;goHome();};
+ const heading=document.createElement('h2');heading.textContent=currentUser.role==='ADMIN'?'User Statistics':'My Account';
+ const details=document.createElement('div');details.id='growplotUserManagementDetails';details.style.cssText='padding:16px;margin-top:14px;border:1px solid #c4d7c8;border-radius:12px;background:white;line-height:2';
+ const logout=document.createElement('button');logout.type='button';logout.textContent='Log out';logout.style.cssText='display:block;margin-top:20px;padding:12px;border:1px solid #a55;border-radius:8px;background:white';logout.onclick=()=>{if(api&&api.logout)api.logout();currentUser=null;window.GrowPlotCurrentUser=null;page.remove();if(auth)auth.hidden=false;};
+ page.append(back,heading,details,logout);document.body.appendChild(page);
+ }
+ page.hidden=false;const details=document.getElementById('growplotUserManagementDetails');
+ if(currentUser.role==='ADMIN'){
+   if(api&&api.configured()){details.textContent='Loading user statistics…';request('stats',{});}
+   else {const n=Object.keys(localStorage).filter(k=>k.startsWith('growplot_test_account_')).length;details.textContent='Registered test users on this device: '+n+' (development only). Google Drive user statistics unavailable.';}
+ }else details.textContent='Username: '+currentUser.username+' | Account type: Normal User';
+}
+window.GrowPlotOpenUserManagement=userPage;
+document.addEventListener('click',function(e){
+ const target=e.target&&e.target.closest?e.target.closest('button,a,[role="button"]'):null;
+ if(!target||!currentUser)return;
+ const id=(target.id||'').toLowerCase();
+ const text=(target.textContent||'').trim().toLowerCase();
+ const named=/^(user|users|my account|account|user management|user statistics)$/.test(text);
+ const identified=/^(userbtn|btnuser|accountbtn|myaccountbtn|navuser|navaccount|userbutton)$/.test(id);
+ if(named||identified){e.preventDefault();e.stopImmediatePropagation();userPage();}
+},true);
 window.GrowPlotAccountResponse=function(response){
  if(!response.ok){msg(response.error||'Account request failed');return;}
  const data=response.data||{};
@@ -35,7 +62,7 @@ window.GrowPlotAccountResponse=function(response){
      goHome();
    }else{goHome();if(typeof window.GrowPlotNewUserPreview==='function')window.GrowPlotNewUserPreview();}
  }else if(response.action==='stats'){
-   const p=document.getElementById('growplotAdminStats');if(p)p.textContent='GrowPlot users: '+data.totalUsers+' | Standard users: '+data.standardUsers+' | Administrators: '+data.administrators+' | Logged in last 7 days: '+data.loggedInLast7Days;
+   const p=document.getElementById('growplotAdminStats');if(p)p.textContent='GrowPlot users: '+data.totalUsers+' | Standard users: '+data.standardUsers+' | Administrators: '+data.administrators+' | Logged in last 7 days: '+data.loggedInLast7Days;const d=document.getElementById('growplotUserManagementDetails');if(d)d.textContent='Total users: '+data.totalUsers+' | Standard users: '+data.standardUsers+' | Administrators: '+data.administrators+' | Logged in last 7 days: '+data.loggedInLast7Days;
  }else if(response.action==='saveProfile'){msg('Plot profile saved to Google Drive.');}
 };
 function submit(e,action){
