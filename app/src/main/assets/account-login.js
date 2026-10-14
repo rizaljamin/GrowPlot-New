@@ -60,7 +60,7 @@ function saveNotice(message,success){
  el.style.background=success?'#d8f4df':'#ffe5df';el.style.color=success?'#164b2a':'#782319';el.textContent=message;
 }
 window.GrowPlotAccountResponse=function(response){
- if(!response.ok){msg(response.error||'Account request failed');if(response.action==='saveProfile')saveNotice('Firebase save failed: '+(response.error||'Please retry.'),false);return;}
+ if(!response.ok){msg((response.action==='profile'?'Firebase profile could not be loaded: ':'')+(response.error||'Account request failed'));if(response.action==='profile'){const authScreen=document.getElementById('authScreen');if(authScreen)authScreen.hidden=false;currentUser=null;window.GrowPlotCurrentUser=null;}if(response.action==='saveProfile')saveNotice('Firebase save failed: '+(response.error||'Please retry.'),false);return;}
  const data=response.data||{};
  if(response.action==='login'||response.action==='register'){
    currentUser=data.user;window.GrowPlotCurrentUser=currentUser;
@@ -93,6 +93,7 @@ function submit(e,action){
 }
 if(login)login.addEventListener('submit',e=>submit(e,'login'),true);
 if(create)create.addEventListener('submit',e=>submit(e,'register'),true);
+if(!login||!create)msg('GrowPlot login setup error: expected login and registration forms were not found.');
 window.GrowPlotAdminVerified=function(){currentUser={username:'growplot_admin',role:'ADMIN',developmentOnly:true};window.GrowPlotCurrentUser=currentUser;goHome();demo();const home=document.getElementById('mainDashboard')||document.body;let panel=document.getElementById('growplotAdminStats');if(!panel){panel=document.createElement('section');panel.id='growplotAdminStats';home.prepend(panel);}const n=Object.keys(localStorage).filter(k=>k.startsWith('growplot_test_account_')).length;panel.textContent='Development user stats: '+n+' accounts on this device. Google Drive stats pending.';};
 window.GrowPlotSaveCloudProfile=function(){
  if(!currentUser){saveNotice('Sign in before saving your user profile.',false);return;}if(currentUser.role==='ADMIN')return;
