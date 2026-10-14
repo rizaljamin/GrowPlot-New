@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1052371761033",
+    "project_id": "growplot",
+    "storage_bucket": "growplot.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1052371761033:android:06a687b564e284fc371358",
+        "android_client_info": {
+          "package_name": "com.growplot.farm"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA-H0VWrX9Lvmk9c8lQZMP8itd9aAcf-Dk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
