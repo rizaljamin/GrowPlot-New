@@ -42,6 +42,7 @@ print('\n'.join(scripts))
 PY
 node --check "$TEMP_JS" || fail "inline JavaScript syntax check failed"
 node "$ROOT/tools/tests/kindwise-regression.js" || fail "Kindwise integration regression check failed"
+node "$ROOT/tools/tests/crop-picker-flow-regression.js" || fail "Crop picker flow regression check failed"
 
 cd "$ROOT"
 APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"

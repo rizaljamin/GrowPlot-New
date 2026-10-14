@@ -56,3 +56,7 @@ Validation: executable combined-save regression, saved-password reuse, invalid G
 2026-10-12 | Pending next build after Build 6
 Added collapsed Plugins · API Keys Settings menu with default Pl@ntNet key portal and Kindwise admin links. Masked key fields save through the overall diskette Save action; blank fields retain saved keys. Keys use Android Keystore AES-GCM encrypted device preferences and are never returned to the WebView. Pl@ntNet requests use the saved device key first, then the existing build-key fallback. Kindwise key storage is available; diagnosis provider integration remains unconnected.
 Validation: Java 17 compilation against Android API 35/VLC and existing Settings/feed regression checks passed. Live provider validation and Android device checks pending; Packaged in Build 7; APK checks passed.
+
+## Pending next build — crop picker flow (BUG-065)
+
+Crop planning now starts with a plant-icon **Choose a crop** button. Crop descriptions and choices appear in a popup; after a user selects one, GrowPlot displays its information and reveals the planting detail fields. This change is on `feature/crop-picker-modal`; run the crop-picker regression check and verify the popup/form sequence on Android in the next APK build.
