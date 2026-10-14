@@ -59,6 +59,7 @@ dependencies {
     implementation platform('com.google.firebase:firebase-bom:34.4.0')
     implementation 'com.google.firebase:firebase-auth'
     implementation 'com.google.firebase:firebase-firestore'
+    implementation 'com.google.code.gson:gson:2.11.0'
 }
 
 // The package task otherwise may reuse an APK built for the previous version identity.
