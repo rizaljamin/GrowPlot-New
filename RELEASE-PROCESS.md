@@ -30,7 +30,7 @@ Follow the golden-source governance in `AGENTS.md`. Copy the verified GitHub rev
 
 ## ARM64 build policy
 
-The routine build produces one `arm64-v8a` APK, source ZIP and checksum manifest. It does not generate a universal APK or debug AAB. Both build scripts explicitly request ARM64. Run `node tools/tests/feed-history-regression.js` for the snapshot-history UI regression check. Compilation and static checks do not replace live-camera and Google Drive testing on the target Android device.
+The routine build produces one `arm64-v8a` APK, source ZIP and checksum manifest. It does not generate a universal APK or debug AAB. Both build scripts explicitly request ARM64. Run `node tools/tests/feed-history-regression.js` for the snapshot-history UI regression check. Run `node tools/tests/manage-farm-regression.js` for farm scope, task due status, completion, and schedule-order checks. Compilation and static checks do not replace live-camera and Google Drive testing on the target Android device.
 
 ## GitHub Actions APK build
 

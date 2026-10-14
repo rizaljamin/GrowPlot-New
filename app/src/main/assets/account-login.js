@@ -9,7 +9,7 @@ const status=document.getElementById('authStatus');
 function configureEmailFields(){
  for(const form of [login,create]){
   if(!form)continue;
-  const field=form.querySelector('#loginIdentity, input[name="username"], input[name="email"], input[type="email"], input[type="text"]');
+  const field=form.querySelector('input[name="email"], #loginIdentity, input[type="email"]');
   if(!field)continue;
   field.type='email';field.setAttribute('inputmode','email');field.setAttribute('autocomplete','email');field.setAttribute('name','email');field.setAttribute('placeholder','Email address');field.setAttribute('aria-label','Email address');field.required=true;
   const label=field.id?form.querySelector('label[for="'+field.id+'"]'):null;
@@ -18,6 +18,7 @@ function configureEmailFields(){
 }
 configureEmailFields();
 let currentUser=null;
+let saveProfileCallback=null;
 function msg(t){if(status)status.textContent=t;}
 function request(action,payload){api.request(action,JSON.stringify(payload||{}));}
 function goHome(){const auth=document.getElementById('authScreen');if(auth)auth.hidden=true;if(typeof returnHome==='function')returnHome();else if(typeof render==='function')render();}
@@ -60,9 +61,9 @@ function saveNotice(message,success){
  el.style.background=success?'#d8f4df':'#ffe5df';el.style.color=success?'#164b2a':'#782319';el.textContent=message;
 }
 window.GrowPlotAccountResponse=function(response){
- if(!response.ok){msg((response.action==='profile'?'Firebase profile could not be loaded: ':'')+(response.error||'Account request failed'));if(response.action==='profile'){const authScreen=document.getElementById('authScreen');if(authScreen)authScreen.hidden=false;currentUser=null;window.GrowPlotCurrentUser=null;}if(response.action==='saveProfile')saveNotice('Firebase save failed: '+(response.error||'Please retry.'),false);return;}
+ if(!response.ok){if(response.action==='googleSignIn'){const createView=document.getElementById('createView');const target=createView&&!createView.hidden?document.getElementById('createStatus'):status;if(target)target.textContent=response.error||'Google sign-in failed.';}else msg((response.action==='profile'?'Firebase profile could not be loaded: ':'')+(response.error||'Account request failed'));if(response.action==='saveProfile'){const callback=saveProfileCallback;saveProfileCallback=null;if(callback)callback(false,response.error||'Firebase save failed.');}if(response.action==='profile'){const authScreen=document.getElementById('authScreen');if(authScreen)authScreen.hidden=false;currentUser=null;window.GrowPlotCurrentUser=null;}if(response.action==='saveProfile')saveNotice('Firebase save failed: '+(response.error||'Please retry.'),false);return;}
  const data=response.data||{};
- if(response.action==='login'||response.action==='register'){
+ if(response.action==='login'||response.action==='register'||response.action==='googleSignIn'){
    currentUser=data.user;window.GrowPlotCurrentUser=currentUser;
    if(!currentUser){msg('Invalid account response');return;}
    if(currentUser.role==='ADMIN'){goHome();demo();adminStats();}
@@ -80,26 +81,29 @@ window.GrowPlotAccountResponse=function(response){
    }else{goHome();if(typeof window.GrowPlotNewUserPreview==='function')window.GrowPlotNewUserPreview();}
  }else if(response.action==='stats'){
    const p=document.getElementById('growplotAdminStats');if(p)p.textContent='GrowPlot users: '+data.totalUsers+' | Standard users: '+data.standardUsers+' | Administrators: '+data.administrators+' | Logged in last 7 days: '+data.loggedInLast7Days;const d=document.getElementById('growplotUserManagementDetails');if(d)d.textContent='Total users: '+data.totalUsers+' | Standard users: '+data.standardUsers+' | Administrators: '+data.administrators+' | Logged in last 7 days: '+data.loggedInLast7Days;
- }else if(response.action==='saveProfile'){if(data.saved===true){msg('Data saved successfully to Firebase.');saveNotice('Data saved successfully to Firebase.',true);}else saveNotice('Save was not confirmed by Firebase.',false); }
+ }else if(response.action==='saveProfile'){const saved=data.saved===true;if(saved){msg('Data saved successfully to Firebase.');saveNotice('Data saved successfully to Firebase.',true);}else saveNotice('Save was not confirmed by Firebase.',false);const callback=saveProfileCallback;saveProfileCallback=null;if(callback)callback(saved,response.error||''); }
 };
 function submit(e,action){
  e.preventDefault();e.stopImmediatePropagation();
  if(!api||!api.configured()){msg('Firebase is not configured.');return;}
  const form=e.currentTarget;
- const username=(form.querySelector('#loginIdentity, input[name="username"], input[name="email"], input[type="email"], input[type="text"]')||{}).value||'';
+ const email=(form.querySelector('input[name="email"], #loginIdentity, input[type="email"]')||{}).value||'';
+ if(action==='register'&&form.elements.password.value!==form.elements.confirmPassword.value){const createStatus=document.getElementById('createStatus');if(createStatus)createStatus.textContent='The passwords do not match.';return;}
  const password=(form.querySelector('input[name="password"],input[type="password"]')||{}).value||'';
  msg(action==='login'?'Signing in with Firebase…':'Registering with Firebase…');
- request(action,{email:username.trim(),username:username.trim(),password});
+ request(action,{email:email.trim(),password});
 }
 if(login)login.addEventListener('submit',e=>submit(e,'login'),true);
 if(create)create.addEventListener('submit',e=>submit(e,'register'),true);
+function beginGoogleSignIn(){if(!api||!api.configured()){msg('Firebase is not configured.');return;}const createView=document.getElementById('createView');const target=createView&&!createView.hidden?document.getElementById('createStatus'):status;if(target)target.textContent='Opening Google sign-in…';if(api.startGoogleSignIn)api.startGoogleSignIn();else if(target)target.textContent='Google sign-in is unavailable in this build.';}
+document.addEventListener('click',function(e){const button=e.target&&e.target.closest?e.target.closest('#googleLoginBtn,#googleRegisterBtn'):null;if(!button)return;e.preventDefault();e.stopImmediatePropagation();beginGoogleSignIn();},true);
 if(!login||!create)msg('GrowPlot login setup error: expected login and registration forms were not found.');
 window.GrowPlotAdminVerified=function(){currentUser={username:'growplot_admin',role:'ADMIN',developmentOnly:true};window.GrowPlotCurrentUser=currentUser;goHome();demo();const home=document.getElementById('mainDashboard')||document.body;let panel=document.getElementById('growplotAdminStats');if(!panel){panel=document.createElement('section');panel.id='growplotAdminStats';home.prepend(panel);}const n=Object.keys(localStorage).filter(k=>k.startsWith('growplot_test_account_')).length;panel.textContent='Development user stats: '+n+' accounts on this device. Google Drive stats pending.';};
-window.GrowPlotSaveCloudProfile=function(){
- if(!currentUser){saveNotice('Sign in before saving your user profile.',false);return;}if(currentUser.role==='ADMIN')return;
- if(!api||!api.configured()){saveNotice('Firebase unavailable. Data was not saved.',false);return;}
+window.GrowPlotSaveCloudProfile=function(callback){
+ if(!currentUser){saveNotice('Sign in before saving your user profile.',false);if(callback)callback(false,'Sign in first.');return;}if(currentUser.role==='ADMIN'){if(callback)callback(true,'');return;}
+ if(!api||!api.configured()){saveNotice('Firebase unavailable. Data was not saved.',false);if(callback)callback(false,'Firebase is unavailable.');return;}
  const mine=typeof plots==='undefined'?[]:plots.filter(p=>p&&p.id&&p.id!=='plot-1'&&!/demo/i.test(String(p.name||'')));
- saveNotice('Saving to Firebase…',false);request('saveProfile',{plots:mine,settings:{},selectedPlotId:typeof selectedPlotId==='undefined'?null:selectedPlotId});
+ saveProfileCallback=callback||null;saveNotice('Saving to Firebase…',false);request('saveProfile',{plots:mine,settings:{},selectedPlotId:typeof selectedPlotId==='undefined'?null:selectedPlotId});
 };
 const preview=document.getElementById('growplotPreviewButton');if(preview)preview.remove();
 // Development build permits demo administrator access; no false cloud-authentication claims.

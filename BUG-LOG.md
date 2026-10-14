@@ -690,3 +690,34 @@ Build 7 validation: Gradle ARM64 build, package version, signature, alignment, S
 **Fix:** Removed the separate Android SDK setup steps and made the single build workflow use the repository's tested `tools/build-apk.sh` → `tools/ensure-android-sdk.sh` bootstrap. Removed the duplicate workflow and made artifact identity checks read `version.properties` dynamically. The workflow now includes workflow-file changes in its push trigger and uploads APK, source ZIP, and manifest together.
 
 **Verification / limits:** Local shell syntax, workflow YAML parsing, `git diff --check`, and Kindwise, Settings-save, and feed-history regression checks passed. The repaired GitHub Actions run passed SDK bootstrap, Gradle build, manifest/package/version checks, and artifact upload. The ARM64 APK SHA-256 is `dc14b903a4bee044060dc541f828c75b41c20db68d509b70dab5a918c4fa8465`; the source ZIP SHA-256 is `c5528b7df0c7201bf1b5eb4c8d32e453e847e63bc9448ef86e817e6ff56127e0`. The generated artifact is development-only because its signer does not match the saved Build 30 certificate and the Pl@ntNet build key is absent. Install/update compatibility and app behavior still require Android device verification.
+
+
+## BUG-065 — Manage Farm records are difficult to filter and prioritise
+
+**Reported:** 2026-10-14
+**Status:** Fixed in source for v0.6.01 Build 23 (versionCode 150); APK and Android device verification pending.
+
+**Finding:** Crop planting history filtered by plot only, while irrigation and maintenance lists filtered by plot and greenhouse. None of the lists could be narrowed by section. Maintenance dates had no due-state cue or quick completion action, and irrigation schedules were not ordered by their start date.
+
+**Fix:** Added consistent Plot, Greenhouse, and Section filters across Manage Farm tabs. Records scoped to all sections remain visible in an individual section view. Maintenance now shows overdue, due-today, upcoming, or completed status; Mark complete stores a local completion date and syncs the farm record. Irrigation records sort by start date.
+
+**Verification / limits:** Manage Farm regression covers scope filtering, all-section inclusion, filter markup, date cues, completion timestamp and sync calls, and irrigation ordering. Manage Farm, Kindwise, Settings-save, and feed-history regression checks and inline JavaScript syntax pass. APK build, Google Drive provider behavior, and Android touch/layout verification remain pending.
+
+## BUG-066 — ARM64 build scripts are not executable from a clean checkout
+
+**Reported:** 2026-10-14
+**Status:** Fixed in source for v0.6.01 Build 23; remote ARM64 build verification pending.
+
+**Finding:** A clean Git checkout records `tools/ensure-android-sdk.sh` and `gradlew` as non-executable, although `tools/build-apk.sh` invokes both directly. The build stopped at SDK bootstrap, then at the Gradle wrapper after the SDK was initialized.
+
+**Fix:** Corrected both executable file modes in Git. The local retry passed JavaScript, Kindwise, and Manage Farm checks and reached the Gradle wrapper; Gradle distribution download then failed because this workspace cannot reach `services.gradle.org`. GitHub Actions will perform the complete ARM64 build and artifact checks.
+
+
+## BUG-067 — Account registration and first-plot onboarding
+
+**Reported:** 2026-10-14
+**Status:** Implemented in source for v0.6.01 Build 23 (versionCode 150); APK and Android device verification pending.
+
+**Fix:** Removed only the account Username field; login and registration use email, password and confirm password. Password confirmation is checked before Firebase registration. Google Credential Manager sign-in is exchanged with Firebase Auth and creates a Firestore user profile on first use. A new or empty account now sees the first-plot prompt inside the login card, then waits for the Firebase save response before entering the dashboard. Local plot saves for authenticated users also write the profile to Firestore and show success or failure.
+
+**Verification / limits:** Account registration regression, JavaScript syntax, Manage Farm, Kindwise and feed-history checks pass. The GitHub `google-services.json` currently has no OAuth clients, so Google sign-in cannot complete until the Google provider is enabled in Firebase Authentication and a new config with the web OAuth client is committed. Target-device sign-in and layout verification remain pending.

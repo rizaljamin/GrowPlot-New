@@ -1,3 +1,11 @@
+## Build 23 prepared from GitHub Build 22
+
+- Baseline: GitHub `main` at commit `09b12d6dd608837a7aa7009052ba556127b6d2b4`, v0.6.01 Build 22 / versionCode 149.
+- Manage Farm now filters planting, irrigation, and maintenance records by plot, greenhouse, and section; all-section records remain visible when a single section is selected.
+- Maintenance shows overdue / due today / upcoming / completed cues; Mark complete saves a completion date and syncs. Irrigation records sort by their first scheduled date.
+- Added `tools/tests/manage-farm-regression.js` and made it a build gate. Static regressions and inline JavaScript syntax pass.
+- Build identity: v0.6.01 Build 23 / versionCode 150. Git executable-mode defects in `gradlew` and `tools/ensure-android-sdk.sh` are corrected. Login and registration use email/password/confirm password with only Username removed; Google Credential Manager/Firebase Auth is wired, and first-plot onboarding is shown in the login card with Firebase write status. Local Gradle download was blocked by workspace network restrictions; the GitHub ARM64 workflow must finish before an APK is claimed. Firebase Google OAuth config is still missing from `google-services.json`; Android device verification remains pending.
+
 # GrowPlot enhancement batch
 
 - Verified GitHub source baseline: v0.6.01 Build 7 (versionCode 134), commit a803ae919bf8db1acbe6217a87d151fd794e997e.

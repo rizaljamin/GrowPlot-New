@@ -161,6 +161,7 @@ public class MainActivity extends Activity {
     private String pendingDiagnosisPlotName = "Plot_1";
     private int pendingDiagnosisCamera;
     private WebView web;
+    private AccountApiBridge accountApiBridge;
     private FrameLayout appRoot;
     private FrameLayout ipWebcamVlcFrame;
     private VLCVideoLayout ipWebcamVlcLayout;
@@ -370,7 +371,8 @@ public class MainActivity extends Activity {
         settings.setBlockNetworkImage(false);
         settings.setUserAgentString(settings.getUserAgentString() + " GrowPlot/" + BuildConfig.VERSION_NAME.replace(' ', '-'));
         web.addJavascriptInterface(new SnapshotBridge(), "GrowPlotBridge");
-        web.addJavascriptInterface(new AccountApiBridge(this, web), "GrowPlotAccount");
+        accountApiBridge = new AccountApiBridge(this, web);
+        web.addJavascriptInterface(accountApiBridge, "GrowPlotAccount");
         web.setWebViewClient(new WebViewClient() {
             @Override public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
                 WebResourceResponse diagnosis = localDiagnosisMediaResponse(request.getUrl().toString(), request.getRequestHeaders());

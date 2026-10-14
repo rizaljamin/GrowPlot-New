@@ -1,59 +1,41 @@
 (function(){
 'use strict';
-const KEY='growplotPreviewUserPlots';
-function owned(){try{const x=JSON.parse(localStorage.getItem(KEY)||'[]');return Array.isArray(x)?x:[]}catch(e){return []}}
-function banner(){
- const existing=document.getElementById('growplotFirstPlotBanner');if(existing)existing.remove();
- const section=document.createElement('section');section.id='growplotFirstPlotBanner';
- section.setAttribute('aria-label','First plot setup');
- section.style.cssText='margin:14px auto;padding:18px;border-radius:16px;border:1px solid #badac2;background:#f0faf2;color:#153f2a;max-width:980px;box-sizing:border-box';
- const title=document.createElement('h2');title.textContent=owned().length?'Your GrowPlot workspace':'Welcome to GrowPlot';title.style.cssText='font-size:1.2rem;margin:0 0 8px';
- const desc=document.createElement('p');desc.textContent=owned().length?'Choose your plot or continue exploring the demo.':'Choose Create My Plot to set up your farm, or Show Me the Demo Plot to explore the existing setup.';desc.style.cssText='margin:0 0 14px;line-height:1.5';
- const btn=document.createElement('button');btn.type='button';btn.textContent=owned().length?'Create Another Plot':'Create My Plot';btn.style.cssText='background:#166534;color:white;border:0;border-radius:10px;padding:12px 18px;font-weight:700;min-height:44px;cursor:pointer';
- btn.addEventListener('click',openCreate);
- const demo=document.createElement('button');demo.type='button';demo.textContent='Show Me the Demo Plot';demo.style.cssText='background:white;color:#166534;border:1px solid #166534;border-radius:10px;padding:12px 18px;font-weight:700;min-height:44px;cursor:pointer';
- demo.addEventListener('click',()=>{section.remove();const dp=(typeof plots!=='undefined'&&Array.isArray(plots))?plots.find(p=>/demo/i.test(String(p.name||'')+' '+String(p.id||''))):null;if(dp){selectedPlotId=dp.id;if(typeof fillPlotSelectors==='function')fillPlotSelectors();if(typeof render==='function')render();}const target=document.getElementById('mainDashboard')||document.getElementById('cameras');if(target)target.scrollIntoView({behavior:'smooth'});});
- const actions=document.createElement('div');actions.style.cssText='display:flex;gap:10px;flex-wrap:wrap';actions.append(btn,demo);section.append(title,desc,actions);
- const dash=document.getElementById('mainDashboard')||document.getElementById('cameras')||document.body.firstElementChild;if(dash&&dash.parentNode)dash.parentNode.insertBefore(section,dash);
+let view=null;
+function showFirstPlotSetup(){
+ const auth=document.getElementById('authScreen'),card=auth&&auth.querySelector('.auth-card');
+ if(!auth||!card)return;
+ auth.hidden=false;
+ document.querySelectorAll('#authScreen .auth-view').forEach(node=>node.hidden=true);
+ if(!view){
+  view=document.createElement('section');view.id='growplotFirstPlotView';view.className='auth-view';view.setAttribute('aria-labelledby','growplotFirstPlotTitle');
+  const title=document.createElement('h1');title.id='growplotFirstPlotTitle';title.textContent='Create your first plot';
+  const intro=document.createElement('p');intro.className='auth-intro';intro.textContent='Give your farm a name to get started. You can add its location and other details later.';
+  const form=document.createElement('form');form.id='growplotFirstPlotForm';
+  const label=document.createElement('label');label.className='auth-field';label.textContent='Plot name';
+  const input=document.createElement('input');input.name='plotName';input.type='text';input.required=true;input.maxLength=60;input.placeholder='e.g. Fertigation Jerkoh';input.autocomplete='organization';label.appendChild(input);
+  const submit=document.createElement('button');submit.className='auth-primary';submit.type='submit';submit.textContent='Create plot';
+  const status=document.createElement('p');status.id='growplotFirstPlotStatus';status.className='auth-status';status.setAttribute('role','status');status.setAttribute('aria-live','polite');
+  form.append(label,submit,status);view.append(title,intro,form);card.appendChild(view);
+  form.addEventListener('submit',e=>{
+   e.preventDefault();const name=input.value.trim();if(!name){status.textContent='Enter a plot name.';return;}
+   if(typeof plots==='undefined'||typeof savePlotData!=='function'){status.textContent='Plot setup is unavailable. Please try again.';return;}
+   const number=String(Math.max(0,...plots.map(p=>Number(p.number)||0))+1);
+   const id='user-plot-'+Date.now().toString(36)+'-'+Math.floor(Math.random()*10000).toString(36);
+   const plot={id,number,name,address:'',latitude:'',longitude:'',description:'',dataFeed:{enabled:false,folderUri:null}};
+   plots.push(plot);selectedPlotId=id;
+   window.GrowPlotSuppressCloudSave=true;const saved=savePlotData();window.GrowPlotSuppressCloudSave=false;
+   if(!saved){plots.pop();status.textContent='Could not save the plot on this device.';return;}
+   if(window.GrowPlotBridge)GrowPlotBridge.ensurePlotFeed(id);
+   if(typeof fillPlotSelectors==='function')fillPlotSelectors();if(typeof loadPlotForm==='function')loadPlotForm();
+   status.textContent='Saving your plot to Firebase…';submit.disabled=true;
+   if(typeof window.GrowPlotSaveCloudProfile!=='function'){submit.disabled=false;status.textContent='Your plot is on this device, but Firebase save is unavailable.';return;}
+   window.GrowPlotSaveCloudProfile((ok,error)=>{
+    if(!ok){submit.disabled=false;status.textContent='Your plot is on this device, but Firebase could not confirm the save. '+(error||'Please retry.');return;}
+    auth.hidden=true;view.hidden=true;if(typeof window.returnHome==='function')window.returnHome();if(typeof render==='function')render();
+   });
+  });
+ }
+ view.hidden=false;const input=view.querySelector('input[name="plotName"]');if(input)input.focus();
 }
-function openCreate(){
- let overlay=document.getElementById('growplotCreateFirstPlot');if(overlay){overlay.hidden=false;return}
- overlay=document.createElement('div');overlay.id='growplotCreateFirstPlot';
- overlay.style.cssText='position:fixed;inset:0;z-index:99999;background:#0009;display:flex;align-items:center;justify-content:center;padding:20px';
- const form=document.createElement('form');form.style.cssText='background:white;border-radius:18px;padding:24px;max-width:420px;width:100%;box-shadow:0 16px 60px #0004';
- const heading=document.createElement('h2');heading.textContent='Create your first plot';heading.style.cssText='margin:0 0 12px;color:#153f2a';
- const help=document.createElement('p');help.textContent='Enter a name for your new plot. You can still explore the Demo Plot later.';help.style.cssText='margin:0 0 16px';
- const input=document.createElement('input');input.required=true;input.maxLength=60;input.placeholder='e.g. Rubber Plot 1';input.setAttribute('aria-label','Plot name');input.style.cssText='width:100%;padding:12px;border:1px solid #aaa;border-radius:8px;box-sizing:border-box;font-size:16px';
- const status=document.createElement('p');status.setAttribute('role','status');
- const actions=document.createElement('div');actions.style.cssText='display:flex;gap:12px;justify-content:flex-end;margin-top:16px';
- const cancel=document.createElement('button');cancel.type='button';cancel.textContent='Cancel';cancel.onclick=()=>overlay.remove();
- const save=document.createElement('button');save.type='submit';save.textContent='Create Plot';save.style.cssText='background:#166534;color:white;border:0;border-radius:8px;padding:12px';
- actions.append(cancel,save);form.append(heading,help,input,status,actions);overlay.appendChild(form);document.body.appendChild(overlay);input.focus();
- form.addEventListener('submit',e=>{
- e.preventDefault();const name=input.value.trim();if(!name){status.textContent='Enter a plot name.';return}
- if(typeof plots==='undefined'||typeof savePlotData!=='function'){status.textContent='Plot manager is unavailable.';return}
- const mine=owned();const number=String(Math.max(0,...plots.map(p=>Number(p.number)||0))+1);
- const id='user-plot-'+Date.now().toString(36)+'-'+Math.floor(Math.random()*10000).toString(36);
- const plot={id,number,name,address:'',latitude:'',longitude:'',description:'',dataFeed:{enabled:false,folderUri:null}};
- plots.push(plot);selectedPlotId=id;
- if(!savePlotData()){plots.pop();status.textContent='Could not save plot on this device.';return}
- mine.push(id);localStorage.setItem(KEY,JSON.stringify(mine));
- if(typeof fillPlotSelectors==='function')fillPlotSelectors();
- if(typeof loadPlotForm==='function')loadPlotForm();
- if(typeof render==='function')render();
- if(typeof window.GrowPlotSaveCloudProfile==='function')window.GrowPlotSaveCloudProfile();
- overlay.remove();const first=document.getElementById('growplotFirstPlotBanner');if(first)first.remove();
- });
-}
-window.GrowPlotNewUserPreview=function(){
- const auth=document.getElementById('authScreen');if(auth)auth.hidden=true;
- banner();const first=document.getElementById('growplotFirstPlotBanner');if(first)first.scrollIntoView({behavior:'smooth'});
-};
-function addPreview(){
- const login=document.getElementById('loginView');if(!login||document.getElementById('growplotPreviewButton'))return;
- const b=document.createElement('button');b.id='growplotPreviewButton';b.type='button';b.textContent='Preview new-user home (demo)';
- b.style.cssText='display:block;margin:12px auto;border:1px solid #166534;border-radius:8px;padding:10px;background:transparent;color:#166534;cursor:pointer';
- b.onclick=window.GrowPlotNewUserPreview;login.appendChild(b);
-}
-// Cloud login owns the onboarding entry; no unauthenticated preview button.
+window.GrowPlotNewUserPreview=showFirstPlotSetup;
 })();
