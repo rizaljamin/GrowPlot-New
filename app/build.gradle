@@ -25,6 +25,8 @@ android {
     }
 
     buildFeatures { buildConfig true }
+    // Configure at build time: -PgrowplotAccountApiUrl=https://your-account-service.example
+    defaultConfig { buildConfigField 'String', 'ACCOUNT_API_URL', buildConfigLiteral(project.findProperty('growplotAccountApiUrl') ?: '') }
     buildTypes {
         debug {
             buildConfigField 'String', 'DIAGNOSIS_API_URL', buildConfigLiteral(project.findProperty('growplotDiagnosisApiUrl') ?: '')
