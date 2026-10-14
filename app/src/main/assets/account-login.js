@@ -60,7 +60,7 @@ function saveNotice(message,success){
  el.style.background=success?'#d8f4df':'#ffe5df';el.style.color=success?'#164b2a':'#782319';el.textContent=message;
 }
 window.GrowPlotAccountResponse=function(response){
- if(!response.ok){msg(response.error||'Account request failed');if(response.action==='saveProfile')saveNotice('Google Drive save failed: '+(response.error||'Please retry.'),false);return;}
+ if(!response.ok){msg(response.error||'Account request failed');if(response.action==='saveProfile')saveNotice('Firebase save failed: '+(response.error||'Please retry.'),false);return;}
  const data=response.data||{};
  if(response.action==='login'||response.action==='register'){
    currentUser=data.user;window.GrowPlotCurrentUser=currentUser;
@@ -80,39 +80,15 @@ window.GrowPlotAccountResponse=function(response){
    }else{goHome();if(typeof window.GrowPlotNewUserPreview==='function')window.GrowPlotNewUserPreview();}
  }else if(response.action==='stats'){
    const p=document.getElementById('growplotAdminStats');if(p)p.textContent='GrowPlot users: '+data.totalUsers+' | Standard users: '+data.standardUsers+' | Administrators: '+data.administrators+' | Logged in last 7 days: '+data.loggedInLast7Days;const d=document.getElementById('growplotUserManagementDetails');if(d)d.textContent='Total users: '+data.totalUsers+' | Standard users: '+data.standardUsers+' | Administrators: '+data.administrators+' | Logged in last 7 days: '+data.loggedInLast7Days;
- }else if(response.action==='saveProfile'){if(data.saved===true){msg('Data saved successfully to Google Drive.');saveNotice('Data saved successfully to Google Drive.',true);}else saveNotice('Save was not confirmed by Google Drive.',false); }
+ }else if(response.action==='saveProfile'){if(data.saved===true){msg('Data saved successfully to Firebase.');saveNotice('Data saved successfully to Firebase.',true);}else saveNotice('Save was not confirmed by Firebase.',false); }
 };
 function submit(e,action){
  e.preventDefault();e.stopImmediatePropagation();
- if(!api||!api.configured()){
-   const form=e.currentTarget;
-   const username=((form.querySelector('#loginIdentity, input[name="username"], input[name="email"], input[type="email"], input[type="text"]')||{}).value||'').trim();
-   const suppliedPassword=(form.querySelector('input[name="password"],input[type="password"]')||{}).value||'';
-   if(action==='login'&&username.toLowerCase()==='growplot_admin'){
-     if(!window.GrowPlotBridge||!window.GrowPlotBridge.loginAdminOtpDemo){msg('Administrator verifier unavailable');return;}
-     window.GrowPlotBridge.loginAdminOtpDemo(suppliedPassword);
-     return;
-   }
-   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(username)||suppliedPassword.length<8){msg('Enter a valid email address and a password of at least 8 characters.');return;}
-   const key='growplot_test_account_'+username.toLowerCase();
-   if(action==='register'){
-     if(localStorage.getItem(key)){msg('Account already exists on this device.');return;}
-     localStorage.setItem(key,JSON.stringify({password:suppliedPassword,plots:[],selectedPlotId:null}));
-   }
-   const record=JSON.parse(localStorage.getItem(key)||'null');
-   if(!record||record.password!==suppliedPassword){msg('Incorrect email or password.');return;}
-   currentUser={username,role:'USER',developmentOnly:true};window.GrowPlotCurrentUser=currentUser;
-   goHome();
-   if(record.plots&&record.plots.length){
-     if(typeof plots!=='undefined'&&Array.isArray(plots)){for(const p of record.plots)if(!plots.some(x=>x.id===p.id))plots.push(p);selectedPlotId=record.selectedPlotId||record.plots[0].id;if(typeof fillPlotSelectors==='function')fillPlotSelectors();if(typeof render==='function')render();}
-   }else if(typeof window.GrowPlotNewUserPreview==='function')window.GrowPlotNewUserPreview();
-   msg('Development account: stored on this device only; Google Drive sync pending.');
-   return;
- }
+ if(!api||!api.configured()){msg('Firebase is not configured.');return;}
  const form=e.currentTarget;
  const username=(form.querySelector('#loginIdentity, input[name="username"], input[name="email"], input[type="email"], input[type="text"]')||{}).value||'';
  const password=(form.querySelector('input[name="password"],input[type="password"]')||{}).value||'';
- msg(action==='login'?'Checking account…':'Creating account…');
+ msg(action==='login'?'Signing in with Firebase…':'Registering with Firebase…');
  request(action,{email:username.trim(),username:username.trim(),password});
 }
 if(login)login.addEventListener('submit',e=>submit(e,'login'),true);
@@ -120,9 +96,9 @@ if(create)create.addEventListener('submit',e=>submit(e,'register'),true);
 window.GrowPlotAdminVerified=function(){currentUser={username:'growplot_admin',role:'ADMIN',developmentOnly:true};window.GrowPlotCurrentUser=currentUser;goHome();demo();const home=document.getElementById('mainDashboard')||document.body;let panel=document.getElementById('growplotAdminStats');if(!panel){panel=document.createElement('section');panel.id='growplotAdminStats';home.prepend(panel);}const n=Object.keys(localStorage).filter(k=>k.startsWith('growplot_test_account_')).length;panel.textContent='Development user stats: '+n+' accounts on this device. Google Drive stats pending.';};
 window.GrowPlotSaveCloudProfile=function(){
  if(!currentUser){saveNotice('Sign in before saving your user profile.',false);return;}if(currentUser.role==='ADMIN')return;
- if(!api||!api.configured()){saveNotice('Google Drive is not connected. Changes are NOT saved to Drive.',false);const key='growplot_test_account_'+currentUser.username.toLowerCase();const record=JSON.parse(localStorage.getItem(key)||'null');if(record){record.plots=typeof plots==='undefined'?[]:plots.filter(p=>p&&p.id&&!/demo/i.test(String(p.name||'')));record.selectedPlotId=typeof selectedPlotId==='undefined'?null:selectedPlotId;localStorage.setItem(key,JSON.stringify(record));}return;}
+ if(!api||!api.configured()){saveNotice('Firebase unavailable. Data was not saved.',false);return;}
  const mine=typeof plots==='undefined'?[]:plots.filter(p=>p&&p.id&&p.id!=='plot-1'&&!/demo/i.test(String(p.name||'')));
- saveNotice('Saving to Google Drive…',false);request('saveProfile',{plots:mine,settings:{},selectedPlotId:typeof selectedPlotId==='undefined'?null:selectedPlotId});
+ saveNotice('Saving to Firebase…',false);request('saveProfile',{plots:mine,settings:{},selectedPlotId:typeof selectedPlotId==='undefined'?null:selectedPlotId});
 };
 const preview=document.getElementById('growplotPreviewButton');if(preview)preview.remove();
 // Development build permits demo administrator access; no false cloud-authentication claims.
