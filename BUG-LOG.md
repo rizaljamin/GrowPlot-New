@@ -695,7 +695,7 @@ Build 7 validation: Gradle ARM64 build, package version, signature, alignment, S
 ## BUG-065 — Manage Farm records are difficult to filter and prioritise
 
 **Reported:** 2026-10-14
-**Status:** Fixed in source for v0.6.01 Build 23 (versionCode 150); APK and Android device verification pending.
+**Status:** Included in v0.6.01 Build 23 (versionCode 150); GitHub ARM64 build passed; Android device verification pending.
 
 **Finding:** Crop planting history filtered by plot only, while irrigation and maintenance lists filtered by plot and greenhouse. None of the lists could be narrowed by section. Maintenance dates had no due-state cue or quick completion action, and irrigation schedules were not ordered by their start date.
 
@@ -706,7 +706,7 @@ Build 7 validation: Gradle ARM64 build, package version, signature, alignment, S
 ## BUG-066 — ARM64 build scripts are not executable from a clean checkout
 
 **Reported:** 2026-10-14
-**Status:** Fixed in source for v0.6.01 Build 23; remote ARM64 build verification pending.
+**Status:** Fixed in v0.6.01 Build 23; GitHub ARM64 build passed.
 
 **Finding:** A clean Git checkout records `tools/ensure-android-sdk.sh` and `gradlew` as non-executable, although `tools/build-apk.sh` invokes both directly. The build stopped at SDK bootstrap, then at the Gradle wrapper after the SDK was initialized.
 
@@ -716,7 +716,7 @@ Build 7 validation: Gradle ARM64 build, package version, signature, alignment, S
 ## BUG-067 — Account registration and first-plot onboarding
 
 **Reported:** 2026-10-14
-**Status:** Implemented in source for v0.6.01 Build 23 (versionCode 150); APK and Android device verification pending.
+**Status:** Included in v0.6.01 Build 23 (versionCode 150); GitHub ARM64 build passed. Google OAuth configuration and Android device verification remain pending.
 
 **Fix:** Removed only the account Username field; login and registration use email, password and confirm password. Password confirmation is checked before Firebase registration. Google Credential Manager sign-in is exchanged with Firebase Auth and creates a Firestore user profile on first use. A new or empty account now sees the first-plot prompt inside the login card, then waits for the Firebase save response before entering the dashboard. Local plot saves for authenticated users also write the profile to Firestore and show success or failure.
 
