@@ -8,6 +8,12 @@ assert.match(account, /aria-pressed/, 'visibility state is accessible');
 assert.match(account, /id='forgotPasswordBtn'/, 'login exposes a password-reset action');
 assert.match(account, /request\('passwordReset',\{email:email\.value\.trim\(\)\}\)/, 'reset action uses the entered email');
 assert.match(account, /If a GrowPlot account matches that address/, 'reset feedback does not confirm whether an account exists');
+assert.match(account, /function showRegistrationReset\(\)/, 'duplicate-email guidance offers recovery during registration');
+assert.match(account, /This ID is already a registered member\. Click Forgot password to update new password\./, 'duplicate-email copy is explicit');
+assert.match(account, /registrationForgotPasswordBtn/, 'registration recovery has a distinct button');
+assert.match(account, /\['Registration date',formatDate\(currentUser\.registrationDate\)\]/, 'My Account includes registration date');
+assert.match(account, /\['Last login',formatDate\(currentUser\.lastLoginDate\)\]/, 'My Account includes last login');
+assert.match(account, /\['Payment method','Not configured'\]/, 'My Account shows the payment placeholder');
 
 const bridge = fs.readFileSync('app/src/main/java/com/growplot/farm/AccountApiBridge.java', 'utf8');
 const resetStart = bridge.indexOf('if("passwordReset".equals(action))');
@@ -16,5 +22,17 @@ assert(resetStart >= 0 && resetStart < authLookup, 'password reset runs before t
 assert.match(bridge, /auth\.sendPasswordResetEmail\(email\)/, 'Firebase Auth sends the reset email');
 assert.match(bridge, /e instanceof com\.google\.firebase\.auth\.FirebaseAuthInvalidUserException/, 'unknown emails receive the same success response to prevent account discovery');
 assert.match(bridge, /Could not send a reset email/, 'reset failure has generic feedback');
+assert.match(bridge, /FirebaseAuthUserCollisionException/, 'registration detects duplicate Firebase email');
+assert.match(bridge, /ERROR_EMAIL_ALREADY_IN_USE/, 'registration detects Firebase duplicate-email error code');
+assert.match(bridge, /getCreationTimestamp\(\)/, 'account response includes Firebase registration time');
+assert.match(bridge, /getLastSignInTimestamp\(\)/, 'account response includes Firebase last login time');
 
-console.log('PASS: password visibility and Firebase password-reset UX checks.');
+const onboarding = fs.readFileSync('app/src/main/assets/new-user-onboarding.js', 'utf8');
+assert.match(onboarding, /Create your first plot/, 'plotless users get the first-plot prompt');
+assert.match(onboarding, /textContent='Create Plot'/, 'prompt offers the Create Plot action');
+assert.match(onboarding, /textContent='Home'/, 'prompt offers the Home action');
+assert.match(onboarding, /settings\.click\(\)/, 'Create Plot opens Settings');
+assert.match(onboarding, /plotManagementSection/, 'Create Plot opens Plot Management');
+assert.match(onboarding, /GrowPlotShowDemoHome/, 'Home opens the demo home screen');
+
+console.log('PASS: password, account details, duplicate-email recovery, and first-plot UX checks.');
