@@ -19,7 +19,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: growplot-arm64-build-${{ github.ref }}
+  group: growplot-arm64-build-\${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -35,27 +35,32 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Restore stable APK signing key
+      - name: Restore stable APK signing key when available
         env:
-          SIGNING_KEYSTORE_BASE64: ${{ secrets.GROWPLOT_SIGNING_KEYSTORE_BASE64 }}
-          SIGNING_STORE_PASSWORD: ${{ secrets.GROWPLOT_SIGNING_STORE_PASSWORD }}
-          SIGNING_KEY_PASSWORD: ${{ secrets.GROWPLOT_SIGNING_KEY_PASSWORD }}
-          SIGNING_KEY_ALIAS: ${{ secrets.GROWPLOT_SIGNING_KEY_ALIAS }}
+          SIGNING_KEYSTORE_BASE64: \${{ secrets.GROWPLOT_SIGNING_KEYSTORE_BASE64 }}
+          SIGNING_STORE_PASSWORD: \${{ secrets.GROWPLOT_SIGNING_STORE_PASSWORD }}
+          SIGNING_KEY_PASSWORD: \${{ secrets.GROWPLOT_SIGNING_KEY_PASSWORD }}
+          SIGNING_KEY_ALIAS: \${{ secrets.GROWPLOT_SIGNING_KEY_ALIAS }}
         run: |
           set -euo pipefail
-          test -n "$SIGNING_KEYSTORE_BASE64" || { echo "::error::Missing stable APK signing keystore secret"; exit 1; }
+          if [[ -z "$SIGNING_KEYSTORE_BASE64" ]]; then
+            echo "GROWPLOT_STABLE_SIGNING_KEY_AVAILABLE=false" >> "$GITHUB_ENV"
+            echo "::notice::No stable signing key supplied. Building a development-only APK with the runner debug key."
+            exit 0
+          fi
           test -n "$SIGNING_STORE_PASSWORD" || { echo "::error::Missing signing store password"; exit 1; }
           test -n "$SIGNING_KEY_ALIAS" || { echo "::error::Missing signing key alias"; exit 1; }
           umask 077
           printf '%s' "$SIGNING_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/growplot-signing.jks"
+          echo "GROWPLOT_STABLE_SIGNING_KEY_AVAILABLE=true" >> "$GITHUB_ENV"
           echo "GROWPLOT_DEBUG_KEYSTORE=$RUNNER_TEMP/growplot-signing.jks" >> "$GITHUB_ENV"
           echo "GROWPLOT_DEBUG_KEY_ALIAS=$SIGNING_KEY_ALIAS" >> "$GITHUB_ENV"
           echo "GROWPLOT_DEBUG_KEYSTORE_PASSWORD=$SIGNING_STORE_PASSWORD" >> "$GITHUB_ENV"
-          echo "GROWPLOT_DEBUG_KEY_PASSWORD=${SIGNING_KEY_PASSWORD:-$SIGNING_STORE_PASSWORD}" >> "$GITHUB_ENV"
+          echo "GROWPLOT_DEBUG_KEY_PASSWORD=\${SIGNING_KEY_PASSWORD:-$SIGNING_STORE_PASSWORD}" >> "$GITHUB_ENV"
       - name: Build and verify ARM64
         env:
           JAVA_TOOL_OPTIONS: -Xmx5g -XX:MaxMetaspaceSize=768m
-          GROWPLOT_PLANTNET_API_KEY: ${{ secrets.GROWPLOT_PLANTNET_API_KEY }}
+          GROWPLOT_PLANTNET_API_KEY: \${{ secrets.GROWPLOT_PLANTNET_API_KEY }}
         run: |
           chmod +x gradlew tools/*.sh
           ./tools/build-apk.sh
@@ -68,9 +73,10 @@ jobs:
           test "$(find release -maxdepth 1 -name '*-build-manifest.txt' | wc -l)" -eq 1
           grep -Fxq "Version: $VERSION_NAME" release/*-build-manifest.txt
           grep -Fxq "versionCode: $VERSION_CODE" release/*-build-manifest.txt
-          grep -Fxq "Signing status: Matches the saved Build 30 certificate." release/*-build-manifest.txt
-          SIGNER_SHA1="$(sed -n 's/^Signing certificate SHA-1: //p' release/*-build-manifest.txt | head -n1)"
-          python3 - "$SIGNER_SHA1" app/google-services.json <<'PY'
+          if [[ "$GROWPLOT_STABLE_SIGNING_KEY_AVAILABLE" == "true" ]]; then
+            grep -Fxq "Signing status: Matches the saved Build 30 certificate." release/*-build-manifest.txt
+            SIGNER_SHA1="$(sed -n 's/^Signing certificate SHA-1: //p' release/*-build-manifest.txt | head -n1)"
+            python3 - "$SIGNER_SHA1" app/google-services.json <<'PY'
           import json, sys
           signer = sys.argv[1].lower().replace(':', '')
           with open(sys.argv[2], encoding='utf-8') as source:
@@ -83,11 +89,15 @@ jobs:
               raise SystemExit('Firebase Google OAuth certificate_hash does not match this APK signer SHA-1')
           print('Firebase Google OAuth SHA-1 matches the APK signer.')
           PY
+          else
+            grep -Fq "Signing status: Does not match the saved Build 30 certificate" release/*-build-manifest.txt
+            echo "Development-only APK: it may not install over the current GrowPlot app, and Google sign-in is not verified for this runner key."
+          fi
           sha256sum release/*
       - name: Upload ARM64 artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: GrowPlot-${{ github.sha }}-ARM64
+          name: GrowPlot-\${{ github.sha }}-ARM64
           path: |
             release/*.apk
             release/*-source.zip
