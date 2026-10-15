@@ -48,10 +48,24 @@ jobs:
             echo "::notice::No stable signing key supplied. Building a development-only APK with the runner debug key."
             exit 0
           fi
-          test -n "$SIGNING_STORE_PASSWORD" || { echo "::error::Missing signing store password"; exit 1; }
-          test -n "$SIGNING_KEY_ALIAS" || { echo "::error::Missing signing key alias"; exit 1; }
+          if [[ -z "$SIGNING_STORE_PASSWORD" || -z "$SIGNING_KEY_ALIAS" ]]; then
+            echo "GROWPLOT_STABLE_SIGNING_KEY_AVAILABLE=false" >> "$GITHUB_ENV"
+            echo "::notice::Stable signing credentials are incomplete. Building a development-only APK with the runner debug key."
+            exit 0
+          fi
           umask 077
-          printf '%s' "$SIGNING_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/growplot-signing.jks"
+          if ! printf '%s' "$SIGNING_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/growplot-signing.jks"; then
+            rm -f "$RUNNER_TEMP/growplot-signing.jks"
+            echo "GROWPLOT_STABLE_SIGNING_KEY_AVAILABLE=false" >> "$GITHUB_ENV"
+            echo "::notice::Signing keystore secret is not valid base64. Building a development-only APK with the runner debug key."
+            exit 0
+          fi
+          if ! keytool -list -keystore "$RUNNER_TEMP/growplot-signing.jks" -storepass "$SIGNING_STORE_PASSWORD" -alias "$SIGNING_KEY_ALIAS" >/dev/null 2>&1; then
+            rm -f "$RUNNER_TEMP/growplot-signing.jks"
+            echo "GROWPLOT_STABLE_SIGNING_KEY_AVAILABLE=false" >> "$GITHUB_ENV"
+            echo "::notice::Signing keystore could not be opened with the supplied password and alias. Building a development-only APK with the runner debug key."
+            exit 0
+          fi
           echo "GROWPLOT_STABLE_SIGNING_KEY_AVAILABLE=true" >> "$GITHUB_ENV"
           echo "GROWPLOT_DEBUG_KEYSTORE=$RUNNER_TEMP/growplot-signing.jks" >> "$GITHUB_ENV"
           echo "GROWPLOT_DEBUG_KEY_ALIAS=$SIGNING_KEY_ALIAS" >> "$GITHUB_ENV"
