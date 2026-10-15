@@ -2,7 +2,7 @@
 ---------------------------------------------------------------------
 Baseline: GitHub main v0.6.01 Build 25 / versionCode 152, commit 446d122f9d4d12c0c0630040c314ab5c849077b5.
 Changes: Firebase email/password and Google sign-in now return success as soon as Firebase Authentication succeeds. Firestore profile creation is best-effort; profile read/write errors are shown separately and no longer reject or clear an authenticated session. Added regression coverage for those paths.
-Validation: Account/farm/Kindwise/feed-history regressions and JavaScript checks passed. First GitHub ARM64 attempt failed during D8 dex merging with Java heap space before APK packaging; workflow heap increased to 5 GB for retry. Package/version/signature/alignment and artifact upload pending. OAuth SHA-1 must be compared with the generated APK signer. Android Firebase sign-in and device verification pending.
+Validation: Account/farm/Kindwise/feed-history regressions and JavaScript checks passed. GitHub Actions run #86 passed ARM64 compilation, package/version/signature/alignment checks, and artifact upload after the workflow heap was raised to 5 GB. Its runner-generated signer SHA-256 27c70a2c2d66fd8fa75935229effee0fcb89541e2be9db4d6976b0387e023e7b (SHA-1 4b926d6ebd5efd65c9926de51dbb2a45bba6d4ad) does not match Firebase JSON's Android OAuth SHA-1 90abc505a3aabd5760c09dc5f8d2da0fdf9244a7. Restoring the existing stable signing-key secrets for a replacement Build 26 artifact; device and Firebase sign-in verification pending.
 
 2026-10-14 | v0.6.01 Build 24 | versionCode 151 | com.growplot.farm
 ---------------------------------------------------------------------

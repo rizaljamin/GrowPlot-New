@@ -1,7 +1,18 @@
+## BUG-071 — Rotating CI signer invalidates Android Google OAuth fingerprint
+
+**Reported:** 2026-10-15  
+**Status:** Stable signing-key restoration added to the Build 26 GitHub workflow; verification pending.
+
+**Cause:** The routine GitHub workflow used a runner-generated debug key. Build 26's APK signer SHA-1 was `4b926d6ebd5efd65c9926de51dbb2a45bba6d4ad`, while the Firebase Android OAuth configuration is for SHA-1 `90abc505a3aabd5760c09dc5f8d2da0fdf9244a7`. The Build 26 artifact also cannot update an app signed with the saved Build 30 key.
+
+**Fix:** Restored the repository's existing stable-keystore secret step so CI signs with the Build 30 key already configured for the project. This should keep the APK signer and update signature consistent across runs. The resulting SHA-1 still must be checked against Firebase OAuth configuration.
+
+**Verification:** Build 26 run #86 passed ARM64 compile/package checks but used the rotating runner key. Stable-key workflow retry and Google sign-in device verification pending.
+
 ## BUG-070 — GitHub ARM64 build runs out of heap during D8 merge
 
 **Reported:** 2026-10-15  
-**Status:** Retrying v0.6.01 Build 26 after increasing the GitHub Actions Java heap.
+**Status:** Resolved for GitHub Actions run #86; ARM64 artifact uploaded. Stable-signer retry pending.
 
 **Cause:** The first Build 26 GitHub Actions attempt passed the account, farm, and Kindwise regression checks and compiled Java, then D8 failed in `:app:mergeExtDexDebug` with `OutOfMemoryError: Java heap space`. APK verification and artifact upload did not run.
 

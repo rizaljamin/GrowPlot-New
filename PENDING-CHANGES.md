@@ -3,7 +3,7 @@
 - Baseline: GitHub `main`, v0.6.01 Build 25 / versionCode 152, commit `446d122f9d4d12c0c0630040c314ab5c849077b5`.
 - Firebase email/password and Google sign-in now report authentication success independently of Firestore profile reads or writes. Cloud-profile failures appear as warnings and do not clear an authenticated session.
 - The Firebase Android OAuth fingerprint in `app/google-services.json` was corrected after Build 24's signer mismatch. The Build 26 workflow manifest must be checked against the actual APK signer.
-- Build identity: v0.6.01 Build 26 / versionCode 153. First GitHub Actions attempt reached D8 dex merging but failed with Java heap space; increasing the build heap and retrying. Device verification pending.
+- Build identity: v0.6.01 Build 26 / versionCode 153. GitHub Actions run #86 passed tests, ARM64 compilation, manifest/version/signature/alignment checks, and artifact upload after increasing the heap. Its runner-generated signer differs from Build 30 and from the Firebase OAuth SHA-1, so the artifact is not a usable Google-sign-in build. The workflow is being updated to use the already-configured stable signing-key secrets before generating the replacement Build 26 APK. Device verification pending.
 
 ## Build 25 — Manage Farm screen availability
 
