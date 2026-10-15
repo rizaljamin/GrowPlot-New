@@ -1,3 +1,21 @@
+## BUG-076 — Plot map links do not consistently open Google Maps
+
+**Reported:** 2026-10-15
+**Status:** Implemented in v0.6.02 Build 01 source; build and device verification pending.
+
+**Fix:** Plot coordinate and address links now explicitly open the Google Maps Android app when installed. If it is unavailable, GrowPlot opens the same Google Maps URL in the available browser. Device GPS permission remains foreground-only and is requested only for location lookup; Google Maps navigation itself uses the selected plot coordinates/address and does not need background location.
+
+**Verification / limits:** Manage Farm/Maps regression covers the explicit Maps package, web fallback, and foreground-only location declarations. Android app launch and permission behavior require tablet verification.
+
+## BUG-075 — Manage Farm should open on Plot
+
+**Reported:** 2026-10-15
+**Status:** Implemented in v0.6.02 Build 01 source; build and device verification pending.
+
+**Fix:** Opening Manage Farm resets the selected section to Plot, so plot management appears first every time. Crop Planning, Irrigation & Fertiliser, and Maintenance remain available from the tabs.
+
+**Verification / limits:** Manage Farm regression checks the Plot default and existing tab behaviors. Android tap/layout verification pending.
+
 ## BUG-074 — Plot Management map thumbnail styles do not apply
 
 **Reported:** 2026-10-15
