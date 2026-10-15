@@ -35,3 +35,5 @@ The routine build produces one `arm64-v8a` APK, source ZIP and checksum manifest
 ## GitHub Actions APK build
 
 `.github/workflows/android-arm64-build.yml` is the single APK build workflow. It invokes `tools/build-apk.sh`, which installs Android command-line tools and the pinned SDK packages through `tools/ensure-android-sdk.sh`; do not add a second SDK setup action or a duplicate APK workflow. CI reads the version and code from `version.properties` so version changes do not require hardcoded workflow edits. The workflow uploads the APK, source ZIP, and manifest as one SHA-traceable Actions artifact.
+
+The stable signing secrets are optional for a development build. If `GROWPLOT_SIGNING_KEYSTORE_BASE64` is absent, Actions uses its runner-generated debug key and uploads an APK marked development-only; it may not update the APK already installed on a device, and Google sign-in is not verified for that signer. When the stable key secret is present, the workflow requires the Build 30 certificate and checks its SHA-1 against Firebase OAuth configuration.
