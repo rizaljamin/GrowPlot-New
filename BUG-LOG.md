@@ -1,3 +1,14 @@
+## BUG-070 — GitHub ARM64 build runs out of heap during D8 merge
+
+**Reported:** 2026-10-15  
+**Status:** Retrying v0.6.01 Build 26 after increasing the GitHub Actions Java heap.
+
+**Cause:** The first Build 26 GitHub Actions attempt passed the account, farm, and Kindwise regression checks and compiled Java, then D8 failed in `:app:mergeExtDexDebug` with `OutOfMemoryError: Java heap space`. APK verification and artifact upload did not run.
+
+**Fix:** Increased the workflow's `JAVA_TOOL_OPTIONS` heap from 4 GB to 5 GB and reduced the maximum metaspace to 768 MB. The workflow already limits Gradle to one worker.
+
+**Verification:** GitHub Actions retry and ARM64 APK package/version/signature/alignment checks pending.
+
 ## BUG-069 — Authentication reported as failed when Firestore profile access failed
 
 **Reported:** 2026-10-15  
