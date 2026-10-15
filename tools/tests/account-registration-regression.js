@@ -45,11 +45,19 @@ assert.match(bridge, /duplicateEmail/, 'native registration identifies a duplica
 assert.match(bridge, /registrationDate/,'Firebase account metadata includes registration date');
 assert.match(bridge, /lastLoginDate/,'Firebase account metadata includes last login date');
 
-// Auth success is returned before the optional Firestore profile read/write.
+// Google sign-in is not returned to onboarding until a GrowPlot user record is present.
 const authMethod = bridge.slice(bridge.indexOf('private void accountResponse('), bridge.indexOf('private void reportAccountWarning('));
 assert.ok(authMethod.includes('respond(action,true'), 'Firebase-authenticated user is returned as a successful login');
 assert.doesNotMatch(authMethod, /FirebaseFirestore|\.get\(\)/, 'auth response does not wait for Firestore');
-assert.match(bridge, /accountResponse\("googleSignIn",user\);[\s\S]*?\.get\(\)/, 'Google sign-in responds before optional Firestore profile setup');
+const googleProfile = bridge.slice(bridge.indexOf('private void ensureGoogleProfile('), bridge.indexOf('@JavascriptInterface public void request('));
+assert.match(googleProfile, /db\.runTransaction\(transaction->\{\s*if\(transaction\.get\(profileRef\)\.exists\(\)\)return false;/, 'Google registration atomically checks for an existing GrowPlot user profile');
+assert.match(googleProfile, /transaction\.set\(profileRef,profile\)/, 'a missing Google profile is created in the registration transaction');
+assert.match(googleProfile, /profile\.put\("role","USER"\)/, 'new Google profiles receive the standard user role');
+assert.match(googleProfile, /profile\.put\("authProvider","google\.com"\)/, 'new profiles record Google as the sign-in provider');
+assert.match(googleProfile, /profile\.put\("displayName"/, 'new profiles include the Google display name');
+assert.match(googleProfile, /\}\)\.addOnSuccessListener\(created->accountResponse\("googleSignIn",user\)\)/, 'Google login is returned only after the profile check/create transaction succeeds');
+assert.match(googleProfile, /addOnFailureListener\(e->failGoogleUserRegistration/, 'profile transaction failures block incomplete Google registration');
+assert.match(googleProfile, /auth\.signOut\(\)/, 'failed profile registration clears the partial Firebase session');
 assert.match(bridge, /reportAccountWarning\("Account created, but the cloud profile could not be saved:/, 'registration profile failures are reported as warnings');
 
 console.log('PASS: Firebase auth isolation, duplicate-email recovery, account details, Google sign-in, and first-plot modal.');
