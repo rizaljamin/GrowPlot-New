@@ -67,18 +67,31 @@ public final class AccountApiBridge {
         });
     }
     private void ensureGoogleProfile(FirebaseUser user){
-        // Authentication completes independently; profile setup is best-effort and never rejects sign-in.
-        accountResponse("googleSignIn",user);
-        db.collection("users").document(user.getUid()).get().addOnSuccessListener(snapshot->{
-            if(snapshot.exists())return;
-            Map<String,Object> profile=new HashMap<>();
-            profile.put("email",user.getEmail());
-            profile.put("role","USER");
-            profile.put("plots",new java.util.ArrayList<>());
-            profile.put("createdAt",com.google.firebase.firestore.FieldValue.serverTimestamp());
-            db.collection("users").document(user.getUid()).set(profile)
-                    .addOnFailureListener(e->reportAccountWarning("Signed in with Google, but the cloud profile could not be saved: "+e.getMessage()));
-        }).addOnFailureListener(e->reportAccountWarning("Signed in with Google, but the cloud profile could not be checked: "+e.getMessage()));
+        // Finish GrowPlot profile registration before the WebView starts first-user onboarding.
+        if(user.getEmail()==null||user.getEmail().trim().isEmpty()){
+            auth.signOut();
+            respond("googleSignIn",false,"Google did not provide an email address, so GrowPlot could not register this user.",null);
+            return;
+        }
+        com.google.firebase.firestore.DocumentReference profileRef=db.collection("users").document(user.getUid());
+        Map<String,Object> profile=new HashMap<>();
+        profile.put("email",user.getEmail());
+        profile.put("role","USER");
+        profile.put("plots",new java.util.ArrayList<>());
+        profile.put("displayName",user.getDisplayName()==null?"":user.getDisplayName());
+        profile.put("authProvider","google.com");
+        profile.put("createdAt",com.google.firebase.firestore.FieldValue.serverTimestamp());
+        db.runTransaction(transaction->{
+            if(transaction.get(profileRef).exists())return false;
+            transaction.set(profileRef,profile);
+            return true;
+        }).addOnSuccessListener(created->accountResponse("googleSignIn",user))
+          .addOnFailureListener(e->failGoogleUserRegistration("could not create or check the GrowPlot user profile",e));
+    }
+    private void failGoogleUserRegistration(String reason,Exception error){
+        auth.signOut();
+        String detail=error==null||error.getMessage()==null?"Please check the connection and try again.":error.getMessage();
+        respond("googleSignIn",false,"Google was authenticated, but GrowPlot "+reason+". Please try again. "+detail,null);
     }
     @JavascriptInterface public void request(String action,String payload){
         activity.runOnUiThread(()->execute(action,payload));
