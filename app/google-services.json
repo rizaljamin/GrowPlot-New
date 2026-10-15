@@ -22,6 +22,14 @@
           }
         },
         {
+          "client_id": "1052371761033-cdd2r5tvnaq39pimal1rvg93jckhs3rd.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.growplot.farm",
+            "certificate_hash": "0faf29ca21994b62f9ab2abf7d7137c823caf634"
+          }
+        },
+        {
           "client_id": "1052371761033-l0et83a9d4vpg563onkj0pol2o7seml7.apps.googleusercontent.com",
           "client_type": 3
         }
