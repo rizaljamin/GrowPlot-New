@@ -16,12 +16,15 @@ assert.match(account, /response\.action==='saveProfile'/, 'Firebase save respons
 assert.match(account, /callback\(saved,response\.error\|\|''\)/, 'cloud-save completion is reported to onboarding');
 
 const onboarding = fs.readFileSync('app/src/main/assets/new-user-onboarding.js', 'utf8');
-assert.match(onboarding, /card\.appendChild\(view\)/, 'first-plot prompt is inside the login card');
-assert.doesNotMatch(onboarding, /insertBefore\(section,dash\)|mainDashboard/, 'first-plot prompt is not inserted on the main dashboard');
-assert.match(onboarding, /GrowPlotSaveCloudProfile\(\(ok,error\)=>/, 'first plot waits for a Firebase save result');
+assert.match(onboarding, /setAttribute\('role','dialog'\)/, 'first-plot choice is a small dialog');
+assert.match(onboarding, /textContent='Create Plot'/, 'dialog offers Create Plot');
+assert.match(onboarding, /textContent='Home'/, 'dialog offers Home');
+assert.match(onboarding, /plotManagementSection/, 'Create Plot opens Plot Management');
+assert.match(onboarding, /GrowPlotShowDemoHome/, 'Home returns to the demo plot');
+assert.doesNotMatch(onboarding, /growplotFirstPlotForm|plotName/, 'dialog no longer asks for plot details before opening Plot Management');
 
 const bridge = fs.readFileSync('app/src/main/java/com/growplot/farm/AccountApiBridge.java', 'utf8');
 assert.match(bridge, /@JavascriptInterface public void startGoogleSignIn\(\)/, 'Android bridge exposes Google sign-in');
 assert.match(bridge, /GoogleAuthProvider\.getCredential\(google\.getIdToken\(\),null\)/, 'Google ID token is exchanged for Firebase Auth credentials');
 assert.match(bridge, /ensureGoogleProfile\(user\)/, 'first Google sign-in creates a Firestore user profile');
-console.log('PASS: email registration fields, Google account path, login-screen first-plot prompt, and Firebase save confirmation.');
+console.log('PASS: email registration fields, Google sign-in, and first-login plot choices.');
