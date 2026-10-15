@@ -26,6 +26,9 @@ assert(resetStart >= 0 && resetStart < authLookup, 'password reset runs before t
 assert.match(bridge, /auth\.sendPasswordResetEmail\(email\)/, 'Firebase Auth sends the reset email');
 assert.match(bridge, /e instanceof com\.google\.firebase\.auth\.FirebaseAuthInvalidUserException/, 'unknown emails receive the same success response to prevent account discovery');
 assert.match(bridge, /Could not send a reset email/, 'reset failure has generic feedback');
+assert.match(bridge, /GetSignInWithGoogleOption\.Builder\(webClientId\)/, 'explicit Google button uses the direct sign-in option');
+assert.match(bridge, /NoCredentialException/, 'missing Google credentials receive actionable guidance');
+assert.match(bridge, /reauthenticate it in Android Settings/, 'Google credential guidance explains the device-account recovery step');
 assert.match(bridge, /FirebaseAuthUserCollisionException/, 'registration detects duplicate Firebase email');
 assert.match(bridge, /ERROR_EMAIL_ALREADY_IN_USE/, 'registration detects Firebase duplicate-email error code');
 assert.match(bridge, /getCreationTimestamp\(\)/, 'account response includes Firebase registration time');
