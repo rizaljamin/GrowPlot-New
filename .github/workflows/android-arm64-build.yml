@@ -35,7 +35,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Restore stable APK signing key
+      - name: Restore stable APK signing key when valid
         env:
           SIGNING_KEYSTORE_BASE64: ${{ secrets.GROWPLOT_SIGNING_KEYSTORE_BASE64 }}
           SIGNING_STORE_PASSWORD: ${{ secrets.GROWPLOT_SIGNING_STORE_PASSWORD }}
@@ -43,15 +43,31 @@ jobs:
           SIGNING_KEY_ALIAS: ${{ secrets.GROWPLOT_SIGNING_KEY_ALIAS }}
         run: |
           set -euo pipefail
-          test -n "$SIGNING_KEYSTORE_BASE64" || { echo "::error::Missing stable APK signing keystore secret"; exit 1; }
-          test -n "$SIGNING_STORE_PASSWORD" || { echo "::error::Missing signing store password"; exit 1; }
-          test -n "$SIGNING_KEY_ALIAS" || { echo "::error::Missing signing key alias"; exit 1; }
+          fallback() {
+            echo "::warning::Stable signing key is unavailable or invalid; continuing with the runner's temporary debug key. The APK will be development-only and will not update an install signed with the stable key."
+          }
+          if [[ -z "${SIGNING_KEYSTORE_BASE64:-}" || -z "${SIGNING_STORE_PASSWORD:-}" || -z "${SIGNING_KEY_ALIAS:-}" ]]; then
+            fallback
+            exit 0
+          fi
           umask 077
-          printf '%s' "$SIGNING_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/growplot-signing.jks"
-          echo "GROWPLOT_DEBUG_KEYSTORE=$RUNNER_TEMP/growplot-signing.jks" >> "$GITHUB_ENV"
+          KEYSTORE="$RUNNER_TEMP/growplot-signing.jks"
+          if ! printf '%s' "$SIGNING_KEYSTORE_BASE64" | base64 --decode 2>/dev/null > "$KEYSTORE"; then
+            rm -f "$KEYSTORE"
+            fallback
+            exit 0
+          fi
+          KEY_PASSWORD="${SIGNING_KEY_PASSWORD:-$SIGNING_STORE_PASSWORD}"
+          if [[ ! -s "$KEYSTORE" ]] || ! keytool -list -keystore "$KEYSTORE" -storepass "$SIGNING_STORE_PASSWORD" -alias "$SIGNING_KEY_ALIAS" >/dev/null 2>&1 || ! keytool -certreq -keystore "$KEYSTORE" -storepass "$SIGNING_STORE_PASSWORD" -keypass "$KEY_PASSWORD" -alias "$SIGNING_KEY_ALIAS" -file "$RUNNER_TEMP/growplot-signing-check.csr" >/dev/null 2>&1; then
+            rm -f "$KEYSTORE" "$RUNNER_TEMP/growplot-signing-check.csr"
+            fallback
+            exit 0
+          fi
+          rm -f "$RUNNER_TEMP/growplot-signing-check.csr"
+          echo "GROWPLOT_DEBUG_KEYSTORE=$KEYSTORE" >> "$GITHUB_ENV"
           echo "GROWPLOT_DEBUG_KEY_ALIAS=$SIGNING_KEY_ALIAS" >> "$GITHUB_ENV"
           echo "GROWPLOT_DEBUG_KEYSTORE_PASSWORD=$SIGNING_STORE_PASSWORD" >> "$GITHUB_ENV"
-          echo "GROWPLOT_DEBUG_KEY_PASSWORD=${SIGNING_KEY_PASSWORD:-$SIGNING_STORE_PASSWORD}" >> "$GITHUB_ENV"
+          echo "GROWPLOT_DEBUG_KEY_PASSWORD=$KEY_PASSWORD" >> "$GITHUB_ENV"
       - name: Build and verify ARM64
         env:
           JAVA_TOOL_OPTIONS: -Xmx5g -XX:MaxMetaspaceSize=768m
