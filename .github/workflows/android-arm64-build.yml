@@ -87,9 +87,11 @@ jobs:
           grep -Fxq "Version: $VERSION_NAME" release/*-build-manifest.txt
           grep -Fxq "versionCode: $VERSION_CODE" release/*-build-manifest.txt
           if [[ "$GROWPLOT_STABLE_SIGNING_KEY_AVAILABLE" == "true" ]]; then
-            grep -Fxq "Signing status: Matches the saved Build 30 certificate." release/*-build-manifest.txt
+            SIGNING_STATUS="$(sed -n 's/^Signing status: //p' release/*-build-manifest.txt | head -n1)"
             SIGNER_SHA1="$(sed -n 's/^Signing certificate SHA-1: //p' release/*-build-manifest.txt | head -n1)"
-            python3 - "$SIGNER_SHA1" app/google-services.json <<'PY'
+            echo "APK signing certificate SHA-1: $SIGNER_SHA1"
+            if [[ "$SIGNING_STATUS" == "Matches the saved Build 30 certificate." ]]; then
+              python3 - "$SIGNER_SHA1" app/google-services.json <<'PY'
           import json, sys
           signer = sys.argv[1].lower().replace(':', '')
           with open(sys.argv[2], encoding='utf-8') as source:
@@ -102,8 +104,24 @@ jobs:
               raise SystemExit('Firebase Google OAuth certificate_hash does not match this APK signer SHA-1')
           print('Firebase Google OAuth SHA-1 matches the APK signer.')
           PY
+            else
+              grep -Fxq "Signing status: Signed with configured stable keystore; certificate differs from saved Build 30 certificate." release/*-build-manifest.txt
+              echo "::warning::APK is signed with the configured new stable keystore. It will not update an app signed with the Build 30 certificate; Google sign-in may require this SHA-1 to be added in Firebase."
+            fi
           else
-            grep -Eq '^Arm64 APK: .*development-only\.apk$' release/*-build-manifest.txt
+            grep -Eq '^Arm64 APK: .*development-only\.apk
+          sha256sum release/*
+      - name: Upload ARM64 artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: GrowPlot-${{ github.sha }}-ARM64
+          path: |
+            release/*.apk
+            release/*-source.zip
+            release/*-build-manifest.txt
+          if-no-files-found: error
+          retention-days: 30
+ release/*-build-manifest.txt
             echo "Development-only APK: it may not install over the current GrowPlot app, and Google sign-in is not verified for this runner key."
           fi
           sha256sum release/*
