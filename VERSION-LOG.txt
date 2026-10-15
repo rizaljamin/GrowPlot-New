@@ -1,3 +1,9 @@
+2026-10-15 | v0.6.01 Build 30 | versionCode 157 | com.growplot.farm
+---------------------------------------------------------------------
+Baseline: GitHub main commit 70c68d5dc3763e4094ada512b0a9559a2bba0299 (v0.6.01 Build 29 / versionCode 156).
+Changes: Fix the Plot Management map preview button's malformed class attribute so its thumbnail dimensions, clipping, positioning, and overlays apply. The preview uses OpenStreetMap tiles; tapping it opens the location in Google Maps. Sign-in behavior is unchanged.
+Validation: HTML parser confirms the button has the expected class; GitHub ARM64 build/package/signature checks and Android-device map rendering verification pending.
+
 2026-10-15 | v0.6.01 Build 29 | versionCode 156 | com.growplot.farm
 ---------------------------------------------------------------------
 Baseline: GitHub main commit 706565b2aced2174f7d92ad07ed2e3449bce0a30 (v0.6.01 Build 28 / versionCode 155).

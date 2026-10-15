@@ -1,3 +1,14 @@
+## BUG-074 — Plot Management map thumbnail styles do not apply
+
+**Reported:** 2026-10-15
+**Status:** Fixed in v0.6.01 Build 30 source; GitHub ARM64 build and Android-device verification pending.
+
+**Cause:** The Plot Management map preview button's `class` attribute was missing its opening quote (`class=plot-map-thumbnail"`). This malformed value prevented the `.plot-map-thumbnail` CSS rule from matching, so the preview did not receive its intended fixed height, clipping, positioning, or overlay layout.
+
+**Fix:** Corrected the attribute to `class="plot-map-thumbnail"`. The thumbnail continues to render OpenStreetMap tiles and opens the same location in Google Maps when tapped. Sign-in code is unchanged.
+
+**Verification / limits:** HTML parser confirms the button class is exactly `plot-map-thumbnail`; GitHub ARM64 build checks and visual verification on the tablet remain pending.
+
 ## BUG-072 — Build 27 login branch regressed Build 26 authentication handling
 
 **Reported:** 2026-10-15  
