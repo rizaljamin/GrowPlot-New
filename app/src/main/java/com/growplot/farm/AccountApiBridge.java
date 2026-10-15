@@ -108,7 +108,17 @@ public final class AccountApiBridge {
                         profile.put("createdAt",com.google.firebase.firestore.FieldValue.serverTimestamp());
                         db.collection("users").document(user.getUid()).set(profile).addOnSuccessListener(v->accountResponse(action,user))
                           .addOnFailureListener(e->respond(action,false,"Account created, but profile save failed: "+e.getMessage(),null));
-                    }).addOnFailureListener(e->respond(action,false,e.getMessage(),null));
+                    }).addOnFailureListener(e->{
+                        if(e instanceof com.google.firebase.auth.FirebaseAuthUserCollisionException
+                            || (e instanceof com.google.firebase.auth.FirebaseAuthException
+                                && "ERROR_EMAIL_ALREADY_IN_USE".equals(((com.google.firebase.auth.FirebaseAuthException)e).getErrorCode()))){
+                            JSONObject details=new JSONObject();
+                            try{details.put("duplicateEmail",true);}catch(Exception ignored){}
+                            respond(action,false,"This ID is already a registered member. Click Forgot password to update new password.",details);
+                        }else{
+                            respond(action,false,e.getMessage(),null);
+                        }
+                    });
                 }else auth.signInWithEmailAndPassword(email,password).addOnSuccessListener(result->{
                     FirebaseUser user=result.getUser();
                     if(user!=null)accountResponse(action,user);else respond(action,false,"Login returned no user.",null);
@@ -145,6 +155,10 @@ public final class AccountApiBridge {
             JSONObject data=new JSONObject();JSONObject account=new JSONObject();
             try{
                 account.put("uid",user.getUid());account.put("email",user.getEmail());
+                if(user.getMetadata()!=null){
+                    account.put("registrationDate",user.getMetadata().getCreationTimestamp());
+                    account.put("lastLoginDate",user.getMetadata().getLastSignInTimestamp());
+                }
                 // Client never trusts a user-editable role; privileged features require server verification.
                 account.put("role","USER");data.put("user",account);
             }catch(Exception ignored){}
