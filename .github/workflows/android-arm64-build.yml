@@ -90,7 +90,7 @@ jobs:
           print('Firebase Google OAuth SHA-1 matches the APK signer.')
           PY
           else
-            grep -Fq "Signing status: Does not match the saved Build 30 certificate" release/*-build-manifest.txt
+            grep -Eq '^Arm64 APK: .*development-only\.apk$' release/*-build-manifest.txt
             echo "Development-only APK: it may not install over the current GrowPlot app, and Google sign-in is not verified for this runner key."
           fi
           sha256sum release/*
