@@ -22,11 +22,27 @@
           }
         },
         {
+          "client_id": "1052371761033-au0hmfbat9b0n9ddpjftd4japrmf102u.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.growplot.farm",
+            "certificate_hash": "3881c0c27d9abab5a08c6863a35cba8ab60a4801"
+          }
+        },
+        {
           "client_id": "1052371761033-cdd2r5tvnaq39pimal1rvg93jckhs3rd.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.growplot.farm",
             "certificate_hash": "0faf29ca21994b62f9ab2abf7d7137c823caf634"
+          }
+        },
+        {
+          "client_id": "1052371761033-tc0nn5g4cn1bfvuhgcaiulbc3svn8ml2.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.growplot.farm",
+            "certificate_hash": "b67038149603b596dc91457dd51ec92ea0448e66"
           }
         },
         {
