@@ -1,7 +1,7 @@
 2026-10-15 | v0.6.02 Build 02 | versionCode 159
 - First-plot sign-in returns to Home before opening its prompt, preventing Settings from remaining underneath.
 - My Account uses a compact centered card constrained to the GrowPlot screen, with internal scrolling on short displays.
-- GitHub ARM64 build and Android visual verification pending.
+- GitHub Actions run #119 passed JavaScript regression checks, ARM64 compilation, package/version/signature verification, and artifact upload. APK SHA-256: `7ae9425fd88d3b55b1be5275b4128581fac36784cd525d24071ad325621a86c4`; source ZIP SHA-256: `6dc9c016b8b403d3b76fa560e34c064f776c3a925ee0e41483e9e2a53440d828`. The configured stable signer SHA-256 `fc5edb30ece8df673c50aa907b61357bceb807eb843ef853d89c276e5501b204` matches Build 01. Pl@ntNet key is absent. Tablet visual verification pending.
 
 2026-10-15 | v0.6.02 Build 01 | versionCode 158 | com.growplot.farm
 ---------------------------------------------------------------------
