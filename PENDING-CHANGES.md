@@ -5,6 +5,13 @@
 - Preserve the existing email/password registration fields, confirm-password check, Google sign-in, and first-plot prompt.
 - Validation: focused password UX regression and JavaScript syntax checks pass. This batch contains two small changes; no APK generated.
 
+## Account details and first-login choices — issues #14–#16
+
+- Duplicate registration now identifies an already registered email and offers a Forgot password action from the registration view.
+- My Account displays Firebase registration and last-login timestamps plus a “Not configured” payment-method placeholder.
+- Users with no saved plots see a compact “Create your first plot” choice. Create Plot opens Settings → Plot Management; Home opens the demo plot.
+- Validation: focused login/account/onboarding regression and JavaScript syntax checks pass. Java/Gradle and Android-device checks remain pending; no APK generated.
+
 ## Build 25 — Manage Farm screen availability
 
 - Baseline: GitHub `main` at v0.6.01 Build 24 / versionCode 151, commit `b998170244f2baabf7bdd0568a2fae7d52f3b130`.
