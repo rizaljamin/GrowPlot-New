@@ -14,6 +14,7 @@ const resetStart = bridge.indexOf('if("passwordReset".equals(action))');
 const authLookup = bridge.indexOf('FirebaseUser user=auth.getCurrentUser()');
 assert(resetStart >= 0 && resetStart < authLookup, 'password reset runs before the active-user requirement');
 assert.match(bridge, /auth\.sendPasswordResetEmail\(email\)/, 'Firebase Auth sends the reset email');
+assert.match(bridge, /e instanceof com\.google\.firebase\.auth\.FirebaseAuthInvalidUserException/, 'unknown emails receive the same success response to prevent account discovery');
 assert.match(bridge, /Could not send a reset email/, 'reset failure has generic feedback');
 
 console.log('PASS: password visibility and Firebase password-reset UX checks.');
