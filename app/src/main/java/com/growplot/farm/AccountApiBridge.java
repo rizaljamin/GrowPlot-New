@@ -14,7 +14,7 @@ import androidx.credentials.CustomCredential;
 import androidx.credentials.GetCredentialRequest;
 import androidx.credentials.GetCredentialResponse;
 import androidx.credentials.exceptions.GetCredentialException;
-import com.google.android.libraries.identity.googleid.GetGoogleIdOption;
+import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption;
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.SetOptions;
@@ -38,11 +38,7 @@ public final class AccountApiBridge {
             if(resource==0){respond("googleSignIn",false,"Google sign-in is not configured in Firebase yet. Enable Google sign-in and add the Firebase OAuth client configuration, then rebuild.",null);return;}
             String webClientId=activity.getString(resource);
             if(webClientId==null||webClientId.trim().isEmpty()){respond("googleSignIn",false,"Google sign-in is not configured in Firebase yet. Add the Firebase web OAuth client ID, then rebuild.",null);return;}
-            GetGoogleIdOption googleOption=new GetGoogleIdOption.Builder()
-                    .setFilterByAuthorizedAccounts(false)
-                    .setServerClientId(webClientId)
-                    .setAutoSelectEnabled(false)
-                    .build();
+            GetSignInWithGoogleOption googleOption=new GetSignInWithGoogleOption.Builder(webClientId).build();
             GetCredentialRequest request=new GetCredentialRequest.Builder().addCredentialOption(googleOption).build();
             CredentialManager manager=CredentialManager.create((Context)activity);
             manager.getCredentialAsync(activity,request,null,command->activity.runOnUiThread(command),new androidx.credentials.CredentialManagerCallback<GetCredentialResponse,GetCredentialException>(){
@@ -60,7 +56,13 @@ public final class AccountApiBridge {
                         }).addOnFailureListener(e->respond("googleSignIn",false,e.getMessage(),null));
                     }catch(Exception e){respond("googleSignIn",false,"Could not read the Google sign-in token: "+e.getMessage(),null);}
                 }
-                @Override public void onError(GetCredentialException e){respond("googleSignIn",false,e.getMessage(),null);}
+                @Override public void onError(GetCredentialException e){
+                    if(e instanceof androidx.credentials.exceptions.NoCredentialException){
+                        respond("googleSignIn",false,"Google couldn’t find a usable account. Add a Google Account to this device or reauthenticate it in Android Settings, then try again.",null);
+                    }else{
+                        respond("googleSignIn",false,"Google sign-in failed: "+e.getMessage(),null);
+                    }
+                }
             });
         });
     }
