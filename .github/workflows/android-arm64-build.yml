@@ -19,7 +19,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: growplot-arm64-build-\${{ github.ref }}
+  group: growplot-arm64-build-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -37,10 +37,10 @@ jobs:
           node-version: '22'
       - name: Restore stable APK signing key when available
         env:
-          SIGNING_KEYSTORE_BASE64: \${{ secrets.GROWPLOT_SIGNING_KEYSTORE_BASE64 }}
-          SIGNING_STORE_PASSWORD: \${{ secrets.GROWPLOT_SIGNING_STORE_PASSWORD }}
-          SIGNING_KEY_PASSWORD: \${{ secrets.GROWPLOT_SIGNING_KEY_PASSWORD }}
-          SIGNING_KEY_ALIAS: \${{ secrets.GROWPLOT_SIGNING_KEY_ALIAS }}
+          SIGNING_KEYSTORE_BASE64: ${{ secrets.GROWPLOT_SIGNING_KEYSTORE_BASE64 }}
+          SIGNING_STORE_PASSWORD: ${{ secrets.GROWPLOT_SIGNING_STORE_PASSWORD }}
+          SIGNING_KEY_PASSWORD: ${{ secrets.GROWPLOT_SIGNING_KEY_PASSWORD }}
+          SIGNING_KEY_ALIAS: ${{ secrets.GROWPLOT_SIGNING_KEY_ALIAS }}
         run: |
           set -euo pipefail
           if [[ -z "$SIGNING_KEYSTORE_BASE64" ]]; then
@@ -56,11 +56,11 @@ jobs:
           echo "GROWPLOT_DEBUG_KEYSTORE=$RUNNER_TEMP/growplot-signing.jks" >> "$GITHUB_ENV"
           echo "GROWPLOT_DEBUG_KEY_ALIAS=$SIGNING_KEY_ALIAS" >> "$GITHUB_ENV"
           echo "GROWPLOT_DEBUG_KEYSTORE_PASSWORD=$SIGNING_STORE_PASSWORD" >> "$GITHUB_ENV"
-          echo "GROWPLOT_DEBUG_KEY_PASSWORD=\${SIGNING_KEY_PASSWORD:-$SIGNING_STORE_PASSWORD}" >> "$GITHUB_ENV"
+          echo "GROWPLOT_DEBUG_KEY_PASSWORD=${SIGNING_KEY_PASSWORD:-$SIGNING_STORE_PASSWORD}" >> "$GITHUB_ENV"
       - name: Build and verify ARM64
         env:
           JAVA_TOOL_OPTIONS: -Xmx5g -XX:MaxMetaspaceSize=768m
-          GROWPLOT_PLANTNET_API_KEY: \${{ secrets.GROWPLOT_PLANTNET_API_KEY }}
+          GROWPLOT_PLANTNET_API_KEY: ${{ secrets.GROWPLOT_PLANTNET_API_KEY }}
         run: |
           chmod +x gradlew tools/*.sh
           ./tools/build-apk.sh
@@ -97,7 +97,7 @@ jobs:
       - name: Upload ARM64 artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: GrowPlot-\${{ github.sha }}-ARM64
+          name: GrowPlot-${{ github.sha }}-ARM64
           path: |
             release/*.apk
             release/*-source.zip
