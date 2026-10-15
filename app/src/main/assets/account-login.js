@@ -61,8 +61,37 @@ function saveNotice(message,success){
  el.style.background=success?'#d8f4df':'#ffe5df';el.style.color=success?'#164b2a':'#782319';el.textContent=message;
 }
 window.GrowPlotAccountResponse=function(response){
- if(!response.ok){if(response.action==='googleSignIn'){const createView=document.getElementById('createView');const target=createView&&!createView.hidden?document.getElementById('createStatus'):status;if(target)target.textContent=response.error||'Google sign-in failed.';}else msg((response.action==='profile'?'Firebase profile could not be loaded: ':'')+(response.error||'Account request failed'));if(response.action==='saveProfile'){const callback=saveProfileCallback;saveProfileCallback=null;if(callback)callback(false,response.error||'Firebase save failed.');}if(response.action==='profile'){const authScreen=document.getElementById('authScreen');if(authScreen)authScreen.hidden=false;currentUser=null;window.GrowPlotCurrentUser=null;}if(response.action==='saveProfile')saveNotice('Firebase save failed: '+(response.error||'Please retry.'),false);return;}
+ if(!response.ok){
+  if(response.action==='googleSignIn'){
+   const createView=document.getElementById('createView');
+   const target=createView&&!createView.hidden?document.getElementById('createStatus'):status;
+   if(target)target.textContent=response.error||'Google sign-in failed.';
+   return;
+  }
+  if(response.action==='profile'&&currentUser){
+   window.GrowPlotCloudProfile=null;
+   saveNotice('Signed in, but your Firebase cloud profile could not be loaded: '+(response.error||'Please retry.'),false);
+   goHome();
+   return;
+  }
+  msg((response.action==='profile'?'Firebase profile could not be loaded: ':'')+(response.error||'Account request failed'));
+  if(response.action==='saveProfile'){
+   const callback=saveProfileCallback;saveProfileCallback=null;
+   if(callback)callback(false,response.error||'Firebase save failed.');
+   saveNotice('Firebase save failed: '+(response.error||'Please retry.'),false);
+  }
+  if(response.action==='profile'){
+   const authScreen=document.getElementById('authScreen');
+   if(authScreen)authScreen.hidden=false;
+   currentUser=null;window.GrowPlotCurrentUser=null;
+  }
+  return;
+ }
  const data=response.data||{};
+ if(response.action==='accountWarning'){
+  saveNotice(data.warning||'Cloud profile update failed. Your sign-in is still active.',false);
+  return;
+ }
  if(response.action==='login'||response.action==='register'||response.action==='googleSignIn'){
    currentUser=data.user;window.GrowPlotCurrentUser=currentUser;
    if(!currentUser){msg('Invalid account response');return;}

@@ -24,4 +24,16 @@ const bridge = fs.readFileSync('app/src/main/java/com/growplot/farm/AccountApiBr
 assert.match(bridge, /@JavascriptInterface public void startGoogleSignIn\(\)/, 'Android bridge exposes Google sign-in');
 assert.match(bridge, /GoogleAuthProvider\.getCredential\(google\.getIdToken\(\),null\)/, 'Google ID token is exchanged for Firebase Auth credentials');
 assert.match(bridge, /ensureGoogleProfile\(user\)/, 'first Google sign-in creates a Firestore user profile');
+
+// Firebase authentication success is independent from Firestore profile availability.
+const authMethod = bridge.slice(bridge.indexOf('private void accountResponse('), bridge.indexOf('private void reportAccountWarning('));
+assert.ok(authMethod.includes('respond(action,true'), 'Firebase-authenticated user is returned as a successful login');
+assert.doesNotMatch(authMethod, /FirebaseFirestore|\.get\(\)/, 'login response does not wait for a Firestore read');
+assert.match(bridge, /accountResponse\("googleSignIn",user\);[\s\S]*?\.get\(\)/, 'Google sign-in responds before optional Firestore profile setup');
+assert.match(bridge, /reportAccountWarning\("Account created, but the cloud profile could not be saved:/, 'registration reports profile-save failure without converting authentication to failure');
+assert.match(bridge, /reportAccountWarning\("Signed in with Google, but the cloud profile could not be checked:/, 'Google profile-read failure is reported separately from sign-in');
+
+assert.match(account, /response\.action==='accountWarning'/, 'cloud-profile warnings are presented separately from auth failures');
+assert.match(account, /response\.action==='profile'&&currentUser/, 'a profile read failure does not reject an authenticated session');
+assert.match(account, /saveNotice\('Signed in, but your Firebase cloud profile could not be loaded:/, 'profile failure explains that sign-in succeeded but cloud data is unavailable');
 console.log('PASS: email registration fields, Google account path, login-screen first-plot prompt, and Firebase save confirmation.');

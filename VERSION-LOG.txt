@@ -1,3 +1,9 @@
+2026-10-15 | v0.6.01 Build 26 | versionCode 153 | com.growplot.farm
+---------------------------------------------------------------------
+Baseline: GitHub main v0.6.01 Build 25 / versionCode 152, commit 446d122f9d4d12c0c0630040c314ab5c849077b5.
+Changes: Firebase email/password and Google sign-in now return success as soon as Firebase Authentication succeeds. Firestore profile creation is best-effort; profile read/write errors are shown separately and no longer reject or clear an authenticated session. Added regression coverage for those paths.
+Validation: GitHub Actions ARM64 build, account/farm/Kindwise/feed-history checks, package/version/signature/alignment verification, and artifact upload pending. OAuth SHA-1 must be compared with the generated APK signer. Android Firebase sign-in and device verification pending.
+
 2026-10-14 | v0.6.01 Build 24 | versionCode 151 | com.growplot.farm
 ---------------------------------------------------------------------
 Baseline: GitHub v0.6.01 Build 23, versionCode 150. Source commit: d4443919626407d8f6eb8422fa05a62d9df0f724.

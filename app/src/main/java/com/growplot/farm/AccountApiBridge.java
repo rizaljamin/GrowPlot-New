@@ -65,11 +65,18 @@ public final class AccountApiBridge {
         });
     }
     private void ensureGoogleProfile(FirebaseUser user){
+        // Authentication completes independently; profile setup is best-effort and never rejects sign-in.
+        accountResponse("googleSignIn",user);
         db.collection("users").document(user.getUid()).get().addOnSuccessListener(snapshot->{
-            if(snapshot.exists()){accountResponse("googleSignIn",user);return;}
-            Map<String,Object> profile=new HashMap<>();profile.put("email",user.getEmail());profile.put("role","USER");profile.put("plots",new java.util.ArrayList<>());profile.put("createdAt",com.google.firebase.firestore.FieldValue.serverTimestamp());
-            db.collection("users").document(user.getUid()).set(profile).addOnSuccessListener(v->accountResponse("googleSignIn",user)).addOnFailureListener(e->respond("googleSignIn",false,"Google account was created, but the Firebase profile save failed: "+e.getMessage(),null));
-        }).addOnFailureListener(e->respond("googleSignIn",false,"Unable to read the Firebase profile: "+e.getMessage(),null));
+            if(snapshot.exists())return;
+            Map<String,Object> profile=new HashMap<>();
+            profile.put("email",user.getEmail());
+            profile.put("role","USER");
+            profile.put("plots",new java.util.ArrayList<>());
+            profile.put("createdAt",com.google.firebase.firestore.FieldValue.serverTimestamp());
+            db.collection("users").document(user.getUid()).set(profile)
+                    .addOnFailureListener(e->reportAccountWarning("Signed in with Google, but the cloud profile could not be saved: "+e.getMessage()));
+        }).addOnFailureListener(e->reportAccountWarning("Signed in with Google, but the cloud profile could not be checked: "+e.getMessage()));
     }
     @JavascriptInterface public void request(String action,String payload){
         activity.runOnUiThread(()->execute(action,payload));
@@ -90,8 +97,9 @@ public final class AccountApiBridge {
                         Map<String,Object> profile=new HashMap<>();
                         profile.put("email",email);profile.put("role","USER");profile.put("plots",new java.util.ArrayList<>());
                         profile.put("createdAt",com.google.firebase.firestore.FieldValue.serverTimestamp());
-                        db.collection("users").document(user.getUid()).set(profile).addOnSuccessListener(v->accountResponse(action,user))
-                          .addOnFailureListener(e->respond(action,false,"Account created, but profile save failed: "+e.getMessage(),null));
+                        accountResponse(action,user);
+                        db.collection("users").document(user.getUid()).set(profile)
+                                .addOnFailureListener(e->reportAccountWarning("Account created, but the cloud profile could not be saved: "+e.getMessage()));
                     }).addOnFailureListener(e->respond(action,false,e.getMessage(),null));
                 }else auth.signInWithEmailAndPassword(email,password).addOnSuccessListener(result->{
                     FirebaseUser user=result.getUser();
@@ -125,15 +133,18 @@ public final class AccountApiBridge {
         }catch(Exception e){respond(action,false,e.getMessage(),null);}
     }
     private void accountResponse(String action,FirebaseUser user){
-        db.collection("users").document(user.getUid()).get().addOnSuccessListener(snapshot->{
-            JSONObject data=new JSONObject();JSONObject account=new JSONObject();
-            try{
-                account.put("uid",user.getUid());account.put("email",user.getEmail());
-                // Client never trusts a user-editable role; privileged features require server verification.
-                account.put("role","USER");data.put("user",account);
-            }catch(Exception ignored){}
-            respond(action,true,"",data);
-        }).addOnFailureListener(e->respond(action,false,"Unable to read user profile: "+e.getMessage(),null));
+        JSONObject data=new JSONObject();JSONObject account=new JSONObject();
+        try{
+            account.put("uid",user.getUid());account.put("email",user.getEmail());
+            // Client never trusts a user-editable role; privileged features require server verification.
+            account.put("role","USER");data.put("user",account);
+        }catch(Exception ignored){}
+        respond(action,true,"",data);
+    }
+    private void reportAccountWarning(String warning){
+        JSONObject data=new JSONObject();
+        try{data.put("warning",warning);}catch(Exception ignored){}
+        respond("accountWarning",true,"",data);
     }
     private void respond(String action,boolean ok,String error,JSONObject data){
         activity.runOnUiThread(()->{

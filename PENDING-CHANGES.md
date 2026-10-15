@@ -1,3 +1,10 @@
+## Build 26 — Firebase authentication and profile error handling
+
+- Baseline: GitHub `main`, v0.6.01 Build 25 / versionCode 152, commit `446d122f9d4d12c0c0630040c314ab5c849077b5`.
+- Firebase email/password and Google sign-in now report authentication success independently of Firestore profile reads or writes. Cloud-profile failures appear as warnings and do not clear an authenticated session.
+- The Firebase Android OAuth fingerprint in `app/google-services.json` was corrected after Build 24's signer mismatch. The Build 26 workflow manifest must be checked against the actual APK signer.
+- Build identity: v0.6.01 Build 26 / versionCode 153. Requested GitHub ARM64 build and device verification pending.
+
 ## Build 25 — Manage Farm screen availability
 
 - Baseline: GitHub `main` at v0.6.01 Build 24 / versionCode 151, commit `b998170244f2baabf7bdd0568a2fae7d52f3b130`.
@@ -11,7 +18,7 @@
 - Manage Farm now filters planting, irrigation, and maintenance records by plot, greenhouse, and section; all-section records remain visible when a single section is selected.
 - Maintenance shows overdue / due today / upcoming / completed cues; Mark complete saves a completion date and syncs. Irrigation records sort by their first scheduled date.
 - Added `tools/tests/manage-farm-regression.js` and made it a build gate. Static regressions and inline JavaScript syntax pass.
-- Build 24 batch: Firebase Google OAuth config now targets project `growplot` / package `com.growplot.farm` and contains Android plus web OAuth client entries. The project owner reports Email/Password and Google providers are enabled. Google Services Gradle plugin updated to 4.5.0 and Firebase BoM to 35.0.0. Build identity: v0.6.01 Build 24 / versionCode 151. Build 24 APK and source ZIP generated successfully in GitHub Actions run #74. Email/password and Firestore connectivity still need device verification. The supplied Android OAuth certificate hash does not match the Build 24 signer SHA-1, so Google sign-in needs the matching Firebase fingerprint and refreshed config.
+- Build 24 batch: Firebase Google OAuth config now targets project `growplot` / package `com.growplot.farm` and contains Android plus web OAuth client entries. The project owner reports Email/Password and Google providers are enabled. Google Services Gradle plugin updated to 4.5.0 and Firebase BoM to 35.0.0. Build identity: v0.6.01 Build 24 / versionCode 151. Build 24 APK and source ZIP generated successfully in GitHub Actions run #74. Email/password and Firestore connectivity still need device verification. The Build 24 APK's Android OAuth fingerprint initially mismatched its signer. GitHub source now contains the corrected Build 24 SHA-1 (commit 57f3100071dbf72b0d64ec44ac357051af4ef186); the next APK signer must still be checked.
 
 # GrowPlot enhancement batch
 

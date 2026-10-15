@@ -1,3 +1,14 @@
+## BUG-069 — Authentication reported as failed when Firestore profile access failed
+
+**Reported:** 2026-10-15  
+**Status:** Fixed in v0.6.01 Build 26 source; GitHub ARM64 build and Android device verification pending.
+
+**Cause:** Email/password and Google Firebase Authentication were followed by Firestore profile reads/writes before the app reported sign-in success. A Firestore permission, network, or service failure therefore surfaced as a failed login even when Firebase Authentication had accepted the credentials. Profile-load errors also cleared the authenticated session in the WebView.
+
+**Fix:** Return the authenticated Firebase identity immediately after successful sign-in. Treat first-profile creation as best-effort, report cloud-profile failures as warnings, and keep an authenticated session active if a later profile read fails. The current Firebase Android OAuth fingerprint remains in the build config and must match the generated APK signer.
+
+**Verification:** Account regression checks now cover auth success independent of Firestore, separate profile warnings, and retaining the session after profile-load failure. GitHub Actions ARM64 build, package/version/signature/alignment, and artifact verification pending. Google credential selection and Firebase authentication still require device testing.
+
 ## BUG-068 — Manage Farm screen blank on open
 
 **Reported:** 2026-10-14
