@@ -19,8 +19,40 @@ function configureEmailFields(){
 configureEmailFields();
 let currentUser=null;
 let saveProfileCallback=null;
+let passwordResetButton=null;
 function msg(t){if(status)status.textContent=t;}
 function request(action,payload){api.request(action,JSON.stringify(payload||{}));}
+function addPasswordVisibilityToggles(){
+ for(const form of [login,create]){
+  if(!form)continue;
+  for(const field of form.querySelectorAll('input[type="password"]')){
+   const group=field.closest('.auth-field')||field.parentElement;
+   if(!group||group.dataset.growplotPasswordToggle==='true')continue;
+   if(!field.id)field.id='growplot-'+(form.id||'account')+'-'+(field.name||'password');
+   const toggle=document.createElement('button');toggle.type='button';toggle.className='growplot-password-toggle';
+   toggle.textContent='Show';toggle.setAttribute('aria-label','Show '+(field.name==='confirmPassword'?'confirm password':'password'));
+   toggle.setAttribute('aria-controls',field.id);toggle.setAttribute('aria-pressed','false');
+   toggle.style.cssText='display:block;margin:4px 0 10px auto;padding:4px 0;border:0;background:transparent;color:#286647;font:inherit;font-weight:650;text-decoration:underline;cursor:pointer';
+   toggle.addEventListener('click',()=>{const visible=field.type==='password';field.type=visible?'text':'password';toggle.textContent=visible?'Hide':'Show';toggle.setAttribute('aria-label',(visible?'Hide ':'Show ')+(field.name==='confirmPassword'?'confirm password':'password'));toggle.setAttribute('aria-pressed',String(visible));});
+   group.dataset.growplotPasswordToggle='true';group.insertAdjacentElement('afterend',toggle);
+  }
+ }
+}
+function installPasswordReset(){
+ if(!login)return;
+ passwordResetButton=document.createElement('button');passwordResetButton.type='button';passwordResetButton.id='forgotPasswordBtn';passwordResetButton.textContent='Forgot password?';
+ passwordResetButton.style.cssText='display:block;margin:0 0 12px auto;padding:4px 0;border:0;background:transparent;color:#286647;font:inherit;font-weight:650;text-decoration:underline;cursor:pointer';
+ const submit=login.querySelector('button[type="submit"],input[type="submit"]');
+ if(submit)login.insertBefore(passwordResetButton,submit);else login.appendChild(passwordResetButton);
+ passwordResetButton.addEventListener('click',()=>{
+  const email=login.querySelector('input[name="email"]');
+  if(!email||!email.value.trim()||!email.checkValidity()){msg('Enter a valid email address above first.');if(email)email.focus();return;}
+  if(!api||!api.configured()){msg('Firebase is not configured.');return;}
+  passwordResetButton.disabled=true;passwordResetButton.textContent='Sending reset link…';msg('Sending password reset email…');
+  request('passwordReset',{email:email.value.trim()});
+ });
+}
+addPasswordVisibilityToggles();installPasswordReset();
 function goHome(){const auth=document.getElementById('authScreen');if(auth)auth.hidden=true;if(typeof returnHome==='function')returnHome();else if(typeof render==='function')render();}
 function demo(){if(typeof plots!=='undefined'&&Array.isArray(plots)){const p=plots.find(p=>/demo/i.test(String(p.name||'')+' '+String(p.id||'')))||plots[0];if(p){selectedPlotId=p.id;if(typeof fillPlotSelectors==='function')fillPlotSelectors();if(typeof render==='function')render();}}}
 function adminStats(){
@@ -61,6 +93,11 @@ function saveNotice(message,success){
  el.style.background=success?'#d8f4df':'#ffe5df';el.style.color=success?'#164b2a':'#782319';el.textContent=message;
 }
 window.GrowPlotAccountResponse=function(response){
+ if(response.action==='passwordReset'){
+  if(passwordResetButton){passwordResetButton.disabled=false;passwordResetButton.textContent='Forgot password?';}
+  msg(response.ok?'If a GrowPlot account matches that address, a reset email will arrive shortly. Check your inbox and spam folder.':(response.error||'Could not send a reset email. Please check your connection and try again.'));
+  return;
+ }
  if(!response.ok){if(response.action==='googleSignIn'){const createView=document.getElementById('createView');const target=createView&&!createView.hidden?document.getElementById('createStatus'):status;if(target)target.textContent=response.error||'Google sign-in failed.';}else msg((response.action==='profile'?'Firebase profile could not be loaded: ':'')+(response.error||'Account request failed'));if(response.action==='saveProfile'){const callback=saveProfileCallback;saveProfileCallback=null;if(callback)callback(false,response.error||'Firebase save failed.');}if(response.action==='profile'){const authScreen=document.getElementById('authScreen');if(authScreen)authScreen.hidden=false;currentUser=null;window.GrowPlotCurrentUser=null;}if(response.action==='saveProfile')saveNotice('Firebase save failed: '+(response.error||'Please retry.'),false);return;}
  const data=response.data||{};
  if(response.action==='login'||response.action==='register'||response.action==='googleSignIn'){
