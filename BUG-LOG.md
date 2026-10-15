@@ -1,13 +1,13 @@
 ## BUG-077 — First-plot sign-in prompt appears over Settings
 
 **Reported:** 2026-10-15
-**Status:** Fixed in v0.6.02 Build 02 source; GitHub ARM64 build and Android visual verification pending.
+**Status:** Built in v0.6.02 Build 02 (versionCode 159); GitHub ARM64 workflow run #119 passed. Android visual verification pending.
 
 **Cause:** After sign-in to an account without plots, the first-plot dialog could be shown while the previous Settings panel was still open, leaving two screens stacked.
 
 **Fix:** The onboarding flow now returns the underlying app to Home before presenting the first-plot choice. The My Account page now uses a centered card capped at 480 px wide and within the available viewport height, with internal scrolling on short screens.
 
-**Verification:** Account regression checks cover the Home reset and responsive account-card bounds. GitHub build and tablet visual verification pending.
+**Verification:** JavaScript syntax and account regression checks passed. GitHub run #119 passed ARM64 compilation, package/version/signature verification, and artifact upload. APK SHA-256: `7ae9425fd88d3b55b1be5275b4128581fac36784cd525d24071ad325621a86c4`. Its signer SHA-256 is `fc5edb30ece8df673c50aa907b61357bceb807eb843ef853d89c276e5501b204` (SHA-1 `1a15eb3ce95b1eaee5e48d525476ace83bd41cdd`), matching v0.6.02 Build 01's configured stable signer. Pl@ntNet key is absent. Visual validation on the tablet remains pending.
 
 ## BUG-076 — Plot map links do not consistently open Google Maps
 
