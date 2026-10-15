@@ -84,7 +84,13 @@ public final class AccountApiBridge {
                 }
                 auth.sendPasswordResetEmail(email)
                     .addOnSuccessListener(v->respond(action,true,"",null))
-                    .addOnFailureListener(e->respond(action,false,"Could not send a reset email. Please check your connection and try again.",null));
+                    .addOnFailureListener(e->{
+                        if(e instanceof com.google.firebase.auth.FirebaseAuthInvalidUserException){
+                            respond(action,true,"",null);
+                        }else{
+                            respond(action,false,"Could not send a reset email. Please check your connection and try again.",null);
+                        }
+                    });
                 return;
             }
             if("login".equals(action)||"register".equals(action)){
