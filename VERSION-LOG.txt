@@ -1,3 +1,23 @@
+2026-10-15 | v0.6.01 Build 30 | versionCode 157 | com.growplot.farm
+---------------------------------------------------------------------
+Source: GitHub main commit 706565b2aced2174f7d92ad07ed2e3449bce0a30 plus CCTV foreground fix PR #21; GitHub Actions run #101 at https://github.com/rizaljamin/GrowPlot-New/actions/runs/38697353632.
+Purpose: User-requested ARM64 development APK to test other GrowPlot functions.
+Files: v0.6.01-build-30-GrowPlot-arm64-development-only.apk; v0.6.01-build-30-GrowPlot-source.zip; v0.6.01-build-30-build-manifest.txt.
+Validation: GitHub Actions build passed; APK signature verified. On-device testing remains pending.
+Signing: Temporary runner debug certificate SHA-1 78f05b24015b3c8daf271845bfae3188ac806602; Google sign-in is not verified for this signer and it may not install over a differently signed GrowPlot app. Pl@ntNet key is absent.
+APK SHA-256: 32f19954832b8d6769042fc882ec95339c32748e2f9add6e61f23d19cfbe1246
+Source ZIP SHA-256: 557b0c055441e51e687038b3f22f91234701dc11e9f2874f309472df9a69d01d
+
+2026-10-15 | v0.6.01 Build 29 | versionCode 156 | com.growplot.farm
+---------------------------------------------------------------------
+Source: GitHub main commit 706565b2aced2174f7d92ad07ed2e3449bce0a30 plus CCTV foreground fix PR #21; build source commit a4fc65573f381b38e7351af943b00576f8b0d2e3. GitHub Actions run #96: https://github.com/rizaljamin/GrowPlot-New/actions/runs/38693949022
+Change: Hide native VLC CCTV windows while a dialog, modal, or account page is active; restore camera feeds when the blocking surface closes. Build identity advanced for tablet testing.
+Files: v0.6.01-build-29-GrowPlot-arm64-development-only.apk; v0.6.01-build-29-GrowPlot-source.zip; v0.6.01-build-29-build-manifest.txt.
+Validation: Kindwise, Manage Farm, account registration and inline JavaScript regression checks passed. ARM64 Gradle build, package/version, signature, alignment, ABI, and artifact upload checks passed. Android tablet overlay behavior remains pending.
+Signing: Development certificate SHA-256 6c00fb836efcf01e5c648a1e4d17ec8a9aad90b781f9f466d486d952563b770f; SHA-1 013b8d6307445f347d3b34eb4d3151c32502be26. Does not match Build 30; do not uninstall the current app to install this build. Pl@ntNet key is absent and diagnosis is disabled in this APK.
+APK SHA-256: e6eec570aa909384fd7028da9c070038165693abd9457e05d64c5d726eec096c
+Source ZIP SHA-256: 7cb710c26888b1cb734d96e897418d3ab665f152a21c058d6ebcf2872f011308
+
 2026-10-15 | v0.6.01 Build 28 | versionCode 155 | com.growplot.farm
 ---------------------------------------------------------------------
 Baseline: current GitHub main v0.6.01 Build 26 / versionCode 153. Build 27 / versionCode 154 was created from a branch based on Build 25 and is superseded.
