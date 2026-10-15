@@ -38,5 +38,9 @@ assert.match(onboarding, /textContent='Home'/, 'prompt offers the Home action');
 assert.match(onboarding, /settings\.click\(\)/, 'Create Plot opens Settings');
 assert.match(onboarding, /plotManagementSection/, 'Create Plot opens Plot Management');
 assert.match(onboarding, /GrowPlotShowDemoHome/, 'Home opens the demo home screen');
+assert.match(onboarding, /document\.createElement\('dialog'\)/, 'first-plot choice uses a native modal dialog');
+assert.match(onboarding, /prompt\.showModal\(\)/, 'first-plot dialog enters the browser top layer');
+assert.match(onboarding, /prompt\.close\(\)/, 'dialog actions close the modal before navigation');
+assert.match(onboarding, /else \{prompt\.hidden=true;prompt\.style\.display='none';\}/, 'fallback overlay is hidden explicitly');
 
 console.log('PASS: password, account details, duplicate-email recovery, and first-plot UX checks.');
