@@ -3,7 +3,7 @@
 - Add accessible Show / Hide controls for password and confirm-password fields.
 - Add a Forgot password? action that validates the entered email and sends Firebase Auth's reset email; status text stays generic about account existence.
 - Preserve the existing email/password registration fields, confirm-password check, Google sign-in, and first-plot prompt.
-- Validation: focused password UX regression and JavaScript syntax checks pass. No APK generated; this is one enhancement batch item.
+- Validation: focused password UX regression and JavaScript syntax checks pass. This batch contains two small changes; no APK generated.
 
 ## Build 25 — Manage Farm screen availability
 
