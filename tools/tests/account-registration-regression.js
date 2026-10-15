@@ -22,6 +22,10 @@ assert.match(onboarding, /GrowPlotSaveCloudProfile\(\(ok,error\)=>/, 'first plot
 
 const bridge = fs.readFileSync('app/src/main/java/com/growplot/farm/AccountApiBridge.java', 'utf8');
 assert.match(bridge, /@JavascriptInterface public void startGoogleSignIn\(\)/, 'Android bridge exposes Google sign-in');
+assert.match(bridge, /new GetSignInWithGoogleOption\.Builder\(webClientId\)\.build\(\)/, 'explicit Google button uses the Sign in with Google button flow');
+assert.doesNotMatch(bridge, /new GetGoogleIdOption\.Builder/, 'explicit Google button does not use the account-sheet option');
+assert.match(bridge, /e instanceof NoCredentialException/, 'no-credential errors receive an actionable message');
+assert.match(bridge, /add or select a Google account in the sign-in window/i, 'no-credential guidance explains how to retry');
 assert.match(bridge, /GoogleAuthProvider\.getCredential\(google\.getIdToken\(\),null\)/, 'Google ID token is exchanged for Firebase Auth credentials');
 assert.match(bridge, /ensureGoogleProfile\(user\)/, 'first Google sign-in creates a Firestore user profile');
 

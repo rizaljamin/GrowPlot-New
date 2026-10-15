@@ -1,3 +1,14 @@
+## BUG-072 — Google button returns “no credential available”
+
+**Reported:** 2026-10-15  
+**Status:** Source fix prepared on `fix/google-sign-in-button-flow`; regression and Android build/device verification pending.
+
+**Cause:** GrowPlot's explicit Google sign-in button used `GetGoogleIdOption`, the Credential Manager account-sheet flow. Android documents that a dedicated Sign in with Google button should use `GetSignInWithGoogleOption`, which handles accounts that need reauthentication and lets the user add an account when none is available to the sheet.
+
+**Fix:** Switch the explicit button to `GetSignInWithGoogleOption`. Convert `NoCredentialException` into guidance to add/select an account, and use a clear fallback message for other empty Credential Manager errors.
+
+**Verification limits:** Source regression checks cover the button-flow option and no-credential handling. The Android build has not yet been rerun; Google OAuth SHA-1 and live device sign-in must still be verified with the final APK signer.
+
 ## BUG-071 — Rotating CI signer invalidates Android Google OAuth fingerprint
 
 **Reported:** 2026-10-15  
