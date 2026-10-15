@@ -1,3 +1,21 @@
+## Build 29 — APK build pending
+
+- Baseline: GitHub main v0.6.01 Build 28 / versionCode 155, commit `706565b2aced2174f7d92ad07ed2e3449bce0a30`.
+- Included: Manage Farm Plot tab before Crop Planning; debug-only local Admin test login; accumulated Build 28 login recovery source changes.
+- Static regression checks passed. GitHub ARM64 build, signature/alignment checks, and Android device test pending.
+
+## Login — local admin test access
+
+- Added an Admin test login button on the login screen. The Android bridge permits the local demo-admin shortcut only in debug builds.
+- Successful access opens the existing local demo-admin session; it does not sign into Firebase or grant cloud administrator permissions. The button stays hidden in release builds.
+- Account regression now checks the button and debug-only access gate. APK generation remains pending under the 2–3 enhancement batch rule.
+
+## Manage Farm — Plot tab
+
+- Added a Plot tab before Crop Planning.
+- The tab moves the existing Settings → Plot Management panel into Manage Farm, so plot selection, location/GPS/map, data-feed settings, and existing save/delete behavior are shared rather than duplicated. Returning to another main menu restores the panel to Settings and preserves its accordion state.
+- Added regression checks for tab order and moving/restoring the shared panel. APK generation remains pending under the 2–3 enhancement batch rule.
+
 ## Build 28 — restart login fixes from current main
 
 - Baseline: GitHub main v0.6.01 Build 26 / versionCode 153. Build 27 / versionCode 154 came from a stale branch based on Build 25 and is superseded.

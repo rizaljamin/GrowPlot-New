@@ -1,3 +1,9 @@
+2026-10-15 | v0.6.01 Build 29 | versionCode 156 | com.growplot.farm
+---------------------------------------------------------------------
+Baseline: GitHub main commit 706565b2aced2174f7d92ad07ed2e3449bce0a30 (v0.6.01 Build 28 / versionCode 155).
+Changes: Add a Plot menu tab before Crop Planning, sharing the existing Settings Plot Management panel. Add an Admin test login shortcut for the local demo-admin session, gated to debug builds; it does not sign in to Firebase or grant cloud administrator access. Also retain the accumulated login recovery changes and the VLC overlay check for open dialogs/account screens.
+Validation: Account-registration, Manage Farm, Kindwise, feed-history, settings-save regressions and JavaScript syntax checks passed locally. GitHub Actions ARM64 compile, package/version, signature and alignment checks pending. Android-device test pending.
+
 2026-10-15 | v0.6.01 Build 28 | versionCode 155 | com.growplot.farm
 ---------------------------------------------------------------------
 Baseline: current GitHub main v0.6.01 Build 26 / versionCode 153. Build 27 / versionCode 154 was created from a branch based on Build 25 and is superseded.

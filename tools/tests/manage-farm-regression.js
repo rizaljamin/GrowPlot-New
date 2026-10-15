@@ -64,8 +64,59 @@ assert.ok(renderStart >= 0 && renderEnd > renderStart, 'renderManageFarm exists'
 assert.ok(renderFarm.indexOf('const existing=editRecord||{};') < renderFarm.indexOf('const plotsHtml='), 'crop screen initializes edit state before generating filters');
 
 const farmStart = script.indexOf('function manageFarmTabsMarkup(){');
+const farmTabEnd = script.indexOf('function renderManageFarm(editRecord=null)', farmStart);
+const farmHelpersStart = script.lastIndexOf('let plotManagementSettingsAnchor=null,plotManagementSettingsOpen=false;', farmStart);
+const farmTabs = script.slice(farmHelpersStart, farmTabEnd);
+assert.ok(farmTabs.indexOf('>Plot</button>') < farmTabs.indexOf('>Crop Planning</button>'), 'Plot tab appears before Crop Planning');
+assert.match(farmTabs, /function movePlotManagementSectionToManageFarm\(\)[\s\S]*?host\.appendChild\(section\)/, 'Manage Farm reuses the Settings Plot Management section');
+assert.match(farmTabs, /function restorePlotManagementSection\(\)/, 'Plot Management returns to Settings when leaving its Manage Farm tab');
+assert.match(renderFarm, /id="manageFarmPlotHost"/, 'Plot tab provides a host for the shared Settings section');
+assert.match(renderFarm, /farmActiveMenu==='plot'\)\{restorePlotManagementSection\(\);root\.innerHTML=/, 'reopening or rerendering Plot restores the shared section before rebuilding its host');
+assert.match(script, /if\(kind!==\'maintenance\'\)restorePlotManagementSection\(\)/, 'opening another main menu restores Plot Management to Settings');
+const sharedPlotSection = { parentNode: null, open: true, classes: new Set(), classList: {
+  add(name) { sharedPlotSection.classes.add(name); }, remove(name) { sharedPlotSection.classes.delete(name); },
+} };
+const detach = (node) => {
+  if (!node.parentNode) return;
+  const at = node.parentNode.children.indexOf(node);
+  if (at >= 0) node.parentNode.children.splice(at, 1);
+  node.parentNode = null;
+};
+const settingsParent = { children: [sharedPlotSection], insertBefore(node, before) {
+  detach(node);
+  const at = before ? this.children.indexOf(before) : -1;
+  this.children.splice(at < 0 ? this.children.length : at, 0, node);
+  node.parentNode = this;
+} };
+sharedPlotSection.parentNode = settingsParent;
+const plotHost = { children: [], appendChild(node) { detach(node); this.children.push(node); node.parentNode = this; } };
+const moveContext = {
+  plotManagementSettingsAnchor: null, plotManagementSettingsOpen: false,
+  document: {
+    getElementById: (id) => id === 'plotManagementSection' ? sharedPlotSection : id === 'manageFarmPlotHost' ? plotHost : null,
+    createComment: () => {
+      const anchor = { parentNode: null };
+      Object.defineProperty(anchor, 'nextSibling', { get() {
+        const at = this.parentNode ? this.parentNode.children.indexOf(this) : -1;
+        return at >= 0 ? this.parentNode.children[at + 1] || null : null;
+      } });
+      return anchor;
+    },
+  },
+};
+vm.createContext(moveContext);
+vm.runInContext([line('movePlotManagementSectionToManageFarm'), line('restorePlotManagementSection')].join('\n'), moveContext);
+vm.runInContext('movePlotManagementSectionToManageFarm()', moveContext);
+assert.equal(plotHost.children[0], sharedPlotSection, 'Manage Farm moves the existing Settings Plot Management section');
+assert.equal(sharedPlotSection.open, true, 'Plot Management opens while shown as a Manage Farm tab');
+sharedPlotSection.open = false;
+vm.runInContext('restorePlotManagementSection()', moveContext);
+assert.equal(settingsParent.children[1], sharedPlotSection, 'leaving the Plot tab restores the same Settings section in place');
+assert.equal(sharedPlotSection.open, true, 'restoring Plot Management preserves its Settings accordion state');
+assert.equal(sharedPlotSection.classes.has('manage-farm-plot-panel'), false, 'restored section clears Manage Farm styling');
 const farmContext = {
   document: { getElementById: (id) => farmElements[id] || { options: [] } },
+  restorePlotManagementSection: () => {},
   farmActiveMenu: 'crops', farmEditingId: '', farmEditingManagementId: '', farmEditingManagementType: '',
   farmPlotFilter: 'plot-1', farmGreenhouseFilter: '1', farmSectionFilter: 'all',
   farmPlantings: [], farmPlantingDeletedIds: [], farmIrrigationSchedules: [], farmMaintenanceTasks: [], farmManagementDeletedIds: [],
@@ -94,4 +145,4 @@ assert.match(farmRoot.innerHTML, /Irrigation &amp; Fertiliser/);
 assert.match(farmRoot.innerHTML, /Maintenance/);
 
 assert.match(script, /a\.scheduledDate\|\|a\.startDate/ , 'irrigation schedules sort by first scheduled date');
-console.log('PASS: farm scope filters, Manage Farm screen render and tabs, due cues, quick completion with date, and irrigation ordering.');
+console.log('PASS: farm scope filters, Plot tab shared-settings routing, Manage Farm tabs, due cues, completion dates, and irrigation ordering.');

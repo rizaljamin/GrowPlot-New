@@ -78,6 +78,13 @@ function installPasswordReset(){
  });
 }
 addPasswordVisibilityToggles();installPasswordReset();
+const adminTestLoginButton=document.getElementById('adminTestLoginBtn');
+if(adminTestLoginButton&&api&&api.isDevelopmentBuild&&api.isDevelopmentBuild())adminTestLoginButton.hidden=false;
+if(adminTestLoginButton)adminTestLoginButton.addEventListener('click',function(){
+ if(!api||!api.verifyLocalAdminTestLogin||!api.verifyLocalAdminTestLogin()){msg('Admin test login is unavailable in this build.');return;}
+ msg('Signed in to the local development admin session. Firebase was not used.');
+ if(typeof window.GrowPlotAdminVerified==='function')window.GrowPlotAdminVerified();
+});
 function goHome(){const auth=document.getElementById('authScreen');if(auth)auth.hidden=true;if(typeof returnHome==='function')returnHome();else if(typeof render==='function')render();}
 function demo(){if(typeof plots!=='undefined'&&Array.isArray(plots)){const p=plots.find(p=>/demo/i.test(String(p.name||'')+' '+String(p.id||'')))||plots[0];if(p){selectedPlotId=p.id;if(typeof fillPlotSelectors==='function')fillPlotSelectors();if(typeof render==='function')render();}}}
 window.GrowPlotShowDemoHome=function(){demo();goHome();};
