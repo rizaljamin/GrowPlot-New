@@ -7,7 +7,7 @@
 
 **Fix:** Switch the explicit button to `GetSignInWithGoogleOption`. Convert `NoCredentialException` into guidance to add/select an account, and use a clear fallback message for other empty Credential Manager errors.
 
-**Verification:** Build 27 GitHub Actions run #90 passed source regressions, ARM64 compilation, and APK package/signature checks. This temporary runner signer has SHA-1 `b67038149603b596dc91457dd51ec92ea0448e66`, which is absent from the checked-in Firebase OAuth config; live Google sign-in remains unverified.
+**Verification:** Build 27 GitHub Actions run #90 passed source regressions, ARM64 compilation, and APK package/signature checks. This runner signer has SHA-1 `b67038149603b596dc91457dd51ec92ea0448e66`. The owner subsequently supplied a refreshed Firebase config that includes this SHA-1 and was committed to the auth-fix branch; project/app IDs and web client ID are unchanged. Live Android sign-in remains unverified, and another GitHub run will have a different temporary signer.
 
 ## BUG-071 — Rotating CI signer invalidates Android Google OAuth fingerprint
 
