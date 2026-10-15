@@ -1,8 +1,10 @@
-## v0.6.02 Build 01 — APK build pending
+## v0.6.02 Build 02 — delivered
 
-- Baseline: GitHub main v0.6.01 Build 30 / versionCode 157, commit `d9973773bcc3cd65a24560200a6a7fca48f9b695`.
-- Included: Manage Farm defaults to Plot; plot-map links prefer the installed Google Maps app and fall back to the browser. GPS remains foreground-only; Android controls the saved permission choice.
-- Manage Farm/Maps, account, Kindwise, settings-save, and feed-history regression checks pass. Local build is blocked downloading Gradle from this workspace; GitHub ARM64 build, signature/alignment checks, and Android device test pending.
+- Baseline: GitHub main at v0.6.02 Build 01 / versionCode 158, commit `9fd4dd0727b4bf4460929a319ff8ac8b67a49008`.
+- Fixes: First-plot sign-in returns to Home before displaying the choice; My Account is a centered panel capped at 480px and scrolls within short screens.
+- GitHub Actions run #119 passed ARM64 build, package/version/signature checks, and artifact upload. APK SHA-256: `7ae9425fd88d3b55b1be5275b4128581fac36784cd525d24071ad325621a86c4`.
+- APK uses the same configured stable certificate as Build 01. Android visual verification pending; Pl@ntNet key absent.
+
 
 ## Login — local admin test access
 
