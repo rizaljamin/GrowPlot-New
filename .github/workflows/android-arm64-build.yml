@@ -90,23 +90,23 @@ jobs:
             SIGNING_STATUS="$(sed -n 's/^Signing status: //p' release/*-build-manifest.txt | head -n1)"
             SIGNER_SHA1="$(sed -n 's/^Signing certificate SHA-1: //p' release/*-build-manifest.txt | head -n1)"
             echo "APK signing certificate SHA-1: $SIGNER_SHA1"
-            if [[ "$SIGNING_STATUS" == "Matches the saved Build 30 certificate." ]]; then
-              python3 - "$SIGNER_SHA1" app/google-services.json <<'PY'
+            python3 - "$SIGNER_SHA1" app/google-services.json <<'PY'
           import json, sys
           signer = sys.argv[1].lower().replace(':', '')
           with open(sys.argv[2], encoding='utf-8') as source:
               config = json.load(source)
           hashes = [
-              str(client.get('client_info', {}).get('android_client_info', {}).get('certificate_hash', '')).lower().replace(':', '')
+              str(oauth.get('android_info', {}).get('certificate_hash', '')).lower().replace(':', '')
               for client in config.get('client', [])
+              for oauth in client.get('oauth_client', [])
           ]
           if not signer or signer not in hashes:
-              raise SystemExit('Firebase Google OAuth certificate_hash does not match this APK signer SHA-1')
+              raise SystemExit('Firebase OAuth client does not include this APK signer SHA-1')
           print('Firebase Google OAuth SHA-1 matches the APK signer.')
           PY
-            else
+            if [[ "$SIGNING_STATUS" != "Matches the saved Build 30 certificate." ]]; then
               grep -Fxq "Signing status: Signed with configured stable keystore; certificate differs from saved Build 30 certificate." release/*-build-manifest.txt
-              echo "::warning::APK is signed with the configured new stable keystore. It will not update an app signed with the Build 30 certificate; Google sign-in may require this SHA-1 to be added in Firebase."
+              echo "::warning::APK uses the configured new stable key and cannot update an app signed with the previous certificate."
             fi
           else
             grep -Eq '^Arm64 APK: .*development-only\.apk$' release/*-build-manifest.txt

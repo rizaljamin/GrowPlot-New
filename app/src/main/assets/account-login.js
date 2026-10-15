@@ -52,14 +52,16 @@ function addPasswordVisibilityToggles(){
    const group=field.closest('.auth-field')||field.parentElement;
    if(!group||group.dataset.growplotPasswordToggle==='true')continue;
    if(!field.id)field.id='growplot-'+(form.id||'account')+'-'+(field.name||'password');
+   const wrapper=document.createElement('span');wrapper.className='growplot-password-field';wrapper.style.cssText='position:relative;display:block;margin-top:6px';
+   field.style.marginTop='0';field.style.paddingRight='48px';field.parentNode.insertBefore(wrapper,field);wrapper.appendChild(field);
    const toggle=document.createElement('button');toggle.type='button';toggle.className='growplot-password-toggle';
    const eyeOpen='<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>';
    const eyeClosed='<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-6 10-6c2.1 0 3.9.6 5.4 1.4M22 12s-1.1 1.9-3.2 3.7A10 10 0 0 1 12 18c-6.4 0-10-6-10-6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2M3 3l18 18"/></svg>';
    toggle.innerHTML=eyeOpen;toggle.title='Show password';toggle.setAttribute('aria-label','Show '+(field.name==='confirmPassword'?'confirm password':'password'));
    toggle.setAttribute('aria-controls',field.id);toggle.setAttribute('aria-pressed','false');
-   toggle.style.cssText='display:flex;align-items:center;justify-content:center;width:36px;height:32px;margin:0 0 8px auto;padding:4px;border:0;border-radius:6px;background:transparent;color:#286647;cursor:pointer';
+   toggle.style.cssText='position:absolute;right:5px;top:50%;transform:translateY(-50%);display:flex;align-items:center;justify-content:center;width:36px;height:36px;margin:0;padding:4px;border:0;border-radius:6px;background:transparent;color:#286647;cursor:pointer';
    toggle.addEventListener('click',()=>{const visible=field.type==='password';field.type=visible?'text':'password';toggle.innerHTML=visible?eyeClosed:eyeOpen;toggle.title=(visible?'Hide':'Show')+' password';toggle.setAttribute('aria-label',(visible?'Hide ':'Show ')+(field.name==='confirmPassword'?'confirm password':'password'));toggle.setAttribute('aria-pressed',String(visible));});
-   group.dataset.growplotPasswordToggle='true';group.insertAdjacentElement('afterend',toggle);
+   group.dataset.growplotPasswordToggle='true';wrapper.appendChild(toggle);
   }
  }
 }

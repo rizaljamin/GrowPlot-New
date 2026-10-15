@@ -14,6 +14,7 @@ const account = fs.readFileSync('app/src/main/assets/account-login.js', 'utf8');
 assert.match(account, /form\.elements\.password\.value!==form\.elements\.confirmPassword\.value/, 'registration checks password confirmation');
 assert.match(account, /api\.startGoogleSignIn\(\)/, 'Google button calls the native Firebase bridge');
 assert.match(account, /className='growplot-password-toggle'/, 'password fields get eye visibility controls');
+assert.match(account, /wrapper\.appendChild\(toggle\)/, 'eye visibility controls are placed inside the password field');
 assert.match(account, /id='forgotPasswordBtn'/, 'login has a password-reset action');
 assert.match(account, /api\.isDevelopmentBuild\(\)/, 'admin test-login button is revealed only for a native development build');
 assert.match(account, /verifyLocalAdminTestLogin\(\)/, 'admin test login asks the native bridge to validate local development access');

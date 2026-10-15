@@ -38,6 +38,14 @@
           }
         },
         {
+          "client_id": "1052371761033-jt95qqp79l8oc5dkcmt55h2a6mnbd235.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.growplot.farm",
+            "certificate_hash": "1a15eb3ce95b1eaee5e48d525476ace83bd41cdd"
+          }
+        },
+        {
           "client_id": "1052371761033-tc0nn5g4cn1bfvuhgcaiulbc3svn8ml2.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
