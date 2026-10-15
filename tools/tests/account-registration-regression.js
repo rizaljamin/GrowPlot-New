@@ -22,6 +22,9 @@ assert.match(account, /GrowPlotAdminVerified\(\)/, 'successful local test login 
 assert.match(account, /This ID is already a registered member/, 'duplicate email shows the requested guidance');
 assert.match(account, /registrationForgotPasswordBtn/, 'duplicate-email guidance offers password reset');
 assert.match(account, /Registration date/,'My Account displays registration date');
+assert.match(account, /id='growplotUserManagementCard'/, 'My Account content is contained in a compact card');
+assert.match(account, /max-width:480px/, 'My Account width is constrained to the GrowPlot viewport');
+assert.match(account, /max-height:calc\(100vh - 32px\);overflow:auto/, 'My Account fits short screens and scrolls internally');
 assert.match(account, /Last login/,'My Account displays last login');
 assert.match(account, /Payment method/,'My Account has a payment-method placeholder');
 assert.match(account, /callback\(saved,response\.error\|\|''\)/, 'cloud-save completion is reported to onboarding');
@@ -34,6 +37,8 @@ assert.match(account, /response\.action==='accountWarning'/, 'best-effort profil
 const onboarding = fs.readFileSync('app/src/main/assets/new-user-onboarding.js', 'utf8');
 assert.match(onboarding, /document\.createElement\('dialog'\)/, 'first-plot prompt is a native modal dialog');
 assert.match(onboarding, /prompt\.showModal\(\)/, 'first-plot prompt enters the modal top layer');
+assert.match(onboarding, /function showHomeBehindPrompt\(\)/, 'first-plot flow resets the underlying screen before prompting');
+assert.match(onboarding, /home\.click\(\)/, 'first-plot prompt returns to Home so Settings cannot remain open beneath it');
 assert.match(onboarding, /function openPlotManagement\(\)/, 'Create Plot has a dedicated Plot Management route');
 assert.match(onboarding, /settings\.click\(\)/, 'Create Plot opens Settings/Plot Management');
 assert.match(onboarding, /function showDemoHome\(\)/, 'Home has a dedicated route to demo home');
