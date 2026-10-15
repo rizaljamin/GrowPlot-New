@@ -72,7 +72,9 @@ assert.match(farmTabs, /function movePlotManagementSectionToManageFarm\(\)[\s\S]
 assert.match(farmTabs, /function restorePlotManagementSection\(\)/, 'Plot Management returns to Settings when leaving its Manage Farm tab');
 assert.match(renderFarm, /id="manageFarmPlotHost"/, 'Plot tab provides a host for the shared Settings section');
 assert.match(renderFarm, /farmActiveMenu==='plot'\)\{restorePlotManagementSection\(\);root\.innerHTML=/, 'reopening or rerendering Plot restores the shared section before rebuilding its host');
-assert.match(script, /if\(kind!==\'maintenance\'\)restorePlotManagementSection\(\)/, 'opening another main menu restores Plot Management to Settings');
+const showPanel = line('showPanel');
+assert.match(showPanel, /else restorePlotManagementSection\(\)/, 'opening another main menu restores Plot Management to Settings');
+assert.match(showPanel, /if\(kind===\'maintenance\'\)farmActiveMenu=\'plot\'/, 'opening Manage Farm resets its default tab to Plot');
 const sharedPlotSection = { parentNode: null, open: true, classes: new Set(), classList: {
   add(name) { sharedPlotSection.classes.add(name); }, remove(name) { sharedPlotSection.classes.delete(name); },
 } };
@@ -145,4 +147,11 @@ assert.match(farmRoot.innerHTML, /Irrigation &amp; Fertiliser/);
 assert.match(farmRoot.innerHTML, /Maintenance/);
 
 assert.match(script, /a\.scheduledDate\|\|a\.startDate/ , 'irrigation schedules sort by first scheduled date');
-console.log('PASS: farm scope filters, Plot tab shared-settings routing, Manage Farm tabs, due cues, completion dates, and irrigation ordering.');
+const manifest = fs.readFileSync('app/src/main/AndroidManifest.xml', 'utf8');
+const java = fs.readFileSync('app/src/main/java/com/growplot/farm/MainActivity.java', 'utf8');
+assert.match(manifest, /android\.permission\.ACCESS_FINE_LOCATION/, 'GrowPlot declares foreground GPS access');
+assert.match(manifest, /android\.permission\.ACCESS_COARSE_LOCATION/, 'GrowPlot declares approximate foreground location access');
+assert.doesNotMatch(manifest, /android\.permission\.ACCESS_BACKGROUND_LOCATION/, 'map use does not request unnecessary background location');
+assert.match(java, /googleMaps\.setPackage\("com\.google\.android\.apps\.maps"\)/, 'plot map links prefer the Google Maps app');
+assert.match(java, /catch \(Exception mapsUnavailable\)[\s\S]*?new Intent\(Intent\.ACTION_VIEW, maps\)/, 'plot map links fall back to the web map when the app is unavailable');
+console.log('PASS: farm scope filters, Plot default, shared plot management, due cues, completion dates, irrigation ordering, and Google Maps routing/location permissions.');

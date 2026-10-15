@@ -1,3 +1,9 @@
+2026-10-15 | v0.6.02 Build 01 | versionCode 158 | com.growplot.farm
+---------------------------------------------------------------------
+Baseline: GitHub main commit d9973773bcc3cd65a24560200a6a7fca48f9b695 (v0.6.01 Build 30 / versionCode 157).
+Changes: Manage Farm opens on the Plot tab each time. Plot map links launch the Google Maps app directly when installed and fall back to the web map otherwise. GrowPlot requests foreground location only when device GPS is needed; Android keeps the user's permission choice until changed in system settings. No background location is requested.
+Validation: Manage Farm/Maps, account, Kindwise, settings-save, and feed-history regression checks pass; inline JavaScript syntax and diff checks pass. Local ARM64 build could not download Gradle because this workspace has no network route to services.gradle.org. GitHub ARM64 compilation, package/version, stable signer, and alignment checks pending. Android map/location behavior pending on-device verification.
+
 2026-10-15 | v0.6.01 Build 30 | versionCode 157 | com.growplot.farm
 ---------------------------------------------------------------------
 Baseline: GitHub main commit 70c68d5dc3763e4094ada512b0a9559a2bba0299 (v0.6.01 Build 29 / versionCode 156).

@@ -3005,9 +3005,7 @@ public class MainActivity extends Activity {
                 double lon = Double.parseDouble(longitude);
                 if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return;
                 Uri maps = Uri.parse("https://www.google.com/maps/search/?api=1&query=" + lat + "%2C" + lon);
-                runOnUiThread(() -> {
-                    try { startActivity(new Intent(Intent.ACTION_VIEW, maps)); } catch (Exception ignored) { }
-                });
+                openGoogleMapsUri(maps);
             } catch (Exception ignored) { }
         }
 
@@ -3016,8 +3014,18 @@ public class MainActivity extends Activity {
             Uri maps = new Uri.Builder().scheme("https").authority("www.google.com")
                     .path("/maps/search/").appendQueryParameter("api", "1")
                     .appendQueryParameter("query", query).build();
+            openGoogleMapsUri(maps);
+        }
+
+        private void openGoogleMapsUri(Uri maps) {
             runOnUiThread(() -> {
-                try { startActivity(new Intent(Intent.ACTION_VIEW, maps)); } catch (Exception ignored) { }
+                Intent googleMaps = new Intent(Intent.ACTION_VIEW, maps);
+                googleMaps.setPackage("com.google.android.apps.maps");
+                try {
+                    startActivity(googleMaps);
+                } catch (Exception mapsUnavailable) {
+                    try { startActivity(new Intent(Intent.ACTION_VIEW, maps)); } catch (Exception ignored) { }
+                }
             });
         }
 

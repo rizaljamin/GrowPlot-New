@@ -1,8 +1,8 @@
-## Build 29 — APK build pending
+## v0.6.02 Build 01 — APK build pending
 
-- Baseline: GitHub main v0.6.01 Build 28 / versionCode 155, commit `706565b2aced2174f7d92ad07ed2e3449bce0a30`.
-- Included: Manage Farm Plot tab before Crop Planning; debug-only local Admin test login; accumulated Build 28 login recovery source changes.
-- Static regression checks passed. GitHub ARM64 build, signature/alignment checks, and Android device test pending.
+- Baseline: GitHub main v0.6.01 Build 30 / versionCode 157, commit `d9973773bcc3cd65a24560200a6a7fca48f9b695`.
+- Included: Manage Farm defaults to Plot; plot-map links prefer the installed Google Maps app and fall back to the browser. GPS remains foreground-only; Android controls the saved permission choice.
+- Manage Farm/Maps, account, Kindwise, settings-save, and feed-history regression checks pass. Local build is blocked downloading Gradle from this workspace; GitHub ARM64 build, signature/alignment checks, and Android device test pending.
 
 ## Login — local admin test access
 
