@@ -1,24 +1,24 @@
 ## BUG-072 — Google button returns “no credential available”
 
 **Reported:** 2026-10-15  
-**Status:** Source fix prepared on `fix/google-sign-in-button-flow`; regression and Android build/device verification pending.
+**Status:** Build 27 / run #90 compiled and passed CI checks. Google sign-in and email/password still require live Android device verification; the APK signer is not registered in Firebase.
 
 **Cause:** GrowPlot's explicit Google sign-in button used `GetGoogleIdOption`, the Credential Manager account-sheet flow. Android documents that a dedicated Sign in with Google button should use `GetSignInWithGoogleOption`, which handles accounts that need reauthentication and lets the user add an account when none is available to the sheet.
 
 **Fix:** Switch the explicit button to `GetSignInWithGoogleOption`. Convert `NoCredentialException` into guidance to add/select an account, and use a clear fallback message for other empty Credential Manager errors.
 
-**Verification limits:** Source regression checks cover the button-flow option and no-credential handling. The Android build has not yet been rerun; Google OAuth SHA-1 and live device sign-in must still be verified with the final APK signer.
+**Verification:** Build 27 GitHub Actions run #90 passed source regressions, ARM64 compilation, and APK package/signature checks. This temporary runner signer has SHA-1 `b67038149603b596dc91457dd51ec92ea0448e66`, which is absent from the checked-in Firebase OAuth config; live Google sign-in remains unverified.
 
 ## BUG-071 — Rotating CI signer invalidates Android Google OAuth fingerprint
 
 **Reported:** 2026-10-15  
-**Status:** Stable signing-key restoration added to the Build 26 GitHub workflow; verification pending.
+**Status:** Workflow now skips a missing or malformed signing secret and produces a development-only APK with the runner debug key; restoring a stable signer remains unresolved.
 
 **Cause:** The routine GitHub workflow used a runner-generated debug key. Build 26's APK signer SHA-1 was `4b926d6ebd5efd65c9926de51dbb2a45bba6d4ad`, while the Firebase Android OAuth configuration is for SHA-1 `90abc505a3aabd5760c09dc5f8d2da0fdf9244a7`. The Build 26 artifact also cannot update an app signed with the saved Build 30 key.
 
-**Fix:** Restored the repository's existing stable-keystore secret step so CI signs with the Build 30 key already configured for the project. This should keep the APK signer and update signature consistent across runs. The resulting SHA-1 still must be checked against Firebase OAuth configuration.
+**Fix:** CI validates and decodes the stable-key secret when valid; when it is absent or malformed, CI falls back to the runner debug key and explicitly labels the APK development-only. The fallback avoids a broken build but does not preserve update compatibility or Firebase OAuth registration.
 
-**Verification:** Build 26 run #86 passed ARM64 compile/package checks but used the rotating runner key. Stable-key workflow retry and Google sign-in device verification pending.
+**Verification:** Build 27 run #90 passed with runner signer SHA-1 `b67038149603b596dc91457dd51ec92ea0448e66`. This does not match the Firebase config's registered SHA-1 values (`90abc505a3aabd5760c09dc5f8d2da0fdf9244a7`, `0faf29ca21994b62f9ab2abf7d7137c823caf634`) or Build 30's saved signer. Stable signing and device sign-in verification remain pending.
 
 ## BUG-070 — GitHub ARM64 build runs out of heap during D8 merge
 
