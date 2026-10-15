@@ -1,3 +1,10 @@
+## Login screen UX enhancement
+
+- Add accessible Show / Hide controls for password and confirm-password fields.
+- Add a Forgot password? action that validates the entered email and sends Firebase Auth's reset email; status text stays generic about account existence.
+- Preserve the existing email/password registration fields, confirm-password check, Google sign-in, and first-plot prompt.
+- Validation: focused password UX regression and JavaScript syntax checks pass. No APK generated; this is one enhancement batch item.
+
 ## Build 25 — Manage Farm screen availability
 
 - Baseline: GitHub `main` at v0.6.01 Build 24 / versionCode 151, commit `b998170244f2baabf7bdd0568a2fae7d52f3b130`.
