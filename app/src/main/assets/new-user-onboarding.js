@@ -20,7 +20,18 @@ function showDemoHome(){
  if(typeof window.GrowPlotShowDemoHome==='function')window.GrowPlotShowDemoHome();
  else {const home=document.getElementById('homeBtn');if(home)home.click();}
 }
+function showHomeBehindPrompt(){
+ const home=document.getElementById('homeBtn');
+ if(home){home.click();return;}
+ const modal=document.getElementById('aiModal');
+ if(modal)modal.classList.remove('open','health-open','farm-open');
+ const health=document.getElementById('healthPanel');
+ if(health)health.hidden=true;
+ const dashboard=document.getElementById('mainDashboard');
+ if(dashboard)dashboard.hidden=false;
+}
 function showFirstPlotChoice(){
+ showHomeBehindPrompt();
  if(prompt){
   if(typeof prompt.showModal==='function'){if(!prompt.open)prompt.showModal();}
   else {prompt.hidden=false;prompt.style.display='flex';}

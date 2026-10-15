@@ -1,3 +1,14 @@
+## BUG-077 — First-plot sign-in prompt appears over Settings
+
+**Reported:** 2026-10-15
+**Status:** Fixed in v0.6.02 Build 02 source; GitHub ARM64 build and Android visual verification pending.
+
+**Cause:** After sign-in to an account without plots, the first-plot dialog could be shown while the previous Settings panel was still open, leaving two screens stacked.
+
+**Fix:** The onboarding flow now returns the underlying app to Home before presenting the first-plot choice. The My Account page now uses a centered card capped at 480 px wide and within the available viewport height, with internal scrolling on short screens.
+
+**Verification:** Account regression checks cover the Home reset and responsive account-card bounds. GitHub build and tablet visual verification pending.
+
 ## BUG-076 — Plot map links do not consistently open Google Maps
 
 **Reported:** 2026-10-15
