@@ -24,7 +24,12 @@ let resetFeedbackTarget=null;
 let registrationResetButton=null;
 function msg(t){if(status)status.textContent=t;}
 function request(action,payload){api.request(action,JSON.stringify(payload||{}));}
-function registrationStatus(){return document.getElementById('createStatus')||status;}
+function registrationStatus(){
+ const target=document.getElementById('createStatus')||status;
+ const submit=create&&create.querySelector('button[type="submit"],input[type="submit"]');
+ if(create&&target&&submit&&submit.nextElementSibling!==target)submit.insertAdjacentElement('afterend',target);
+ return target;
+}
 function showRegistrationReset(){
  const target=registrationStatus();if(!target)return;
  target.textContent='This ID is already a registered member. Click Forgot password to update new password.';
@@ -48,10 +53,12 @@ function addPasswordVisibilityToggles(){
    if(!group||group.dataset.growplotPasswordToggle==='true')continue;
    if(!field.id)field.id='growplot-'+(form.id||'account')+'-'+(field.name||'password');
    const toggle=document.createElement('button');toggle.type='button';toggle.className='growplot-password-toggle';
-   toggle.textContent='Show';toggle.setAttribute('aria-label','Show '+(field.name==='confirmPassword'?'confirm password':'password'));
+   const eyeOpen='<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>';
+   const eyeClosed='<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-6 10-6c2.1 0 3.9.6 5.4 1.4M22 12s-1.1 1.9-3.2 3.7A10 10 0 0 1 12 18c-6.4 0-10-6-10-6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2M3 3l18 18"/></svg>';
+   toggle.innerHTML=eyeOpen;toggle.title='Show password';toggle.setAttribute('aria-label','Show '+(field.name==='confirmPassword'?'confirm password':'password'));
    toggle.setAttribute('aria-controls',field.id);toggle.setAttribute('aria-pressed','false');
-   toggle.style.cssText='display:block;margin:4px 0 10px auto;padding:4px 0;border:0;background:transparent;color:#286647;font:inherit;font-weight:650;text-decoration:underline;cursor:pointer';
-   toggle.addEventListener('click',()=>{const visible=field.type==='password';field.type=visible?'text':'password';toggle.textContent=visible?'Hide':'Show';toggle.setAttribute('aria-label',(visible?'Hide ':'Show ')+(field.name==='confirmPassword'?'confirm password':'password'));toggle.setAttribute('aria-pressed',String(visible));});
+   toggle.style.cssText='display:flex;align-items:center;justify-content:center;width:36px;height:32px;margin:0 0 8px auto;padding:4px;border:0;border-radius:6px;background:transparent;color:#286647;cursor:pointer';
+   toggle.addEventListener('click',()=>{const visible=field.type==='password';field.type=visible?'text':'password';toggle.innerHTML=visible?eyeClosed:eyeOpen;toggle.title=(visible?'Hide':'Show')+' password';toggle.setAttribute('aria-label',(visible?'Hide ':'Show ')+(field.name==='confirmPassword'?'confirm password':'password'));toggle.setAttribute('aria-pressed',String(visible));});
    group.dataset.growplotPasswordToggle='true';group.insertAdjacentElement('afterend',toggle);
   }
  }
