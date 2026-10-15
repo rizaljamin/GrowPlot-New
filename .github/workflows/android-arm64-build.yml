@@ -73,7 +73,7 @@ jobs:
           echo "GROWPLOT_DEBUG_KEY_PASSWORD=${SIGNING_KEY_PASSWORD:-$SIGNING_STORE_PASSWORD}" >> "$GITHUB_ENV"
       - name: Build and verify ARM64
         env:
-          JAVA_TOOL_OPTIONS: -Xmx8g -XX:MaxMetaspaceSize=768m
+          JAVA_TOOL_OPTIONS: -Xmx12g -XX:MaxMetaspaceSize=768m
           GROWPLOT_PLANTNET_API_KEY: ${{ secrets.GROWPLOT_PLANTNET_API_KEY }}
         run: |
           chmod +x gradlew tools/*.sh
