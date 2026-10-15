@@ -1,3 +1,9 @@
+2026-10-15 | v0.6.01 Build 27 | versionCode 154 | com.growplot.farm
+---------------------------------------------------------------------
+Baseline: GitHub v0.6.01 Build 26 / versionCode 153. Source branch: fix/google-sign-in-button-flow.
+Changes: Use the dedicated Sign in with Google Credential Manager option for the explicit Google button; improve no-credential guidance. Make GitHub signing-key restoration tolerant of a missing or malformed secret, falling back to the runner debug signer and labeling output development-only.
+Validation: GitHub Actions run #89 failed before compilation because the stable keystore secret returned "base64: invalid input". Re-run after workflow fallback change; record CI and device checks when complete.
+
 2026-10-15 | v0.6.01 Build 26 | versionCode 153 | com.growplot.farm
 ---------------------------------------------------------------------
 Baseline: GitHub main v0.6.01 Build 25 / versionCode 152, commit 446d122f9d4d12c0c0630040c314ab5c849077b5.
