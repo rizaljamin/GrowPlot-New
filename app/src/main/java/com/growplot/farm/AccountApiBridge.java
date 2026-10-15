@@ -14,7 +14,7 @@ import androidx.credentials.CustomCredential;
 import androidx.credentials.GetCredentialRequest;
 import androidx.credentials.GetCredentialResponse;
 import androidx.credentials.exceptions.GetCredentialException;
-import com.google.android.libraries.identity.googleid.GetGoogleIdOption;
+import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption;
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.SetOptions;
@@ -38,11 +38,7 @@ public final class AccountApiBridge {
             if(resource==0){respond("googleSignIn",false,"Google sign-in is not configured in Firebase yet. Enable Google sign-in and add the Firebase OAuth client configuration, then rebuild.",null);return;}
             String webClientId=activity.getString(resource);
             if(webClientId==null||webClientId.trim().isEmpty()){respond("googleSignIn",false,"Google sign-in is not configured in Firebase yet. Add the Firebase web OAuth client ID, then rebuild.",null);return;}
-            GetGoogleIdOption googleOption=new GetGoogleIdOption.Builder()
-                    .setFilterByAuthorizedAccounts(false)
-                    .setServerClientId(webClientId)
-                    .setAutoSelectEnabled(false)
-                    .build();
+            GetSignInWithGoogleOption googleOption=new GetSignInWithGoogleOption.Builder(webClientId).build();
             GetCredentialRequest request=new GetCredentialRequest.Builder().addCredentialOption(googleOption).build();
             CredentialManager manager=CredentialManager.create((Context)activity);
             manager.getCredentialAsync(activity,request,null,command->activity.runOnUiThread(command),new androidx.credentials.CredentialManagerCallback<GetCredentialResponse,GetCredentialException>(){
@@ -60,7 +56,13 @@ public final class AccountApiBridge {
                         }).addOnFailureListener(e->respond("googleSignIn",false,e.getMessage(),null));
                     }catch(Exception e){respond("googleSignIn",false,"Could not read the Google sign-in token: "+e.getMessage(),null);}
                 }
-                @Override public void onError(GetCredentialException e){respond("googleSignIn",false,e.getMessage(),null);}
+                @Override public void onError(GetCredentialException e){
+                    if(e instanceof androidx.credentials.exceptions.NoCredentialException){
+                        respond("googleSignIn",false,"Google couldn’t find a usable account. Add a Google Account to this device or reauthenticate it in Android Settings, then try again.",null);
+                    }else{
+                        respond("googleSignIn",false,"Google sign-in failed: "+e.getMessage(),null);
+                    }
+                }
             });
         });
     }
@@ -84,6 +86,22 @@ public final class AccountApiBridge {
     private void execute(String action,String payload){
         try {
             JSONObject input=new JSONObject(payload==null?"{}":payload);
+            if("passwordReset".equals(action)){
+                String email=input.optString("email","").trim().toLowerCase(java.util.Locale.ROOT);
+                if(!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()){
+                    respond(action,false,"Enter a valid email address.",null);return;
+                }
+                auth.sendPasswordResetEmail(email)
+                    .addOnSuccessListener(v->respond(action,true,"",null))
+                    .addOnFailureListener(e->{
+                        if(e instanceof com.google.firebase.auth.FirebaseAuthInvalidUserException){
+                            respond(action,true,"",null);
+                        }else{
+                            respond(action,false,"Could not send a reset email. Please check your connection and try again.",null);
+                        }
+                    });
+                return;
+            }
             if("login".equals(action)||"register".equals(action)){
                 String email=input.optString("email","").trim().toLowerCase(java.util.Locale.ROOT);
                 String password=input.optString("password","");
@@ -100,7 +118,17 @@ public final class AccountApiBridge {
                         accountResponse(action,user);
                         db.collection("users").document(user.getUid()).set(profile)
                                 .addOnFailureListener(e->reportAccountWarning("Account created, but the cloud profile could not be saved: "+e.getMessage()));
-                    }).addOnFailureListener(e->respond(action,false,e.getMessage(),null));
+                    }).addOnFailureListener(e->{
+                        if(e instanceof com.google.firebase.auth.FirebaseAuthUserCollisionException
+                            || (e instanceof com.google.firebase.auth.FirebaseAuthException
+                                && "ERROR_EMAIL_ALREADY_IN_USE".equals(((com.google.firebase.auth.FirebaseAuthException)e).getErrorCode()))){
+                            JSONObject details=new JSONObject();
+                            try{details.put("duplicateEmail",true);}catch(Exception ignored){}
+                            respond(action,false,"This ID is already a registered member. Click Forgot password to set a new password.",details);
+                        }else{
+                            respond(action,false,e.getMessage(),null);
+                        }
+                    });
                 }else auth.signInWithEmailAndPassword(email,password).addOnSuccessListener(result->{
                     FirebaseUser user=result.getUser();
                     if(user!=null)accountResponse(action,user);else respond(action,false,"Login returned no user.",null);
@@ -136,6 +164,10 @@ public final class AccountApiBridge {
         JSONObject data=new JSONObject();JSONObject account=new JSONObject();
         try{
             account.put("uid",user.getUid());account.put("email",user.getEmail());
+            if(user.getMetadata()!=null){
+                account.put("registrationDate",user.getMetadata().getCreationTimestamp());
+                account.put("lastLoginDate",user.getMetadata().getLastSignInTimestamp());
+            }
             // Client never trusts a user-editable role; privileged features require server verification.
             account.put("role","USER");data.put("user",account);
         }catch(Exception ignored){}

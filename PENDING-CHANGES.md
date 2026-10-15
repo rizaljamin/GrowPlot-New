@@ -1,3 +1,11 @@
+## Build 28 — restart login fixes from current main
+
+- Baseline: GitHub main v0.6.01 Build 26 / versionCode 153. Build 27 / versionCode 154 came from a stale branch based on Build 25 and is superseded.
+- Keep Build 26's behavior: Firebase Authentication success is returned independently of Firestore profile reads/writes, and profile failures do not clear the authenticated session.
+- Reapply the three requested login improvements: duplicate-email recovery, My Account dates/payment placeholder, and the first-plot modal with Plot Management/Home routes. Retain the direct Google sign-in path and current workflow's stable signing-key restore.
+- Add the actual APK signing SHA-1 to the build manifest so it can be compared with the Android OAuth fingerprint in google-services.json.
+- Regression and GitHub ARM64 build pending. Google OAuth signer match and on-device sign-in remain unverified.
+
 ## Build 26 — Firebase authentication and profile error handling
 
 - Baseline: GitHub `main`, v0.6.01 Build 25 / versionCode 152, commit `446d122f9d4d12c0c0630040c314ab5c849077b5`.

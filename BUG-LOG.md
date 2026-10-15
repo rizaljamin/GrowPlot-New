@@ -1,3 +1,25 @@
+## BUG-072 — Build 27 login branch regressed Build 26 authentication handling
+
+**Reported:** 2026-10-15  
+**Status:** Fixed in Build 28 source; GitHub build and Android verification pending.
+
+**Cause:** The Build 27 branch was based on Build 25, so it restored an older accountResponse() that waited for a Firestore profile read before reporting success. If Firestore access failed after Firebase accepted the email/password credentials, the app could report login as failed. This source-path regression is separate from Firebase rejecting an incorrect password.
+
+**Fix:** Reapplied the login-screen changes on current Build 26 source. The native bridge reports Firebase Authentication success immediately, performs profile setup as best-effort, and reports later profile failures as warnings without clearing the authenticated session. Added regression assertions for the separation.
+
+**Verification:** Source regression and GitHub ARM64 build pending. Exact runtime behavior requires testing the resulting APK on the tablet.
+
+## BUG-073 — Build 27 Google sign-in artifact used a different signer
+
+**Reported:** 2026-10-15  
+**Status:** Build 28 carries the stable-key workflow; signer and OAuth fingerprint check pending.
+
+**Cause:** Build 27's workflow did not restore the project's stable signing key. Its uploaded manifest records signing certificate SHA-256 ce42ea38117a12adf320b0601b5a5262eadee5e337e05d243df243052dcdff1a and marks the APK development-only, different from the saved Build 30 certificate. The build therefore did not establish that the Google OAuth fingerprint in Firebase matched the APK.
+
+**Fix:** Build 28 is based on current main, which restores the saved signing key in GitHub Actions. The build manifest now records both SHA-256 and SHA-1 so the actual signer can be checked against Firebase's Android OAuth client.
+
+**Verification:** Build 28 GitHub Actions and OAuth fingerprint comparison pending. Google sign-in still requires a real device test.
+
 ## BUG-071 — Rotating CI signer invalidates Android Google OAuth fingerprint
 
 **Reported:** 2026-10-15  

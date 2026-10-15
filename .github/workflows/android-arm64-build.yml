@@ -68,6 +68,21 @@ jobs:
           test "$(find release -maxdepth 1 -name '*-build-manifest.txt' | wc -l)" -eq 1
           grep -Fxq "Version: $VERSION_NAME" release/*-build-manifest.txt
           grep -Fxq "versionCode: $VERSION_CODE" release/*-build-manifest.txt
+          grep -Fxq "Signing status: Matches the saved Build 30 certificate." release/*-build-manifest.txt
+          SIGNER_SHA1="$(sed -n 's/^Signing certificate SHA-1: //p' release/*-build-manifest.txt | head -n1)"
+          python3 - "$SIGNER_SHA1" app/google-services.json <<'PY'
+          import json, sys
+          signer = sys.argv[1].lower().replace(':', '')
+          with open(sys.argv[2], encoding='utf-8') as source:
+              config = json.load(source)
+          hashes = [
+              str(client.get('client_info', {}).get('android_client_info', {}).get('certificate_hash', '')).lower().replace(':', '')
+              for client in config.get('client', [])
+          ]
+          if not signer or signer not in hashes:
+              raise SystemExit('Firebase Google OAuth certificate_hash does not match this APK signer SHA-1')
+          print('Firebase Google OAuth SHA-1 matches the APK signer.')
+          PY
           sha256sum release/*
       - name: Upload ARM64 artifacts
         uses: actions/upload-artifact@v4
