@@ -1,3 +1,9 @@
+2026-10-15 | v0.6.01 Build 30 | versionCode 157 | com.growplot.farm
+---------------------------------------------------------------------
+Source: GitHub main commit 706565b2aced2174f7d92ad07ed2e3449bce0a30 plus CCTV foreground fix PR #21.
+Purpose: User-requested ARM64 development APK to test other GrowPlot functions.
+Status: GitHub Actions build pending. Uses temporary runner debug signing; Google sign-in and in-place update compatibility are not verified.
+
 2026-10-15 | v0.6.01 Build 29 | versionCode 156 | com.growplot.farm
 ---------------------------------------------------------------------
 Source: GitHub main commit 706565b2aced2174f7d92ad07ed2e3449bce0a30 plus CCTV foreground fix PR #21; build source commit a4fc65573f381b38e7351af943b00576f8b0d2e3. GitHub Actions run #96: https://github.com/rizaljamin/GrowPlot-New/actions/runs/38693949022
