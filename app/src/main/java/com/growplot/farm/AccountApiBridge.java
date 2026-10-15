@@ -77,6 +77,16 @@ public final class AccountApiBridge {
     private void execute(String action,String payload){
         try {
             JSONObject input=new JSONObject(payload==null?"{}":payload);
+            if("passwordReset".equals(action)){
+                String email=input.optString("email","").trim().toLowerCase(java.util.Locale.ROOT);
+                if(!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()){
+                    respond(action,false,"Enter a valid email address.",null);return;
+                }
+                auth.sendPasswordResetEmail(email)
+                    .addOnSuccessListener(v->respond(action,true,"",null))
+                    .addOnFailureListener(e->respond(action,false,"Could not send a reset email. Please check your connection and try again.",null));
+                return;
+            }
             if("login".equals(action)||"register".equals(action)){
                 String email=input.optString("email","").trim().toLowerCase(java.util.Locale.ROOT);
                 String password=input.optString("password","");
