@@ -1,11 +1,11 @@
-# GrowPlot v0.6.01 Build 28
+# GrowPlot v0.6.01 Build 29
 
 GrowPlot is an Android A.I driven app for farm camera monitoring, plant health workflows, plot management, and diagnosis media.Fully coded by A.I Agents with human directive guided by the requirement specification documents.
 
 GrowPlot retains the selected Google Drive folder grant and storage paths between normal launches. Android may require a new one-time grant after reinstall, cleared app data, or permission revocation. Build 8 connects the saved Kindwise crop.health key to automatic photo and video-frame diagnosis alongside Pl@ntNet; provider results remain separate and are saved with the section history.
 
 Batch the next 2–3 discrete enhancements before generating an APK, unless the user explicitly asks for an earlier build. Keep source changes tracked between builds; then use `tools/build-apk.sh` to validate and package the batch. It uses the included Gradle wrapper and bootstraps the Android SDK once for this project environment. Use `tools/release-growplot.sh` for the stricter installable-candidate gate that requires the existing Build 30 signing key and the private Pl@ntNet key. Details are in `AGENTS.md` and `RELEASE-PROCESS.md`
-Current source prepares v0.6.01 Build 28 (Android versionCode 155, package `com.growplot.farm`) from the current Build 26 main branch. It preserves Firebase authentication success independently of Firestore, restores the login recovery/account details/first-plot modal changes, and retains the stable signing-key workflow. GitHub ARM64 build and Android device verification are pending.
+Current source prepares v0.6.01 Build 29 (Android versionCode 156, package `com.growplot.farm`) from GitHub main commit `706565b2aced2174f7d92ad07ed2e3449bce0a30`, with the foreground overlay fix from PR #21. When a modal, dialog, or account panel is active, the native CCTV video surfaces are hidden and restored when the panel closes. Tablet verification is pending.
 
 The previously verified Build 9 ARM64 development APK has SHA-256 `dce0cc453307290d422e933f2f1142d964c8abfcea2283fc0877ed874776d469`; its matching source ZIP SHA-256 is `4a6d531b4f79874ad257f8f837ef28671f262d99f482a7a815873ba184f4cf71`. Its signing certificate differs from the saved Build 30 certificate, and the Pl@ntNet build key is absent, so it is development-only and is not a safe in-place update. Keep the existing installed app and its data; use only an APK signed by the saved Build 30 key for an in-place update. Android device and live provider verification remain pending. Google Play upload/publication has not been performed or verified.
 
