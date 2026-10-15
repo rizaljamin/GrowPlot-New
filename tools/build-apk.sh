@@ -54,6 +54,7 @@ APK="$ROOT/app/build/outputs/apk/debug/app-debug.apk"
 [[ -s "$APK" ]] || fail "Gradle completed without producing the expected ARM64 debug APK"
 "$APKSIGNER" verify --verbose "$APK" >/dev/null || fail "ARM64 debug APK signature verification failed"
 CERT="$("$APKSIGNER" verify --print-certs "$APK" | sed -n 's/.*certificate SHA-256 digest: //p' | head -n1 | tr '[:upper:]' '[:lower:]')"
+CERT_SHA1="$("$APKSIGNER" verify --print-certs "$APK" | sed -n 's/.*certificate SHA-1 digest: //p' | head -n1 | tr '[:upper:]' '[:lower:]' | tr -d ':')"
 EXPECTED_CERT="${GROWPLOT_EXPECTED_CERT_SHA256:-d3da38540a84c06815beaec70f23d2c98dc927e5216bf83f49d3640760816466}"
 verify_apk() {
   local apk_path="$1" label="$2" badging
@@ -110,6 +111,7 @@ Arm64 APK SHA-256: $(sha256sum "$ARM64_OUT" | awk '{print $1}')
 Source ZIP: $(basename "$ZIP_OUT")
 Source ZIP SHA-256: $(sha256sum "$ZIP_OUT" | awk '{print $1}')
 Signing certificate SHA-256: $CERT
+Signing certificate SHA-1: $CERT_SHA1
 Signing status: $SIGNING_STATE
 Pl@ntNet status: $PLANTNET_STATE
 Device verification: pending; install and test on the user's Android tablet.
