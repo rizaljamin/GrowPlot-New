@@ -198,6 +198,28 @@ window.GrowPlotSaveCloudProfile=function(callback){
  saveProfileCallback=callback||null;saveNotice('Saving to Firebase…',false);request('saveProfile',{plots:mine,settings:{},selectedPlotId:typeof selectedPlotId==='undefined'?null:selectedPlotId});
 };
 
+// Plot structure controls: persisted as part of each plot's Firebase profile.
+(function installPlotStructureFields(){
+ function mount(){
+  const name=document.getElementById('plotName');
+  if(!name||document.getElementById('plotGreenhouseCount'))return;
+  const wrap=document.createElement('div');wrap.className='gp-plot-structure';
+  wrap.innerHTML='<style>.gp-plot-structure{display:flex;flex-wrap:wrap;gap:12px;margin:12px 0}.gp-plot-structure label{display:flex;flex-direction:column;gap:5px;flex:1 1 150px;font-size:13px;font-weight:600}.gp-plot-structure input{width:100%;max-width:200px;box-sizing:border-box;padding:9px;border:1px solid #cbd5d1;border-radius:8px;background:#fff;color:#172e26}</style><label>Number of Greenhouses<input id="plotGreenhouseCount" type="number" min="1" max="100" step="1" value="1"></label><label>Number of Sections per Greenhouse<input id="plotSectionCount" type="number" min="1" max="100" step="1" value="1"></label>';
+  name.closest('label')?.insertAdjacentElement('afterend',wrap);
+  const select=document.getElementById('plotManagerSelect');
+  const sync=()=>{const plot=typeof plots!=='undefined'&&Array.isArray(plots)?plots.find(p=>p.id===select?.value):null;document.getElementById('plotGreenhouseCount').value=plot?.greenhouseCount||1;document.getElementById('plotSectionCount').value=plot?.sectionsPerGreenhouse||1;};
+  select?.addEventListener('change',sync);
+  document.getElementById('savePlotBtn')?.addEventListener('click',()=>{
+   const gh=Number(document.getElementById('plotGreenhouseCount').value),sections=Number(document.getElementById('plotSectionCount').value);
+   if(!Number.isInteger(gh)||gh<1||gh>100||!Number.isInteger(sections)||sections<1||sections>100){document.getElementById('plotManagementStatus').textContent='Enter valid greenhouse and section counts (1–100).';return;}
+   const plot=typeof plots!=='undefined'&&Array.isArray(plots)?plots.find(p=>p.id===select?.value):null;
+   if(plot){plot.greenhouseCount=gh;plot.sectionsPerGreenhouse=sections;}
+  },true);
+  sync();
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});else mount();
+})();
+
 // Demo plot is read-only unless the development Power User login has been verified.
 // This UI guard is not a substitute for server-side authorization of cloud writes.
 window.GrowPlotDemoPowerUserUnlocked=false;
@@ -205,7 +227,7 @@ window.GrowPlotDemoPowerUserUnlocked=false;
  const protectedIds=new Set(['plot-1']);
  const manager=()=>document.getElementById('plotManagerSelect');
  const locked=()=>protectedIds.has(manager()?.value)&&window.GrowPlotDemoPowerUserUnlocked!==true;
- const fields=['plotNumber','plotName','plotAddress','plotLatitude','plotLongitude','plotDescription'];
+ const fields=['plotNumber','plotName','plotAddress','plotLatitude','plotLongitude','plotDescription','plotGreenhouseCount','plotSectionCount'];
  const actions=['savePlotBtn','deletePlotBtn','pickPlotOnMapBtn','useMapPinBtn','createDefaultFeedBtn','chooseCustomFeedBtn'];
  function refresh(){
   const isLocked=locked();
