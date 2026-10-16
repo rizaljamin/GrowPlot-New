@@ -152,6 +152,30 @@ public final class AccountApiBridge {
             }
             FirebaseUser user=auth.getCurrentUser();
             if(user==null){respond(action,false,"Sign in first.",null);return;}
+            if("saveDataFeeds".equals(action)){
+                JSONArray feeds=input.optJSONArray("feeds");
+                if(feeds==null||feeds.length()!=3){respond(action,false,"Expected CCTV01–CCTV03.",null);return;}
+                com.google.firebase.firestore.WriteBatch batch=db.batch();
+                for(int i=0;i<3;i++){
+                    JSONObject feed=feeds.optJSONObject(i);
+                    String id="CCTV0"+(i+1);
+                    if(feed==null||!id.equals(feed.optString("deviceId"))){respond(action,false,"Invalid CCTV device ID.",null);return;}
+                    String ip=feed.optString("ipAddress","");
+                    if(ip.length()>64||!ip.matches("[0-9.]*")){respond(action,false,"Invalid camera address.",null);return;}
+                    Map<String,Object> record=new HashMap<>();
+                    record.put("deviceId",id);record.put("deviceType","AV");record.put("deviceName",id);
+                    record.put("ownerUserId",user.getUid());record.put("ipAddress",ip);
+                    record.put("protocol",i==2?"RTSP":"HTTP");
+                    record.put("port",i==2?554:8080);
+                    record.put("streamPath",i==2?"/stream1":"/videofeed");
+                    record.put("updatedAt",com.google.firebase.firestore.FieldValue.serverTimestamp());
+                    // Passwords and stream credentials are deliberately excluded from Firestore.
+                    batch.set(db.collection("users").document(user.getUid()).collection("data_feeds").document(id),record,SetOptions.merge());
+                }
+                batch.commit().addOnSuccessListener(v->respond(action,true,"CCTV01–CCTV03 saved to Firebase.",null))
+                  .addOnFailureListener(e->respond(action,false,"Firebase device save failed: "+e.getMessage(),null));
+                return;
+            }
             if("profile".equals(action)){
                 db.collection("users").document(user.getUid()).get().addOnSuccessListener(snapshot->{
                     JSONObject out=new JSONObject();
