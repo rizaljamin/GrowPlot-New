@@ -203,7 +203,7 @@ window.GrowPlotDemoPowerUserUnlocked=false;
    if(element){element.disabled=isLocked;element.setAttribute('aria-disabled',String(isLocked));}
   }
   const status=document.getElementById('plotManagementStatus');
-  if(isLocked&&status)status.textContent='Demo Plot is read-only. Select Login as Power User to unlock editing.';
+  if(isLocked&&status&&status.textContent!=='Demo Plot is read-only. Select Login as Power User to unlock editing.')status.textContent='Demo Plot is read-only. Select Login as Power User to unlock editing.';
  }
  document.addEventListener('change',e=>{if(e.target?.id==='plotManagerSelect')queueMicrotask(refresh);},true);
  document.addEventListener('click',e=>{
@@ -216,8 +216,9 @@ window.GrowPlotDemoPowerUserUnlocked=false;
   if(locked()&&fields.includes(e.target?.id)){e.preventDefault();}
  },true);
  window.addEventListener('growplot-power-user-change',refresh);
- const observer=new MutationObserver(()=>refresh());
- const start=()=>{const section=document.getElementById('plotManagementSection');if(section){observer.observe(section,{subtree:true,childList:true});refresh();}};
+ // Avoid a MutationObserver feedback loop: updating status.textContent mutates
+ // the observed subtree and previously froze navigation throughout the app.
+ const start=()=>{refresh();};
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
 
