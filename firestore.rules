@@ -14,7 +14,16 @@ service cloud.firestore {
     match /data_feeds/{deviceId} {
       allow read: if request.auth != null
         && resource.data.ownerUserId == request.auth.uid;
-      allow write: if false;
+      allow create: if request.auth != null
+        && deviceId.matches(request.auth.uid + '_[A-Za-z0-9_-]+')
+        && request.resource.data.ownerUserId == request.auth.uid
+        && !request.resource.data.keys().hasAny(['credentials','password']);
+      allow update: if request.auth != null
+        && resource.data.ownerUserId == request.auth.uid
+        && request.resource.data.ownerUserId == request.auth.uid
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['credentials','password','ownerUserId']);
+      allow delete: if request.auth != null
+        && resource.data.ownerUserId == request.auth.uid;
     }
     match /feed_assignments/{assignmentId} {
       allow read: if request.auth != null
