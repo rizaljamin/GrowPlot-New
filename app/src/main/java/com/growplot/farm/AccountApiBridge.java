@@ -218,7 +218,28 @@ public final class AccountApiBridge {
                 update.put("selectedPlotId",input.optString("selectedPlotId",""));
                 update.put("settings",new com.google.gson.Gson().fromJson(input.optJSONObject("settings")==null?"{}":input.optJSONObject("settings").toString(),java.util.Map.class));
                 update.put("updatedAt",com.google.firebase.firestore.FieldValue.serverTimestamp());
-                db.collection("users").document(user.getUid()).set(update,SetOptions.merge())
+                // Plots are independent top-level records; never embed plot data in users.
+                JSONArray incoming=input.optJSONArray("plots");
+                com.google.firebase.firestore.WriteBatch batch=db.batch();
+                java.util.Set<String> incomingIds=new java.util.HashSet<>();
+                if(incoming!=null)for(int i=0;i<incoming.length();i++){
+                    JSONObject plot=incoming.optJSONObject(i);
+                    if(plot==null)continue;
+                    String plotId=plot.optString("id","");
+                    if(!plotId.matches("[A-Za-z0-9_-]{1,100}")||"plot-1".equals(plotId)){
+                        respond(action,false,"Invalid or reserved plot ID.",null);return;
+                    }
+                    incomingIds.add(plotId);
+                    Map<String,Object> record=new com.google.gson.Gson().fromJson(plot.toString(),java.util.Map.class);
+                    record.put("ownerUserId",user.getUid());
+                    record.put("updatedAt",com.google.firebase.firestore.FieldValue.serverTimestamp());
+                    batch.set(db.collection("plots").document(plotId),record,SetOptions.merge());
+                }
+                Map<String,Object> profileUpdate=new HashMap<>();
+                profileUpdate.put("selectedPlotId",input.optString("selectedPlotId",""));
+                profileUpdate.put("updatedAt",com.google.firebase.firestore.FieldValue.serverTimestamp());
+                batch.set(db.collection("users").document(user.getUid()),profileUpdate,SetOptions.merge());
+                batch.commit()
                     .addOnSuccessListener(v->{JSONObject out=new JSONObject();try{out.put("saved",true);}catch(Exception ignored){}respond(action,true,"",out);})
                     .addOnFailureListener(e->respond(action,false,e.getMessage(),null));
             }else if("stats".equals(action))respond(action,false,"Administrator statistics require a secure server endpoint.",null);
