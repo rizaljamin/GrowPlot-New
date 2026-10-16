@@ -1310,3 +1310,10 @@ Build 7 validation: Gradle ARM64 build, package version, signature, alignment, S
 Adds automatic Kindwise crop.health image diagnosis using the encrypted device API key from Settings. The same clearest selected images/video frames go to Kindwise and Pl@ntNet; their reports remain separate. Kindwise crop and health-issue candidates, model confidence, symptoms, and available treatment details are displayed and saved with section diagnosis history. Adds a Kindwise integration regression gate to the ARM64 build.
 Validation: JavaScript syntax, feed-history, settings-save and Kindwise regression checks passed. Gradle ARM64 assemble passed; package/version, APK signature and alignment checks passed. APK SHA-256: dbc035018fc123e09302a18ed6d08d670f502150ffbf7c6d38d5da861637c6c6. Android device and live provider requests remain pending.
 Signing / provider keys: This APK's certificate does not match the saved Build 30 certificate; do not install it as an update over the existing app. The Pl@ntNet build key is absent; Kindwise requires a user-entered key in Settings. No API keys are bundled.
+
+2026-10-16 — v0.6.02 Build 04 (versionCode 161)
+- Added Firebase Cloud Functions source for KMS-encrypted CCTV03 VIGI credentials.
+- Added Android save/load callable integration and automatic local credential restoration after sign-in.
+- CCTV01–03 configuration Firestore save remains under users/{uid}/data_feeds.
+- Requires deployment of Firebase Functions, Cloud KMS key and IAM permissions before end-to-end cloud test.
+- GitHub Actions APK build and physical VIGI stream validation pending verification.
