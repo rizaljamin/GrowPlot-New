@@ -104,7 +104,7 @@ function userPage(){
  const back=document.createElement('button');back.type='button';back.textContent='← Back to GrowPlot';back.style.cssText='padding:12px;border-radius:8px;border:1px solid #568b66;background:white';back.onclick=()=>{closeUserPage();goHome();};
  const heading=document.createElement('h2');heading.textContent=currentUser.role==='ADMIN'?'User Statistics':'My Account';
  const details=document.createElement('div');details.id='growplotUserManagementDetails';details.style.cssText='padding:16px;margin-top:14px;border:1px solid #c4d7c8;border-radius:12px;background:white;line-height:2';
- const logout=document.createElement('button');logout.type='button';logout.textContent='Log out';logout.style.cssText='display:block;margin-top:20px;padding:12px;border:1px solid #a55;border-radius:8px;background:white';logout.onclick=()=>{if(api&&api.logout)api.logout();window.GrowPlotDemoPowerUserUnlocked=false;window.dispatchEvent(new Event('growplot-power-user-change'));currentUser=null;window.GrowPlotCurrentUser=null;page.remove();if(auth)auth.hidden=false;};
+ const logout=document.createElement('button');logout.type='button';logout.textContent='Log out';logout.style.cssText='display:block;margin-top:20px;padding:12px;border:1px solid #a55;border-radius:8px;background:white';logout.onclick=()=>{window.GrowPlotBridge?.returnToDemoStreams?.();if(api&&api.logout)api.logout();window.GrowPlotDemoPowerUserUnlocked=false;window.dispatchEvent(new Event('growplot-power-user-change'));currentUser=null;window.GrowPlotCurrentUser=null;demo();page.remove();if(auth)auth.hidden=false;setTimeout(()=>window.GrowPlotRefreshHomeStreams?.(),250);};
  const card=document.createElement('div');card.id='growplotUserManagementCard';card.style.cssText='width:100%;max-width:480px;max-height:calc(100vh - 32px);overflow:auto;background:#f5f8f5;padding:22px;border:1px solid #cbd8ce;border-radius:16px;box-shadow:0 16px 48px #0005;color:#163b25;box-sizing:border-box';card.append(back,heading,details,logout);page.appendChild(card);document.body.appendChild(page);
  }
  page.hidden=false;page.style.display='flex';const details=document.getElementById('growplotUserManagementDetails');
@@ -408,9 +408,9 @@ const preview=document.getElementById('growplotPreviewButton');if(preview)previe
   function sync(force){
    const plot=document.getElementById('plot'),gh=document.getElementById('gh');
    if(!plot||!gh)return;
-   const plotId=plot.value||'plot-1';
+   const plotId=window.GrowPlotCurrentUser?(plot.value||'plot-1'):'plot-1';
    const rawGh=String(gh.value||'1');
-   const greenhouse=/^greenhouse-[1-9][0-9]*$/.test(rawGh)?rawGh:'greenhouse-'+(Number(rawGh)||1);
+   const greenhouse=!window.GrowPlotCurrentUser?'greenhouse-1':(/^greenhouse-[1-9][0-9]*$/.test(rawGh)?rawGh:'greenhouse-'+(Number(rawGh)||1));
    const uid=window.GrowPlotCurrentUser?.uid||window.GrowPlotCurrentUser?.userId||'';
    const scope=uid+'|'+plotId+'|'+greenhouse;
    if(!force&&scope===previous)return;

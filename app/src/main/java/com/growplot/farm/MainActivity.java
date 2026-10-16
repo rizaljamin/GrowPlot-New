@@ -503,6 +503,21 @@ public class MainActivity extends Activity {
         else if (slot == 3 && ipWebcam3VlcLayout != null) startVigiCctv03Vlc(ipWebcam3VlcLayout);
     }
 
+    private void returnToDemoStreams() {
+        // Invalidate all in-flight private assignment callbacks before switching sources.
+        ++assignedStreamGeneration;
+        activeStreamScope = "";
+        java.util.Arrays.fill(assignedStreamUrls, null);
+        userStreamMode = true; // Disconnect private feeds first, without exposing demo mid-transition.
+        stopIpWebcamVlc();
+        stopCctv02Vlc();
+        stopCctv03Vlc();
+        if (ipWebcamVlcFrame != null) ipWebcamVlcFrame.setBackgroundColor(Color.BLACK);
+        if (ipWebcam2VlcFrame != null) ipWebcam2VlcFrame.setBackgroundColor(Color.BLACK);
+        if (ipWebcam3VlcFrame != null) ipWebcam3VlcFrame.setBackgroundColor(Color.BLACK);
+        loadAssignedStreams("plot-1", "greenhouse-1", true);
+    }
+
     private void loadAssignedStreams(String plotId, String greenhouseId, boolean force) {
         final String uidNow = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser() == null ? "" : com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser().getUid();
         String scope = uidNow+"|"+plotId+"|"+greenhouseId;
@@ -854,7 +869,7 @@ public class MainActivity extends Activity {
                 boolean playing = false;
                 try { playing = players[i] != null && players[i].isPlaying(); }
                 catch (Exception ignored) { }
-                dot.setTextColor(playing ? Color.GREEN : Color.RED);
+                dot.setTextColor(playing ? Color.GREEN : ((System.currentTimeMillis() / 500L) % 2 == 0 ? Color.RED : Color.TRANSPARENT));
                 dot.setContentDescription("CCTV " + (i + 1) + (playing ? " active" : " inactive"));
             }
             mainHandler.postDelayed(this, 1000);
@@ -3147,6 +3162,9 @@ public class MainActivity extends Activity {
                     getPrefs().getString("data_feed_config_" + id, "{\"plotId\":\"" + id + "\",\"enabled\":false}")).apply();
         }
 
+        @JavascriptInterface public void returnToDemoStreams() {
+            runOnUiThread(() -> MainActivity.this.returnToDemoStreams());
+        }
         @JavascriptInterface public void setActiveStreamingContext(String plotId, String greenhouseId) {
             runOnUiThread(() -> MainActivity.this.loadAssignedStreams(safePlotId(plotId), greenhouseId, false));
         }
