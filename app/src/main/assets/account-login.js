@@ -96,11 +96,11 @@ function syncAuthorizedHomePlots(){
  const profile=window.GrowPlotCloudProfile,power=!!(uid&&profile?.powerUser===true);
  const seen=new Set(['plot-1']);
  const safe=(uid&&Array.isArray(profile?.plots)?profile.plots:[]).filter(p=>{
-  if(!p||!p.id||seen.has(String(p.id))||(!power&&String(p.ownerUserId||'')!==uid))return false;
+  if(!p||!p.id||seen.has(String(p.id)))return false;
   seen.add(String(p.id));return true;
  }).sort((a,b)=>String(a.id).localeCompare(String(b.id),undefined,{numeric:true,sensitivity:'base'}));
  const choices=[{id:'plot-1',name:'Demo Plot'},...safe];
- const labels=choices.map(p=>p.id==='plot-1'?'plot-1 - Demo Plot':String(p.id)+' - '+String(p.name||p.plotName||p.id)+(power?' ('+String(p.ownerEmail||p.ownerName||p.ownerUserId||'Unknown owner')+')':''));
+ const labels=choices.map(p=>p.id==='plot-1'?'plot-1 - Demo Plot':String(p.id)+' - '+String(p.name||p.plotName||p.id)+' ('+String(p.ownerEmail||p.ownerName||p.ownerUserId||'Unknown owner')+')');
  const old=select.value,desired=choices.some(p=>String(p.id)===old)?old:'plot-1';
  if(select.options.length!==choices.length||Array.from(select.options).some((o,i)=>o.value!==String(choices[i].id)||o.textContent!==labels[i])){
   select.replaceChildren();choices.forEach((p,i)=>{const o=document.createElement('option');o.value=String(p.id);o.textContent=labels[i];select.appendChild(o);});
@@ -257,7 +257,7 @@ window.GrowPlotAccountResponse=function(response){
    currentUser=data.user;window.GrowPlotCurrentUser=currentUser;
    if(currentUser&&api&&api.configured()){request('loadVigiCloudCredentials',{});window.GrowPlotReloadOwnedDevices();setTimeout(()=>window.GrowPlotRefreshHomeStreams?.(),500);}
    if(!currentUser){msg('Invalid account response');return;}
-   if(currentUser.role==='ADMIN'){goHome();demo();adminStats();setTimeout(syncAuthorizedHomePlots,0);}
+   if(currentUser.role==='ADMIN'){request('profile',{});adminStats();}
    else {request('profile',{});}
  }else if(response.action==='profile'){
    window.GrowPlotCloudProfile=data;
@@ -266,7 +266,7 @@ window.GrowPlotAccountResponse=function(response){
    if(typeof plots!=='undefined'&&Array.isArray(plots)){
      const uid=String(currentUser?.uid||currentUser?.id||'');
      const authorized=Array.isArray(data.plots)?data.plots.filter(p=>p&&p.id&&
-       (data.powerUser===true||String(p.ownerUserId||'')===uid)):[];
+       true):[];
      const demoPlot=plots.find(p=>p&&p.id==='plot-1')||{id:'plot-1',name:'Demo Plot'};
      plots.splice(0,plots.length,demoPlot,...authorized);
      selectedPlotId=authorized.some(p=>p.id===data.selectedPlotId)?data.selectedPlotId:'plot-1';
