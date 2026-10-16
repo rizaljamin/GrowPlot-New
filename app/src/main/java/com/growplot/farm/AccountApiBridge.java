@@ -303,6 +303,46 @@ public final class AccountApiBridge {
                   .addOnFailureListener(e->respond(action,false,"Firebase device save failed: "+e.getMessage(),null));
                 return;
             }
+            if("listAccessUsers".equals(action)){
+                db.collection("users").get().addOnSuccessListener(snapshot->{
+                    try{
+                        JSONArray users=new JSONArray();
+                        for(com.google.firebase.firestore.DocumentSnapshot doc:snapshot.getDocuments()){
+                            if(doc.getId().equals(user.getUid()))continue;
+                            String email=doc.getString("email");
+                            if(email==null||email.trim().isEmpty())continue;
+                            JSONObject entry=new JSONObject();
+                            entry.put("uid",doc.getId());entry.put("email",email);
+                            users.put(entry);
+                        }
+                        JSONObject out=new JSONObject();out.put("users",users);
+                        db.collection("users").document(user.getUid()).get().addOnSuccessListener(own->{
+                            try{out.put("allowedMonitorUids",new JSONArray(new com.google.gson.Gson().toJson(
+                                own.get("allowedMonitorUids")==null?new java.util.ArrayList<>():own.get("allowedMonitorUids"))));
+                                respond(action,true,"",out);
+                            }catch(Exception e){respond(action,false,e.getMessage(),null);}
+                        }).addOnFailureListener(e->respond(action,false,e.getMessage(),null));
+                    }catch(Exception e){respond(action,false,e.getMessage(),null);}
+                }).addOnFailureListener(e->respond(action,false,
+                    "Cannot list registered users. Firestore rules must authorize directory lookup: "+e.getMessage(),null));
+                return;
+            }
+            if("saveAccessUsers".equals(action)){
+                JSONArray selected=input.optJSONArray("uids");
+                if(selected==null||selected.length()>200){respond(action,false,"Invalid monitoring access list.",null);return;}
+                java.util.List<String> uids=new java.util.ArrayList<>();
+                for(int i=0;i<selected.length();i++){
+                    String uid=selected.optString(i,"");
+                    if(!uid.matches("[A-Za-z0-9_-]{1,128}")||uid.equals(user.getUid())){
+                        respond(action,false,"Invalid user selection.",null);return;
+                    }
+                    if(!uids.contains(uid))uids.add(uid);
+                }
+                db.collection("users").document(user.getUid()).update("allowedMonitorUids",uids)
+                    .addOnSuccessListener(v->respond(action,true,"Monitoring access list saved.",null))
+                    .addOnFailureListener(e->respond(action,false,"Firebase save failed: "+e.getMessage(),null));
+                return;
+            }
             if("profile".equals(action)){
                 // Privileged plot discovery requires an authenticated Firebase custom claim,
                 // never a locally editable role or power-user UI toggle.
