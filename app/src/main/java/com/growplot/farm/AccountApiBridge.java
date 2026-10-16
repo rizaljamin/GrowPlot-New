@@ -195,6 +195,7 @@ public final class AccountApiBridge {
                 Map<String,Object> record=new HashMap<>();
                 record.put("deviceId",deviceId);
                 record.put("ownerUserId",user.getUid());
+                    record.put("ownerEmail",user.getEmail()==null?"":user.getEmail());
                 record.put("deviceType",type);
                 record.put("deviceName",input.optString("deviceName",deviceId));
                 record.put("ipAddress",host);
@@ -318,9 +319,7 @@ public final class AccountApiBridge {
                                 Map<String,Object> item=doc.getData();
                                 if(item!=null)arr.put(new JSONObject(new com.google.gson.Gson().toJson(item)));
                             }
-                            // Read-only legacy fallback until the owner migrates their plots.
-                            if(arr.length()==0&&profile.get("plots")!=null)
-                                arr=new JSONArray(new com.google.gson.Gson().toJson(profile.get("plots")));
+                            // Only owner-scoped plot documents are authoritative.
                             out.put("plots",arr);
                             out.put("powerUser",powerUser);
                             String selected=profile.getString("selectedPlotId");

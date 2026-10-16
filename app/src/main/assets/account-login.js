@@ -234,7 +234,7 @@ window.GrowPlotAccountResponse=function(response){
    if(Array.isArray(data.plots)&&data.plots.length){
      if(typeof plots!=='undefined'&&Array.isArray(plots)){
        for(const p of data.plots){if(p&&p.id&&!plots.some(x=>x.id===p.id))plots.push(p);}
-       selectedPlotId=data.selectedPlotId||data.plots[0].id;
+       selectedPlotId=data.plots.some(p=>p.id===data.selectedPlotId)?data.selectedPlotId:'plot-1';
        if(typeof fillPlotSelectors==='function')fillPlotSelectors();
      }
      goHome();setTimeout(()=>{syncAuthorizedHomePlots();window.GrowPlotRefreshHomeStreams?.();},650);
@@ -265,7 +265,8 @@ window.GrowPlotAdminVerified=function(){window.GrowPlotDemoPowerUserUnlocked=tru
 window.GrowPlotSaveCloudProfile=function(callback){
  if(!currentUser){saveNotice('Sign in before saving your user profile.',false);if(callback)callback(false,'Sign in first.');return;}if(currentUser.role==='ADMIN'){if(callback)callback(true,'');return;}
  if(!api||!api.configured()){saveNotice('Firebase unavailable. Data was not saved.',false);if(callback)callback(false,'Firebase is unavailable.');return;}
- const mine=typeof plots==='undefined'?[]:plots.filter(p=>p&&p.id&&p.id!=='plot-1'&&!/demo/i.test(String(p.name||'')));
+ const uid=String(currentUser.uid||currentUser.id||'');
+ const mine=typeof plots==='undefined'?[]:plots.filter(p=>p&&p.id&&p.id!=='plot-1'&&!/demo/i.test(String(p.name||''))&&String(p.ownerUserId||'')===uid);
  saveProfileCallback=callback||null;saveNotice('Saving to Firebase…',false);request('saveProfile',{plots:mine,settings:{},selectedPlotId:typeof selectedPlotId==='undefined'?null:selectedPlotId});
 };
 
