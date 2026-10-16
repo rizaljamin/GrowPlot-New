@@ -32,7 +32,13 @@ function showFirstPlotAction(){
  action.style.cssText='display:inline-flex;align-items:center;justify-content:center;gap:6px;width:auto;min-height:34px;margin:8px 0 0;padding:6px 11px;border:1px solid #d3dfd6;border-radius:8px;background:#fff;color:#286647;font:inherit;font-size:13px;font-weight:600;cursor:pointer;box-shadow:none';
  action.innerHTML='<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/><rect x="2" y="2" width="20" height="20" rx="4"/></svg><span>Add Plot</span>';
  action.addEventListener('click',openPlotSetup);
- // Keep the control unobtrusive at the lower-left of the plot/dashboard area.\n target.appendChild(action);
+ // Keep the control unobtrusive at the lower-left of the plot/dashboard area.\n // Place within the Plot/Greenhouse selection panel, before the Home main buttons.
+ const selectors=[...document.querySelectorAll('select')];
+ const plotSelect=selectors.find(el=>/plot/i.test([el.id,el.name,el.getAttribute('aria-label')||''].join(' ')));
+ const greenhouseSelect=selectors.find(el=>/greenhouse/i.test([el.id,el.name,el.getAttribute('aria-label')||''].join(' ')));
+ const selector=greenhouseSelect||plotSelect;
+ const selectorPanel=selector&&(selector.closest('.filter-panel,.selector-panel,.selection-panel,.dashboard-filters,.filter-bar,.filters,.card')||selector.parentElement?.parentElement);
+ if(selectorPanel){selectorPanel.appendChild(action);}else{target.prepend(action);}
 }
 window.GrowPlotNewUserPreview=function(){const home=document.getElementById('homeBtn');if(home)home.click();showFirstPlotAction();};
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',showFirstPlotAction,{once:true});else showFirstPlotAction();
