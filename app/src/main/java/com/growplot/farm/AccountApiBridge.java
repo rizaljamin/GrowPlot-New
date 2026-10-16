@@ -303,8 +303,13 @@ public final class AccountApiBridge {
                 return;
             }
             if("profile".equals(action)){
-                db.collection("users").document(user.getUid()).get().addOnSuccessListener(profile->{
-                    db.collection("plots").whereEqualTo("ownerUserId",user.getUid()).get()
+                // Privileged plot discovery requires an authenticated Firebase custom claim,
+                // never a locally editable role or power-user UI toggle.
+                user.getIdToken(false).addOnSuccessListener(token->{
+                    boolean powerUser=Boolean.TRUE.equals(token.getClaims().get("powerUser"))
+                        || Boolean.TRUE.equals(token.getClaims().get("admin"));
+                    db.collection("users").document(user.getUid()).get().addOnSuccessListener(profile->{
+                    (powerUser ? db.collection("plots") : db.collection("plots").whereEqualTo("ownerUserId",user.getUid())).get()
                       .addOnSuccessListener(owned->{
                         JSONObject out=new JSONObject();
                         try{
@@ -317,12 +322,14 @@ public final class AccountApiBridge {
                             if(arr.length()==0&&profile.get("plots")!=null)
                                 arr=new JSONArray(new com.google.gson.Gson().toJson(profile.get("plots")));
                             out.put("plots",arr);
+                            out.put("powerUser",powerUser);
                             String selected=profile.getString("selectedPlotId");
                             out.put("selectedPlotId",selected==null?JSONObject.NULL:selected);
                         }catch(Exception e){respond(action,false,"Invalid plot data: "+e.getMessage(),null);return;}
                         respond(action,true,"",out);
                       }).addOnFailureListener(e->respond(action,false,e.getMessage(),null));
-                }).addOnFailureListener(e->respond(action,false,e.getMessage(),null));
+                    }).addOnFailureListener(e->respond(action,false,e.getMessage(),null));
+                }).addOnFailureListener(e->respond(action,false,"Could not verify account privileges: "+e.getMessage(),null));
             }else if("saveProfile".equals(action)){
                 // Plots are independent top-level records; never embed plot data in users.
                 JSONArray incoming=input.optJSONArray("plots");

@@ -1331,3 +1331,5 @@ Signing / provider keys: This APK's certificate does not match the saved Build 3
 2026-10-16 | v0.6.02 Build 16: Privacy fix: destroy and replace all three VLC video surfaces on logout to remove cached final frame, before reconnecting Demo Plot Settings cameras. Preserve red offline indicators and Firebase user isolation. On-device verification pending.
 
 2026-10-16 | v0.6.02 Build 17: Reset all three CCTV video surfaces whenever selected plot/greenhouse scope changes, not only logout. Start only cameras active in the selected Firebase scope; inactive windows remain black with red blinking indicators. Demo uses Settings IPs. On-device verification pending.
+
+2026-10-16 | v0.6.02 Build 18: Home plot selector limited to Demo + Firebase profile plots owned by signed-in user. Power-user all-plot listing requires verified Firebase custom claim (powerUser/admin), labels plots by owner. Reset selection to Demo when no longer permitted; greenhouse selector updates on plot change. Backend Firestore rules must independently authorize power-user cross-owner reads. Device testing pending.
