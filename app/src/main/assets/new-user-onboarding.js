@@ -33,6 +33,7 @@ function showFirstPlotAction(){
  action.innerHTML='<span>Add Plot</span><span aria-hidden="true" style="position:absolute;right:4px;bottom:2px;font-size:12px;line-height:1">+</span>';
  action.addEventListener('click',openPlotSetup);
  // Home header uses .selectors with #plot and #gh; insert as its third grid cell.
+ // Build trigger: verify the right-aligned Add Plot layout on ARM64.
  const plot=document.getElementById('plot');
  const greenhouse=document.getElementById('gh');
  const row=plot&&greenhouse&&plot.closest('.selectors');
