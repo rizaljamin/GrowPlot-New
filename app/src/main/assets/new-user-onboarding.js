@@ -1,14 +1,13 @@
 (function(){
 'use strict';
-let prompt=null;
-function hidePrompt(){
- if(!prompt)return;
- if(typeof prompt.close==='function'&&prompt.open)prompt.close();
- prompt.remove();
- prompt=null;
+// New users land on Home; never stack a second modal over Settings.
+let action=null;
+function dismissLegacyPrompt(){
+ const old=document.getElementById('growplotFirstPlotPrompt');
+ if(old){if(old.open&&typeof old.close==='function')old.close();old.remove();}
 }
-function openPlotManagement(){
- hidePrompt();
+function openPlotSetup(){
+ dismissLegacyPrompt();
  const settings=document.getElementById('settingsBtn');
  if(settings)settings.click();
  requestAnimationFrame(()=>{
@@ -16,34 +15,18 @@ function openPlotManagement(){
   if(section){section.open=true;section.scrollIntoView({behavior:'smooth',block:'start'});}
  });
 }
-function showDemoHome(){
- hidePrompt();
- if(typeof window.GrowPlotShowDemoHome==='function')window.GrowPlotShowDemoHome();
- else {const home=document.getElementById('homeBtn');if(home)home.click();}
-}
-function showHomeBehindPrompt(){
- const home=document.getElementById('homeBtn');
- if(home){home.click();return;}
- const modal=document.getElementById('aiModal');
- if(modal)modal.classList.remove('open','health-open','farm-open');
- const health=document.getElementById('healthPanel');
- if(health)health.hidden=true;
+function removeAction(){if(action){action.remove();action=null;}}
+function showFirstPlotAction(){
+ dismissLegacyPrompt();removeAction();
+ const home=document.getElementById('homeBtn');if(home)home.click();
  const dashboard=document.getElementById('mainDashboard');
- if(dashboard)dashboard.hidden=false;
+ const target=dashboard||document.getElementById('mainContent')||document.body;
+ action=document.createElement('button');action.type='button';action.id='growplotCreateFirstPlotBtn';
+ action.style.cssText='display:flex;align-items:center;justify-content:center;gap:10px;width:min(100%,340px);margin:20px auto;padding:15px 20px;border:0;border-radius:12px;background:#286647;color:white;font:inherit;font-weight:700;cursor:pointer;box-shadow:0 3px 12px #0002';
+ action.innerHTML='<svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/><rect x="2" y="2" width="20" height="20" rx="4"/></svg><span>Create First Plot</span>';
+ action.addEventListener('click',openPlotSetup);
+ target.prepend(action);
 }
-function showFirstPlotChoice(){
- showHomeBehindPrompt();
- if(prompt)hidePrompt();
- prompt=document.createElement('dialog');prompt.id='growplotFirstPlotPrompt';prompt.setAttribute('aria-labelledby','growplotFirstPlotTitle');
- prompt.style.cssText='position:fixed;inset:0;z-index:2147483647;width:100%;height:100%;max-width:none;max-height:none;margin:0;border:0;align-items:center;justify-content:center;padding:20px;background:#10231877;box-sizing:border-box;color:inherit';
- const card=document.createElement('section');card.style.cssText='width:min(100%,360px);padding:22px;border-radius:16px;background:#fff;color:#173b25;box-shadow:0 12px 36px #0004;box-sizing:border-box;text-align:center';
- const title=document.createElement('h2');title.id='growplotFirstPlotTitle';title.textContent='Create your first plot';title.style.margin='0 0 8px';
- const intro=document.createElement('p');intro.textContent='Your account is ready. Choose where you’d like to go next.';intro.style.cssText='margin:0 0 18px;color:#536358;line-height:1.45';
- const create=document.createElement('button');create.type='button';create.textContent='Create Plot';create.style.cssText='display:block;width:100%;padding:12px;border:0;border-radius:9px;background:#286647;color:white;font:inherit;font-weight:700;cursor:pointer';create.addEventListener('click',openPlotManagement);
- const home=document.createElement('button');home.type='button';home.textContent='Home';home.style.cssText='display:block;width:100%;margin-top:9px;padding:11px;border:1px solid #b9c8bb;border-radius:9px;background:white;color:#173b25;font:inherit;font-weight:650;cursor:pointer';home.addEventListener('click',showDemoHome);
- card.append(title,intro,create,home);prompt.appendChild(card);document.body.appendChild(prompt);
- if(typeof prompt.showModal==='function')prompt.showModal();else{prompt.setAttribute('role','dialog');prompt.setAttribute('aria-modal','true');prompt.style.display='flex';}
- create.focus();
-}
-window.GrowPlotNewUserPreview=showFirstPlotChoice;
+window.GrowPlotNewUserPreview=showFirstPlotAction;
+window.GrowPlotClearFirstPlotAction=function(){dismissLegacyPrompt();removeAction();};
 })();
