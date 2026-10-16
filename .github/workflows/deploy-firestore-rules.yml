@@ -1,4 +1,5 @@
 name: Deploy Firestore Rules
+# Re-trigger deployment after Firebase service-account secret was configured.
 on:
   workflow_dispatch:
   push:
