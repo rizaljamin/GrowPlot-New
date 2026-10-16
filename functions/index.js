@@ -31,3 +31,40 @@ export const loadCameraCredentials=onCall({region:'us-central1',enforceAppCheck:
  const [decrypted]=await kms.decrypt({name:key,ciphertext:Buffer.from(stored.ciphertext,'base64')});
  return {deviceId,username:snap.get('username')||'',password:Buffer.from(decrypted.plaintext).toString('utf8')};
 });
+
+function safeId(value,label){
+ if(typeof value!=='string'||!/^[A-Za-z0-9_-]{1,100}$/.test(value))throw new HttpsError('invalid-argument','Invalid '+label);
+ return value;
+}
+function ownerPlotId(uid,plotId){return uid+'_'+safeId(plotId,'plot ID');}
+function feedDocId(uid,deviceId){return uid+'_'+safeId(deviceId,'device ID');}
+export const saveOwnedDevice=onCall({region:'us-central1',enforceAppCheck:false},async req=>{
+ const uid=authorize(req);
+ const {deviceId,deviceType,deviceName,ipAddress,port,protocol,streamPath,username,password}=req.data||{};
+ safeId(deviceId,'device ID');
+ if(!['AV','IoT'].includes(deviceType))throw new HttpsError('invalid-argument','Invalid device type');
+ if(typeof ipAddress!=='string'||ipAddress.length>253||!(/^[a-zA-Z0-9.-]+$/.test(ipAddress)))throw new HttpsError('invalid-argument','Invalid host');
+ if(!Number.isInteger(port)||port<1||port>65535)throw new HttpsError('invalid-argument','Invalid port');
+ if(typeof username!=='undefined'&&(typeof username!=='string'||username.length>128))throw new HttpsError('invalid-argument','Invalid username');
+ if(typeof password!=='undefined'&&(typeof password!=='string'||password.length>256))throw new HttpsError('invalid-argument','Invalid password');
+ const doc=db.collection('data_feeds').doc(feedDocId(uid,deviceId));
+ const existing=await doc.get();
+ if(existing.exists&&existing.get('ownerUserId')!==uid)throw new HttpsError('permission-denied','Device belongs to another user');
+ const data={deviceId,ownerUserId:uid,deviceType,deviceName:String(deviceName||deviceId).slice(0,100),ipAddress,port,protocol:String(protocol||'').slice(0,20),streamPath:String(streamPath||'').slice(0,300),updatedAt:FieldValue.serverTimestamp()};
+ if(username!==undefined)data.username=username;
+ if(password){const [encrypted]=await kms.encrypt({name:key,plaintext:Buffer.from(password,'utf8')});data.credentials={algorithm:'GOOGLE_CLOUD_KMS',keyName:key,ciphertext:Buffer.from(encrypted.ciphertext).toString('base64')};}
+ await doc.set(data,{merge:true});
+ return {saved:true,deviceId};
+});
+export const assignOwnedDevice=onCall({region:'us-central1',enforceAppCheck:false},async req=>{
+ const uid=authorize(req),{plotId,sectionId,deviceId,greenhouseId}=req.data||{};
+ safeId(plotId,'plot ID');safeId(sectionId,'section ID');safeId(deviceId,'device ID');
+ if(greenhouseId)safeId(greenhouseId,'greenhouse ID');
+ const plot=await db.collection('plots').doc(ownerPlotId(uid,plotId)).get();
+ const device=await db.collection('data_feeds').doc(feedDocId(uid,deviceId)).get();
+ if(!plot.exists||plot.get('ownerUserId')!==uid)throw new HttpsError('permission-denied','Plot not owned by signed-in user');
+ if(!device.exists||device.get('ownerUserId')!==uid)throw new HttpsError('permission-denied','Device not owned by signed-in user');
+ const id=uid+'_'+plotId+'_'+sectionId+'_'+deviceId;
+ await db.collection('feed_assignments').doc(id).set({ownerUserId:uid,plotId,sectionId,greenhouseId:greenhouseId||'',deviceId,updatedAt:FieldValue.serverTimestamp()},{merge:true});
+ return {assigned:true,deviceId,plotId,sectionId};
+});
