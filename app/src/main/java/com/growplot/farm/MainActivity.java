@@ -514,6 +514,7 @@ public class MainActivity extends Activity {
         assignedStreamsLoading = userStreamMode;
         refreshAssignedPlayers(); // Stop previous plot streams before Firebase fetch.
         if (!userStreamMode) { return; }
+        if (activeStreamScope.endsWith("|plot-3|greenhouse-1")) refreshAssignedPlayer(1);
         com.google.firebase.auth.FirebaseUser user = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
         if (user == null || !plotId.matches("[A-Za-z0-9_-]{1,100}") || !greenhouseId.matches("greenhouse-[1-9][0-9]*")) {
             return;
@@ -539,13 +540,20 @@ public class MainActivity extends Activity {
                         if (path == null || path.isEmpty()) path = "rtsp".equals(scheme) ? "/stream1" : "/videofeed";
                         if (!path.startsWith("/") || path.contains("..") || path.contains("@") || path.contains("?")) return;
                         assignedStreamUrls[slot] = scheme+"://"+host+":"+actualPort+path;
-                        refreshAssignedPlayer(slot);
+                        if (!(slot == 1 && activeStreamScope.endsWith("|plot-3|greenhouse-1"))) refreshAssignedPlayer(slot);
                     });
                 }
             }).addOnFailureListener(e -> { assignedStreamsLoading = false; android.util.Log.w("GrowPlotStreams", "Assignment retrieval failed", e); });
     }
 
     private String cctvStreamUrl(int camera) {
+        // TEMPORARY Build 13 diagnostic only: isolate Home CCTV01 playback from Firestore lookup.
+        // Limited to a signed-in user's Plot 3 / Greenhouse 01. Remove after testing.
+        if (camera == 1 && userStreamMode && activeStreamScope.endsWith("|plot-3|greenhouse-1")
+                && com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser() != null) {
+            android.util.Log.i("GrowPlotStreams", "Build 13 diagnostic: CCTV01 using local IP Webcam endpoint");
+            return "http://192.168.0.4:8080/videofeed";
+        }
         if (userStreamMode) return assignedStreamUrls[camera] == null ? "" : assignedStreamUrls[camera];
         String ip = cctvIp(camera);
         return ip.isEmpty() ? "" : "http://" + ip + ":8080/videofeed";

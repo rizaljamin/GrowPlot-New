@@ -1321,3 +1321,5 @@ Signing / provider keys: This APK's certificate does not match the saved Build 3
 2026-10-16 | v0.6.02 Build 10 pending: Fix saved device retrieval UI, clickable owned devices, owner plot/greenhouse stream routing; test GitHub ARM64 build and signing before delivery.
 \n2026-10-16 | v0.6.02 Build 11: Bind Home #plot/#gh selectors to owner/plot/greenhouse Firestore camera assignments; accept AV/Camera records; stop stale streams and update only assigned CCTV01–03 players. GitHub compilation and tablet playback verification pending.\n
 2026-10-16 | v0.6.02 Build 12: Fix camera streaming after Firebase relogin/profile hydration; reacquire current Home selectors, refresh after login/profile, restore owned streams on Android resume, avoid setActivePlot resetting greenhouse and duplicate refresh calls. Device playback verification pending.
+
+2026-10-16 | v0.6.02 Build 13 diagnostic: temporarily force signed-in Plot 3 / Greenhouse 01 CCTV01 to HTTP 192.168.0.4:8080/videofeed independent of Firestore device fetch; CCTV02/03 retain assignment lookup. Remove diagnostic after device test. GitHub build and device verification pending.
