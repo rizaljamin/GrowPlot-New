@@ -93,7 +93,10 @@ function goHome(){setTimeout(()=>window.GrowPlotRefreshHomeStreams?.(),300);cons
 function syncAuthorizedHomePlots(){
  if(typeof window.GrowPlotPlotDropdownSync==='function')return window.GrowPlotPlotDropdownSync();
  const select=document.getElementById('plot');if(!select)return;
- select.replaceChildren();const o=document.createElement('option');o.value='plot-1';o.textContent='plot-1 - Demo Plot';select.appendChild(o);select.value='plot-1';
+ if(select.options.length!==1||select.options[0].value!=='plot-1'||select.options[0].textContent!=='plot-1 - Demo Plot'){
+  select.replaceChildren();const o=document.createElement('option');o.value='plot-1';o.textContent='plot-1 - Demo Plot';select.appendChild(o);
+ }
+ select.value='plot-1';
 }
 window.addEventListener('growplot-plot-dropdown-ready',syncAuthorizedHomePlots);
 (function(){const script=document.createElement('script');script.src='plot-dropdown.js';script.onerror=()=>{console.error('GrowPlot plot dropdown module failed to load');};document.head.appendChild(script);})();
