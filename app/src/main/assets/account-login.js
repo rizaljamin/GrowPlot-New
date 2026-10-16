@@ -354,3 +354,27 @@ window.GrowPlotDemoPowerUserUnlocked=false;
 const preview=document.getElementById('growplotPreviewButton');if(preview)preview.remove();
 // Development build permits demo administrator access; no false cloud-authentication claims.
 })();
+
+
+// Home streaming follows the signed-in user's plot and greenhouse selection.
+// The three existing live windows represent sections 1, 2 and 3 respectively.
+(function syncHomeStreamingScope(){
+ function start(){
+  const plot=document.getElementById('plot'),gh=document.getElementById('gh');
+  if(!plot||!gh)return;
+  let previous='';
+  function sync(){
+   const plotId=plot.value||'plot-1',greenhouse='greenhouse-'+(Number(gh.value)||1);
+   const uid=window.GrowPlotCurrentUser?.uid||window.GrowPlotCurrentUser?.userId||'';
+   const scope=uid+'|'+plotId+'|'+greenhouse;
+   if(scope===previous)return;
+   previous=scope;
+   if(window.GrowPlotBridge?.setActiveStreamingContext)window.GrowPlotBridge.setActiveStreamingContext(plotId,greenhouse);
+  }
+  plot.addEventListener('change',sync);gh.addEventListener('change',sync);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden){previous='';sync();}});
+  setInterval(sync,1800);
+  sync();
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
+})();
