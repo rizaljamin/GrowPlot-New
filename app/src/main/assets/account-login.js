@@ -100,7 +100,7 @@ function syncAuthorizedHomePlots(){
   seen.add(String(p.id));return true;
  }).sort((a,b)=>String(a.id).localeCompare(String(b.id),undefined,{numeric:true,sensitivity:'base'}));
  const choices=[{id:'plot-1',name:'Demo Plot'},...safe];
- const labels=choices.map(p=>p.id==='plot-1'?'plot-1 - Demo Plot':String(p.id)+' - '+String(p.name||p.plotName||p.id)+' ('+String(p.ownerName||p.ownerDisplayName||(p.ownerEmail?String(p.ownerEmail).split('@')[0]:'')||'Unknown owner')+')');
+ const labels=choices.map(p=>p.id==='plot-1'?'plot-1 - Demo Plot':String(p.id)+' - '+String(p.name||p.plotName||p.id)+' ('+String(p.ownerEmail||p.ownerName||p.ownerDisplayName||'Unknown owner')+')');
  const old=select.value,desired=choices.some(p=>String(p.id)===old)?old:'plot-1';
  if(select.options.length!==choices.length||Array.from(select.options).some((o,i)=>o.value!==String(choices[i].id)||o.textContent!==labels[i])){
   select.replaceChildren();choices.forEach((p,i)=>{const o=document.createElement('option');o.value=String(p.id);o.textContent=labels[i];select.appendChild(o);});
