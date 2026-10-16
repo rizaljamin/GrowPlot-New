@@ -28,7 +28,22 @@ service cloud.firestore {
     match /feed_assignments/{assignmentId} {
       allow read: if request.auth != null
         && resource.data.ownerUserId == request.auth.uid;
-      allow write: if false;
+      // A signed-in owner may pair only an existing owned plot and device.
+      allow create: if request.auth != null
+        && assignmentId.matches(request.auth.uid + '_[A-Za-z0-9_-]+')
+        && request.resource.data.ownerUserId == request.auth.uid
+        && request.resource.data.keys().hasOnly(['ownerUserId','plotId','greenhouseId','sectionId','deviceId','updatedAt'])
+        && request.resource.data.plotId is string
+        && request.resource.data.deviceId is string
+        && request.resource.data.greenhouseId.matches('greenhouse-[1-9][0-9]*')
+        && request.resource.data.sectionId.matches('section-[1-9][0-9]*')
+        && assignmentId == request.auth.uid + '_' + request.resource.data.plotId + '_' + request.resource.data.greenhouseId + '_' + request.resource.data.sectionId + '_' + request.resource.data.deviceId
+        && get(/databases/$(database)/documents/plots/$(request.auth.uid + '_' + request.resource.data.plotId)).data.ownerUserId == request.auth.uid
+        && get(/databases/$(database)/documents/data_feeds/$(request.auth.uid + '_' + request.resource.data.deviceId)).data.ownerUserId == request.auth.uid;
+      allow update: if request.auth != null
+        && resource.data.ownerUserId == request.auth.uid
+        && request.resource.data == resource.data;
+      allow delete: if request.auth != null && resource.data.ownerUserId == request.auth.uid;
     }
     match /users/{uid}/data_feeds/{deviceId} {
       allow read, write: if false;
