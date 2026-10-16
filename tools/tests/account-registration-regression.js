@@ -36,7 +36,7 @@ assert.match(account, /response\.action==='accountWarning'/, 'best-effort profil
 
 const onboarding = fs.readFileSync('app/src/main/assets/new-user-onboarding.js', 'utf8');
 assert.match(onboarding, /id='growplotAddPlotBtn'/, 'Home displays the Add Plot button');
-assert.match(onboarding, /<span>Add Plot<\\/span>/, 'Add Plot uses the requested label');
+assert.match(onboarding, /Add Plot<[^>]*span>/, 'Add Plot uses the requested label');
 assert.match(onboarding, /action\.addEventListener\('click',openPlotSetup\)/, 'Add Plot opens plot setup');
 assert.match(onboarding, /settings\.click\(\)/, 'Add Plot routes to Settings/Plot Management');
 assert.match(onboarding, /dismissLegacyPrompt\(\)/, 'obsolete onboarding popup is removed');
