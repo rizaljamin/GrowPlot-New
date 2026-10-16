@@ -23,10 +23,10 @@ function showFirstPlotAction(){
  const dashboard=document.getElementById('mainDashboard');
  const target=dashboard||document.getElementById('mainContent')||document.body;
  action=document.createElement('button');action.type='button';action.id='growplotAddPlotBtn';
- action.style.cssText='display:flex;align-items:center;justify-content:center;gap:10px;width:min(100%,340px);margin:20px auto;padding:15px 20px;border:0;border-radius:12px;background:#286647;color:white;font:inherit;font-weight:700;cursor:pointer;box-shadow:0 3px 12px #0002';
- action.innerHTML='<svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/><rect x="2" y="2" width="20" height="20" rx="4"/></svg><span>Add Plot</span>';
+ action.style.cssText='display:inline-flex;align-items:center;justify-content:center;gap:6px;width:auto;min-height:34px;margin:8px 0 0;padding:6px 11px;border:1px solid #d3dfd6;border-radius:8px;background:#fff;color:#286647;font:inherit;font-size:13px;font-weight:600;cursor:pointer;box-shadow:none';
+ action.innerHTML='<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/><rect x="2" y="2" width="20" height="20" rx="4"/></svg><span>Add Plot</span>';
  action.addEventListener('click',openPlotSetup);
- target.prepend(action);
+ // Keep the control unobtrusive at the lower-left of the plot/dashboard area.\n target.appendChild(action);
 }
 window.GrowPlotNewUserPreview=function(){const home=document.getElementById('homeBtn');if(home)home.click();showFirstPlotAction();};
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',showFirstPlotAction,{once:true});else showFirstPlotAction();
