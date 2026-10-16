@@ -32,16 +32,30 @@ function showFirstPlotAction(){
  action.style.cssText='position:relative;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:auto;min-height:28px;margin:0;padding:5px 18px 5px 8px;border:0;border-radius:6px;background:#286647;color:#fff;font:inherit;font-size:11px;font-weight:700;cursor:pointer;box-shadow:none';
  action.innerHTML='<span>Add Plot</span><span aria-hidden="true" style="position:absolute;right:4px;bottom:2px;font-size:12px;line-height:1">+</span>';
  action.addEventListener('click',openPlotSetup);
- // Keep Add Plot on the SAME row as the Plot and Greenhouse dropdowns.
+ // The selector header is a two-column grid. Reserve a narrow third column for Add Plot.
  const selects=[...document.querySelectorAll('select')];
  const named=el=>[el.id,el.name,el.getAttribute('aria-label')||''].join(' ');
  const plot=selects.find(el=>/plot/i.test(named(el)));
  const greenhouse=selects.find(el=>/greenhouse/i.test(named(el)));
- const selector=greenhouse||plot;
- if(selector){
-  const row=plot&&greenhouse&&plot.parentElement===greenhouse.parentElement?plot.parentElement:selector.parentElement;
-  row.style.display='flex';row.style.alignItems='center';row.style.flexWrap='wrap';row.style.gap='8px';
-  row.appendChild(action);
+ if(plot&&greenhouse){
+  const plotField=plot.parentElement;
+  const greenhouseField=greenhouse.parentElement;
+  const header=plotField&&greenhouseField&&plotField.parentElement===greenhouseField.parentElement?plotField.parentElement:null;
+  if(header){
+   header.style.display='grid';
+   header.style.gridTemplateColumns='minmax(0,1.5fr) minmax(0,1fr) auto';
+   header.style.alignItems='end';
+   header.style.columnGap='10px';
+   header.style.rowGap='0';
+   plotField.style.minWidth='0';greenhouseField.style.minWidth='0';
+   const buttonField=document.createElement('div');
+   buttonField.id='growplotAddPlotField';
+   buttonField.style.cssText='display:flex;align-items:end;justify-content:flex-end;min-width:max-content;padding-bottom:4px';
+   buttonField.appendChild(action);
+   header.appendChild(buttonField);
+  }else{
+   greenhouse.insertAdjacentElement('afterend',action);
+  }
  }else{target.prepend(action);}
 
 }
