@@ -1,6 +1,7 @@
 (function(){
 'use strict';
 // New users land on Home; never stack a second modal over Settings.
+// ARM64 build trigger for latest Add Plot alignment and navigation.
 let action=null;
 function dismissLegacyPrompt(){
  const old=document.getElementById('growplotFirstPlotPrompt');
