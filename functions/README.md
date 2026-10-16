@@ -1,0 +1,4 @@
+# GrowPlot VIGI credentials deployment
+Deploy Firebase Functions after enabling billing and Cloud KMS. Create a symmetric encrypt/decrypt CryptoKey in Google Cloud KMS, grant the Functions runtime service account **Cloud KMS CryptoKey Encrypter/Decrypter** on that key, and set environment variable GROWPLOT_KMS_KEY_NAME to the full CryptoKey resource name for both functions. Deploy using Firebase CLI from the correct GrowPlot Firebase project: `firebase deploy --only functions:saveCameraCredentials,functions:loadCameraCredentials`.
+
+Functions authenticate Firebase UID and store encrypted passwords at `users/{uid}/data_feeds/CCTV03`. Do not permit direct client writes to `credentials` or `username` in Firestore rules. These callables return decrypted credentials to an authenticated owner device; use App Check and stricter access controls before production rollout. Never put the KMS key or service account credentials in the APK.
