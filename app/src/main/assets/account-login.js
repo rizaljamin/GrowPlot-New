@@ -256,6 +256,22 @@ window.GrowPlotDemoPowerUserUnlocked=false;
 })();
 
 
+
+// Legacy camera IP settings apply only to the demonstration plot.
+// User-owned plots must use their Firebase device assignments instead.
+(function labelDemoCameraSettings(){
+ function mount(){
+  const section=document.getElementById('cameraIpSettingsSection');
+  const summary=section?.querySelector('summary');
+  if(!summary)return;
+  const title=summary.querySelector('span');
+  if(title)title.textContent='Camera & IoT Setting (Demo Plot)';
+  else summary.insertAdjacentText('afterbegin','Camera & IoT Setting (Demo Plot) ');
+  section.dataset.demoOnly='true';
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});else mount();
+})();
+
 // Cloud Data Feed registry: CCTV01–CCTV03, authenticated and scoped to Firebase UID.
 // Preserve the existing on-device camera settings; never upload camera passwords.
 (function installDataFeedSettings(){
