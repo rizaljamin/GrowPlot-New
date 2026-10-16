@@ -573,7 +573,14 @@ public class MainActivity extends Activity {
         }
         final String uid = user.getUid();
         com.google.firebase.firestore.FirebaseFirestore store = com.google.firebase.firestore.FirebaseFirestore.getInstance();
-        store.collection("feed_assignments").whereEqualTo("ownerUserId",uid).get().addOnSuccessListener(rows -> {
+        // Administrator scope is granted only by a verified Firebase custom claim.
+        user.getIdToken(false).addOnSuccessListener(token -> {
+            boolean admin = Boolean.TRUE.equals(token.getClaims().get("admin"))
+                    || Boolean.TRUE.equals(token.getClaims().get("powerUser"));
+            com.google.firebase.firestore.Query assignments = admin
+                    ? store.collection("feed_assignments")
+                    : store.collection("feed_assignments").whereEqualTo("ownerUserId",uid);
+            assignments.get().addOnSuccessListener(rows -> {
                 if (generation != assignedStreamGeneration) return;
                 assignedStreamsLoading = false;
                 for (com.google.firebase.firestore.QueryDocumentSnapshot assignment : rows) {
@@ -581,8 +588,10 @@ public class MainActivity extends Activity {
                     String section = assignment.getString("sectionId"), deviceId = assignment.getString("deviceId");
                     if (section == null || deviceId == null || !section.matches("section-[1-3]") || !deviceId.matches("[A-Za-z0-9_-]{1,100}")) continue;
                     int slot = Integer.parseInt(section.substring(8));
-                    store.collection("data_feeds").document(uid+"_"+deviceId).get().addOnSuccessListener(device -> {
-                        if (generation != assignedStreamGeneration || !device.exists() || !uid.equals(device.getString("ownerUserId")) || !("AV".equalsIgnoreCase(device.getString("deviceType")) || "Camera".equalsIgnoreCase(device.getString("deviceType")))) return;
+                    String ownerUid=assignment.getString("ownerUserId");
+                    if(ownerUid==null||(!admin&&!uid.equals(ownerUid)))continue;
+                    store.collection("data_feeds").document(ownerUid+"_"+deviceId).get().addOnSuccessListener(device -> {
+                        if (generation != assignedStreamGeneration || !device.exists() || !ownerUid.equals(device.getString("ownerUserId")) || !("AV".equalsIgnoreCase(device.getString("deviceType")) || "Camera".equalsIgnoreCase(device.getString("deviceType")))) return;
                         String host = device.getString("ipAddress"),protocol=device.getString("protocol"),path=device.getString("streamPath");
                         Number port = device.getDouble("port");
                         if (host == null || !host.matches("[A-Za-z0-9.-]{1,253}")) return;
@@ -596,6 +605,7 @@ public class MainActivity extends Activity {
                     });
                 }
             }).addOnFailureListener(e -> { assignedStreamsLoading = false; android.util.Log.w("GrowPlotStreams", "Assignment retrieval failed", e); });
+        }).addOnFailureListener(e -> { assignedStreamsLoading=false; android.util.Log.w("GrowPlotStreams","Privilege verification failed",e); });
     }
 
     private String cctvStreamUrl(int camera) {

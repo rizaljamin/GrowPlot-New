@@ -228,17 +228,27 @@ window.GrowPlotAccountResponse=function(response){
    else {request('profile',{});}
  }else if(response.action==='profile'){
    window.GrowPlotCloudProfile=data;
+   // The HTML renderer reads this shared array, so remove every non-authorized
+   // plot before it renders. Do not erase persisted local records.
+   if(typeof plots!=='undefined'&&Array.isArray(plots)){
+     const uid=String(currentUser?.uid||currentUser?.id||'');
+     const authorized=Array.isArray(data.plots)?data.plots.filter(p=>p&&p.id&&
+       (data.powerUser===true||String(p.ownerUserId||'')===uid)):[];
+     const demoPlot=plots.find(p=>p&&p.id==='plot-1')||{id:'plot-1',name:'Demo Plot'};
+     plots.splice(0,plots.length,demoPlot,...authorized);
+     selectedPlotId=authorized.some(p=>p.id===data.selectedPlotId)?data.selectedPlotId:'plot-1';
+   }
    window.GrowPlotReloadOwnedDevices();
    setTimeout(syncAuthorizedHomePlots,0);
    // Never replace the Demo Plot with a stale device-local user record.
    if(Array.isArray(data.plots)&&data.plots.length){
      if(typeof plots!=='undefined'&&Array.isArray(plots)){
-       for(const p of data.plots){if(p&&p.id&&!plots.some(x=>x.id===p.id))plots.push(p);}
+       // The shared plot model has already been rebuilt from authorized Firebase records.
        selectedPlotId=data.plots.some(p=>p.id===data.selectedPlotId)?data.selectedPlotId:'plot-1';
        if(typeof fillPlotSelectors==='function')fillPlotSelectors();
      }
      goHome();setTimeout(()=>{syncAuthorizedHomePlots();window.GrowPlotRefreshHomeStreams?.();},650);
-   }else{goHome();setTimeout(syncAuthorizedHomePlots,0);if(typeof window.GrowPlotNewUserPreview==='function')window.GrowPlotNewUserPreview();}
+   }else{if(typeof fillPlotSelectors==='function')fillPlotSelectors();goHome();setTimeout(syncAuthorizedHomePlots,0);if(typeof window.GrowPlotNewUserPreview==='function')window.GrowPlotNewUserPreview();}
  }else if(response.action==='saveOwnedDevice'||response.action==='assignOwnedDevice'){
    const node=document.getElementById('gpDeviceStatus');
    if(node)node.textContent=response.ok?(response.action==='saveOwnedDevice'?'✓ Device saved successfully to Firebase.':'✓ Device assigned successfully.'):('Firebase error: '+(response.error||'Request failed (no error details returned)'));if(response.ok&&response.action==='saveOwnedDevice'){const password=document.getElementById('gpDevicePassword');if(password)password.value='';window.GrowPlotReloadOwnedDevices();}if(response.ok&&response.action==='assignOwnedDevice'){window.GrowPlotReloadOwnedDevices();window.GrowPlotRefreshHomeStreams?.();}

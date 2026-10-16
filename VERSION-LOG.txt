@@ -1337,3 +1337,5 @@ Signing / provider keys: This APK's certificate does not match the saved Build 3
 2026-10-16 | v0.6.02 Build 19: Fix Home plot selector leaking other users' plots after renderer repopulation. Fail-closed owner check; DOM mutation and periodic reconciliation preserve only Demo and Firebase-owned plots (or verified power-user scope). APK/device validation pending.
 
 2026-10-16 | v0.6.02 Build 20: Remove legacy plot fallback, prevent cross-owner plot saves, preserve owner email metadata, and default selection to an authorized plot. Newly created plot ownership migration remains to verify on device.
+
+2026-10-16 | v0.6.02 Build 21: Rebuild HTML plot model from Firebase-authorized plots on profile load; guest stays demo-only; native CCTV assignment discovery supports verified admin/powerUser custom claims and scoped owner feed lookup, resetting inactive surfaces. Developer claim and Firestore rules must be provisioned server-side; device verification pending.
