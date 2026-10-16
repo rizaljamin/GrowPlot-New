@@ -385,6 +385,7 @@ public final class AccountApiBridge {
                     incomingIds.add(plotId);
                     Map<String,Object> record=new com.google.gson.Gson().fromJson(plot.toString(),java.util.Map.class);
                     record.put("ownerUserId",user.getUid());
+                    record.put("ownerEmail",user.getEmail()==null?"":user.getEmail());
                     record.put("updatedAt",com.google.firebase.firestore.FieldValue.serverTimestamp());
                     batch.set(db.collection("plots").document(user.getUid()+"_"+plotId),record,SetOptions.merge());
                 }
