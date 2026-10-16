@@ -163,7 +163,41 @@ function userPage(){
    details.innerHTML='';
    const rows=[['Email',currentUser.email||currentUser.username||'Not available'],['Account type','Normal User'],['Registration date',formatDate(currentUser.registrationDate)],['Last login',formatDate(currentUser.lastLoginDate)],['Payment method','Not configured']];
    for(const [label,value] of rows){const row=document.createElement('p');row.style.margin='0 0 8px';const name=document.createElement('strong');name.textContent=label+': ';row.append(name,document.createTextNode(value));details.appendChild(row);}
+   const allow=document.createElement('button');allow.type='button';allow.textContent='Allow Access';allow.style.cssText='padding:10px 14px;margin-top:10px;border:1px solid #72987b;border-radius:8px;background:white';allow.onclick=showAllowAccess;details.appendChild(allow);
  }
+}
+function renderAccessUsers(data){
+ const panel=document.getElementById('gpAllowAccessPanel');if(!panel)return;
+ const status=document.getElementById('gpAllowAccessStatus');
+ const list=document.getElementById('gpAllowAccessList');list.replaceChildren();
+ const users=Array.isArray(data.users)?data.users:[];
+ const allowed=new Set(Array.isArray(data.allowedMonitorUids)?data.allowedMonitorUids:[]);
+ for(const u of users){
+  const label=document.createElement('label');label.style.cssText='display:flex;gap:9px;align-items:center;padding:8px 2px';
+  const cb=document.createElement('input');cb.type='checkbox';cb.value=String(u.uid);cb.checked=allowed.has(String(u.uid));
+  label.append(cb,document.createTextNode(String(u.email)));list.appendChild(label);
+ }
+ status.textContent=users.length?'Select users allowed to monitor your farm, then save.':'No other registered users found.';
+ panel.querySelector('button').disabled=false;
+}
+function showAllowAccess(){
+ const details=document.getElementById('growplotUserManagementDetails');if(!details)return;
+ let panel=document.getElementById('gpAllowAccessPanel');
+ if(panel){panel.hidden=!panel.hidden;return;}
+ panel=document.createElement('section');panel.id='gpAllowAccessPanel';
+ panel.style.cssText='margin-top:12px;padding:12px;border:1px solid #b9d5c2;border-radius:10px';
+ const title=document.createElement('strong');title.textContent='Allow Access';
+ const status=document.createElement('p');status.id='gpAllowAccessStatus';status.textContent='Loading registered users from Firestore…';
+ const list=document.createElement('div');list.id='gpAllowAccessList';list.style.cssText='max-height:190px;overflow:auto';
+ const save=document.createElement('button');save.type='button';save.textContent='💾 Save';save.disabled=true;
+ save.style.cssText='margin-top:12px;padding:10px 14px;border-radius:8px;border:1px solid #72987b;background:white';
+ save.onclick=()=>{
+  save.disabled=true;status.textContent='Saving to Firestore…';
+  const uids=Array.from(list.querySelectorAll('input:checked')).map(el=>el.value);
+  request('saveAccessUsers',{uids});
+ };
+ panel.append(title,status,list,save);details.appendChild(panel);
+ request('listAccessUsers',{});
 }
 window.GrowPlotOpenUserManagement=userPage;
 document.addEventListener('click',function(e){
@@ -182,6 +216,19 @@ function saveNotice(message,success){
 }
 window.GrowPlotReloadOwnedDevices=function(){if(window.GrowPlotCurrentUser&&!window.GrowPlotCurrentUser.developmentOnly&&api?.configured())request('loadOwnedDevices',{});};
 window.GrowPlotAccountResponse=function(response){
+ if(response&&response.action==='listAccessUsers'){
+  const status=document.getElementById('gpAllowAccessStatus');
+  if(response.ok)renderAccessUsers(response.data||{});
+  else if(status)status.textContent='Unable to load user list: '+(response.error||'Firestore permission denied');
+  return;
+ }
+ if(response&&response.action==='saveAccessUsers'){
+  const status=document.getElementById('gpAllowAccessStatus');
+  if(status)status.textContent=response.ok?'Monitoring access list saved.':('Save failed: '+(response.error||'Firestore permission denied'));
+  const save=document.querySelector('#gpAllowAccessPanel button');if(save)save.disabled=false;
+  return;
+ }
+
  if(response&&response.action==='saveVigiCloudCredentials'){const n=document.getElementById('growplotFeedCloudStatus');if(n)n.textContent=response.ok?'VIGI password encrypted and saved in Firebase.':'VIGI cloud credential save failed: '+(response.error||'Unknown error');return;}
  if(response&&response.action==='loadVigiCloudCredentials'){if(response.ok){window.vigiCctv03HasPassword=true;const n=document.getElementById('growplotFeedCloudStatus');if(n)n.textContent='VIGI credentials restored from encrypted Firebase storage.';}return;}
 
