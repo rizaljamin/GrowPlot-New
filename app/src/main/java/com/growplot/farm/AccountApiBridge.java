@@ -153,6 +153,17 @@ public final class AccountApiBridge {
             }
             FirebaseUser user=auth.getCurrentUser();
             if(user==null){respond(action,false,"Sign in first.",null);return;}
+            if("saveOwnedDevice".equals(action)||"assignOwnedDevice".equals(action)){
+                String functionName=action;
+                Map<String,Object> args=new com.google.gson.Gson().fromJson(input.toString(),java.util.Map.class);
+                FirebaseFunctions.getInstance("us-central1").getHttpsCallable(functionName).call(args)
+                    .addOnSuccessListener(result->{
+                        JSONObject out=new JSONObject();
+                        try{out.put("saved",true);}catch(Exception ignored){}
+                        respond(functionName,true,"",out);
+                    }).addOnFailureListener(e->respond(functionName,false,e.getMessage(),null));
+                return;
+            }
             if("saveVigiCloudCredentials".equals(action)){
                 String username=input.optString("username","").trim(),password=input.optString("password","");
                 if(username.isEmpty()||password.isEmpty()){respond(action,false,"Enter VIGI username and password.",null);return;}
@@ -203,21 +214,27 @@ public final class AccountApiBridge {
                 return;
             }
             if("profile".equals(action)){
-                db.collection("users").document(user.getUid()).get().addOnSuccessListener(snapshot->{
-                    JSONObject out=new JSONObject();
-                    try{
-                        Object plots=snapshot.get("plots");
-                        out.put("plots",new JSONArray(plots==null?"[]":new com.google.gson.Gson().toJson(plots)));
-                        out.put("selectedPlotId",snapshot.getString("selectedPlotId")==null?JSONObject.NULL:snapshot.getString("selectedPlotId"));
-                    }catch(Exception ignored){}
-                    respond(action,true,"",out);
+                db.collection("users").document(user.getUid()).get().addOnSuccessListener(profile->{
+                    db.collection("plots").whereEqualTo("ownerUserId",user.getUid()).get()
+                      .addOnSuccessListener(owned->{
+                        JSONObject out=new JSONObject();
+                        try{
+                            JSONArray arr=new JSONArray();
+                            for(com.google.firebase.firestore.DocumentSnapshot doc:owned.getDocuments()){
+                                Map<String,Object> item=doc.getData();
+                                if(item!=null)arr.put(new JSONObject(new com.google.gson.Gson().toJson(item)));
+                            }
+                            // Read-only legacy fallback until the owner migrates their plots.
+                            if(arr.length()==0&&profile.get("plots")!=null)
+                                arr=new JSONArray(new com.google.gson.Gson().toJson(profile.get("plots")));
+                            out.put("plots",arr);
+                            String selected=profile.getString("selectedPlotId");
+                            out.put("selectedPlotId",selected==null?JSONObject.NULL:selected);
+                        }catch(Exception e){respond(action,false,"Invalid plot data: "+e.getMessage(),null);return;}
+                        respond(action,true,"",out);
+                      }).addOnFailureListener(e->respond(action,false,e.getMessage(),null));
                 }).addOnFailureListener(e->respond(action,false,e.getMessage(),null));
             }else if("saveProfile".equals(action)){
-                Map<String,Object> update=new HashMap<>();
-                update.put("plots",new com.google.gson.Gson().fromJson(input.optJSONArray("plots")==null?"[]":input.optJSONArray("plots").toString(),java.util.List.class));
-                update.put("selectedPlotId",input.optString("selectedPlotId",""));
-                update.put("settings",new com.google.gson.Gson().fromJson(input.optJSONObject("settings")==null?"{}":input.optJSONObject("settings").toString(),java.util.Map.class));
-                update.put("updatedAt",com.google.firebase.firestore.FieldValue.serverTimestamp());
                 // Plots are independent top-level records; never embed plot data in users.
                 JSONArray incoming=input.optJSONArray("plots");
                 com.google.firebase.firestore.WriteBatch batch=db.batch();
@@ -233,7 +250,7 @@ public final class AccountApiBridge {
                     Map<String,Object> record=new com.google.gson.Gson().fromJson(plot.toString(),java.util.Map.class);
                     record.put("ownerUserId",user.getUid());
                     record.put("updatedAt",com.google.firebase.firestore.FieldValue.serverTimestamp());
-                    batch.set(db.collection("plots").document(plotId),record,SetOptions.merge());
+                    batch.set(db.collection("plots").document(user.getUid()+"_"+plotId),record,SetOptions.merge());
                 }
                 Map<String,Object> profileUpdate=new HashMap<>();
                 profileUpdate.put("selectedPlotId",input.optString("selectedPlotId",""));
