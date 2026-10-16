@@ -8,11 +8,17 @@ function dismissLegacyPrompt(){
 }
 function openPlotSetup(){
  dismissLegacyPrompt();
- const settings=document.getElementById('settingsBtn');
- if(settings)settings.click();
+ // Navigate to Manage Farm's Plot tab, not the full Settings screen.
+ const manageFarm=document.getElementById('manageFarmBtn')||document.querySelector('[data-tab="manageFarm"]');
+ if(manageFarm)manageFarm.click();
+ if(typeof window.GrowPlotOpenPlotManagement==='function'){
+  window.GrowPlotOpenPlotManagement();return;
+ }
+ // Existing Manage Farm tabs expose a Plot button; use it after rendering.
  requestAnimationFrame(()=>{
-  const section=document.getElementById('plotManagementSection');
-  if(section){section.open=true;section.scrollIntoView({behavior:'smooth',block:'start'});}
+  const buttons=[...document.querySelectorAll('button')];
+  const plotTab=buttons.find(button=>button.textContent.trim()==='Plot'&&button.closest('#manageFarmContent, #manageFarmSection, .manage-farm-tabs'));
+  if(plotTab)plotTab.click();
  });
 }
 function removeAction(){if(action){action.remove();action=null;}}
