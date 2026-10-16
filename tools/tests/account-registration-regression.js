@@ -35,15 +35,14 @@ assert.match(account, /Signed in, but your Firebase cloud profile could not be l
 assert.match(account, /response\.action==='accountWarning'/, 'best-effort profile-write warnings stay separate from sign-in');
 
 const onboarding = fs.readFileSync('app/src/main/assets/new-user-onboarding.js', 'utf8');
-assert.match(onboarding, /document\.createElement\('dialog'\)/, 'first-plot prompt is a native modal dialog');
-assert.match(onboarding, /prompt\.showModal\(\)/, 'first-plot prompt enters the modal top layer');
-assert.match(onboarding, /function showHomeBehindPrompt\(\)/, 'first-plot flow resets the underlying screen before prompting');
-assert.match(onboarding, /home\.click\(\)/, 'first-plot prompt returns to Home so Settings cannot remain open beneath it');
-assert.match(onboarding, /function openPlotManagement\(\)/, 'Create Plot has a dedicated Plot Management route');
-assert.match(onboarding, /settings\.click\(\)/, 'Create Plot opens Settings/Plot Management');
-assert.match(onboarding, /function showDemoHome\(\)/, 'Home has a dedicated route to demo home');
-assert.match(onboarding, /GrowPlotShowDemoHome/, 'Home selects and returns to the demo screen');
-assert.match(onboarding, /hidePrompt\(\)/, 'both actions close the first-plot prompt before navigating');
+assert.match(onboarding, /id='growplotAddPlotBtn'/, 'Home displays the Add Plot button');
+assert.match(onboarding, /<span>Add Plot<\\/span>/, 'Add Plot uses the requested label');
+assert.match(onboarding, /action\.addEventListener\('click',openPlotSetup\)/, 'Add Plot opens plot setup');
+assert.match(onboarding, /settings\.click\(\)/, 'Add Plot routes to Settings/Plot Management');
+assert.match(onboarding, /dismissLegacyPrompt\(\)/, 'obsolete onboarding popup is removed');
+assert.doesNotMatch(onboarding, /document\.createElement\('dialog'\)|\.showModal\(\)/, 'onboarding does not create a blocking modal');
+assert.match(account, /function closeUserPage\(\)/, 'My Account has explicit cleanup');
+assert.match(account, /back\.onclick=\(\)=>\{closeUserPage\(\);goHome\(\);\}/, 'Back removes the My Account overlay');
 
 const bridge = fs.readFileSync('app/src/main/java/com/growplot/farm/AccountApiBridge.java', 'utf8');
 assert.match(bridge, /@JavascriptInterface public void startGoogleSignIn\(\)/, 'Android bridge exposes Google sign-in');
@@ -72,4 +71,4 @@ assert.match(googleProfile, /addOnFailureListener\(e->failGoogleUserRegistration
 assert.match(googleProfile, /auth\.signOut\(\)/, 'failed profile registration clears the partial Firebase session');
 assert.match(bridge, /reportAccountWarning\("Account created, but the cloud profile could not be saved:/, 'registration profile failures are reported as warnings');
 
-console.log('PASS: Firebase auth isolation, duplicate-email recovery, account details, Google sign-in, and first-plot modal.');
+console.log('PASS: Firebase auth isolation, duplicate-email recovery, account details, Google sign-in, and nonmodal Add Plot onboarding.');
