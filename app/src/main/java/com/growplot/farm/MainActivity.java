@@ -484,7 +484,56 @@ public class MainActivity extends Activity {
         return getPrefs().getString(PREF_CCTV_IP_PREFIX + String.format(Locale.US, "%02d", camera), defaultCctvIp(camera));
     }
 
+    // Owner-scoped camera routes. Demo plot deliberately keeps legacy local IP settings.
+    private final String[] assignedStreamUrls = new String[4];
+    private volatile boolean userStreamMode = false;
+    private int assignedStreamGeneration = 0;
+
+    private void refreshAssignedPlayers() {
+        if (ipWebcamVlcLayout != null) startIpWebcamVlc(ipWebcamVlcLayout);
+        if (ipWebcam2VlcLayout != null) startCctv02Vlc(ipWebcam2VlcLayout);
+        if (ipWebcam3VlcLayout != null) startVigiCctv03Vlc(ipWebcam3VlcLayout);
+    }
+
+    private void loadAssignedStreams(String plotId, String greenhouseId) {
+        final int generation = ++assignedStreamGeneration;
+        userStreamMode = !"plot-1".equals(plotId);
+        java.util.Arrays.fill(assignedStreamUrls, null);
+        if (!userStreamMode) { refreshAssignedPlayers(); return; }
+        com.google.firebase.auth.FirebaseUser user = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+        if (user == null || !plotId.matches("[A-Za-z0-9_-]{1,100}") || !greenhouseId.matches("greenhouse-[1-9][0-9]*")) {
+            refreshAssignedPlayers(); return;
+        }
+        final String uid = user.getUid();
+        com.google.firebase.firestore.FirebaseFirestore store = com.google.firebase.firestore.FirebaseFirestore.getInstance();
+        store.collection("feed_assignments").whereEqualTo("ownerUserId",uid).whereEqualTo("plotId",plotId)
+            .whereEqualTo("greenhouseId",greenhouseId).get().addOnSuccessListener(rows -> {
+                if (generation != assignedStreamGeneration) return;
+                for (com.google.firebase.firestore.QueryDocumentSnapshot assignment : rows) {
+                    String section = assignment.getString("sectionId"), deviceId = assignment.getString("deviceId");
+                    if (section == null || deviceId == null || !section.matches("section-[1-3]") || !deviceId.matches("[A-Za-z0-9_-]{1,100}")) continue;
+                    int slot = Integer.parseInt(section.substring(8));
+                    store.collection("data_feeds").document(uid+"_"+deviceId).get().addOnSuccessListener(device -> {
+                        if (generation != assignedStreamGeneration || !device.exists() || !uid.equals(device.getString("ownerUserId")) || !"AV".equals(device.getString("deviceType"))) return;
+                        String host = device.getString("ipAddress"),protocol=device.getString("protocol"),path=device.getString("streamPath");
+                        Number port = device.getDouble("port");
+                        if (host == null || !host.matches("[A-Za-z0-9.-]{1,253}")) return;
+                        String scheme = "RTSP".equalsIgnoreCase(protocol) ? "rtsp" : "HTTPS".equalsIgnoreCase(protocol) ? "https" : "http";
+                        int actualPort = port == null ? ("rtsp".equals(scheme)?554:8080) : port.intValue();
+                        if (actualPort < 1 || actualPort > 65535) return;
+                        if (path == null || path.isEmpty()) path = "rtsp".equals(scheme) ? "/stream1" : "/videofeed";
+                        if (!path.startsWith("/") || path.contains("..") || path.contains("@") || path.contains("?")) return;
+                        assignedStreamUrls[slot] = scheme+"://"+host+":"+actualPort+path;
+                        refreshAssignedPlayers();
+                    });
+                }
+                refreshAssignedPlayers();
+            }).addOnFailureListener(e -> refreshAssignedPlayers());
+        refreshAssignedPlayers();
+    }
+
     private String cctvStreamUrl(int camera) {
+        if (userStreamMode) return assignedStreamUrls[camera] == null ? "" : assignedStreamUrls[camera];
         String ip = cctvIp(camera);
         return ip.isEmpty() ? "" : "http://" + ip + ":8080/videofeed";
     }
@@ -833,6 +882,7 @@ public class MainActivity extends Activity {
             // Use TextureView composition so Android modal dialogs can cover and hide
             // the VLC surface instead of a SurfaceView layer staying on top.
             ipWebcamVlcPlayer.attachViews(videoLayout, null, true, false);
+            if (cctvStreamUrl(1).isEmpty()) { stopIpWebcamVlc(); return; }
             Media media = new Media(ipWebcamVlc, Uri.parse(cctvStreamUrl(1)));
             media.addOption(":network-caching=250");
             media.addOption(":live-caching=250");
@@ -1030,6 +1080,7 @@ public class MainActivity extends Activity {
             ipWebcam2VlcPlayer = new org.videolan.libvlc.MediaPlayer(ipWebcam2Vlc);
             // Match CCTV01 so this feed respects the same app/window layering.
             ipWebcam2VlcPlayer.attachViews(videoLayout, null, true, false);
+            if (cctvStreamUrl(2).isEmpty()) { stopCctv02Vlc(); return; }
             Media media = new Media(ipWebcam2Vlc, Uri.parse(cctvStreamUrl(2)));
             media.addOption(":network-caching=250");
             media.addOption(":live-caching=250");
@@ -1089,6 +1140,21 @@ public class MainActivity extends Activity {
     private void startVigiCctv03Vlc(VLCVideoLayout videoLayout) {
         stopCctv03Vlc();
         ipWebcam3VlcLayout = videoLayout;
+        if (userStreamMode) {
+            String route = cctvStreamUrl(3);
+            if (route == null || route.isEmpty()) { stopCctv03Vlc(); return; }
+            try {
+                ArrayList<String> options = new ArrayList<>();
+                options.add("--no-audio"); options.add("--network-caching=350");
+                ipWebcam3Vlc = new LibVLC(this, options);
+                ipWebcam3VlcPlayer = new org.videolan.libvlc.MediaPlayer(ipWebcam3Vlc);
+                ipWebcam3VlcPlayer.attachViews(videoLayout, null, true, false);
+                Media media = new Media(ipWebcam3Vlc, Uri.parse(route));
+                media.addOption(":network-caching=350");
+                ipWebcam3VlcPlayer.setMedia(media); media.release(); ipWebcam3VlcPlayer.play();
+            } catch (Exception error) { stopCctv03Vlc(); }
+            return;
+        }
         String ip = cctvIp(3);
         String[] credentials = vigiCctv03Credentials();
         for (int i = videoLayout.getChildCount() - 1; i >= 0; i--) {
@@ -3064,6 +3130,9 @@ public class MainActivity extends Activity {
                     getPrefs().getString("data_feed_config_" + id, "{\"plotId\":\"" + id + "\",\"enabled\":false}")).apply();
         }
 
+        @JavascriptInterface public void setActiveStreamingContext(String plotId, String greenhouseId) {
+            runOnUiThread(() -> MainActivity.this.loadAssignedStreams(safePlotId(plotId), greenhouseId));
+        }
         @JavascriptInterface public void setActivePlot(String plotId) {
             String id = safePlotId(plotId);
             getPrefs().edit().putString(PREF_ACTIVE_PLOT_ID, id).apply();
