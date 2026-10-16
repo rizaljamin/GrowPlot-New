@@ -134,6 +134,8 @@ function saveNotice(message,success){
  el.style.background=success?'#d8f4df':'#ffe5df';el.style.color=success?'#164b2a':'#782319';el.textContent=message;
 }
 window.GrowPlotAccountResponse=function(response){
+ if(response&&response.action==='saveDataFeeds'){const node=document.getElementById('growplotFeedCloudStatus');if(node)node.textContent=response.ok?'Firebase: CCTV01–CCTV03 saved successfully.':'Firebase save failed: '+(response.error||'Unknown error');return;}
+
  if(response.action==='passwordReset'){
   if(passwordResetButton){passwordResetButton.disabled=false;passwordResetButton.textContent='Forgot password?';}
   const target=resetFeedbackTarget||status;resetFeedbackTarget=null;
@@ -220,6 +222,33 @@ window.GrowPlotDemoPowerUserUnlocked=false;
  // the observed subtree and previously froze navigation throughout the app.
  const start=()=>{refresh();};
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
+})();
+
+
+// Cloud Data Feed registry: CCTV01–CCTV03, authenticated and scoped to Firebase UID.
+// Preserve the existing on-device camera settings; never upload camera passwords.
+(function installDataFeedSettings(){
+ function init(){
+  const button=document.getElementById('saveCctvIps');
+  if(!button)return;
+  const cloud=document.createElement('p');cloud.id='growplotFeedCloudStatus';cloud.className='plot-status';
+  cloud.setAttribute('aria-live','polite');cloud.textContent='Firebase sync: not yet saved.';
+  button.insertAdjacentElement('afterend',cloud);
+  button.addEventListener('click',()=>{
+   // Run after the existing local-save handler; do not sync invalid addresses.
+   const status=document.getElementById('cctvIpStatus');
+   const fields=[1,2,3].map(i=>document.getElementById('cctvIp'+i));
+   if(fields.some(f=>!f)){cloud.textContent='Camera fields unavailable.';return;}
+   const ips=fields.map(f=>f.value.trim());
+   if(ips.some(ip=>ip&&!/^(10\\.|192\\.168\\.|172\\.(1[6-9]|2[0-9]|3[01])\\.)\\d{1,3}(\\.\\d{1,3}){2}$/.test(ip))){cloud.textContent='Correct the camera IP addresses before Firebase sync.';return;}
+   if(!api||!api.configured()||!window.GrowPlotCurrentUser||window.GrowPlotCurrentUser.developmentOnly){
+    cloud.textContent='Saved locally only. Sign in with Firebase to sync CCTV01–CCTV03.';return;
+   }
+   cloud.textContent='Saving CCTV01–CCTV03 to Firebase…';
+   request('saveDataFeeds',{feeds:ips.map((ip,i)=>({deviceId:'CCTV0'+(i+1),deviceType:'AV',ipAddress:ip}))});
+  });
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();
 
 const preview=document.getElementById('growplotPreviewButton');if(preview)preview.remove();
