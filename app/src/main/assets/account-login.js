@@ -81,7 +81,7 @@ function installPasswordReset(){
 }
 addPasswordVisibilityToggles();installPasswordReset();
 const adminTestLoginButton=document.getElementById('adminTestLoginBtn');
-if(adminTestLoginButton&&api&&api.isDevelopmentBuild&&api.isDevelopmentBuild())adminTestLoginButton.hidden=false;
+if(adminTestLoginButton){adminTestLoginButton.textContent='Login as Power User';adminTestLoginButton.hidden=!(api&&api.isDevelopmentBuild&&api.isDevelopmentBuild());}
 if(adminTestLoginButton)adminTestLoginButton.addEventListener('click',function(){
  if(!api||!api.verifyLocalAdminTestLogin||!api.verifyLocalAdminTestLogin()){msg('Admin test login is unavailable in this build.');return;}
  msg('Signed in to the local development admin session. Firebase was not used.');
@@ -104,7 +104,7 @@ function userPage(){
  const back=document.createElement('button');back.type='button';back.textContent='← Back to GrowPlot';back.style.cssText='padding:12px;border-radius:8px;border:1px solid #568b66;background:white';back.onclick=()=>{closeUserPage();goHome();};
  const heading=document.createElement('h2');heading.textContent=currentUser.role==='ADMIN'?'User Statistics':'My Account';
  const details=document.createElement('div');details.id='growplotUserManagementDetails';details.style.cssText='padding:16px;margin-top:14px;border:1px solid #c4d7c8;border-radius:12px;background:white;line-height:2';
- const logout=document.createElement('button');logout.type='button';logout.textContent='Log out';logout.style.cssText='display:block;margin-top:20px;padding:12px;border:1px solid #a55;border-radius:8px;background:white';logout.onclick=()=>{if(api&&api.logout)api.logout();currentUser=null;window.GrowPlotCurrentUser=null;page.remove();if(auth)auth.hidden=false;};
+ const logout=document.createElement('button');logout.type='button';logout.textContent='Log out';logout.style.cssText='display:block;margin-top:20px;padding:12px;border:1px solid #a55;border-radius:8px;background:white';logout.onclick=()=>{if(api&&api.logout)api.logout();window.GrowPlotDemoPowerUserUnlocked=false;window.dispatchEvent(new Event('growplot-power-user-change'));currentUser=null;window.GrowPlotCurrentUser=null;page.remove();if(auth)auth.hidden=false;};
  const card=document.createElement('div');card.id='growplotUserManagementCard';card.style.cssText='width:100%;max-width:480px;max-height:calc(100vh - 32px);overflow:auto;background:#f5f8f5;padding:22px;border:1px solid #cbd8ce;border-radius:16px;box-shadow:0 16px 48px #0005;color:#163b25;box-sizing:border-box';card.append(back,heading,details,logout);page.appendChild(card);document.body.appendChild(page);
  }
  page.hidden=false;page.style.display='flex';const details=document.getElementById('growplotUserManagementDetails');
@@ -179,13 +179,48 @@ if(create)create.addEventListener('submit',e=>submit(e,'register'),true);
 function beginGoogleSignIn(){if(!api||!api.configured()){msg('Firebase is not configured.');return;}const createView=document.getElementById('createView');const target=createView&&!createView.hidden?document.getElementById('createStatus'):status;if(target)target.textContent='Opening Google sign-in…';if(api.startGoogleSignIn)api.startGoogleSignIn();else if(target)target.textContent='Google sign-in is unavailable in this build.';}
 document.addEventListener('click',function(e){const button=e.target&&e.target.closest?e.target.closest('#googleLoginBtn,#googleRegisterBtn'):null;if(!button)return;e.preventDefault();e.stopImmediatePropagation();beginGoogleSignIn();},true);
 if(!login||!create)msg('GrowPlot login setup error: expected login and registration forms were not found.');
-window.GrowPlotAdminVerified=function(){currentUser={username:'growplot_admin',role:'ADMIN',developmentOnly:true};window.GrowPlotCurrentUser=currentUser;goHome();demo();const home=document.getElementById('mainDashboard')||document.body;let panel=document.getElementById('growplotAdminStats');if(!panel){panel=document.createElement('section');panel.id='growplotAdminStats';home.prepend(panel);}const n=Object.keys(localStorage).filter(k=>k.startsWith('growplot_test_account_')).length;panel.textContent='Development user stats: '+n+' accounts on this device. Google Drive stats pending.';};
+window.GrowPlotAdminVerified=function(){window.GrowPlotDemoPowerUserUnlocked=true;window.dispatchEvent(new Event('growplot-power-user-change'));currentUser={username:'growplot_admin',role:'ADMIN',developmentOnly:true};window.GrowPlotCurrentUser=currentUser;goHome();demo();const home=document.getElementById('mainDashboard')||document.body;let panel=document.getElementById('growplotAdminStats');if(!panel){panel=document.createElement('section');panel.id='growplotAdminStats';home.prepend(panel);}const n=Object.keys(localStorage).filter(k=>k.startsWith('growplot_test_account_')).length;panel.textContent='Development user stats: '+n+' accounts on this device. Google Drive stats pending.';};
 window.GrowPlotSaveCloudProfile=function(callback){
  if(!currentUser){saveNotice('Sign in before saving your user profile.',false);if(callback)callback(false,'Sign in first.');return;}if(currentUser.role==='ADMIN'){if(callback)callback(true,'');return;}
  if(!api||!api.configured()){saveNotice('Firebase unavailable. Data was not saved.',false);if(callback)callback(false,'Firebase is unavailable.');return;}
  const mine=typeof plots==='undefined'?[]:plots.filter(p=>p&&p.id&&p.id!=='plot-1'&&!/demo/i.test(String(p.name||'')));
  saveProfileCallback=callback||null;saveNotice('Saving to Firebase…',false);request('saveProfile',{plots:mine,settings:{},selectedPlotId:typeof selectedPlotId==='undefined'?null:selectedPlotId});
 };
+
+// Demo plot is read-only unless the development Power User login has been verified.
+// This UI guard is not a substitute for server-side authorization of cloud writes.
+window.GrowPlotDemoPowerUserUnlocked=false;
+(function installDemoPlotGuard(){
+ const protectedIds=new Set(['plot-1']);
+ const manager=()=>document.getElementById('plotManagerSelect');
+ const locked=()=>protectedIds.has(manager()?.value)&&window.GrowPlotDemoPowerUserUnlocked!==true;
+ const fields=['plotNumber','plotName','plotAddress','plotLatitude','plotLongitude','plotDescription'];
+ const actions=['savePlotBtn','deletePlotBtn','pickPlotOnMapBtn','useMapPinBtn','createDefaultFeedBtn','chooseCustomFeedBtn'];
+ function refresh(){
+  const isLocked=locked();
+  for(const id of [...fields,...actions]){
+   const element=document.getElementById(id);
+   if(element){element.disabled=isLocked;element.setAttribute('aria-disabled',String(isLocked));}
+  }
+  const status=document.getElementById('plotManagementStatus');
+  if(isLocked&&status)status.textContent='Demo Plot is read-only. Select Login as Power User to unlock editing.';
+ }
+ document.addEventListener('change',e=>{if(e.target?.id==='plotManagerSelect')queueMicrotask(refresh);},true);
+ document.addEventListener('click',e=>{
+  const element=e.target?.closest?.('#savePlotBtn,#deletePlotBtn,#pickPlotOnMapBtn,#useMapPinBtn,#createDefaultFeedBtn,#chooseCustomFeedBtn');
+  if(!element||!locked())return;
+  e.preventDefault();e.stopImmediatePropagation();refresh();
+ },true);
+ // Prevent direct edits to demo fields, even when the page rerenders.
+ document.addEventListener('beforeinput',e=>{
+  if(locked()&&fields.includes(e.target?.id)){e.preventDefault();}
+ },true);
+ window.addEventListener('growplot-power-user-change',refresh);
+ const observer=new MutationObserver(()=>refresh());
+ const start=()=>{const section=document.getElementById('plotManagementSection');if(section){observer.observe(section,{subtree:true,childList:true});refresh();}};
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
+})();
+
 const preview=document.getElementById('growplotPreviewButton');if(preview)preview.remove();
 // Development build permits demo administrator access; no false cloud-authentication claims.
 })();
