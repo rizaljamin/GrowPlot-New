@@ -353,12 +353,25 @@ public final class AccountApiBridge {
                     db.collection("users").document(user.getUid()).get().addOnSuccessListener(profile->{
                     db.collection("plots").get()
                       .addOnSuccessListener(owned->{
+                        java.util.Map<String,com.google.android.gms.tasks.Task<com.google.firebase.firestore.DocumentSnapshot>> owners=new java.util.HashMap<>();
+                        for(com.google.firebase.firestore.DocumentSnapshot doc:owned.getDocuments()){
+                            String id=doc.getString("ownerUserId");
+                            if(id!=null&&!id.isEmpty()&&!owners.containsKey(id))owners.put(id,db.collection("users").document(id).get());
+                        }
+                        com.google.android.gms.tasks.Tasks.whenAllComplete(new java.util.ArrayList<com.google.android.gms.tasks.Task<?>>(owners.values())).addOnCompleteListener(done->{
                         JSONObject out=new JSONObject();
                         try{
                             JSONArray arr=new JSONArray();
                             for(com.google.firebase.firestore.DocumentSnapshot doc:owned.getDocuments()){
                                 Map<String,Object> item=doc.getData();
-                                if(item!=null)arr.put(new JSONObject(new com.google.gson.Gson().toJson(item)));
+                                if(item!=null){
+                                    com.google.android.gms.tasks.Task<com.google.firebase.firestore.DocumentSnapshot> task=owners.get(doc.getString("ownerUserId"));
+                                    if(task!=null&&task.isSuccessful()&&task.getResult()!=null){
+                                        String email=task.getResult().getString("email");
+                                        if(email!=null&&!email.isEmpty())item.put("ownerEmail",email);
+                                    }
+                                    arr.put(new JSONObject(new com.google.gson.Gson().toJson(item)));
+                                }
                             }
                             // Public plot visibility for authenticated users; writes remain owner-restricted.
                             out.put("plots",arr);
@@ -367,6 +380,7 @@ public final class AccountApiBridge {
                             out.put("selectedPlotId",selected==null?JSONObject.NULL:selected);
                         }catch(Exception e){respond(action,false,"Invalid plot data: "+e.getMessage(),null);return;}
                         respond(action,true,"",out);
+                        });
                       }).addOnFailureListener(e->respond(action,false,e.getMessage(),null));
                     }).addOnFailureListener(e->respond(action,false,e.getMessage(),null));
                 }).addOnFailureListener(e->respond(action,false,"Could not verify account privileges: "+e.getMessage(),null));
