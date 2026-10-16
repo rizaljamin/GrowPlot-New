@@ -29,8 +29,8 @@ function showFirstPlotAction(){
  const dashboard=document.getElementById('mainDashboard');
  const target=dashboard||document.getElementById('mainContent')||document.body;
  action=document.createElement('button');action.type='button';action.id='growplotAddPlotBtn';
- action.style.cssText='display:inline-flex;align-items:center;justify-content:center;gap:4px;flex:0 0 auto;width:auto;min-height:28px;margin:0;padding:4px 8px;border:0;border-radius:6px;background:#286647;color:#fff;font:inherit;font-size:11px;font-weight:700;cursor:pointer;box-shadow:none';
- action.innerHTML='<svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/><rect x="2" y="2" width="20" height="20" rx="4"/></svg><span>Add Plot</span>';
+ action.style.cssText='position:relative;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:auto;min-height:28px;margin:0;padding:5px 18px 5px 8px;border:0;border-radius:6px;background:#286647;color:#fff;font:inherit;font-size:11px;font-weight:700;cursor:pointer;box-shadow:none';
+ action.innerHTML='<span>Add Plot</span><span aria-hidden="true" style="position:absolute;right:4px;bottom:2px;font-size:12px;line-height:1">+</span>';
  action.addEventListener('click',openPlotSetup);
  // Keep Add Plot on the SAME row as the Plot and Greenhouse dropdowns.
  const selects=[...document.querySelectorAll('select')];
@@ -44,3 +44,8 @@ function showFirstPlotAction(){
   row.appendChild(action);
  }else{target.prepend(action);}
 
+}
+window.GrowPlotNewUserPreview=function(){const home=document.getElementById('homeBtn');if(home)home.click();showFirstPlotAction();};
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',showFirstPlotAction,{once:true});else showFirstPlotAction();
+window.GrowPlotClearFirstPlotAction=function(){dismissLegacyPrompt();removeAction();};
+})();
