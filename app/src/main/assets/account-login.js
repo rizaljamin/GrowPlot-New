@@ -87,7 +87,7 @@ if(adminTestLoginButton)adminTestLoginButton.addEventListener('click',function()
  msg('Signed in to the local development admin session. Firebase was not used.');
  if(typeof window.GrowPlotAdminVerified==='function')window.GrowPlotAdminVerified();
 });
-function goHome(){const oldPage=document.getElementById('growplotUserManagementPage');if(oldPage)oldPage.remove();const auth=document.getElementById('authScreen');if(auth)auth.hidden=true;if(typeof returnHome==='function')returnHome();else if(typeof render==='function')render();}
+function goHome(){setTimeout(()=>window.GrowPlotRefreshHomeStreams?.(),300);const oldPage=document.getElementById('growplotUserManagementPage');if(oldPage)oldPage.remove();const auth=document.getElementById('authScreen');if(auth)auth.hidden=true;if(typeof returnHome==='function')returnHome();else if(typeof render==='function')render();}
 function demo(){if(typeof plots!=='undefined'&&Array.isArray(plots)){const p=plots.find(p=>/demo/i.test(String(p.name||'')+' '+String(p.id||'')))||plots[0];if(p){selectedPlotId=p.id;if(typeof fillPlotSelectors==='function')fillPlotSelectors();if(typeof render==='function')render();}}}
 window.GrowPlotShowDemoHome=function(){demo();goHome();};
 function adminStats(){
@@ -161,7 +161,7 @@ window.GrowPlotAccountResponse=function(response){
    const previousUid=currentUser&&(currentUser.uid||currentUser.id);const incomingUid=data.user&&(data.user.uid||data.user.id);
    if(previousUid&&previousUid!==incomingUid&&typeof plots!=='undefined'&&Array.isArray(plots)){for(let i=plots.length-1;i>=0;i--)if(plots[i]?.id!=='plot-1')plots.splice(i,1);}
    currentUser=data.user;window.GrowPlotCurrentUser=currentUser;
-   if(currentUser&&api&&api.configured()){request('loadVigiCloudCredentials',{});window.GrowPlotReloadOwnedDevices();}
+   if(currentUser&&api&&api.configured()){request('loadVigiCloudCredentials',{});window.GrowPlotReloadOwnedDevices();setTimeout(()=>window.GrowPlotRefreshHomeStreams?.(),500);}
    if(!currentUser){msg('Invalid account response');return;}
    if(currentUser.role==='ADMIN'){goHome();demo();adminStats();}
    else {request('profile',{});}
@@ -175,7 +175,7 @@ window.GrowPlotAccountResponse=function(response){
        selectedPlotId=data.selectedPlotId||data.plots[0].id;
        if(typeof fillPlotSelectors==='function')fillPlotSelectors();
      }
-     goHome();
+     goHome();setTimeout(()=>window.GrowPlotRefreshHomeStreams?.(),650);
    }else{goHome();if(typeof window.GrowPlotNewUserPreview==='function')window.GrowPlotNewUserPreview();}
  }else if(response.action==='saveOwnedDevice'||response.action==='assignOwnedDevice'){
    const node=document.getElementById('gpDeviceStatus');
@@ -404,10 +404,10 @@ const preview=document.getElementById('growplotPreviewButton');if(preview)previe
 (function syncHomeStreamingScope(){
  function start(){
   // Home selectors are #plot and #gh. Manage Farm's selector is a separate editor.
-  const plot=document.getElementById('plot'),gh=document.getElementById('gh');
-  if(!plot||!gh)return;
   let previous='';
   function sync(force){
+   const plot=document.getElementById('plot'),gh=document.getElementById('gh');
+   if(!plot||!gh)return;
    const plotId=plot.value||'plot-1';
    const rawGh=String(gh.value||'1');
    const greenhouse=/^greenhouse-[1-9][0-9]*$/.test(rawGh)?rawGh:'greenhouse-'+(Number(rawGh)||1);
@@ -417,8 +417,7 @@ const preview=document.getElementById('growplotPreviewButton');if(preview)previe
    previous=scope;
    window.GrowPlotBridge?.setActiveStreamingContext?.(plotId,greenhouse);
   }
-  plot.addEventListener('change',()=>sync(false));
-  gh.addEventListener('change',()=>sync(false));
+  document.addEventListener('change',e=>{if(e.target?.id==='plot'||e.target?.id==='gh')sync(false);});
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)sync(true);});
   window.GrowPlotRefreshHomeStreams=()=>sync(true);
   setInterval(()=>sync(false),1800);

@@ -489,6 +489,7 @@ public class MainActivity extends Activity {
     private volatile boolean userStreamMode = false;
     private int assignedStreamGeneration = 0;
     private String activeStreamScope = "";
+    private boolean assignedStreamsLoading = false;
 
     private void refreshAssignedPlayers() {
         if (ipWebcamVlcLayout != null) startIpWebcamVlc(ipWebcamVlcLayout);
@@ -510,6 +511,7 @@ public class MainActivity extends Activity {
         final int generation = ++assignedStreamGeneration;
         userStreamMode = !"plot-1".equals(plotId);
         java.util.Arrays.fill(assignedStreamUrls, null);
+        assignedStreamsLoading = userStreamMode;
         refreshAssignedPlayers(); // Stop previous plot streams before Firebase fetch.
         if (!userStreamMode) { return; }
         com.google.firebase.auth.FirebaseUser user = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
@@ -520,6 +522,7 @@ public class MainActivity extends Activity {
         com.google.firebase.firestore.FirebaseFirestore store = com.google.firebase.firestore.FirebaseFirestore.getInstance();
         store.collection("feed_assignments").whereEqualTo("ownerUserId",uid).get().addOnSuccessListener(rows -> {
                 if (generation != assignedStreamGeneration) return;
+                assignedStreamsLoading = false;
                 for (com.google.firebase.firestore.QueryDocumentSnapshot assignment : rows) {
                     if (!plotId.equals(assignment.getString("plotId")) || !greenhouseId.equals(assignment.getString("greenhouseId"))) continue;
                     String section = assignment.getString("sectionId"), deviceId = assignment.getString("deviceId");
@@ -539,7 +542,7 @@ public class MainActivity extends Activity {
                         refreshAssignedPlayer(slot);
                     });
                 }
-            }).addOnFailureListener(e -> android.util.Log.w("GrowPlotStreams", "Assignment retrieval failed", e));
+            }).addOnFailureListener(e -> { assignedStreamsLoading = false; android.util.Log.w("GrowPlotStreams", "Assignment retrieval failed", e); });
     }
 
     private String cctvStreamUrl(int camera) {
@@ -1887,6 +1890,10 @@ public class MainActivity extends Activity {
 
     @Override protected void onResume() {
         super.onResume();
+        if (userStreamMode && !activeStreamScope.isEmpty()) {
+            String[] parts = activeStreamScope.split("\\|", -1);
+            if (parts.length == 3) mainHandler.postDelayed(() -> loadAssignedStreams(parts[1], parts[2], true), 500);
+        }
         activityResumed = true;
         mainHandler.removeCallbacks(scheduledScan);
         scanSnapshotFolder();
@@ -3141,12 +3148,12 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface public void setActiveStreamingContext(String plotId, String greenhouseId) {
-            runOnUiThread(() -> MainActivity.this.loadAssignedStreams(safePlotId(plotId), greenhouseId, true));
+            runOnUiThread(() -> MainActivity.this.loadAssignedStreams(safePlotId(plotId), greenhouseId, false));
         }
         @JavascriptInterface public void setActivePlot(String plotId) {
             String id = safePlotId(plotId);
             getPrefs().edit().putString(PREF_ACTIVE_PLOT_ID, id).apply();
-            runOnUiThread(() -> MainActivity.this.loadAssignedStreams(id, "greenhouse-1", true));
+            // Home selector supplies the matching greenhouse; do not overwrite it with greenhouse-1.
             scanSnapshotFolder();
         }
 
