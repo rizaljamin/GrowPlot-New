@@ -506,7 +506,7 @@ public class MainActivity extends Activity {
         } catch (Exception ignored) { return new String[]{"", ""}; }
     }
 
-    private boolean saveVigiCctv03Credentials(String username, String password) {
+    boolean saveVigiCctv03Credentials(String username, String password) {
         try {
             if ((username == null || username.isEmpty()) && (password == null || password.isEmpty())) {
                 return true; // Empty Settings fields must not erase a saved camera login.
