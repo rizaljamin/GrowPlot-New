@@ -42,7 +42,7 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/data_feeds/$(request.auth.uid + '_' + request.resource.data.deviceId)).data.ownerUserId == request.auth.uid;
       allow update: if request.auth != null
         && resource.data.ownerUserId == request.auth.uid
-        && request.resource.data == resource.data;
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['updatedAt']);
       allow delete: if request.auth != null && resource.data.ownerUserId == request.auth.uid;
     }
     match /users/{uid}/data_feeds/{deviceId} {
