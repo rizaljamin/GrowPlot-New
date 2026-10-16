@@ -43,6 +43,7 @@ function showFirstPlotAction(){
  const greenhouse=document.getElementById('gh');
  const row=plot&&greenhouse&&plot.closest('.selectors');
  if(row&&row===greenhouse.closest('.selectors')){
+  row.style.display='grid';
   row.style.gridTemplateColumns='minmax(0,1.5fr) minmax(0,1fr) max-content';
   row.style.alignItems='stretch';
   row.style.columnGap='10px';
@@ -54,7 +55,21 @@ function showFirstPlotAction(){
   const spacer=document.createElement('label');spacer.textContent='ADD PLOT';spacer.setAttribute('aria-hidden','true');spacer.style.visibility='hidden';field.appendChild(spacer);
   field.appendChild(action);
   row.appendChild(field);
- }else{target.prepend(action);}
+ }else{
+  // Never hide Add Plot when the selector markup changes or loads later.
+  const fallback=document.createElement('div');fallback.id='growplotAddPlotField';
+  fallback.style.cssText='display:flex;justify-content:flex-end;margin:8px 0';
+  action.style.width='auto';fallback.appendChild(action);target.prepend(fallback);
+  let attempts=0;
+  const retry=setInterval(()=>{
+   if(++attempts>20){clearInterval(retry);return;}
+   const p=document.getElementById('plot'),g=document.getElementById('gh');
+   const header=p&&g&&p.closest('.selectors');
+   if(header&&header===g.closest('.selectors')){
+    clearInterval(retry);fallback.remove();action=null;showFirstPlotAction();
+   }
+  },500);
+ }
 
 }
 window.GrowPlotNewUserPreview=function(){const home=document.getElementById('homeBtn');if(home)home.click();showFirstPlotAction();};
