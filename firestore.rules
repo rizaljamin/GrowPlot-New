@@ -5,7 +5,9 @@ service cloud.firestore {
       allow create: if request.auth != null
         && request.resource.data.ownerUserId == request.auth.uid
         && plotId.matches(request.auth.uid + '_[A-Za-z0-9_-]+');
-      allow read, delete: if request.auth != null
+      // All authenticated users may view plots; only owners may delete.
+      allow read: if request.auth != null;
+      allow delete: if request.auth != null
         && resource.data.ownerUserId == request.auth.uid;
       allow update: if request.auth != null
         && resource.data.ownerUserId == request.auth.uid
