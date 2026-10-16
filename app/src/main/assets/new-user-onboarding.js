@@ -17,8 +17,9 @@ function openPlotSetup(){
 }
 function removeAction(){if(action){action.remove();action=null;}}
 function showFirstPlotAction(){
- dismissLegacyPrompt();removeAction();
- const home=document.getElementById('homeBtn');if(home)home.click();
+ dismissLegacyPrompt();
+ if(action&&action.isConnected)return;
+ removeAction();
  const dashboard=document.getElementById('mainDashboard');
  const target=dashboard||document.getElementById('mainContent')||document.body;
  action=document.createElement('button');action.type='button';action.id='growplotAddPlotBtn';
@@ -27,6 +28,7 @@ function showFirstPlotAction(){
  action.addEventListener('click',openPlotSetup);
  target.prepend(action);
 }
-window.GrowPlotNewUserPreview=showFirstPlotAction;
+window.GrowPlotNewUserPreview=function(){const home=document.getElementById('homeBtn');if(home)home.click();showFirstPlotAction();};
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',showFirstPlotAction,{once:true});else showFirstPlotAction();
 window.GrowPlotClearFirstPlotAction=function(){dismissLegacyPrompt();removeAction();};
 })();
