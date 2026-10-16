@@ -184,6 +184,33 @@ public final class AccountApiBridge {
                 }
                 return;
             }
+            if("assignOwnedDevice".equals(action)){
+                String plotId=input.optString("plotId",""),greenhouseId=input.optString("greenhouseId",""),sectionId=input.optString("sectionId",""),deviceId=input.optString("deviceId","");
+                if(!plotId.matches("[A-Za-z0-9_-]{1,100}")||!greenhouseId.matches("greenhouse-[1-9][0-9]*")||!sectionId.matches("section-[1-9][0-9]*")||!deviceId.matches("[A-Za-z0-9_-]{1,100}")){
+                    respond(action,false,"Select a valid plot, greenhouse, section and device.",null);return;
+                }
+                String uid=user.getUid();
+                com.google.firebase.firestore.DocumentReference plotRef=db.collection("plots").document(uid+"_"+plotId);
+                com.google.firebase.firestore.DocumentReference feedRef=db.collection("data_feeds").document(uid+"_"+deviceId);
+                plotRef.get().addOnSuccessListener(plot->{
+                    if(!plot.exists()||!uid.equals(plot.getString("ownerUserId"))){respond(action,false,"Plot not found in your Firebase account.",null);return;}
+                    Number ghCount=plot.getDouble("greenhouseCount"),secCount=plot.getDouble("sectionsPerGreenhouse");
+                    int gh=Integer.parseInt(greenhouseId.substring(11)),sec=Integer.parseInt(sectionId.substring(8));
+                    if(ghCount==null||secCount==null||gh>ghCount.intValue()||sec>secCount.intValue()){
+                        respond(action,false,"Greenhouse or section not configured in this plot. Save Plot Setup first.",null);return;
+                    }
+                    feedRef.get().addOnSuccessListener(feed->{
+                        if(!feed.exists()||!uid.equals(feed.getString("ownerUserId"))){respond(action,false,"Device not found in Firebase. Save Device first.",null);return;}
+                        Map<String,Object> record=new HashMap<>();
+                        record.put("ownerUserId",uid);record.put("plotId",plotId);record.put("greenhouseId",greenhouseId);record.put("sectionId",sectionId);record.put("deviceId",deviceId);
+                        record.put("updatedAt",com.google.firebase.firestore.FieldValue.serverTimestamp());
+                        db.collection("feed_assignments").document(uid+"_"+plotId+"_"+greenhouseId+"_"+sectionId+"_"+deviceId).set(record,SetOptions.merge())
+                            .addOnSuccessListener(v->respond(action,true,"Device assigned to section.",null))
+                            .addOnFailureListener(e->respond(action,false,"Assignment write failed: "+e.getMessage(),null));
+                    }).addOnFailureListener(e->respond(action,false,"Device lookup failed: "+e.getMessage(),null));
+                }).addOnFailureListener(e->respond(action,false,"Plot lookup failed: "+e.getMessage(),null));
+                return;
+            }
             if("saveOwnedDevice".equals(action)||"assignOwnedDevice".equals(action)){
                 String functionName=action;
                 Map<String,Object> args=new com.google.gson.Gson().fromJson(input.toString(),java.util.Map.class);
