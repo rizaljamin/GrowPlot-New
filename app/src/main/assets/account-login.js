@@ -97,30 +97,54 @@ function syncAuthorizedHomePlots(){
  const profile=window.GrowPlotCloudProfile;
  const power=!!(user&&profile?.powerUser===true);
  const allowed=Array.isArray(profile?.plots)?profile.plots:[];
- const safe=allowed.filter(p=>p&&p.id&&p.id!=='plot-1'&&(power||String(p.ownerUserId||uid)===uid));
- const previous=select.value;
+ // Fail closed: unknown ownership is never treated as the current user's plot.
+ const safe=allowed.filter(p=>p&&p.id&&p.id!=='plot-1'&&
+   (power||!!uid&&String(p.ownerUserId||'')===uid));
  const choices=[{id:'plot-1',name:'Demo Plot'},...safe];
- select.replaceChildren();
- for(const p of choices){
-   const option=document.createElement('option');
-   option.value=String(p.id);
-   const name=String(p.name||p.plotName||p.id);
-   const owner=String(p.ownerName||p.ownerDisplayName||p.ownerEmail||p.ownerUserId||'Owner not listed');
-   option.textContent=power&&p.id!=='plot-1'?owner+' ('+name+')':name;
-   select.appendChild(option);
+ const signature=choices.map(p=>String(p.id)+':'+String(p.name||p.plotName||'')+':'+String(p.ownerUserId||'')).join('|')+'|'+power;
+ const previous=select.value;
+ const desired=choices.some(p=>String(p.id)===previous)?previous:'plot-1';
+ const matches=select.options.length===choices.length&&
+   Array.from(select.options).every((option,i)=>option.value===String(choices[i].id));
+ if(select.dataset.growplotOwnerScope!==signature||!matches){
+   select.replaceChildren();
+   for(const p of choices){
+     const option=document.createElement('option');
+     option.value=String(p.id);
+     const name=String(p.name||p.plotName||p.id);
+     const owner=String(p.ownerName||p.ownerDisplayName||p.ownerEmail||p.ownerUserId||'Owner not listed');
+     option.textContent=power&&p.id!=='plot-1'?owner+' ('+name+')':name;
+     select.appendChild(option);
+   }
+   select.dataset.growplotOwnerScope=signature;
  }
- const next=choices.some(p=>String(p.id)===previous)?previous:'plot-1';
- select.value=next;
- if(typeof selectedPlotId!=='undefined')selectedPlotId=next;
- if(next!==previous){
+ select.value=desired;
+ if(typeof selectedPlotId!=='undefined'&&selectedPlotId!==desired)selectedPlotId=desired;
+ if(desired!==previous){
    select.dispatchEvent(new Event('change',{bubbles:true}));
    window.GrowPlotRefreshHomeStreams?.();
  }
 }
 window.GrowPlotSyncAuthorizedHomePlots=syncAuthorizedHomePlots;
+// The original Home renderer repopulates #plot; reapply owner restrictions after render.
+(function installHomePlotOwnerGuard(){
+ function start(){
+   const root=document.getElementById('plot')?.parentElement||document.body;
+   let queued=false;
+   const observer=new MutationObserver(()=>{
+     if(queued)return;
+     queued=true;
+     setTimeout(()=>{queued=false;syncAuthorizedHomePlots();},0);
+   });
+   observer.observe(root,{childList:true,subtree:true});
+   setInterval(syncAuthorizedHomePlots,900);
+   syncAuthorizedHomePlots();
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});
+ else start();
+})();
 document.addEventListener('change',event=>{
  if(event.target?.id==='plot')setTimeout(()=>{
-   // Greenhouses must be rebuilt for the newly selected plot.
    if(typeof fillPlotSelectors==='function')fillPlotSelectors();
    syncAuthorizedHomePlots();
  },0);
