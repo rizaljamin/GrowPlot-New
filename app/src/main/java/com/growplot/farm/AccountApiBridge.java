@@ -153,6 +153,37 @@ public final class AccountApiBridge {
             }
             FirebaseUser user=auth.getCurrentUser();
             if(user==null){respond(action,false,"Sign in first.",null);return;}
+            if("saveOwnedDevice".equals(action)){
+                String deviceId=input.optString("deviceId",""), host=input.optString("ipAddress","");
+                String type=input.optString("deviceType",""), password=input.optString("password","");
+                int port=input.optInt("port",0);
+                if(!deviceId.matches("[A-Za-z0-9_-]{1,100}")||!host.matches("[A-Za-z0-9.-]{1,253}")||
+                    !("AV".equals(type)||"IoT".equals(type))||port<1||port>65535){
+                    respond(action,false,"Invalid device configuration.",null);return;
+                }
+                Map<String,Object> record=new HashMap<>();
+                record.put("deviceId",deviceId);
+                record.put("ownerUserId",user.getUid());
+                record.put("deviceType",type);
+                record.put("deviceName",input.optString("deviceName",deviceId));
+                record.put("ipAddress",host);
+                record.put("port",port);
+                record.put("protocol",input.optString("protocol",""));
+                record.put("streamPath",input.optString("streamPath",""));
+                record.put("username",input.optString("username",""));
+                record.put("updatedAt",com.google.firebase.firestore.FieldValue.serverTimestamp());
+                if(!password.isEmpty()){
+                    Map<String,Object> args=new com.google.gson.Gson().fromJson(input.toString(),java.util.Map.class);
+                    FirebaseFunctions.getInstance("us-central1").getHttpsCallable("saveOwnedDevice").call(args)
+                        .addOnSuccessListener(result->respond(action,true,"Device and encrypted password saved.",null))
+                        .addOnFailureListener(e->respond(action,false,"Encrypted password save failed: "+e.getMessage(),null));
+                }else{
+                    db.collection("data_feeds").document(user.getUid()+"_"+deviceId).set(record,SetOptions.merge())
+                        .addOnSuccessListener(v->respond(action,true,"Device saved to Firestore.",null))
+                        .addOnFailureListener(e->respond(action,false,"Firestore device save failed: "+e.getMessage(),null));
+                }
+                return;
+            }
             if("saveOwnedDevice".equals(action)||"assignOwnedDevice".equals(action)){
                 String functionName=action;
                 Map<String,Object> args=new com.google.gson.Gson().fromJson(input.toString(),java.util.Map.class);
