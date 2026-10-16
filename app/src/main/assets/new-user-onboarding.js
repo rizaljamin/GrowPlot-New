@@ -29,8 +29,8 @@ function showFirstPlotAction(){
  const dashboard=document.getElementById('mainDashboard');
  const target=dashboard||document.getElementById('mainContent')||document.body;
  action=document.createElement('button');action.type='button';action.id='growplotAddPlotBtn';
- action.style.cssText='display:inline-flex;align-items:center;justify-content:center;gap:6px;flex:0 0 auto;width:auto;min-height:36px;margin:0;padding:7px 12px;border:0;border-radius:8px;background:#286647;color:#fff;font:inherit;font-size:13px;font-weight:700;cursor:pointer;box-shadow:none';
- action.innerHTML='<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/><rect x="2" y="2" width="20" height="20" rx="4"/></svg><span>Add Plot</span>';
+ action.style.cssText='display:inline-flex;align-items:center;justify-content:center;gap:4px;flex:0 0 auto;width:auto;min-height:28px;margin:0;padding:4px 8px;border:0;border-radius:6px;background:#286647;color:#fff;font:inherit;font-size:11px;font-weight:700;cursor:pointer;box-shadow:none';
+ action.innerHTML='<svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/><rect x="2" y="2" width="20" height="20" rx="4"/></svg><span>Add Plot</span>';
  action.addEventListener('click',openPlotSetup);
  // Keep Add Plot on the SAME row as the Plot and Greenhouse dropdowns.
  const selects=[...document.querySelectorAll('select')];
