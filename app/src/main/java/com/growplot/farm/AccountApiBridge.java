@@ -307,8 +307,9 @@ public final class AccountApiBridge {
                 // Privileged plot discovery requires an authenticated Firebase custom claim,
                 // never a locally editable role or power-user UI toggle.
                 user.getIdToken(false).addOnSuccessListener(token->{
-                    boolean powerUser=Boolean.TRUE.equals(token.getClaims().get("powerUser"))
-                        || Boolean.TRUE.equals(token.getClaims().get("admin"));
+                    boolean powerUser="rizaljamin@gmail.com".equalsIgnoreCase(user.getEmail())
+                        && (Boolean.TRUE.equals(token.getClaims().get("powerUser"))
+                        || Boolean.TRUE.equals(token.getClaims().get("admin")));
                     db.collection("users").document(user.getUid()).get().addOnSuccessListener(profile->{
                     (powerUser ? db.collection("plots") : db.collection("plots").whereEqualTo("ownerUserId",user.getUid())).get()
                       .addOnSuccessListener(owned->{
