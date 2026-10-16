@@ -90,40 +90,23 @@ if(adminTestLoginButton)adminTestLoginButton.addEventListener('click',function()
 function goHome(){setTimeout(()=>window.GrowPlotRefreshHomeStreams?.(),300);const oldPage=document.getElementById('growplotUserManagementPage');if(oldPage)oldPage.remove();const auth=document.getElementById('authScreen');if(auth)auth.hidden=true;if(typeof returnHome==='function')returnHome();else if(typeof render==='function')render();}
 // Owner-scoped Home dropdown: only the Demo Plot plus Firebase-authorized plots.
 function syncAuthorizedHomePlots(){
- const select=document.getElementById('plot');
- if(!select)return;
- const user=window.GrowPlotCurrentUser;
- const uid=String(user?.uid||user?.id||'');
- const profile=window.GrowPlotCloudProfile;
- const power=!!(user&&profile?.powerUser===true);
- const allowed=Array.isArray(profile?.plots)?profile.plots:[];
- // Fail closed: unknown ownership is never treated as the current user's plot.
- const safe=allowed.filter(p=>p&&p.id&&p.id!=='plot-1'&&
-   (power||!!uid&&String(p.ownerUserId||'')===uid));
+ const select=document.getElementById('plot');if(!select)return;
+ const user=window.GrowPlotCurrentUser,uid=String(user?.uid||user?.id||'');
+ const profile=window.GrowPlotCloudProfile,power=!!(uid&&profile?.powerUser===true);
+ const seen=new Set(['plot-1']);
+ const safe=(uid&&Array.isArray(profile?.plots)?profile.plots:[]).filter(p=>{
+  if(!p||!p.id||seen.has(String(p.id))||(!power&&String(p.ownerUserId||'')!==uid))return false;
+  seen.add(String(p.id));return true;
+ }).sort((a,b)=>String(a.id).localeCompare(String(b.id),undefined,{numeric:true,sensitivity:'base'}));
  const choices=[{id:'plot-1',name:'Demo Plot'},...safe];
- const signature=choices.map(p=>String(p.id)+':'+String(p.name||p.plotName||'')+':'+String(p.ownerUserId||'')).join('|')+'|'+power;
- const previous=select.value;
- const desired=choices.some(p=>String(p.id)===previous)?previous:'plot-1';
- const matches=select.options.length===choices.length&&
-   Array.from(select.options).every((option,i)=>option.value===String(choices[i].id));
- if(select.dataset.growplotOwnerScope!==signature||!matches){
-   select.replaceChildren();
-   for(const p of choices){
-     const option=document.createElement('option');
-     option.value=String(p.id);
-     const name=String(p.name||p.plotName||p.id);
-     const owner=String(p.ownerName||p.ownerDisplayName||p.ownerEmail||p.ownerUserId||'Owner not listed');
-     option.textContent=power&&p.id!=='plot-1'?owner+' ('+name+')':name;
-     select.appendChild(option);
-   }
-   select.dataset.growplotOwnerScope=signature;
+ const labels=choices.map(p=>p.id==='plot-1'?'plot-1 - Demo Plot':String(p.id)+' - '+String(p.name||p.plotName||p.id)+(power?' ('+String(p.ownerEmail||p.ownerName||p.ownerUserId||'Unknown owner')+')':''));
+ const old=select.value,desired=choices.some(p=>String(p.id)===old)?old:'plot-1';
+ if(select.options.length!==choices.length||Array.from(select.options).some((o,i)=>o.value!==String(choices[i].id)||o.textContent!==labels[i])){
+  select.replaceChildren();choices.forEach((p,i)=>{const o=document.createElement('option');o.value=String(p.id);o.textContent=labels[i];select.appendChild(o);});
  }
  select.value=desired;
  if(typeof selectedPlotId!=='undefined'&&selectedPlotId!==desired)selectedPlotId=desired;
- if(desired!==previous){
-   select.dispatchEvent(new Event('change',{bubbles:true}));
-   window.GrowPlotRefreshHomeStreams?.();
- }
+ if(old!==desired){select.dispatchEvent(new Event('change',{bubbles:true}));window.GrowPlotRefreshHomeStreams?.();}
 }
 window.GrowPlotSyncAuthorizedHomePlots=syncAuthorizedHomePlots;
 // The original Home renderer repopulates #plot; reapply owner restrictions after render.
@@ -165,7 +148,7 @@ function userPage(){
  const back=document.createElement('button');back.type='button';back.textContent='← Back to GrowPlot';back.style.cssText='padding:12px;border-radius:8px;border:1px solid #568b66;background:white';back.onclick=()=>{closeUserPage();goHome();};
  const heading=document.createElement('h2');heading.textContent=currentUser.role==='ADMIN'?'User Statistics':'My Account';
  const details=document.createElement('div');details.id='growplotUserManagementDetails';details.style.cssText='padding:16px;margin-top:14px;border:1px solid #c4d7c8;border-radius:12px;background:white;line-height:2';
- const logout=document.createElement('button');logout.type='button';logout.textContent='Log out';logout.style.cssText='display:block;margin-top:20px;padding:12px;border:1px solid #a55;border-radius:8px;background:white';logout.onclick=()=>{window.GrowPlotBridge?.returnToDemoStreams?.();if(api&&api.logout)api.logout();window.GrowPlotDemoPowerUserUnlocked=false;window.dispatchEvent(new Event('growplot-power-user-change'));currentUser=null;window.GrowPlotCurrentUser=null;window.GrowPlotCloudProfile=null;demo();setTimeout(syncAuthorizedHomePlots,0);page.remove();if(auth)auth.hidden=false;setTimeout(()=>window.GrowPlotRefreshHomeStreams?.(),250);};
+ const logout=document.createElement('button');logout.type='button';logout.textContent='Log out';logout.style.cssText='display:block;margin-top:20px;padding:12px;border:1px solid #a55;border-radius:8px;background:white';logout.onclick=()=>{window.GrowPlotBridge?.returnToDemoStreams?.();if(api&&api.logout)api.logout();window.GrowPlotDemoPowerUserUnlocked=false;window.dispatchEvent(new Event('growplot-power-user-change'));currentUser=null;window.GrowPlotCurrentUser=null;window.GrowPlotCloudProfile=null;if(typeof plots!=='undefined'&&Array.isArray(plots)){const d=plots.find(p=>p.id==='plot-1');plots.splice(0,plots.length,d||{id:'plot-1',name:'Demo Plot'});}demo();setTimeout(syncAuthorizedHomePlots,0);page.remove();if(auth)auth.hidden=false;setTimeout(()=>window.GrowPlotRefreshHomeStreams?.(),250);};
  const card=document.createElement('div');card.id='growplotUserManagementCard';card.style.cssText='width:100%;max-width:480px;max-height:calc(100vh - 32px);overflow:auto;background:#f5f8f5;padding:22px;border:1px solid #cbd8ce;border-radius:16px;box-shadow:0 16px 48px #0005;color:#163b25;box-sizing:border-box';card.append(back,heading,details,logout);page.appendChild(card);document.body.appendChild(page);
  }
  page.hidden=false;page.style.display='flex';const details=document.getElementById('growplotUserManagementDetails');
