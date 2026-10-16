@@ -512,6 +512,26 @@ public class MainActivity extends Activity {
         stopIpWebcamVlc();
         stopCctv02Vlc();
         stopCctv03Vlc();
+        // VLC detach/stop may leave a previously decoded frame in TextureView.
+        // Destroy each old video surface, then install a fresh black surface BELOW status controls.
+        if (ipWebcamVlcFrame != null && ipWebcamVlcLayout != null) {
+            ipWebcamVlcFrame.removeView(ipWebcamVlcLayout);
+            ipWebcamVlcLayout = new VLCVideoLayout(this);
+            ipWebcamVlcLayout.setBackgroundColor(Color.BLACK);
+            ipWebcamVlcFrame.addView(ipWebcamVlcLayout, 0, new FrameLayout.LayoutParams(-1, -1));
+        }
+        if (ipWebcam2VlcFrame != null && ipWebcam2VlcLayout != null) {
+            ipWebcam2VlcFrame.removeView(ipWebcam2VlcLayout);
+            ipWebcam2VlcLayout = new VLCVideoLayout(this);
+            ipWebcam2VlcLayout.setBackgroundColor(Color.BLACK);
+            ipWebcam2VlcFrame.addView(ipWebcam2VlcLayout, 0, new FrameLayout.LayoutParams(-1, -1));
+        }
+        if (ipWebcam3VlcFrame != null && ipWebcam3VlcLayout != null) {
+            ipWebcam3VlcFrame.removeView(ipWebcam3VlcLayout);
+            ipWebcam3VlcLayout = new VLCVideoLayout(this);
+            ipWebcam3VlcLayout.setBackgroundColor(Color.BLACK);
+            ipWebcam3VlcFrame.addView(ipWebcam3VlcLayout, 0, new FrameLayout.LayoutParams(-1, -1));
+        }
         if (ipWebcamVlcFrame != null) ipWebcamVlcFrame.setBackgroundColor(Color.BLACK);
         if (ipWebcam2VlcFrame != null) ipWebcam2VlcFrame.setBackgroundColor(Color.BLACK);
         if (ipWebcam3VlcFrame != null) ipWebcam3VlcFrame.setBackgroundColor(Color.BLACK);
