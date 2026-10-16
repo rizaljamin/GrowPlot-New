@@ -326,21 +326,43 @@ window.GrowPlotDemoPowerUserUnlocked=false;
   function asDropdown(input){const select=document.createElement('select');select.id=input.id;select.setAttribute('aria-label',input.id==='gpGreenhouseId'?'Greenhouse':'Section');input.replaceWith(select);return select;}
   const ghSelect=asDropdown(ghInput),secSelect=asDropdown(secInput);
   const currentPlot=()=>typeof plots!=='undefined'&&Array.isArray(plots)?plots.find(p=>p&&p.id===anchor.value):null;
-  const count=(v)=>Number.isInteger(Number(v))&&Number(v)>0?Math.min(Number(v),100):0;
+  const count=(v)=>Number.isInteger(Number(v))&&Number(v)>0?Math.min(Number(v),100):1;
   function populate(select,n,prefix){const old=select.value;select.replaceChildren();const placeholder=document.createElement('option');placeholder.value='';placeholder.textContent='Select '+prefix;select.appendChild(placeholder);for(let i=1;i<=n;i++){const opt=document.createElement('option');opt.value=prefix.toLowerCase()+'-'+i;opt.textContent=prefix+' '+String(i).padStart(2,'0');select.appendChild(opt);}if([...select.options].some(o=>o.value===old))select.value=old;}
   function refreshTargets(){const plot=currentPlot();populate(ghSelect,count(plot?.greenhouseCount),'Greenhouse');populate(secSelect,ghSelect.value?count(plot?.sectionsPerGreenhouse):0,'Section');}
   anchor.addEventListener('change',refreshTargets);ghSelect.addEventListener('change',()=>{populate(secSelect,ghSelect.value?count(currentPlot()?.sectionsPerGreenhouse):0,'Section');});
   document.getElementById('savePlotBtn')?.addEventListener('click',()=>setTimeout(refreshTargets,0));
   refreshTargets();
   const list=document.createElement('div');list.id='gpSavedDevices';list.style.cssText='margin-top:14px;display:grid;gap:8px';section.appendChild(list);
+  function selectSavedDevice(d,a){
+   document.getElementById('gpDeviceId').value=d.deviceId||'';
+   for(const [id,key] of [['gpDeviceHost','ipAddress'],['gpDevicePort','port'],['gpDeviceProtocol','protocol'],['gpDevicePath','streamPath'],['gpDeviceUser','username'],['gpDeviceType','deviceType']]){
+    const el=document.getElementById(id);if(el&&d[key]!=null)el.value=String(d[key]);
+   }
+   if(a){ghSelect.value=a.greenhouseId;ghSelect.dispatchEvent(new Event('change'));secSelect.value=a.sectionId;}
+   document.getElementById('gpDeviceStatus').textContent=a?'Loaded saved assignment.':'Saved device loaded. Select greenhouse and section, then Assign Device.';
+  }
   window.GrowPlotRenderOwnedDevices=function(){
    const data=window.GrowPlotOwnedDeviceData||{},devices=Array.isArray(data.devices)?data.devices:[],assignments=Array.isArray(data.assignments)?data.assignments:[];
    const plotId=anchor.value;list.replaceChildren();
    const heading=document.createElement('strong');heading.textContent='Saved Cameras & IoT — '+(anchor.selectedOptions[0]?.textContent||plotId);list.appendChild(heading);
+   if(plotId==='plot-1'){const msg=document.createElement('p');msg.textContent='Demo Plot uses Camera & IoT Setting (Demo Plot).';list.appendChild(msg);return;}
    const matches=assignments.filter(a=>a.plotId===plotId);
-   if(!matches.length){const empty=document.createElement('p');empty.textContent='No devices assigned to this plot yet. '+devices.length+' device(s) saved to your account.';list.appendChild(empty);}
-   matches.forEach(a=>{const d=devices.find(x=>x.deviceId===a.deviceId),item=document.createElement('button');item.type='button';item.style.cssText='text-align:left;background:#f2f7f3;border:1px solid #a7c7b1;border-radius:8px;padding:10px;color:#193b2b';item.textContent=(d?.deviceName||a.deviceId)+' ('+(d?.deviceType||'Device')+') — '+a.greenhouseId+' / '+a.sectionId+(d?.ipAddress?' — '+d.ipAddress:'');item.addEventListener('click',()=>{document.getElementById('gpDeviceId').value=a.deviceId;ghSelect.value=a.greenhouseId;ghSelect.dispatchEvent(new Event('change'));secSelect.value=a.sectionId;if(d){for(const [id,key] of [['gpDeviceHost','ipAddress'],['gpDevicePort','port'],['gpDeviceProtocol','protocol'],['gpDevicePath','streamPath'],['gpDeviceUser','username'],['gpDeviceType','deviceType']]){const el=document.getElementById(id);if(el&&d[key]!=null)el.value=d[key];}}});list.appendChild(item);});
-   const unassigned=devices.filter(d=>!matches.some(a=>a.deviceId===d.deviceId));if(unassigned.length){const extra=document.createElement('p');extra.textContent='Other saved devices: '+unassigned.map(d=>d.deviceName||d.deviceId).join(', ');list.appendChild(extra);}
+   const info=document.createElement('p');info.textContent=matches.length+' assigned to this plot · '+devices.length+' saved in your account';list.appendChild(info);
+   const shown=new Set();
+   for(const a of matches){
+    const d=devices.find(x=>x.deviceId===a.deviceId)||{deviceId:a.deviceId,deviceName:a.deviceId};shown.add(a.deviceId);
+    const item=document.createElement('button');item.type='button';item.style.cssText='text-align:left;background:#f2f7f3;border:1px solid #a7c7b1;border-radius:8px;padding:10px;color:#193b2b';
+    item.textContent='✓ '+(d.deviceName||d.deviceId)+' — '+(a.greenhouseId||'Greenhouse unspecified')+' / '+(a.sectionId||'Section unspecified')+(d.ipAddress?' — '+d.ipAddress:'');
+    item.onclick=()=>selectSavedDevice(d,a);list.appendChild(item);
+   }
+   for(const d of devices){
+    if(shown.has(d.deviceId))continue;
+    const item=document.createElement('button');item.type='button';item.style.cssText='text-align:left;background:white;border:1px solid #a7c7b1;border-radius:8px;padding:10px;color:#193b2b';
+    const elsewhere=assignments.filter(a=>a.deviceId===d.deviceId).map(a=>a.plotId+' / '+a.greenhouseId+' / '+a.sectionId);
+    item.textContent='＋ '+(d.deviceName||d.deviceId)+' ('+(d.deviceType||'Device')+') — '+(elsewhere.length?'Assigned elsewhere: '+elsewhere.join(', '):'Not assigned to this plot')+(d.ipAddress?' — '+d.ipAddress:'');
+    item.onclick=()=>selectSavedDevice(d,null);list.appendChild(item);
+   }
+   if(!devices.length){const empty=document.createElement('p');empty.textContent='No saved devices found for this Firebase account.';list.appendChild(empty);}
   };
   anchor.addEventListener('change',()=>{window.GrowPlotRenderOwnedDevices();window.GrowPlotReloadOwnedDevices();});
   window.GrowPlotReloadOwnedDevices();
@@ -381,18 +403,21 @@ const preview=document.getElementById('growplotPreviewButton');if(preview)previe
 // The three existing live windows represent sections 1, 2 and 3 respectively.
 (function syncHomeStreamingScope(){
  function start(){
-  const plot=document.getElementById('plot'),gh=document.getElementById('gh');
-  if(!plot||!gh)return;
+  const plot=document.getElementById('plotManagerSelect')||document.getElementById('plot');
+  if(!plot)return;
   let previous='';
   function sync(){
-   const plotId=plot.value||'plot-1',greenhouse='greenhouse-'+(Number(gh.value)||1);
+   const plotId=(typeof selectedPlotId!=='undefined'&&selectedPlotId)||plot.value||'plot-1';
+   const gh=document.getElementById('gpGreenhouseId');
+   const greenhouse=gh?.value||'greenhouse-1';
    const uid=window.GrowPlotCurrentUser?.uid||window.GrowPlotCurrentUser?.userId||'';
    const scope=uid+'|'+plotId+'|'+greenhouse;
    if(scope===previous)return;
    previous=scope;
    if(window.GrowPlotBridge?.setActiveStreamingContext)window.GrowPlotBridge.setActiveStreamingContext(plotId,greenhouse);
   }
-  plot.addEventListener('change',sync);gh.addEventListener('change',sync);
+  plot.addEventListener('change',()=>{previous='';sync();});
+  document.addEventListener('change',e=>{if(e.target?.id==='gpGreenhouseId'){previous='';sync();}});
   document.addEventListener('visibilitychange',()=>{if(!document.hidden){previous='';sync();}});
   setInterval(sync,1800);
   sync();

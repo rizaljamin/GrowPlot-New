@@ -488,6 +488,7 @@ public class MainActivity extends Activity {
     private final String[] assignedStreamUrls = new String[4];
     private volatile boolean userStreamMode = false;
     private int assignedStreamGeneration = 0;
+    private String activeStreamScope = "";
 
     private void refreshAssignedPlayers() {
         if (ipWebcamVlcLayout != null) startIpWebcamVlc(ipWebcamVlcLayout);
@@ -496,6 +497,10 @@ public class MainActivity extends Activity {
     }
 
     private void loadAssignedStreams(String plotId, String greenhouseId) {
+        final String uidNow = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser() == null ? "" : com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser().getUid();
+        String scope = uidNow+"|"+plotId+"|"+greenhouseId;
+        if (scope.equals(activeStreamScope)) return;
+        activeStreamScope = scope;
         final int generation = ++assignedStreamGeneration;
         userStreamMode = !"plot-1".equals(plotId);
         java.util.Arrays.fill(assignedStreamUrls, null);
@@ -529,7 +534,6 @@ public class MainActivity extends Activity {
                 }
                 refreshAssignedPlayers();
             }).addOnFailureListener(e -> refreshAssignedPlayers());
-        refreshAssignedPlayers();
     }
 
     private String cctvStreamUrl(int camera) {
@@ -3136,6 +3140,7 @@ public class MainActivity extends Activity {
         @JavascriptInterface public void setActivePlot(String plotId) {
             String id = safePlotId(plotId);
             getPrefs().edit().putString(PREF_ACTIVE_PLOT_ID, id).apply();
+            runOnUiThread(() -> MainActivity.this.loadAssignedStreams(id, "greenhouse-1"));
             scanSnapshotFolder();
         }
 

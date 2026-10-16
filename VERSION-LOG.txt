@@ -1317,3 +1317,5 @@ Signing / provider keys: This APK's certificate does not match the saved Build 3
 - CCTV01–03 configuration Firestore save remains under users/{uid}/data_feeds.
 - Requires deployment of Firebase Functions, Cloud KMS key and IAM permissions before end-to-end cloud test.
 - GitHub Actions APK build and physical VIGI stream validation pending verification.
+
+2026-10-16 | v0.6.03 Build 01 pending: Fix saved device retrieval UI, clickable owned devices, owner plot/greenhouse stream routing; test GitHub ARM64 build and signing before delivery.
