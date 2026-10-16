@@ -496,18 +496,25 @@ public class MainActivity extends Activity {
         if (ipWebcam3VlcLayout != null) startVigiCctv03Vlc(ipWebcam3VlcLayout);
     }
 
-    private void loadAssignedStreams(String plotId, String greenhouseId) {
+    private void refreshAssignedPlayer(int slot) {
+        if (slot == 1 && ipWebcamVlcLayout != null) startIpWebcamVlc(ipWebcamVlcLayout);
+        else if (slot == 2 && ipWebcam2VlcLayout != null) startCctv02Vlc(ipWebcam2VlcLayout);
+        else if (slot == 3 && ipWebcam3VlcLayout != null) startVigiCctv03Vlc(ipWebcam3VlcLayout);
+    }
+
+    private void loadAssignedStreams(String plotId, String greenhouseId, boolean force) {
         final String uidNow = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser() == null ? "" : com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser().getUid();
         String scope = uidNow+"|"+plotId+"|"+greenhouseId;
-        if (scope.equals(activeStreamScope)) return;
+        if (!force && scope.equals(activeStreamScope)) return;
         activeStreamScope = scope;
         final int generation = ++assignedStreamGeneration;
         userStreamMode = !"plot-1".equals(plotId);
         java.util.Arrays.fill(assignedStreamUrls, null);
-        if (!userStreamMode) { refreshAssignedPlayers(); return; }
+        refreshAssignedPlayers(); // Stop previous plot streams before Firebase fetch.
+        if (!userStreamMode) { return; }
         com.google.firebase.auth.FirebaseUser user = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
         if (user == null || !plotId.matches("[A-Za-z0-9_-]{1,100}") || !greenhouseId.matches("greenhouse-[1-9][0-9]*")) {
-            refreshAssignedPlayers(); return;
+            return;
         }
         final String uid = user.getUid();
         com.google.firebase.firestore.FirebaseFirestore store = com.google.firebase.firestore.FirebaseFirestore.getInstance();
@@ -519,7 +526,7 @@ public class MainActivity extends Activity {
                     if (section == null || deviceId == null || !section.matches("section-[1-3]") || !deviceId.matches("[A-Za-z0-9_-]{1,100}")) continue;
                     int slot = Integer.parseInt(section.substring(8));
                     store.collection("data_feeds").document(uid+"_"+deviceId).get().addOnSuccessListener(device -> {
-                        if (generation != assignedStreamGeneration || !device.exists() || !uid.equals(device.getString("ownerUserId")) || !"AV".equals(device.getString("deviceType"))) return;
+                        if (generation != assignedStreamGeneration || !device.exists() || !uid.equals(device.getString("ownerUserId")) || !("AV".equalsIgnoreCase(device.getString("deviceType")) || "Camera".equalsIgnoreCase(device.getString("deviceType")))) return;
                         String host = device.getString("ipAddress"),protocol=device.getString("protocol"),path=device.getString("streamPath");
                         Number port = device.getDouble("port");
                         if (host == null || !host.matches("[A-Za-z0-9.-]{1,253}")) return;
@@ -529,11 +536,10 @@ public class MainActivity extends Activity {
                         if (path == null || path.isEmpty()) path = "rtsp".equals(scheme) ? "/stream1" : "/videofeed";
                         if (!path.startsWith("/") || path.contains("..") || path.contains("@") || path.contains("?")) return;
                         assignedStreamUrls[slot] = scheme+"://"+host+":"+actualPort+path;
-                        refreshAssignedPlayers();
+                        refreshAssignedPlayer(slot);
                     });
                 }
-                refreshAssignedPlayers();
-            }).addOnFailureListener(e -> refreshAssignedPlayers());
+            }).addOnFailureListener(e -> android.util.Log.w("GrowPlotStreams", "Assignment retrieval failed", e));
     }
 
     private String cctvStreamUrl(int camera) {
@@ -3135,12 +3141,12 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface public void setActiveStreamingContext(String plotId, String greenhouseId) {
-            runOnUiThread(() -> MainActivity.this.loadAssignedStreams(safePlotId(plotId), greenhouseId));
+            runOnUiThread(() -> MainActivity.this.loadAssignedStreams(safePlotId(plotId), greenhouseId, true));
         }
         @JavascriptInterface public void setActivePlot(String plotId) {
             String id = safePlotId(plotId);
             getPrefs().edit().putString(PREF_ACTIVE_PLOT_ID, id).apply();
-            runOnUiThread(() -> MainActivity.this.loadAssignedStreams(id, "greenhouse-1"));
+            runOnUiThread(() -> MainActivity.this.loadAssignedStreams(id, "greenhouse-1", true));
             scanSnapshotFolder();
         }
 

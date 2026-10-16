@@ -179,7 +179,7 @@ window.GrowPlotAccountResponse=function(response){
    }else{goHome();if(typeof window.GrowPlotNewUserPreview==='function')window.GrowPlotNewUserPreview();}
  }else if(response.action==='saveOwnedDevice'||response.action==='assignOwnedDevice'){
    const node=document.getElementById('gpDeviceStatus');
-   if(node)node.textContent=response.ok?(response.action==='saveOwnedDevice'?'✓ Device saved successfully to Firebase.':'✓ Device assigned successfully.'):('Firebase error: '+(response.error||'Request failed (no error details returned)'));if(response.ok&&response.action==='saveOwnedDevice'){const password=document.getElementById('gpDevicePassword');if(password)password.value='';window.GrowPlotReloadOwnedDevices();}if(response.ok&&response.action==='assignOwnedDevice')window.GrowPlotReloadOwnedDevices();
+   if(node)node.textContent=response.ok?(response.action==='saveOwnedDevice'?'✓ Device saved successfully to Firebase.':'✓ Device assigned successfully.'):('Firebase error: '+(response.error||'Request failed (no error details returned)'));if(response.ok&&response.action==='saveOwnedDevice'){const password=document.getElementById('gpDevicePassword');if(password)password.value='';window.GrowPlotReloadOwnedDevices();}if(response.ok&&response.action==='assignOwnedDevice'){window.GrowPlotReloadOwnedDevices();window.GrowPlotRefreshHomeStreams?.();}
  }else if(response.action==='stats'){
    const p=document.getElementById('growplotAdminStats');if(p)p.textContent='GrowPlot users: '+data.totalUsers+' | Standard users: '+data.standardUsers+' | Administrators: '+data.administrators+' | Logged in last 7 days: '+data.loggedInLast7Days;const d=document.getElementById('growplotUserManagementDetails');if(d)d.textContent='Total users: '+data.totalUsers+' | Standard users: '+data.standardUsers+' | Administrators: '+data.administrators+' | Logged in last 7 days: '+data.loggedInLast7Days;
  }else if(response.action==='saveProfile'){const saved=data.saved===true;if(saved){msg('Data saved successfully to Firebase.');saveNotice('Data saved successfully to Firebase.',true);}else saveNotice('Save was not confirmed by Firebase.',false);const callback=saveProfileCallback;saveProfileCallback=null;if(callback)callback(saved,response.error||''); }
@@ -403,24 +403,26 @@ const preview=document.getElementById('growplotPreviewButton');if(preview)previe
 // The three existing live windows represent sections 1, 2 and 3 respectively.
 (function syncHomeStreamingScope(){
  function start(){
-  const plot=document.getElementById('plotManagerSelect')||document.getElementById('plot');
-  if(!plot)return;
+  // Home selectors are #plot and #gh. Manage Farm's selector is a separate editor.
+  const plot=document.getElementById('plot'),gh=document.getElementById('gh');
+  if(!plot||!gh)return;
   let previous='';
-  function sync(){
-   const plotId=(typeof selectedPlotId!=='undefined'&&selectedPlotId)||plot.value||'plot-1';
-   const gh=document.getElementById('gpGreenhouseId');
-   const greenhouse=gh?.value||'greenhouse-1';
+  function sync(force){
+   const plotId=plot.value||'plot-1';
+   const rawGh=String(gh.value||'1');
+   const greenhouse=/^greenhouse-[1-9][0-9]*$/.test(rawGh)?rawGh:'greenhouse-'+(Number(rawGh)||1);
    const uid=window.GrowPlotCurrentUser?.uid||window.GrowPlotCurrentUser?.userId||'';
    const scope=uid+'|'+plotId+'|'+greenhouse;
-   if(scope===previous)return;
+   if(!force&&scope===previous)return;
    previous=scope;
-   if(window.GrowPlotBridge?.setActiveStreamingContext)window.GrowPlotBridge.setActiveStreamingContext(plotId,greenhouse);
+   window.GrowPlotBridge?.setActiveStreamingContext?.(plotId,greenhouse);
   }
-  plot.addEventListener('change',()=>{previous='';sync();});
-  document.addEventListener('change',e=>{if(e.target?.id==='gpGreenhouseId'){previous='';sync();}});
-  document.addEventListener('visibilitychange',()=>{if(!document.hidden){previous='';sync();}});
-  setInterval(sync,1800);
-  sync();
+  plot.addEventListener('change',()=>sync(false));
+  gh.addEventListener('change',()=>sync(false));
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)sync(true);});
+  window.GrowPlotRefreshHomeStreams=()=>sync(true);
+  setInterval(()=>sync(false),1800);
+  sync(true);
  }
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
