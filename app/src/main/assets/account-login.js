@@ -134,6 +134,9 @@ function saveNotice(message,success){
  el.style.background=success?'#d8f4df':'#ffe5df';el.style.color=success?'#164b2a':'#782319';el.textContent=message;
 }
 window.GrowPlotAccountResponse=function(response){
+ if(response&&response.action==='saveVigiCloudCredentials'){const n=document.getElementById('growplotFeedCloudStatus');if(n)n.textContent=response.ok?'VIGI password encrypted and saved in Firebase.':'VIGI cloud credential save failed: '+(response.error||'Unknown error');return;}
+ if(response&&response.action==='loadVigiCloudCredentials'){if(response.ok){window.vigiCctv03HasPassword=true;const n=document.getElementById('growplotFeedCloudStatus');if(n)n.textContent='VIGI credentials restored from encrypted Firebase storage.';}return;}
+
  if(response&&response.action==='saveDataFeeds'){const node=document.getElementById('growplotFeedCloudStatus');if(node)node.textContent=response.ok?'Firebase: CCTV01–CCTV03 saved successfully.':'Firebase save failed: '+(response.error||'Unknown error');return;}
 
  if(response.action==='passwordReset'){
@@ -148,6 +151,7 @@ window.GrowPlotAccountResponse=function(response){
  if(response.action==='accountWarning'){saveNotice(data.warning||'Cloud profile update failed. Your sign-in is still active.',false);return;}
  if(response.action==='login'||response.action==='register'||response.action==='googleSignIn'){
    currentUser=data.user;window.GrowPlotCurrentUser=currentUser;
+   if(currentUser&&api&&api.configured())request('loadVigiCloudCredentials',{});
    if(!currentUser){msg('Invalid account response');return;}
    if(currentUser.role==='ADMIN'){goHome();demo();adminStats();}
    else {request('profile',{});}
@@ -246,6 +250,10 @@ window.GrowPlotDemoPowerUserUnlocked=false;
    }
    cloud.textContent='Saving CCTV01–CCTV03 to Firebase…';
    request('saveDataFeeds',{feeds:ips.map((ip,i)=>({deviceId:'CCTV0'+(i+1),deviceType:'AV',ipAddress:ip}))});
+   const username=document.getElementById('vigiCctv03Username')?.value.trim()||'';
+   const password=document.getElementById('vigiCctv03Password')?.value||'';
+   if(username&&password)request('saveVigiCloudCredentials',{username,password});
+
   });
  }
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
