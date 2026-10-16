@@ -18,6 +18,7 @@ import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption;
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.SetOptions;
+import com.google.firebase.functions.FirebaseFunctions;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import java.util.HashMap;
@@ -152,6 +153,31 @@ public final class AccountApiBridge {
             }
             FirebaseUser user=auth.getCurrentUser();
             if(user==null){respond(action,false,"Sign in first.",null);return;}
+            if("saveVigiCloudCredentials".equals(action)){
+                String username=input.optString("username","").trim(),password=input.optString("password","");
+                if(username.isEmpty()||password.isEmpty()){respond(action,false,"Enter VIGI username and password.",null);return;}
+                Map<String,Object> args=new HashMap<>();args.put("deviceId","CCTV03");args.put("username",username);args.put("password",password);
+                FirebaseFunctions.getInstance("us-central1").getHttpsCallable("saveCameraCredentials").call(args)
+                  .addOnSuccessListener(v->respond(action,true,"Encrypted VIGI credentials saved.",null))
+                  .addOnFailureListener(e->respond(action,false,"Encrypted cloud credential save failed: "+e.getMessage(),null));
+                return;
+            }
+            if("loadVigiCloudCredentials".equals(action)){
+                Map<String,Object> args=new HashMap<>();args.put("deviceId","CCTV03");
+                FirebaseFunctions.getInstance("us-central1").getHttpsCallable("loadCameraCredentials").call(args)
+                  .addOnSuccessListener(result->{
+                    try{
+                        Map<?,?> data=(Map<?,?>)result.getData();
+                        String username=(String)data.get("username"),password=(String)data.get("password");
+                        if(username==null||password==null||!(activity instanceof MainActivity)||!((MainActivity)activity).saveVigiCctv03Credentials(username,password)){
+                            respond(action,false,"Could not protect retrieved VIGI credentials on this device.",null);return;
+                        }
+                        JSONObject out=new JSONObject();out.put("username",username);
+                        respond(action,true,"VIGI credentials restored securely.",out);
+                    }catch(Exception e){respond(action,false,"Could not restore VIGI credentials.",null);}
+                  }).addOnFailureListener(e->respond(action,false,"No cloud VIGI credentials available: "+e.getMessage(),null));
+                return;
+            }
             if("saveDataFeeds".equals(action)){
                 JSONArray feeds=input.optJSONArray("feeds");
                 if(feeds==null||feeds.length()!=3){respond(action,false,"Expected CCTV01–CCTV03.",null);return;}
