@@ -498,17 +498,26 @@ public class MainActivity extends Activity {
     }
 
     private void refreshAssignedPlayer(int slot) {
+        // An assignment may be removed or disabled: clear the old frame instead of retaining it.
+        if (userStreamMode && (slot < 1 || slot > 3 || assignedStreamUrls[slot] == null || assignedStreamUrls[slot].isEmpty())) {
+            resetCctvSurfaces();
+            for (int camera = 1; camera <= 3; camera++) {
+                if (assignedStreamUrls[camera] != null && !assignedStreamUrls[camera].isEmpty()) {
+                    if (camera == 1 && ipWebcamVlcLayout != null) startIpWebcamVlc(ipWebcamVlcLayout);
+                    if (camera == 2 && ipWebcam2VlcLayout != null) startCctv02Vlc(ipWebcam2VlcLayout);
+                    if (camera == 3 && ipWebcam3VlcLayout != null) startVigiCctv03Vlc(ipWebcam3VlcLayout);
+                }
+            }
+            return;
+        }
         if (slot == 1 && ipWebcamVlcLayout != null) startIpWebcamVlc(ipWebcamVlcLayout);
         else if (slot == 2 && ipWebcam2VlcLayout != null) startCctv02Vlc(ipWebcam2VlcLayout);
         else if (slot == 3 && ipWebcam3VlcLayout != null) startVigiCctv03Vlc(ipWebcam3VlcLayout);
     }
 
-    private void returnToDemoStreams() {
-        // Invalidate all in-flight private assignment callbacks before switching sources.
-        ++assignedStreamGeneration;
-        activeStreamScope = "";
-        java.util.Arrays.fill(assignedStreamUrls, null);
-        userStreamMode = true; // Disconnect private feeds first, without exposing demo mid-transition.
+    // Reset every video surface whenever the selected camera scope changes.
+    // Merely stopping VLC leaves its final decoded frame visible in TextureView.
+    private void resetCctvSurfaces() {
         stopIpWebcamVlc();
         stopCctv02Vlc();
         stopCctv03Vlc();
@@ -535,6 +544,14 @@ public class MainActivity extends Activity {
         if (ipWebcamVlcFrame != null) ipWebcamVlcFrame.setBackgroundColor(Color.BLACK);
         if (ipWebcam2VlcFrame != null) ipWebcam2VlcFrame.setBackgroundColor(Color.BLACK);
         if (ipWebcam3VlcFrame != null) ipWebcam3VlcFrame.setBackgroundColor(Color.BLACK);
+    }
+
+    private void returnToDemoStreams() {
+        ++assignedStreamGeneration;
+        activeStreamScope = "";
+        java.util.Arrays.fill(assignedStreamUrls, null);
+        userStreamMode = true;
+        resetCctvSurfaces();
         loadAssignedStreams("plot-1", "greenhouse-1", true);
     }
 
@@ -547,7 +564,8 @@ public class MainActivity extends Activity {
         userStreamMode = !"plot-1".equals(plotId);
         java.util.Arrays.fill(assignedStreamUrls, null);
         assignedStreamsLoading = userStreamMode;
-        refreshAssignedPlayers(); // Stop previous plot streams before Firebase fetch.
+        resetCctvSurfaces(); // Always reset all old frames before starting the newly selected scope.
+        if (!userStreamMode) refreshAssignedPlayers(); // Demo uses saved Settings IPs.
         if (!userStreamMode) { return; }
         com.google.firebase.auth.FirebaseUser user = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
         if (user == null || !plotId.matches("[A-Za-z0-9_-]{1,100}") || !greenhouseId.matches("greenhouse-[1-9][0-9]*")) {

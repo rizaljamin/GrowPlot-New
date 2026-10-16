@@ -1329,3 +1329,5 @@ Signing / provider keys: This APK's certificate does not match the saved Build 3
 2026-10-16 | v0.6.02 Build 15: On logout immediately stop private VLC players, invalidate pending Firebase callbacks, black out frames and switch to Demo Plot Settings IP feeds. Signed-out app always routes Home CCTV to Demo Plot; offline red dots blink, green while playing. Device verification pending.
 
 2026-10-16 | v0.6.02 Build 16: Privacy fix: destroy and replace all three VLC video surfaces on logout to remove cached final frame, before reconnecting Demo Plot Settings cameras. Preserve red offline indicators and Firebase user isolation. On-device verification pending.
+
+2026-10-16 | v0.6.02 Build 17: Reset all three CCTV video surfaces whenever selected plot/greenhouse scope changes, not only logout. Start only cameras active in the selected Firebase scope; inactive windows remain black with red blinking indicators. Demo uses Settings IPs. On-device verification pending.
