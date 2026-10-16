@@ -9,6 +9,19 @@ Current source prepares v0.6.01 Build 28 (Android versionCode 155, package `com.
 
 The previously verified Build 9 ARM64 development APK has SHA-256 `dce0cc453307290d422e933f2f1142d964c8abfcea2283fc0877ed874776d469`; its matching source ZIP SHA-256 is `4a6d531b4f79874ad257f8f837ef28671f262d99f482a7a815873ba184f4cf71`. Its signing certificate differs from the saved Build 30 certificate, and the Pl@ntNet build key is absent, so it is development-only and is not a safe in-place update. Keep the existing installed app and its data; use only an APK signed by the saved Build 30 key for an in-place update. Android device and live provider verification remain pending. Google Play upload/publication has not been performed or verified.
 
+## Development-stage versioning policy
+
+During active GrowPlot development, use the version format `vMAJOR.MINOR.RELEASE Build NN`.
+
+- **Build number:** Starts at Build 01 for each release and may increase through **Build 30**. Each newly generated installable APK increments the build number; source-only changes do not.
+- **Release number:** After **Build 30**, the next installable begins the next release at **Build 01**. The release component ranges from **01 to 09**.
+- **Minor version:** After **Release 09, Build 30**, advance the minor version and reset to **Release 01, Build 01** (for example, `v0.6.09 Build 30` → `v0.7.01 Build 01`).
+- **Version code:** Android `versionCode` must increase monotonically for every installable, including when the display version resets its build/release components.
+- **Release control:** Version progression is a development convention, not permission to change the release unexpectedly. Confirm the intended release transition with the project owner before applying it.
+- **Build batching:** Implement and review related fixes together before triggering a single GitHub APK build, rather than building on every source commit.
+
+Current development release: **v0.6.02**. The latest recorded source identity is **Build 10**; a successful APK for that corrected identity has not yet been verified.
+
 ## APK distribution and device compatibility
 
 From 12 October 2026 onward, distribute the ARM64-only APK (`arm64-v8a`) for GrowPlot. A universal APK is no longer required for future releases. The build and strict-release workflows generate one ARM64 APK; universal APK and debug AAB generation have been removed from the routine build.
