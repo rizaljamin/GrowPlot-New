@@ -25,6 +25,8 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      GRADLE_OPTS: '-Dorg.gradle.daemon=false -Dorg.gradle.workers.max=1'
     timeout-minutes: 50
     steps:
       - uses: actions/checkout@v4
@@ -71,6 +73,8 @@ jobs:
           echo "GROWPLOT_DEBUG_KEY_ALIAS=$SIGNING_KEY_ALIAS" >> "$GITHUB_ENV"
           echo "GROWPLOT_DEBUG_KEYSTORE_PASSWORD=$SIGNING_STORE_PASSWORD" >> "$GITHUB_ENV"
           echo "GROWPLOT_DEBUG_KEY_PASSWORD=${SIGNING_KEY_PASSWORD:-$SIGNING_STORE_PASSWORD}" >> "$GITHUB_ENV"
+      - name: Record runner memory before compilation
+        run: free -h && df -h .
       - name: Build and verify ARM64
         env:
           GROWPLOT_PLANTNET_API_KEY: ${{ secrets.GROWPLOT_PLANTNET_API_KEY }}
