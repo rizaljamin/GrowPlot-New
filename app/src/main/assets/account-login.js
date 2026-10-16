@@ -133,12 +133,20 @@ function saveNotice(message,success){
  if(!el){el=document.createElement('div');el.id='growplotSaveNotice';el.setAttribute('role','status');el.style.cssText='position:fixed;bottom:18px;left:16px;right:16px;z-index:100001;padding:14px;border-radius:10px;box-shadow:0 3px 14px #0003;font-weight:600;text-align:center';document.body.appendChild(el);}
  el.style.background=success?'#d8f4df':'#ffe5df';el.style.color=success?'#164b2a':'#782319';el.textContent=message;
 }
+window.GrowPlotReloadOwnedDevices=function(){if(window.GrowPlotCurrentUser&&!window.GrowPlotCurrentUser.developmentOnly&&api?.configured())request('loadOwnedDevices',{});};
 window.GrowPlotAccountResponse=function(response){
  if(response&&response.action==='saveVigiCloudCredentials'){const n=document.getElementById('growplotFeedCloudStatus');if(n)n.textContent=response.ok?'VIGI password encrypted and saved in Firebase.':'VIGI cloud credential save failed: '+(response.error||'Unknown error');return;}
  if(response&&response.action==='loadVigiCloudCredentials'){if(response.ok){window.vigiCctv03HasPassword=true;const n=document.getElementById('growplotFeedCloudStatus');if(n)n.textContent='VIGI credentials restored from encrypted Firebase storage.';}return;}
 
  if(response&&response.action==='saveDataFeeds'){const node=document.getElementById('growplotFeedCloudStatus');if(node)node.textContent=response.ok?'Firebase: CCTV01–CCTV03 saved successfully.':'Firebase save failed: '+(response.error||'Unknown error');return;}
 
+ if(response.action==='loadOwnedDevices'){
+  const status=document.getElementById('gpDeviceStatus'),list=document.getElementById('gpSavedDevices');
+  if(!response.ok){if(status)status.textContent='Firebase retrieval error: '+(response.error||'Unable to load saved devices');return;}
+  window.GrowPlotOwnedDeviceData=response.data||{};
+  if(typeof window.GrowPlotRenderOwnedDevices==='function')window.GrowPlotRenderOwnedDevices();
+  return;
+ }
  if(response.action==='passwordReset'){
   if(passwordResetButton){passwordResetButton.disabled=false;passwordResetButton.textContent='Forgot password?';}
   const target=resetFeedbackTarget||status;resetFeedbackTarget=null;
@@ -153,12 +161,13 @@ window.GrowPlotAccountResponse=function(response){
    const previousUid=currentUser&&(currentUser.uid||currentUser.id);const incomingUid=data.user&&(data.user.uid||data.user.id);
    if(previousUid&&previousUid!==incomingUid&&typeof plots!=='undefined'&&Array.isArray(plots)){for(let i=plots.length-1;i>=0;i--)if(plots[i]?.id!=='plot-1')plots.splice(i,1);}
    currentUser=data.user;window.GrowPlotCurrentUser=currentUser;
-   if(currentUser&&api&&api.configured())request('loadVigiCloudCredentials',{});
+   if(currentUser&&api&&api.configured()){request('loadVigiCloudCredentials',{});window.GrowPlotReloadOwnedDevices();}
    if(!currentUser){msg('Invalid account response');return;}
    if(currentUser.role==='ADMIN'){goHome();demo();adminStats();}
    else {request('profile',{});}
  }else if(response.action==='profile'){
    window.GrowPlotCloudProfile=data;
+   window.GrowPlotReloadOwnedDevices();
    // Never replace the Demo Plot with a stale device-local user record.
    if(Array.isArray(data.plots)&&data.plots.length){
      if(typeof plots!=='undefined'&&Array.isArray(plots)){
@@ -170,7 +179,7 @@ window.GrowPlotAccountResponse=function(response){
    }else{goHome();if(typeof window.GrowPlotNewUserPreview==='function')window.GrowPlotNewUserPreview();}
  }else if(response.action==='saveOwnedDevice'||response.action==='assignOwnedDevice'){
    const node=document.getElementById('gpDeviceStatus');
-   if(node)node.textContent=response.ok?(response.action==='saveOwnedDevice'?'✓ Device saved successfully to Firebase.':'✓ Device assigned successfully.'):('Firebase error: '+(response.error||'Request failed (no error details returned)'));if(response.ok&&response.action==='saveOwnedDevice'){const password=document.getElementById('gpDevicePassword');if(password)password.value='';}
+   if(node)node.textContent=response.ok?(response.action==='saveOwnedDevice'?'✓ Device saved successfully to Firebase.':'✓ Device assigned successfully.'):('Firebase error: '+(response.error||'Request failed (no error details returned)'));if(response.ok&&response.action==='saveOwnedDevice'){const password=document.getElementById('gpDevicePassword');if(password)password.value='';window.GrowPlotReloadOwnedDevices();}if(response.ok&&response.action==='assignOwnedDevice')window.GrowPlotReloadOwnedDevices();
  }else if(response.action==='stats'){
    const p=document.getElementById('growplotAdminStats');if(p)p.textContent='GrowPlot users: '+data.totalUsers+' | Standard users: '+data.standardUsers+' | Administrators: '+data.administrators+' | Logged in last 7 days: '+data.loggedInLast7Days;const d=document.getElementById('growplotUserManagementDetails');if(d)d.textContent='Total users: '+data.totalUsers+' | Standard users: '+data.standardUsers+' | Administrators: '+data.administrators+' | Logged in last 7 days: '+data.loggedInLast7Days;
  }else if(response.action==='saveProfile'){const saved=data.saved===true;if(saved){msg('Data saved successfully to Firebase.');saveNotice('Data saved successfully to Firebase.',true);}else saveNotice('Save was not confirmed by Firebase.',false);const callback=saveProfileCallback;saveProfileCallback=null;if(callback)callback(saved,response.error||''); }
@@ -323,6 +332,18 @@ window.GrowPlotDemoPowerUserUnlocked=false;
   anchor.addEventListener('change',refreshTargets);ghSelect.addEventListener('change',()=>{populate(secSelect,ghSelect.value?count(currentPlot()?.sectionsPerGreenhouse):0,'Section');});
   document.getElementById('savePlotBtn')?.addEventListener('click',()=>setTimeout(refreshTargets,0));
   refreshTargets();
+  const list=document.createElement('div');list.id='gpSavedDevices';list.style.cssText='margin-top:14px;display:grid;gap:8px';section.appendChild(list);
+  window.GrowPlotRenderOwnedDevices=function(){
+   const data=window.GrowPlotOwnedDeviceData||{},devices=Array.isArray(data.devices)?data.devices:[],assignments=Array.isArray(data.assignments)?data.assignments:[];
+   const plotId=anchor.value;list.replaceChildren();
+   const heading=document.createElement('strong');heading.textContent='Saved Cameras & IoT — '+(anchor.selectedOptions[0]?.textContent||plotId);list.appendChild(heading);
+   const matches=assignments.filter(a=>a.plotId===plotId);
+   if(!matches.length){const empty=document.createElement('p');empty.textContent='No devices assigned to this plot yet. '+devices.length+' device(s) saved to your account.';list.appendChild(empty);}
+   matches.forEach(a=>{const d=devices.find(x=>x.deviceId===a.deviceId),item=document.createElement('button');item.type='button';item.style.cssText='text-align:left;background:#f2f7f3;border:1px solid #a7c7b1;border-radius:8px;padding:10px;color:#193b2b';item.textContent=(d?.deviceName||a.deviceId)+' ('+(d?.deviceType||'Device')+') — '+a.greenhouseId+' / '+a.sectionId+(d?.ipAddress?' — '+d.ipAddress:'');item.addEventListener('click',()=>{document.getElementById('gpDeviceId').value=a.deviceId;ghSelect.value=a.greenhouseId;ghSelect.dispatchEvent(new Event('change'));secSelect.value=a.sectionId;if(d){for(const [id,key] of [['gpDeviceHost','ipAddress'],['gpDevicePort','port'],['gpDeviceProtocol','protocol'],['gpDevicePath','streamPath'],['gpDeviceUser','username'],['gpDeviceType','deviceType']]){const el=document.getElementById(id);if(el&&d[key]!=null)el.value=d[key];}}});list.appendChild(item);});
+   const unassigned=devices.filter(d=>!matches.some(a=>a.deviceId===d.deviceId));if(unassigned.length){const extra=document.createElement('p');extra.textContent='Other saved devices: '+unassigned.map(d=>d.deviceName||d.deviceId).join(', ');list.appendChild(extra);}
+  };
+  anchor.addEventListener('change',()=>{window.GrowPlotRenderOwnedDevices();window.GrowPlotReloadOwnedDevices();});
+  window.GrowPlotReloadOwnedDevices();
   const val=id=>document.getElementById(id)?.value.trim()||'';
   const status=document.getElementById('gpDeviceStatus');
   function guard(){
