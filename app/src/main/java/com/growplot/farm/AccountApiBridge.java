@@ -351,7 +351,7 @@ public final class AccountApiBridge {
                         && (Boolean.TRUE.equals(token.getClaims().get("powerUser"))
                         || Boolean.TRUE.equals(token.getClaims().get("admin")));
                     db.collection("users").document(user.getUid()).get().addOnSuccessListener(profile->{
-                    (powerUser ? db.collection("plots") : db.collection("plots").whereEqualTo("ownerUserId",user.getUid())).get()
+                    db.collection("plots").get()
                       .addOnSuccessListener(owned->{
                         JSONObject out=new JSONObject();
                         try{
@@ -360,7 +360,7 @@ public final class AccountApiBridge {
                                 Map<String,Object> item=doc.getData();
                                 if(item!=null)arr.put(new JSONObject(new com.google.gson.Gson().toJson(item)));
                             }
-                            // Only owner-scoped plot documents are authoritative.
+                            // Public plot visibility for authenticated users; writes remain owner-restricted.
                             out.put("plots",arr);
                             out.put("powerUser",powerUser);
                             String selected=profile.getString("selectedPlotId");
