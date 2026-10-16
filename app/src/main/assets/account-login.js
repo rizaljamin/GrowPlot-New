@@ -87,7 +87,7 @@ if(adminTestLoginButton)adminTestLoginButton.addEventListener('click',function()
  msg('Signed in to the local development admin session. Firebase was not used.');
  if(typeof window.GrowPlotAdminVerified==='function')window.GrowPlotAdminVerified();
 });
-function goHome(){const auth=document.getElementById('authScreen');if(auth)auth.hidden=true;if(typeof returnHome==='function')returnHome();else if(typeof render==='function')render();}
+function goHome(){const oldPage=document.getElementById('growplotUserManagementPage');if(oldPage)oldPage.remove();const auth=document.getElementById('authScreen');if(auth)auth.hidden=true;if(typeof returnHome==='function')returnHome();else if(typeof render==='function')render();}
 function demo(){if(typeof plots!=='undefined'&&Array.isArray(plots)){const p=plots.find(p=>/demo/i.test(String(p.name||'')+' '+String(p.id||'')))||plots[0];if(p){selectedPlotId=p.id;if(typeof fillPlotSelectors==='function')fillPlotSelectors();if(typeof render==='function')render();}}}
 window.GrowPlotShowDemoHome=function(){demo();goHome();};
 function adminStats(){
@@ -95,18 +95,19 @@ function adminStats(){
  if(!panel){panel=document.createElement('section');panel.id='growplotAdminStats';panel.style.cssText='margin:12px;padding:12px;border:1px solid #aac;border-radius:12px;background:#f7faf7';const home=document.getElementById('mainDashboard');(home||document.body).prepend(panel);}
  panel.textContent='Loading user statistics…';request('stats',{});
 }
+function closeUserPage(){const page=document.getElementById('growplotUserManagementPage');if(page)page.remove();}
 function userPage(){
  if(!currentUser){msg('Please log in first.');return;}
  const auth=document.getElementById('authScreen');if(auth)auth.hidden=true;
  let page=document.getElementById('growplotUserManagementPage');
  if(!page){page=document.createElement('section');page.id='growplotUserManagementPage';page.style.cssText='position:fixed;inset:0;z-index:99000;display:flex;align-items:center;justify-content:center;overflow:auto;background:#10231877;padding:16px;box-sizing:border-box';
- const back=document.createElement('button');back.type='button';back.textContent='← Back to GrowPlot';back.style.cssText='padding:12px;border-radius:8px;border:1px solid #568b66;background:white';back.onclick=()=>{page.hidden=true;goHome();};
+ const back=document.createElement('button');back.type='button';back.textContent='← Back to GrowPlot';back.style.cssText='padding:12px;border-radius:8px;border:1px solid #568b66;background:white';back.onclick=()=>{closeUserPage();goHome();};
  const heading=document.createElement('h2');heading.textContent=currentUser.role==='ADMIN'?'User Statistics':'My Account';
  const details=document.createElement('div');details.id='growplotUserManagementDetails';details.style.cssText='padding:16px;margin-top:14px;border:1px solid #c4d7c8;border-radius:12px;background:white;line-height:2';
  const logout=document.createElement('button');logout.type='button';logout.textContent='Log out';logout.style.cssText='display:block;margin-top:20px;padding:12px;border:1px solid #a55;border-radius:8px;background:white';logout.onclick=()=>{if(api&&api.logout)api.logout();currentUser=null;window.GrowPlotCurrentUser=null;page.remove();if(auth)auth.hidden=false;};
  const card=document.createElement('div');card.id='growplotUserManagementCard';card.style.cssText='width:100%;max-width:480px;max-height:calc(100vh - 32px);overflow:auto;background:#f5f8f5;padding:22px;border:1px solid #cbd8ce;border-radius:16px;box-shadow:0 16px 48px #0005;color:#163b25;box-sizing:border-box';card.append(back,heading,details,logout);page.appendChild(card);document.body.appendChild(page);
  }
- page.hidden=false;const details=document.getElementById('growplotUserManagementDetails');
+ page.hidden=false;page.style.display='flex';const details=document.getElementById('growplotUserManagementDetails');
  if(currentUser.role==='ADMIN'){
    if(api&&api.configured()){details.textContent='Loading user statistics…';request('stats',{});}
    else {const n=Object.keys(localStorage).filter(k=>k.startsWith('growplot_test_account_')).length;details.textContent='Registered test users on this device: '+n+' (development only). Google Drive user statistics unavailable.';}
