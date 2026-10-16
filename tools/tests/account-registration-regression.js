@@ -38,7 +38,8 @@ const onboarding = fs.readFileSync('app/src/main/assets/new-user-onboarding.js',
 assert.match(onboarding, /id='growplotAddPlotBtn'/, 'Home displays the Add Plot button');
 assert.match(onboarding, /Add Plot<[^>]*span>/, 'Add Plot uses the requested label');
 assert.match(onboarding, /action\.addEventListener\('click',openPlotSetup\)/, 'Add Plot opens plot setup');
-assert.match(onboarding, /settings\.click\(\)/, 'Add Plot routes to Settings/Plot Management');
+assert.match(onboarding, /manageFarm\.click\(\)/, 'Add Plot opens Manage Farm instead of Settings');
+assert.match(onboarding, /plotTab\.click\(\)/, 'Add Plot selects the Plot tab');
 assert.match(onboarding, /dismissLegacyPrompt\(\)/, 'obsolete onboarding popup is removed');
 assert.doesNotMatch(onboarding, /document\.createElement\('dialog'\)|\.showModal\(\)/, 'onboarding does not create a blocking modal');
 assert.match(account, /function closeUserPage\(\)/, 'My Account has explicit cleanup');
