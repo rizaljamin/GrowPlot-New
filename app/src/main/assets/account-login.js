@@ -166,6 +166,9 @@ window.GrowPlotAccountResponse=function(response){
      }
      goHome();
    }else{goHome();if(typeof window.GrowPlotNewUserPreview==='function')window.GrowPlotNewUserPreview();}
+ }else if(response.action==='saveOwnedDevice'||response.action==='assignOwnedDevice'){
+   const node=document.getElementById('gpDeviceStatus');
+   if(node)node.textContent=response.success?(response.action==='saveOwnedDevice'?'Device saved.':'Device assigned to plot.'):('Firebase error: '+(response.message||'Request failed'));
  }else if(response.action==='stats'){
    const p=document.getElementById('growplotAdminStats');if(p)p.textContent='GrowPlot users: '+data.totalUsers+' | Standard users: '+data.standardUsers+' | Administrators: '+data.administrators+' | Logged in last 7 days: '+data.loggedInLast7Days;const d=document.getElementById('growplotUserManagementDetails');if(d)d.textContent='Total users: '+data.totalUsers+' | Standard users: '+data.standardUsers+' | Administrators: '+data.administrators+' | Logged in last 7 days: '+data.loggedInLast7Days;
  }else if(response.action==='saveProfile'){const saved=data.saved===true;if(saved){msg('Data saved successfully to Firebase.');saveNotice('Data saved successfully to Firebase.',true);}else saveNotice('Save was not confirmed by Firebase.',false);const callback=saveProfileCallback;saveProfileCallback=null;if(callback)callback(saved,response.error||''); }
@@ -257,6 +260,58 @@ window.GrowPlotDemoPowerUserUnlocked=false;
   });
  }
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
+})();
+
+
+(function installPlotDeviceAssignments(){
+ function mount(){
+  const anchor=document.getElementById('plotManagerSelect');
+  if(!anchor||document.getElementById('growplotOwnedDevices'))return;
+  const section=document.createElement('section');
+  section.id='growplotOwnedDevices';
+  section.style.cssText='max-width:100%;box-sizing:border-box;margin:14px 0;padding:12px;border:1px solid #a0aaa0;border-radius:10px';
+  section.innerHTML='<h3>Camera &amp; IoT Settings — Selected Plot</h3>'+
+   '<p>Assign devices only to plots and sections in your account.</p>'+
+   '<label>Device ID <input id="gpDeviceId" placeholder="CCTV03 or IOT01" maxlength="100"></label> '+
+   '<label>Type <select id="gpDeviceType"><option value="AV">Camera</option><option value="IoT">IoT</option></select></label> '+
+   '<label>IP / Host <input id="gpDeviceHost" placeholder="192.168.1.228"></label> '+
+   '<label>Port <input id="gpDevicePort" type="number" min="1" max="65535" value="554"></label> '+
+   '<label>Protocol <select id="gpDeviceProtocol"><option>RTSP</option><option>HTTP</option><option>HTTPS</option><option>MQTT</option></select></label> '+
+   '<label>Stream / endpoint <input id="gpDevicePath" placeholder="/stream1"></label> '+
+   '<label>Device username (optional) <input id="gpDeviceUser" autocomplete="off"></label> '+
+   '<label>Device password (optional, cloud-encrypted) <input id="gpDevicePassword" type="password" autocomplete="new-password"></label> '+
+   '<label>Greenhouse ID (optional) <input id="gpGreenhouseId" placeholder="gh-1"></label> '+
+   '<label>Section ID <input id="gpSectionId" placeholder="section-1"></label> '+
+   '<button type="button" id="gpSaveDevice">Save Device</button> '+
+   '<button type="button" id="gpAssignDevice">Assign to Selected Plot / Section</button>'+
+   '<p id="gpDeviceStatus" role="status" aria-live="polite"></p>';
+  anchor.parentElement.insertAdjacentElement('afterend',section);
+  const val=id=>document.getElementById(id)?.value.trim()||'';
+  const status=document.getElementById('gpDeviceStatus');
+  function guard(){
+   if(!currentUser||currentUser.developmentOnly||!api?.configured()){status.textContent='Firebase sign-in required.';return false;}
+   if(!anchor.value||anchor.value==='plot-1'){status.textContent='Select your own non-demo plot.';return false;}
+   return true;
+  }
+  document.getElementById('gpSaveDevice').onclick=()=>{
+   if(!guard())return;
+   const port=Number(val('gpDevicePort'));
+   if(!Number.isInteger(port)||port<1||port>65535){status.textContent='Enter a valid port.';return;}
+   const deviceId=val('gpDeviceId'),ipAddress=val('gpDeviceHost');
+   if(!/^[A-Za-z0-9_-]{1,100}$/.test(deviceId)||!/^[A-Za-z0-9.-]{1,253}$/.test(ipAddress)){status.textContent='Enter a valid device ID and IP/hostname.';return;}
+   request('saveOwnedDevice',{deviceId,deviceType:val('gpDeviceType'),deviceName:deviceId,ipAddress,port,protocol:val('gpDeviceProtocol'),streamPath:val('gpDevicePath'),username:val('gpDeviceUser'),password:document.getElementById('gpDevicePassword').value});
+   document.getElementById('gpDevicePassword').value='';
+   status.textContent='Saving device to your Firebase account…';
+  };
+  document.getElementById('gpAssignDevice').onclick=()=>{
+   if(!guard())return;
+   const plotId=anchor.value,sectionId=val('gpSectionId'),deviceId=val('gpDeviceId');
+   if(!/^[A-Za-z0-9_-]{1,100}$/.test(sectionId)||!/^[A-Za-z0-9_-]{1,100}$/.test(deviceId)){status.textContent='Enter valid section and device IDs.';return;}
+   request('assignOwnedDevice',{plotId,sectionId,deviceId,greenhouseId:val('gpGreenhouseId')});
+   status.textContent='Assigning device to your selected plot…';
+  };
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});else mount();
 })();
 
 const preview=document.getElementById('growplotPreviewButton');if(preview)preview.remove();
