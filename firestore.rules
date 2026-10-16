@@ -13,8 +13,7 @@ service cloud.firestore {
     }
     match /data_feeds/{deviceId} {
       allow read: if request.auth != null
-        && resource.data.ownerUserId == request.auth.uid
-        && !resource.data.keys().hasAny(['credentials']);
+        && resource.data.ownerUserId == request.auth.uid;
       allow write: if false;
     }
     match /feed_assignments/{assignmentId} {
