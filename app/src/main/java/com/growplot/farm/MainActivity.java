@@ -506,10 +506,10 @@ public class MainActivity extends Activity {
         }
         final String uid = user.getUid();
         com.google.firebase.firestore.FirebaseFirestore store = com.google.firebase.firestore.FirebaseFirestore.getInstance();
-        store.collection("feed_assignments").whereEqualTo("ownerUserId",uid).whereEqualTo("plotId",plotId)
-            .whereEqualTo("greenhouseId",greenhouseId).get().addOnSuccessListener(rows -> {
+        store.collection("feed_assignments").whereEqualTo("ownerUserId",uid).get().addOnSuccessListener(rows -> {
                 if (generation != assignedStreamGeneration) return;
                 for (com.google.firebase.firestore.QueryDocumentSnapshot assignment : rows) {
+                    if (!plotId.equals(assignment.getString("plotId")) || !greenhouseId.equals(assignment.getString("greenhouseId"))) continue;
                     String section = assignment.getString("sectionId"), deviceId = assignment.getString("deviceId");
                     if (section == null || deviceId == null || !section.matches("section-[1-3]") || !deviceId.matches("[A-Za-z0-9_-]{1,100}")) continue;
                     int slot = Integer.parseInt(section.substring(8));
