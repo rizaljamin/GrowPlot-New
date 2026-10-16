@@ -153,6 +153,37 @@ public final class AccountApiBridge {
             }
             FirebaseUser user=auth.getCurrentUser();
             if(user==null){respond(action,false,"Sign in first.",null);return;}
+            if("loadOwnedDevices".equals(action)){
+                String uid=user.getUid();
+                db.collection("data_feeds").whereEqualTo("ownerUserId",uid).get().addOnSuccessListener(devices->{
+                    db.collection("feed_assignments").whereEqualTo("ownerUserId",uid).get().addOnSuccessListener(assignments->{
+                        try{
+                            JSONObject result=new JSONObject();
+                            JSONArray deviceArray=new JSONArray(),assignmentArray=new JSONArray();
+                            for(com.google.firebase.firestore.QueryDocumentSnapshot item:devices){
+                                JSONObject entry=new JSONObject();
+                                entry.put("deviceId",item.getString("deviceId"));
+                                entry.put("deviceName",item.getString("deviceName"));
+                                entry.put("deviceType",item.getString("deviceType"));
+                                entry.put("ipAddress",item.getString("ipAddress"));
+                                entry.put("port",item.get("port"));
+                                entry.put("protocol",item.getString("protocol"));
+                                entry.put("streamPath",item.getString("streamPath"));
+                                entry.put("username",item.getString("username"));
+                                deviceArray.put(entry);
+                            }
+                            for(com.google.firebase.firestore.QueryDocumentSnapshot item:assignments){
+                                JSONObject entry=new JSONObject();
+                                for(String field:new String[]{"plotId","greenhouseId","sectionId","deviceId"})entry.put(field,item.getString(field));
+                                assignmentArray.put(entry);
+                            }
+                            result.put("devices",deviceArray);result.put("assignments",assignmentArray);
+                            respond(action,true,"",result);
+                        }catch(Exception e){respond(action,false,e.getMessage(),null);}
+                    }).addOnFailureListener(e->respond(action,false,"Assignment retrieval failed: "+e.getMessage(),null));
+                }).addOnFailureListener(e->respond(action,false,"Device retrieval failed: "+e.getMessage(),null));
+                return;
+            }
             if("saveOwnedDevice".equals(action)){
                 String deviceId=input.optString("deviceId",""), host=input.optString("ipAddress","");
                 String type=input.optString("deviceType",""), password=input.optString("password","");
