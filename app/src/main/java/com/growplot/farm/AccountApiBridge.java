@@ -153,7 +153,7 @@ public final class AccountApiBridge {
             }
             FirebaseUser user=auth.getCurrentUser();
             if(user==null){respond(action,false,"Sign in first.",null);return;}
-            if("grantPlotVideo".equals(action)||"revokePlotVideo".equals(action)||"listPlotVideoAccess".equals(action)||"resolvePlotVideo".equals(action)||"listAccessUsers".equals(action)){
+            if("grantPlotVideo".equals(action)||"revokePlotVideo".equals(action)||"listPlotVideoAccess".equals(action)||"resolvePlotVideo".equals(action)){
                 final String functionName=action;
                 Map<String,Object> args=new com.google.gson.Gson().fromJson(input.toString(),java.util.Map.class);
                 FirebaseFunctions.getInstance("us-central1").getHttpsCallable(functionName).call(args)
@@ -313,6 +313,39 @@ public final class AccountApiBridge {
                 }
                 batch.commit().addOnSuccessListener(v->respond(action,true,"CCTV01–CCTV03 saved to Firebase.",null))
                   .addOnFailureListener(e->respond(action,false,"Firebase device save failed: "+e.getMessage(),null));
+                return;
+            }
+            if("listAccessUsers".equals(action)){
+                // Firestore rules authorize directory queries only for UIDs
+                // registered in admins/{uid}. Do not use an Admin SDK callable
+                // here: it bypasses those rules.
+                db.collection("users").orderBy("email").limit(200).get()
+                    .addOnSuccessListener(snapshot->{
+                        try{
+                            JSONArray users=new JSONArray();
+                            for(com.google.firebase.firestore.DocumentSnapshot doc:snapshot.getDocuments()){
+                                if(doc.getId().equals(user.getUid()))continue;
+                                String email=doc.getString("email");
+                                if(email==null||email.trim().isEmpty())continue;
+                                JSONObject entry=new JSONObject();
+                                entry.put("uid",doc.getId());
+                                entry.put("email",email);
+                                users.put(entry);
+                            }
+                            JSONObject out=new JSONObject();
+                            out.put("users",users);
+                            db.collection("users").document(user.getUid()).get()
+                                .addOnSuccessListener(own->{
+                                    try{
+                                        Object allowed=own.get("allowedMonitorUids");
+                                        out.put("allowedMonitorUids",new JSONArray(new com.google.gson.Gson().toJson(
+                                            allowed==null?new java.util.ArrayList<>():allowed)));
+                                        respond(action,true,"",out);
+                                    }catch(Exception e){respond(action,false,e.getMessage(),null);}
+                                }).addOnFailureListener(e->respond(action,false,e.getMessage(),null));
+                        }catch(Exception e){respond(action,false,e.getMessage(),null);}
+                    }).addOnFailureListener(e->respond(action,false,
+                        "Admin directory access denied. Verify admins/"+user.getUid()+" exists and Firestore rules are deployed: "+e.getMessage(),null));
                 return;
             }
             if("saveAccessUsers".equals(action)){
