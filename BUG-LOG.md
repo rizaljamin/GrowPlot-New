@@ -859,3 +859,10 @@ Build 7 validation: Gradle ARM64 build, package version, signature, alignment, S
 - Permissions: only owner can grant/revoke; owner retains management rights; viewer may view plot/video only, cannot edit camera, device assignment, plot setup, or credentials. Revocation invalidates access promptly; changing plots/users must clear stale streams and caches.
 - Do not broaden Firestore `data_feeds`/`feed_assignments` read permissions to all authenticated users. Implement narrowly authorized server-side read flow and deploy corresponding backend/rules before declaring feature functional.
 - Test own plot, shared plot, multiple owners with identical plot/section IDs, revoked grant, non-granted user, and credential non-disclosure. Next APK target `GP_V0.6.03 Build 01`, versionCode >=190; no APK yet produced.
+
+### 2026-10-17 implementation progress — source committed, NOT RELEASED
+- `functions/index.js`: callable owner-controlled grant/revoke/list and `resolvePlotVideo` permission-checked lookup, with no passwords returned.
+- `AccountApiBridge.java`: forwards sharing actions to Firebase callable functions.
+- `account-login.js`: My Account grant, revoke, shared-with-me UI.
+- Remaining blockers: deploy Firebase callable functions; integrate `resolvePlotVideo` into the actual CCTV player on plot/section change; ensure secure authenticated camera playback (no passwords disclosed); test end-to-end on Android and revocation; compile signed APK. Shared-plot 'Open Plot' currently depends on the existing public plot selector and is not a verified cross-owner streaming solution.
+- Do not label `GP_V0.6.03 Build 01` complete or bump version.properties until those blockers are resolved and the APK build is verified.
