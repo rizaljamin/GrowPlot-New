@@ -111,3 +111,16 @@ export const resolvePlotVideo=onCall({region:'us-central1',enforceAppCheck:false
  }
  return {ownerUid,plotId,greenhouseId,sectionId,streams};
 });
+
+export const listAccessUsers=onCall({region:'us-central1',enforceAppCheck:false},async req=>{
+ const uid=req.auth?.uid;
+ if(!uid)throw new HttpsError('unauthenticated','Sign in to view registered users');
+ const [directory,own]=await Promise.all([
+  db.collection('users').orderBy('email').limit(200).get(),
+  db.collection('users').doc(uid).get()
+ ]);
+ const users=directory.docs.filter(d=>d.id!==uid&&typeof d.get('email')==='string'&&d.get('email').trim())
+  .map(d=>({uid:d.id,email:d.get('email')}));
+ const allowedMonitorUids=own.exists&&Array.isArray(own.get('allowedMonitorUids'))?own.get('allowedMonitorUids'):[];
+ return {users,allowedMonitorUids};
+});
