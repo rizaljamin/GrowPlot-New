@@ -171,38 +171,64 @@ function userPage(){
 function installPlotVideoSharing(details){
  const uid=String(currentUser?.uid||currentUser?.id||'');
  const section=document.createElement('section');section.id='gpPlotVideoSharing';
- section.style.cssText='margin-top:16px;padding-top:12px;border-top:1px solid #cbd8ce;line-height:1.5';
- const heading=document.createElement('h3');heading.textContent='Plot Video Sharing';section.appendChild(heading);
- const label=document.createElement('label');label.textContent='Grant video viewing for my plot';
- const plotSelect=document.createElement('select');plotSelect.id='gpSharePlot';plotSelect.style.cssText='display:block;width:100%;padding:9px;margin:7px 0';
+ section.style.cssText='margin-top:12px;padding-top:12px;border-top:1px solid #cbd8ce;line-height:1.4;min-width:0';
+ const tabs=document.createElement('div');tabs.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px';
+ const grantedTab=document.createElement('button');grantedTab.type='button';grantedTab.textContent='Granted Plot + User';
+ const receivedTab=document.createElement('button');receivedTab.type='button';receivedTab.textContent='Plot Granted to Me';
+ const grantedPane=document.createElement('div'),receivedPane=document.createElement('div');
+ const switchTab=(name)=>{
+  const first=name==='granted';grantedPane.hidden=!first;receivedPane.hidden=first;
+  for(const [button,active] of [[grantedTab,first],[receivedTab,!first]]){
+   button.setAttribute('aria-pressed',String(active));
+   button.style.cssText='min-width:0;padding:10px 5px;border:1px solid #72987b;border-radius:9px;font-size:12px;font-weight:650;white-space:normal;overflow-wrap:anywhere;background:'+(active?'#24643c':'#fff')+';color:'+(active?'#fff':'#24643c');
+  }
+ };
+ grantedTab.onclick=()=>switchTab('granted');receivedTab.onclick=()=>switchTab('received');
+ tabs.append(grantedTab,receivedTab);
+ const label=document.createElement('label');label.textContent='Select my plot';
+ const plotSelect=document.createElement('select');plotSelect.id='gpSharePlot';plotSelect.style.cssText='display:block;width:100%;box-sizing:border-box;padding:9px;margin:7px 0';
  const owned=(Array.isArray(window.GrowPlotCloudProfile?.plots)?window.GrowPlotCloudProfile.plots:[]).filter(p=>p&&p.id!=='plot-1'&&String(p.ownerUserId||'')===uid);
  for(const p of owned){const opt=document.createElement('option');opt.value=String(p.id);opt.textContent=String(p.name||p.id);plotSelect.appendChild(opt);}
  const email=document.createElement('input');email.id='gpShareEmail';email.type='email';email.placeholder='Registered viewer email';email.style.cssText='width:100%;box-sizing:border-box;padding:9px;margin:7px 0';
- const grant=document.createElement('button');grant.type='button';grant.textContent='Grant View Only';grant.disabled=!owned.length;grant.style.cssText='padding:10px;border:1px solid #72987b;border-radius:8px;background:white';
- const status=document.createElement('p');status.id='gpShareStatus';status.textContent=owned.length?'Select a plot and enter a registered email.':'No owned plots available to share.';
+ const grant=document.createElement('button');grant.type='button';grant.textContent='Grant Video View';grant.disabled=!owned.length;grant.style.cssText='padding:10px;border:1px solid #72987b;border-radius:8px;background:white';
+ const status=document.createElement('p');status.id='gpShareStatus';status.setAttribute('role','status');status.textContent=owned.length?'Grant view-only access to a registered user.':'No owned plots available to share.';
  grant.onclick=()=>{if(!email.validity.valid||!email.value.trim()){status.textContent='Enter a valid registered email.';return;}grant.disabled=true;status.textContent='Saving permission…';request('grantPlotVideo',{plotId:plotSelect.value,email:email.value.trim()});};
  const outgoing=document.createElement('div');outgoing.id='gpOutgoingVideoGrants';
  const incoming=document.createElement('div');incoming.id='gpIncomingVideoGrants';
- const ownedHeading=document.createElement('h4');ownedHeading.textContent='Access I Have Granted';
- const sharedHeading=document.createElement('h4');sharedHeading.textContent='Plots Shared With Me';
- section.append(label,plotSelect,email,grant,status,ownedHeading,outgoing,sharedHeading,incoming);
- details.appendChild(section);
+ const ownedHeading=document.createElement('h4');ownedHeading.textContent='Granted plots and users';
+ const sharedHeading=document.createElement('h4');sharedHeading.textContent='Plots I can view';
+ grantedPane.append(label,plotSelect,email,grant,status,ownedHeading,outgoing);
+ receivedPane.append(sharedHeading,incoming);
+ section.append(tabs,grantedPane,receivedPane);details.appendChild(section);switchTab('granted');
  if(api?.configured()&&uid)request('listPlotVideoAccess',{});
 }
 function renderPlotVideoAccess(data){
  const outgoing=document.getElementById('gpOutgoingVideoGrants'),incoming=document.getElementById('gpIncomingVideoGrants');if(!outgoing||!incoming)return;
  outgoing.replaceChildren();incoming.replaceChildren();
  const grants=Array.isArray(data.grants)?data.grants:[],shared=Array.isArray(data.shared)?data.shared:[];
- if(!grants.length)outgoing.textContent='No video grants yet.';
- for(const g of grants){
-  const row=document.createElement('div');row.style.cssText='padding:8px 0;border-bottom:1px solid #ddd';
-  const txt=document.createElement('span');txt.textContent=String(g.plotId)+' → '+String(g.viewerEmail||'Viewer')+' ('+(g.active?'Active':'Revoked')+')';row.appendChild(txt);
-  if(g.active){const btn=document.createElement('button');btn.type='button';btn.textContent='Revoke';btn.style.marginLeft='8px';btn.onclick=()=>{btn.disabled=true;request('revokePlotVideo',{plotId:g.plotId,viewerUid:g.viewerUid});};row.appendChild(btn);}
-  outgoing.appendChild(row);
+ const active=grants.filter(g=>g.active);
+ if(!active.length)outgoing.textContent='No active plot grants.';
+ if(active.length){
+  const heading=document.createElement('p');heading.textContent='Tick users to remove access, then confirm.';heading.style.cssText='font-size:12px;color:#476353;margin-bottom:7px';outgoing.appendChild(heading);
+  const selection=document.createElement('div');selection.id='gpGrantRevokeSelection';
+  for(const g of active){
+   const row=document.createElement('label');row.style.cssText='display:flex;align-items:center;gap:9px;padding:10px 4px;border-bottom:1px solid #e0e8e1;overflow-wrap:anywhere';
+   const check=document.createElement('input');check.type='checkbox';check.dataset.plotId=String(g.plotId);check.dataset.viewerUid=String(g.viewerUid);check.setAttribute('aria-label','Remove access for '+String(g.viewerEmail||'viewer')+' to '+String(g.plotId));
+   const txt=document.createElement('span');txt.textContent=String(g.plotId)+' — '+String(g.viewerEmail||'Viewer');txt.style.minWidth='0';
+   row.append(check,txt);selection.appendChild(row);
+  }
+  const remove=document.createElement('button');remove.type='button';remove.textContent='Remove Selected Access';remove.style.cssText='margin-top:10px;padding:10px;border:1px solid #aa5555;border-radius:8px;background:#fff;color:#843333';
+  remove.onclick=()=>{
+   const checked=Array.from(selection.querySelectorAll('input[type="checkbox"]:checked'));
+   if(!checked.length){const status=document.getElementById('gpShareStatus');if(status)status.textContent='Tick at least one grant to remove.';return;}
+   if(!window.confirm('Revoke video access for '+checked.length+' selected grant(s)?'))return;
+   remove.disabled=true;for(const cb of checked){cb.disabled=true;request('revokePlotVideo',{plotId:cb.dataset.plotId,viewerUid:cb.dataset.viewerUid});}
+  };
+  outgoing.append(selection,remove);
  }
- if(!shared.length)incoming.textContent='No plots shared with you.';
+ if(!shared.length)incoming.textContent='No plots have been granted to you.';
  for(const p of shared){
-  const row=document.createElement('div');row.style.cssText='padding:8px 0;border-bottom:1px solid #ddd';
+  const row=document.createElement('div');row.style.cssText='padding:10px 0;border-bottom:1px solid #ddd;overflow-wrap:anywhere';
   const title=document.createElement('span');title.textContent=String(p.plotName||p.plotId)+' — '+String(p.ownerEmail||'Plot owner');row.appendChild(title);
   const open=document.createElement('button');open.type='button';open.textContent='Open Plot';open.style.marginLeft='8px';
   open.onclick=()=>{const select=document.getElementById('plot');const opt=Array.from(select?.options||[]).find(o=>o.value===p.plotId);if(!opt){const status=document.getElementById('gpShareStatus');if(status)status.textContent='Shared plot is not in the Home plot selector yet. Refresh your profile.';return;}select.value=opt.value;select.dispatchEvent(new Event('change',{bubbles:true}));closeUserPage();goHome();};
