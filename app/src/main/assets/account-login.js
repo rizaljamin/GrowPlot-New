@@ -816,7 +816,7 @@ const preview=document.getElementById('growplotPreviewButton');if(preview)previe
    if(!plot||!gh)return;
    if(!window.GrowPlotCurrentUser&&plot.value!=='plot-1')syncAuthorizedHomePlots();
    const plotKey=plot.selectedOptions[0]?.dataset.plotKey||'demo:plot-1';
-   const plotId=plotKey==='demo:plot-1'?'demo:plot-1':(plot.value||'plot-1');
+   const plotId=plotKey==='demo:plot-1'?'demo:plot-1':plotKey;
    const rawGh=String(gh.value||'1');
    const greenhouse=!window.GrowPlotCurrentUser?'greenhouse-1':(/^greenhouse-[1-9][0-9]*$/.test(rawGh)?rawGh:'greenhouse-'+(Number(rawGh)||1));
    const uid=window.GrowPlotCurrentUser?.uid||window.GrowPlotCurrentUser?.userId||'';
