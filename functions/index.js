@@ -68,3 +68,46 @@ export const assignOwnedDevice=onCall({region:'us-central1',enforceAppCheck:fals
  await db.collection('feed_assignments').doc(id).set({ownerUserId:uid,plotId,sectionId,greenhouseId:greenhouseId||'',deviceId,updatedAt:FieldValue.serverTimestamp()},{merge:true});
  return {assigned:true,deviceId,plotId,sectionId};
 });
+
+// Plot video grants are owner-controlled and never expose encrypted camera credentials.
+function plotGrantRef(ownerUid,plotId,viewerUid){return db.collection('plot_video_grants').doc(ownerUid+'_'+safeId(plotId,'plot ID')+'_'+viewerUid);}
+function requireUid(value){if(typeof value!=='string'||!value||value.length>128||!/^[A-Za-z0-9_-]+$/.test(value))throw new HttpsError('invalid-argument','Invalid user ID');return value;}
+async function ownedPlot(uid,plotId){const p=await db.collection('plots').doc(ownerPlotId(uid,plotId)).get();if(!p.exists||p.get('ownerUserId')!==uid)throw new HttpsError('permission-denied','Plot ownership could not be verified');return p;}
+export const grantPlotVideo=onCall({region:'us-central1',enforceAppCheck:false},async req=>{
+ const ownerUid=requireUid(req.auth?.uid),plotId=safeId(req.data?.plotId,'plot ID');
+ await ownedPlot(ownerUid,plotId);
+ const email=String(req.data?.email||'').trim().toLowerCase();
+ if(email.length>254||!/^\S+@\S+\.\S+$/.test(email))throw new HttpsError('invalid-argument','Valid registered email required');
+ const users=await db.collection('users').where('email','==',email).limit(2).get();
+ // Do not enumerate the directory or reveal whether an email has an account.
+ if(users.size!==1)throw new HttpsError('failed-precondition','Recipient cannot be granted access. Confirm their GrowPlot registration email.');
+ const viewerUid=users.docs[0].id;if(viewerUid===ownerUid)throw new HttpsError('invalid-argument','You already own this plot');
+ await plotGrantRef(ownerUid,plotId,viewerUid).set({ownerUid,plotId,viewerUid,viewerEmail:email,active:true,updatedAt:FieldValue.serverTimestamp()},{merge:true});
+ return {saved:true};
+});
+export const revokePlotVideo=onCall({region:'us-central1',enforceAppCheck:false},async req=>{
+ const ownerUid=requireUid(req.auth?.uid),plotId=safeId(req.data?.plotId,'plot ID'),viewerUid=requireUid(req.data?.viewerUid);
+ await ownedPlot(ownerUid,plotId);
+ await plotGrantRef(ownerUid,plotId,viewerUid).set({active:false,updatedAt:FieldValue.serverTimestamp()},{merge:true});
+ return {revoked:true};
+});
+export const listPlotVideoAccess=onCall({region:'us-central1',enforceAppCheck:false},async req=>{
+ const uid=requireUid(req.auth?.uid);
+ const [owned,received]=await Promise.all([db.collection('plot_video_grants').where('ownerUid','==',uid).get(),db.collection('plot_video_grants').where('viewerUid','==',uid).where('active','==',true).get()]);
+ const grants=[];for(const doc of owned.docs){const d=doc.data();grants.push({plotId:d.plotId,viewerUid:d.viewerUid,viewerEmail:d.viewerEmail||'',active:d.active===true});}
+ const shared=[];for(const doc of received.docs){const d=doc.data();const plot=await db.collection('plots').doc(ownerPlotId(d.ownerUid,d.plotId)).get();if(plot.exists&&plot.get('ownerUserId')===d.ownerUid)shared.push({plotId:d.plotId,plotName:plot.get('name')||d.plotId,ownerUid:d.ownerUid,ownerEmail:plot.get('ownerEmail')||''});}
+ return {grants,shared};
+});
+export const resolvePlotVideo=onCall({region:'us-central1',enforceAppCheck:false},async req=>{
+ const viewerUid=requireUid(req.auth?.uid),ownerUid=requireUid(req.data?.ownerUid),plotId=safeId(req.data?.plotId,'plot ID'),sectionId=safeId(req.data?.sectionId,'section ID');
+ const greenhouseId=req.data?.greenhouseId?safeId(req.data.greenhouseId,'greenhouse ID'):'';
+ await ownedPlot(ownerUid,plotId);
+ if(viewerUid!==ownerUid){const grant=await plotGrantRef(ownerUid,plotId,viewerUid).get();if(!grant.exists||grant.get('active')!==true)throw new HttpsError('permission-denied','Plot video viewing access not granted');}
+ const assignments=await db.collection('feed_assignments').where('ownerUserId','==',ownerUid).where('plotId','==',plotId).where('sectionId','==',sectionId).get();
+ const streams=[];
+ for(const a of assignments.docs){const d=a.data();if((d.greenhouseId||'')!==greenhouseId)continue;const feed=await db.collection('data_feeds').doc(feedDocId(ownerUid,d.deviceId)).get();if(!feed.exists||feed.get('ownerUserId')!==ownerUid)continue;
+ // No password, KMS ciphertext or camera administrative username is sent to a shared viewer.
+ streams.push({deviceId:d.deviceId,deviceName:feed.get('deviceName')||d.deviceId,protocol:feed.get('protocol')||'',host:feed.get('ipAddress')||'',port:feed.get('port')||null,path:feed.get('streamPath')||''});
+ }
+ return {ownerUid,plotId,greenhouseId,sectionId,streams};
+});
