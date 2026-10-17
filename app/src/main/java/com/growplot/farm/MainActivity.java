@@ -550,68 +550,48 @@ public class MainActivity extends Activity {
         ++assignedStreamGeneration;
         activeStreamScope = "";
         java.util.Arrays.fill(assignedStreamUrls, null);
-        userStreamMode = false;
-        assignedStreamsLoading = false;
+        userStreamMode = true;
         resetCctvSurfaces();
-        // Restore the three independent Settings-based camera streams.
-        // Do not route Demo through Firebase assignments or user plot IDs.
-        refreshAssignedPlayers();
+        loadAssignedStreams("plot-1", "greenhouse-1", true);
     }
 
     private void loadAssignedStreams(String plotId, String greenhouseId, boolean force) {
-        // The web selector sends ownerUid:plotId, never just a potentially colliding plot ID.
-        final String selectedOwnerUid;
-        if (plotId.contains(":")) {
-            String[] parts = plotId.split(":", 2);
-            selectedOwnerUid = parts[0];
-
-        } else selectedOwnerUid = "";
-        final String selectedPlotId = plotId.contains(":") ? plotId.split(":", 2)[1] : plotId;
         final String uidNow = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser() == null ? "" : com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser().getUid();
-        String scope = uidNow+"|"+selectedOwnerUid+":"+selectedPlotId+"|"+greenhouseId;
+        String scope = uidNow+"|"+plotId+"|"+greenhouseId;
         if (!force && scope.equals(activeStreamScope)) return;
         activeStreamScope = scope;
         final int generation = ++assignedStreamGeneration;
-        // A signed-in owner's plot-1 is not the global Demo Plot.
-        userStreamMode = !selectedOwnerUid.isEmpty() || !"plot-1".equals(selectedPlotId);
+        userStreamMode = !"plot-1".equals(plotId);
         java.util.Arrays.fill(assignedStreamUrls, null);
         assignedStreamsLoading = userStreamMode;
         resetCctvSurfaces(); // Always reset all old frames before starting the newly selected scope.
         if (!userStreamMode) refreshAssignedPlayers(); // Demo uses saved Settings IPs.
         if (!userStreamMode) { return; }
         com.google.firebase.auth.FirebaseUser user = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
-        if (user == null || !selectedPlotId.matches("[A-Za-z0-9_-]{1,100}") || !greenhouseId.matches("greenhouse-[1-9][0-9]*")) {
+        if (user == null || !plotId.matches("[A-Za-z0-9_-]{1,100}") || !greenhouseId.matches("greenhouse-[1-9][0-9]*")) {
             return;
         }
         final String uid = user.getUid();
         com.google.firebase.firestore.FirebaseFirestore store = com.google.firebase.firestore.FirebaseFirestore.getInstance();
-        // Use the same Firestore admins/{UID} membership as AccountApiBridge.
-        // Firestore security rules remain authoritative for cross-owner reads.
-        store.collection("admins").document(uid).get().addOnSuccessListener(adminDoc -> {
-            if (generation != assignedStreamGeneration) return;
-            boolean admin = adminDoc.exists();
-            if (!selectedOwnerUid.isEmpty() && !uid.equals(selectedOwnerUid) && !admin) {
-                assignedStreamsLoading=false;
-                android.util.Log.w("GrowPlotStreams","Cross-owner streaming requires authorized access");
-                return;
-            }
+        // Administrator scope is granted only by a verified Firebase custom claim.
+        user.getIdToken(false).addOnSuccessListener(token -> {
+            boolean admin = Boolean.TRUE.equals(token.getClaims().get("admin"))
+                    || Boolean.TRUE.equals(token.getClaims().get("powerUser"));
             com.google.firebase.firestore.Query assignments = admin
                     ? store.collection("feed_assignments")
                     : store.collection("feed_assignments").whereEqualTo("ownerUserId",uid);
             assignments.get().addOnSuccessListener(rows -> {
                 if (generation != assignedStreamGeneration) return;
                 assignedStreamsLoading = false;
-                android.util.Log.i("GrowPlotStreams","Loaded "+rows.size()+" assignment records for "+scope);
                 for (com.google.firebase.firestore.QueryDocumentSnapshot assignment : rows) {
-                    if (!selectedPlotId.equals(assignment.getString("plotId")) || !greenhouseId.equals(assignment.getString("greenhouseId")) || (!selectedOwnerUid.isEmpty() && !selectedOwnerUid.equals(assignment.getString("ownerUserId")))) continue;
+                    if (!plotId.equals(assignment.getString("plotId")) || !greenhouseId.equals(assignment.getString("greenhouseId"))) continue;
                     String section = assignment.getString("sectionId"), deviceId = assignment.getString("deviceId");
-                    if (section == null || deviceId == null || !section.matches("section-[1-6]") || !deviceId.matches("[A-Za-z0-9_-]{1,100}")) continue;
+                    if (section == null || deviceId == null || !section.matches("section-[1-3]") || !deviceId.matches("[A-Za-z0-9_-]{1,100}")) continue;
                     int slot = Integer.parseInt(section.substring(8));
-                    if (slot > 3) { android.util.Log.i("GrowPlotStreams","Section "+slot+" assigned; native VLC player for slots 4–6 not implemented yet."); continue; }
                     String ownerUid=assignment.getString("ownerUserId");
                     if(ownerUid==null||(!admin&&!uid.equals(ownerUid)))continue;
                     store.collection("data_feeds").document(ownerUid+"_"+deviceId).get().addOnSuccessListener(device -> {
-                        if (generation != assignedStreamGeneration || !device.exists() || !ownerUid.equals(device.getString("ownerUserId")) || !("AV".equalsIgnoreCase(device.getString("deviceType")) || "Camera".equalsIgnoreCase(device.getString("deviceType")))) { android.util.Log.w("GrowPlotStreams","Missing or invalid assigned device for slot "+slot); return; }
+                        if (generation != assignedStreamGeneration || !device.exists() || !ownerUid.equals(device.getString("ownerUserId")) || !("AV".equalsIgnoreCase(device.getString("deviceType")) || "Camera".equalsIgnoreCase(device.getString("deviceType")))) return;
                         String host = device.getString("ipAddress"),protocol=device.getString("protocol"),path=device.getString("streamPath");
                         Number port = device.getDouble("port");
                         if (host == null || !host.matches("[A-Za-z0-9.-]{1,253}")) return;
@@ -621,12 +601,11 @@ public class MainActivity extends Activity {
                         if (path == null || path.isEmpty()) path = "rtsp".equals(scheme) ? "/stream1" : "/videofeed";
                         if (!path.startsWith("/") || path.contains("..") || path.contains("@") || path.contains("?")) return;
                         assignedStreamUrls[slot] = scheme+"://"+host+":"+actualPort+path;
-                        android.util.Log.i("GrowPlotStreams","Resolved assigned stream for slot "+slot+" using "+scheme+" at "+host+":"+actualPort);
                         refreshAssignedPlayer(slot);
                     });
                 }
             }).addOnFailureListener(e -> { assignedStreamsLoading = false; android.util.Log.w("GrowPlotStreams", "Assignment retrieval failed", e); });
-        }).addOnFailureListener(e -> { assignedStreamsLoading=false; android.util.Log.w("GrowPlotStreams","Firestore admin membership verification failed",e); });
+        }).addOnFailureListener(e -> { assignedStreamsLoading=false; android.util.Log.w("GrowPlotStreams","Privilege verification failed",e); });
     }
 
     private String cctvStreamUrl(int camera) {
@@ -3235,10 +3214,7 @@ public class MainActivity extends Activity {
             runOnUiThread(() -> MainActivity.this.returnToDemoStreams());
         }
         @JavascriptInterface public void setActiveStreamingContext(String plotId, String greenhouseId) {
-            runOnUiThread(() -> { if ("demo:plot-1".equals(plotId)) MainActivity.this.returnToDemoStreams(); else MainActivity.this.loadAssignedStreams(safePlotId(plotId), greenhouseId, false); });
-        }
-        @JavascriptInterface public void reloadActiveStreamingContext(String plotId, String greenhouseId) {
-            runOnUiThread(() -> { if ("demo:plot-1".equals(plotId)) MainActivity.this.returnToDemoStreams(); else MainActivity.this.loadAssignedStreams(safePlotId(plotId), greenhouseId, true); });
+            runOnUiThread(() -> MainActivity.this.loadAssignedStreams(safePlotId(plotId), greenhouseId, false));
         }
         @JavascriptInterface public void setActivePlot(String plotId) {
             String id = safePlotId(plotId);
