@@ -844,17 +844,19 @@ const preview=document.getElementById('growplotPreviewButton');if(preview)previe
   const root=document.getElementById('cameras'),plotSelect=document.getElementById('plot'),ghSelect=document.getElementById('gh');
   if(!root||!plotSelect)return;
   const plotId=plotSelect.value;
-  const owner=String(window.GrowPlotSelectedPlotOwnerUid||window.GrowPlotCurrentUser?.uid||'');
+  const owner=String(plotSelect.selectedOptions[0]?.dataset.plotKey?.split(':')[0]||window.GrowPlotSelectedPlotOwnerUid||window.GrowPlotCurrentUser?.uid||'');
   const plot=(Array.isArray(window.GrowPlotCloudProfile?.plots)?window.GrowPlotCloudProfile.plots:[]).find(p=>p&&String(p.id)===plotId&&String(p.ownerUserId||p.ownerUid||owner)===owner)
     ||(typeof plots!=='undefined'&&Array.isArray(plots)?plots.find(p=>p&&String(p.id)===plotId&&String(p.ownerUserId||p.ownerUid||owner)===owner):null);
   // If metadata has not loaded, do not falsely mark live sections empty.
-  if(!plot&&plotId!=='plot-1')return;
+  if(!plot)return;
   const greenhouseNumber=Number(String(ghSelect?.value||'1').replace(/^greenhouse-/,''));
   const greenhouseCount=Number(plot?.greenhouseCount||1);
-  const sectionCount=Number(plot?.sectionsPerGreenhouse||6);
+  const configuredSections=Number(plot?.sectionsPerGreenhouse);
+   const sectionCount=Number.isInteger(configuredSections)&&configuredSections>=1?Math.min(6,configuredSections):6;
   const cards=Array.from(root.children).slice(0,6);
   cards.forEach((card,index)=>{
-   const sectionExists=plotId==='plot-1'||(greenhouseNumber>=1&&greenhouseNumber<=greenhouseCount&&index<sectionCount);
+   const demo=!plot?.ownerUserId&&!plot?.ownerUid&&plotId==='plot-1';
+    const sectionExists=demo||(greenhouseNumber>=1&&greenhouseNumber<=greenhouseCount&&index<sectionCount);
    card.classList.toggle('gp-empty-section',!sectionExists);
   });
  }
