@@ -88,75 +88,67 @@ if(adminTestLoginButton)adminTestLoginButton.addEventListener('click',function()
  if(typeof window.GrowPlotAdminVerified==='function')window.GrowPlotAdminVerified();
 });
 function goHome(){setTimeout(()=>window.GrowPlotRefreshHomeStreams?.(),300);const oldPage=document.getElementById('growplotUserManagementPage');if(oldPage)oldPage.remove();const auth=document.getElementById('authScreen');if(auth)auth.hidden=true;if(typeof returnHome==='function')returnHome();else if(typeof render==='function')render();}
-// Resolve the signed-in owner's display label from Firebase Authentication.
-function gpOwnerLabel(plot){
- const user=window.GrowPlotCurrentUser||{};
- const uid=String(user.uid||user.id||'');
- const ownerUid=String(plot.ownerUserId||plot.ownerUid||'');
- const signedInEmail=String(user.email||user.emailAddress||'').trim();
- if(ownerUid&&ownerUid===uid&&signedInEmail)return signedInEmail;
- return String(plot.ownerEmail||plot.ownerName||plot.ownerDisplayName||ownerUid||'Unknown owner');
-}
 // Owner-scoped Home dropdown: only the Demo Plot plus Firebase-authorized plots.
 // Plot dropdown logic is loaded separately; show Demo only until the module is ready.
 function syncAuthorizedHomePlots(){
  const select=document.getElementById('plot');if(!select)return;
  const user=window.GrowPlotCurrentUser,uid=String(user?.uid||user?.id||'');
  const profile=window.GrowPlotCloudProfile,power=!!(uid&&profile?.powerUser===true);
- const keyOf=p=>!p.ownerUserId&&!p.ownerUid&&p.id==='plot-1'?'demo:plot-1':String(p.ownerUserId||p.ownerUid||uid)+':'+String(p.id);
- const seen=new Set(['demo:plot-1']);
+ const seen=new Set(['plot-1']);
  const safe=(uid&&Array.isArray(profile?.plots)?profile.plots:[]).filter(p=>{
-  if(!p||!p.id)return false;
-  const key=keyOf(p);if(seen.has(key))return false;seen.add(key);return true;
- }).sort((a,b)=>keyOf(a).localeCompare(keyOf(b),undefined,{numeric:true,sensitivity:'base'}));
+  if(!p||!p.id||seen.has(String(p.id)))return false;
+  seen.add(String(p.id));return true;
+ }).sort((a,b)=>String(a.id).localeCompare(String(b.id),undefined,{numeric:true,sensitivity:'base'}));
  const choices=[{id:'plot-1',name:'Demo Plot'},...safe];
- const labels=choices.map(p=>!p.ownerUserId&&!p.ownerUid&&p.id==='plot-1'?'plot-1 - Demo Plot':String(p.id)+' - '+String(p.name||p.plotName||p.id)+' ('+gpOwnerLabel(p)+')');
- const old=select.value;
- const currentKey=select.selectedOptions[0]?.dataset.plotKey||'';
- const desired=choices.some(p=>keyOf(p)===currentKey)?currentKey:keyOf(choices.find(p=>p.id===old)||choices[0]);
- const changed=select.options.length!==choices.length||Array.from(select.options).some((o,i)=>o.value!==String(choices[i].id)||o.dataset.plotKey!==keyOf(choices[i])||o.textContent!==labels[i]);
- if(changed){
-  select.replaceChildren();choices.forEach((p,i)=>{const o=document.createElement('option');o.value=String(p.id);o.dataset.plotKey=keyOf(p);o.textContent=labels[i];select.appendChild(o);});
+ const labels=choices.map(p=>p.id==='plot-1'?'plot-1 - Demo Plot':String(p.id)+' - '+String(p.name||p.plotName||p.id)+' ('+String(p.ownerName||p.ownerDisplayName||(p.ownerEmail?String(p.ownerEmail).split('@')[0]:'')||'Unknown owner')+')');
+ const ownerGroups=new Map();
+ for(const p of choices){
+  const owner=p.id==='plot-1'?'Demo':String(p.ownerName||p.ownerDisplayName||(p.ownerEmail?String(p.ownerEmail).split('@')[0]:'')||'Unknown owner');
+  if(!ownerGroups.has(owner))ownerGroups.set(owner,[]);
+  ownerGroups.get(owner).push(p);
  }
- const index=choices.findIndex(p=>keyOf(p)===desired);
- if(index>=0)select.selectedIndex=index;
- window.GrowPlotSelectedOwnerPlotKey=desired;
- window.GrowPlotSelectedPlotOwnerUid=choices[index]?.ownerUserId||choices[index]?.ownerUid||uid;
- renderHomePlotTree();
- if(typeof selectedPlotId!=='undefined'&&selectedPlotId!==select.value)selectedPlotId=select.value;
- if(old!==select.value||currentKey!==desired){select.dispatchEvent(new Event('change',{bubbles:true}));window.GrowPlotRefreshHomeStreams?.();}
+ let tree=document.getElementById('gpHomePlotTree');
+ if(!tree){tree=document.createElement('div');tree.id='gpHomePlotTree';tree.style.cssText='max-height:240px;overflow:auto;border:1px solid #b7cdbb;border-radius:8px;padding:6px;background:white';select.insertAdjacentElement('afterend',tree);select.style.display='none';}
+ const signature=JSON.stringify([...ownerGroups]);
+ if(tree.dataset.signature!==signature){
+  tree.replaceChildren();
+  for(const [owner,items] of ownerGroups){
+   const group=document.createElement('details');group.open=true;
+   const heading=document.createElement('summary');heading.textContent=owner;group.appendChild(heading);
+   for(const p of items){
+    const button=document.createElement('button');button.type='button';button.textContent=String(p.name||p.plotName||p.id);button.dataset.plotId=String(p.id);
+    button.style.cssText='display:block;width:100%;padding:7px 16px;text-align:left;border:0;background:transparent;color:#173822';
+    button.onclick=()=>{select.value=String(p.id);select.dispatchEvent(new Event('change',{bubbles:true}));};
+    group.appendChild(button);
+   }
+   tree.appendChild(group);
+  }
+  tree.dataset.signature=signature;
+ }
+ for(const button of tree.querySelectorAll('button'))button.style.fontWeight=button.dataset.plotId===String(select.value)?'bold':'normal';
+ const old=select.value,desired=choices.some(p=>String(p.id)===old)?old:'plot-1';
+ if(select.options.length!==choices.length||Array.from(select.options).some((o,i)=>o.value!==String(choices[i].id)||o.textContent!==labels[i])){
+  select.replaceChildren();choices.forEach((p,i)=>{const o=document.createElement('option');o.value=String(p.id);o.textContent=labels[i];select.appendChild(o);});
+ }
+ select.value=desired;
+ if(typeof selectedPlotId!=='undefined'&&selectedPlotId!==desired)selectedPlotId=desired;
+ if(old!==desired){select.dispatchEvent(new Event('change',{bubbles:true}));window.GrowPlotRefreshHomeStreams?.();}
 }
 
 
-// Use the standard native plot dropdown. Each option includes the plot name
-// and owner email/username; owner-qualified dataset.plotKey stays intact.
-function renderHomePlotTree(){
- const select=document.getElementById('plot');if(!select)return;
- select.style.removeProperty('position');
- select.style.removeProperty('opacity');
- select.style.removeProperty('pointer-events');
- select.style.removeProperty('width');
- select.style.removeProperty('height');
- select.style.removeProperty('overflow');
- select.removeAttribute('aria-hidden');
- select.removeAttribute('tabindex');
- const oldPicker=document.getElementById('gpHomePlotPicker');
- if(oldPicker)oldPicker.remove();
-}
 window.GrowPlotSyncAuthorizedHomePlots=syncAuthorizedHomePlots;
 // The original Home renderer repopulates #plot; reapply owner restrictions after render.
 (function installHomePlotOwnerGuard(){
  function start(){
-    // Observe only native option changes; the custom tree lives beside #plot.
-   // Observing its parent caused repeated render/mutation cycles after login.
+   const root=document.getElementById('plot')?.parentElement||document.body;
    let queued=false;
-   const nativeSelect=document.getElementById('plot');
    const observer=new MutationObserver(()=>{
      if(queued)return;
      queued=true;
-     setTimeout(()=>{queued=false;syncAuthorizedHomePlots();},100);
+     setTimeout(()=>{queued=false;syncAuthorizedHomePlots();},0);
    });
-   if(nativeSelect)observer.observe(nativeSelect,{childList:true});
+   observer.observe(root,{childList:true,subtree:true});
+   setInterval(syncAuthorizedHomePlots,900);
    syncAuthorizedHomePlots();
  }
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});
@@ -196,76 +188,7 @@ function userPage(){
    details.innerHTML='';
    const rows=[['Email',currentUser.email||currentUser.username||'Not available'],['Account type','Normal User'],['Registration date',formatDate(currentUser.registrationDate)],['Last login',formatDate(currentUser.lastLoginDate)],['Payment method','Not configured']];
    for(const [label,value] of rows){const row=document.createElement('p');row.style.margin='0 0 8px';const name=document.createElement('strong');name.textContent=label+': ';row.append(name,document.createTextNode(value));details.appendChild(row);}
-   installPlotVideoSharing(details);
    const allow=document.createElement('button');allow.type='button';allow.textContent='Allow Access';allow.style.cssText='padding:10px 14px;margin-top:10px;border:1px solid #72987b;border-radius:8px;background:white';allow.onclick=showAllowAccess;details.appendChild(allow);
- }
-}
-// Owner-granted plot video access: the account view never exposes camera passwords.
-function installPlotVideoSharing(details){
- const uid=String(currentUser?.uid||currentUser?.id||'');
- const section=document.createElement('section');section.id='gpPlotVideoSharing';
- section.style.cssText='margin-top:12px;padding-top:12px;border-top:1px solid #cbd8ce;line-height:1.4;min-width:0';
- const tabs=document.createElement('div');tabs.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px';
- const grantedTab=document.createElement('button');grantedTab.type='button';grantedTab.textContent='Granted Plot + User';
- const receivedTab=document.createElement('button');receivedTab.type='button';receivedTab.textContent='Plot Granted to Me';
- const grantedPane=document.createElement('div'),receivedPane=document.createElement('div');
- const switchTab=(name)=>{
-  const first=name==='granted';grantedPane.hidden=!first;receivedPane.hidden=first;
-  for(const [button,active] of [[grantedTab,first],[receivedTab,!first]]){
-   button.setAttribute('aria-pressed',String(active));
-   button.style.cssText='min-width:0;padding:10px 5px;border:1px solid #72987b;border-radius:9px;font-size:12px;font-weight:650;white-space:normal;overflow-wrap:anywhere;background:'+(active?'#24643c':'#fff')+';color:'+(active?'#fff':'#24643c');
-  }
- };
- grantedTab.onclick=()=>switchTab('granted');receivedTab.onclick=()=>switchTab('received');
- tabs.append(grantedTab,receivedTab);
- const label=document.createElement('label');label.textContent='Select my plot';
- const plotSelect=document.createElement('select');plotSelect.id='gpSharePlot';plotSelect.style.cssText='display:block;width:100%;box-sizing:border-box;padding:9px;margin:7px 0';
- const owned=(Array.isArray(window.GrowPlotCloudProfile?.plots)?window.GrowPlotCloudProfile.plots:[]).filter(p=>p&&p.id!=='plot-1'&&String(p.ownerUserId||'')===uid);
- for(const p of owned){const opt=document.createElement('option');opt.value=String(p.id);opt.textContent=String(p.name||p.id);plotSelect.appendChild(opt);}
- const email=document.createElement('input');email.id='gpShareEmail';email.type='email';email.placeholder='Registered viewer email';email.style.cssText='width:100%;box-sizing:border-box;padding:9px;margin:7px 0';
- const grant=document.createElement('button');grant.type='button';grant.id='gpShareGrantButton';grant.textContent='Grant Video View';grant.disabled=!owned.length;grant.style.cssText='padding:10px;border:1px solid #72987b;border-radius:8px;background:white';
- const status=document.createElement('p');status.id='gpShareStatus';status.setAttribute('role','status');status.textContent=owned.length?'Grant view-only access to a registered user.':'No owned plots available to share.';
- grant.onclick=()=>{if(!email.validity.valid||!email.value.trim()){status.textContent='Enter a valid registered email.';return;}grant.disabled=true;status.textContent='Saving permission…';request('grantPlotVideo',{plotId:plotSelect.value,email:email.value.trim()});};
- const outgoing=document.createElement('div');outgoing.id='gpOutgoingVideoGrants';
- const incoming=document.createElement('div');incoming.id='gpIncomingVideoGrants';
- const ownedHeading=document.createElement('h4');ownedHeading.textContent='Granted plots and users';
- const sharedHeading=document.createElement('h4');sharedHeading.textContent='Plots I can view';
- grantedPane.append(label,plotSelect,email,grant,status,ownedHeading,outgoing);
- receivedPane.append(sharedHeading,incoming);
- section.append(tabs,grantedPane,receivedPane);details.appendChild(section);switchTab('granted');
- if(api?.configured()&&uid)request('listPlotVideoAccess',{});
-}
-function renderPlotVideoAccess(data){
- const outgoing=document.getElementById('gpOutgoingVideoGrants'),incoming=document.getElementById('gpIncomingVideoGrants');if(!outgoing||!incoming)return;
- outgoing.replaceChildren();incoming.replaceChildren();
- const grants=Array.isArray(data.grants)?data.grants:[],shared=Array.isArray(data.shared)?data.shared:[];
- const active=grants.filter(g=>g.active);
- if(!active.length)outgoing.textContent='No active plot grants.';
- if(active.length){
-  const heading=document.createElement('p');heading.textContent='Tick users to remove access, then confirm.';heading.style.cssText='font-size:12px;color:#476353;margin-bottom:7px';outgoing.appendChild(heading);
-  const selection=document.createElement('div');selection.id='gpGrantRevokeSelection';
-  for(const g of active){
-   const row=document.createElement('label');row.style.cssText='display:flex;align-items:center;gap:9px;padding:10px 4px;border-bottom:1px solid #e0e8e1;overflow-wrap:anywhere';
-   const check=document.createElement('input');check.type='checkbox';check.dataset.plotId=String(g.plotId);check.dataset.viewerUid=String(g.viewerUid);check.setAttribute('aria-label','Remove access for '+String(g.viewerEmail||'viewer')+' to '+String(g.plotId));
-   const txt=document.createElement('span');txt.textContent=String(g.plotId)+' — '+String(g.viewerEmail||'Viewer');txt.style.minWidth='0';
-   row.append(check,txt);selection.appendChild(row);
-  }
-  const remove=document.createElement('button');remove.type='button';remove.textContent='Remove Selected Access';remove.style.cssText='margin-top:10px;padding:10px;border:1px solid #aa5555;border-radius:8px;background:#fff;color:#843333';
-  remove.onclick=()=>{
-   const checked=Array.from(selection.querySelectorAll('input[type="checkbox"]:checked'));
-   if(!checked.length){const status=document.getElementById('gpShareStatus');if(status)status.textContent='Tick at least one grant to remove.';return;}
-   if(!window.confirm('Revoke video access for '+checked.length+' selected grant(s)?'))return;
-   remove.disabled=true;for(const cb of checked){cb.disabled=true;request('revokePlotVideo',{plotId:cb.dataset.plotId,viewerUid:cb.dataset.viewerUid});}
-  };
-  outgoing.append(selection,remove);
- }
- if(!shared.length)incoming.textContent='No plots have been granted to you.';
- for(const p of shared){
-  const row=document.createElement('div');row.style.cssText='padding:10px 0;border-bottom:1px solid #ddd;overflow-wrap:anywhere';
-  const title=document.createElement('span');title.textContent=String(p.plotName||p.plotId)+' — '+String(p.ownerEmail||'Plot owner');row.appendChild(title);
-  const open=document.createElement('button');open.type='button';open.textContent='Open Plot';open.style.marginLeft='8px';
-  open.onclick=()=>{const select=document.getElementById('plot');const opt=Array.from(select?.options||[]).find(o=>o.value===p.plotId);if(!opt){const status=document.getElementById('gpShareStatus');if(status)status.textContent='Shared plot is not in the Home plot selector yet. Refresh your profile.';return;}select.value=opt.value;select.dispatchEvent(new Event('change',{bubbles:true}));closeUserPage();goHome();};
-  row.appendChild(open);incoming.appendChild(row);
  }
 }
 function renderAccessUsers(data){
@@ -318,15 +241,6 @@ function saveNotice(message,success){
 }
 window.GrowPlotReloadOwnedDevices=function(){if(window.GrowPlotCurrentUser&&!window.GrowPlotCurrentUser.developmentOnly&&api?.configured())request('loadOwnedDevices',{});};
 window.GrowPlotAccountResponse=function(response){
- if(response&&['listPlotVideoAccess','grantPlotVideo','revokePlotVideo'].includes(response.action)){
-  const status=document.getElementById('gpShareStatus'),btn=document.getElementById('gpShareGrantButton');
-  if(btn)btn.disabled=!document.getElementById('gpSharePlot')?.options.length;
-  if(!response.ok){if(status)status.textContent='Video sharing error: '+(response.error||'Request failed');return;}
-  if(response.action==='listPlotVideoAccess')renderPlotVideoAccess(response.data||{});
-  else{if(status)status.textContent=response.action==='grantPlotVideo'?'Video viewing granted.':'Viewing permission revoked.';request('listPlotVideoAccess',{});}
-  return;
- }
-
  if(response&&response.action==='listAccessUsers'){
   const status=document.getElementById('gpAllowAccessStatus');
   if(response.ok)renderAccessUsers(response.data||{});
@@ -359,7 +273,6 @@ window.GrowPlotAccountResponse=function(response){
   if(target)target.textContent=response.ok?'If a GrowPlot account matches that address, a reset email will arrive shortly. Check your inbox and spam folder.':(response.error||'Could not send a reset email. Please check your connection and try again.');
   return;
  }
- if(!response.ok&&response.action==='deleteOwnedPlot'){const el=document.getElementById('plotManagementStatus');if(el)el.textContent='Deletion failed: '+(response.error||'Firebase error');window.GrowPlotPendingPlotDeletion=null;return;}
  if(!response.ok){if(response.action==='googleSignIn'){const createView=document.getElementById('createView');const target=createView&&!createView.hidden?document.getElementById('createStatus'):status;if(target)target.textContent=response.error||'Google sign-in failed.';}else if(response.action==='register'&&response.data&&response.data.duplicateEmail){showRegistrationReset();}else if(response.action==='register'){const target=registrationStatus();if(target)target.textContent=response.error||'Account request failed.';}else if(response.action==='profile'&&currentUser){window.GrowPlotCloudProfile=null;saveNotice('Signed in, but your Firebase cloud profile could not be loaded: '+(response.error||'Please retry.'),false);goHome();return;}else msg((response.action==='profile'?'Firebase profile could not be loaded: ':'')+(response.error||'Account request failed'));if(response.action==='saveProfile'){const callback=saveProfileCallback;saveProfileCallback=null;if(callback)callback(false,response.error||'Firebase save failed.');}if(response.action==='profile'){const authScreen=document.getElementById('authScreen');if(authScreen)authScreen.hidden=false;currentUser=null;window.GrowPlotCurrentUser=null;}if(response.action==='saveProfile')saveNotice('Firebase save failed: '+(response.error||'Please retry.'),false);if(response.action==='saveOwnedDevice'||response.action==='assignOwnedDevice'){const el=document.getElementById('gpDeviceStatus');if(el)el.textContent='Firebase error: '+(response.error||response.message||'Request failed (no error details returned).');}return;}
  const data=response.data||{};
  if(response.action==='accountWarning'){saveNotice(data.warning||'Cloud profile update failed. Your sign-in is still active.',false);return;}
@@ -394,18 +307,6 @@ window.GrowPlotAccountResponse=function(response){
      }
      goHome();setTimeout(()=>{syncAuthorizedHomePlots();window.GrowPlotRefreshHomeStreams?.();},650);
    }else{if(typeof fillPlotSelectors==='function')fillPlotSelectors();goHome();setTimeout(syncAuthorizedHomePlots,0);if(typeof window.GrowPlotNewUserPreview==='function')window.GrowPlotNewUserPreview();}
- }else if(response.action==='deleteOwnedPlot'){
-   const id=window.GrowPlotPendingPlotDeletion;window.GrowPlotPendingPlotDeletion=null;
-   if(id&&response.ok){
-    if(typeof plots!=='undefined'&&Array.isArray(plots))for(let i=plots.length-1;i>=0;i--)if(plots[i]?.id===id&&String(plots[i]?.ownerUserId||'')===String(currentUser?.uid||''))plots.splice(i,1);
-    if(Array.isArray(window.GrowPlotCloudProfile?.plots))window.GrowPlotCloudProfile.plots=window.GrowPlotCloudProfile.plots.filter(p=>!(p.id===id&&String(p.ownerUserId||'')===String(currentUser?.uid||'')));
-    if(typeof savePlotData==='function')savePlotData();
-    if(typeof fillPlotSelectors==='function')fillPlotSelectors();
-    window.GrowPlotFilterOwnedManagePlots?.();
-    if(typeof loadPlotForm==='function')loadPlotForm();
-    syncAuthorizedHomePlots();
-   }
-   const el=document.getElementById('plotManagementStatus');if(el)el.textContent=response.ok?'Plot deleted from Firebase.':'Deletion failed.';
  }else if(response.action==='saveOwnedDevice'||response.action==='assignOwnedDevice'){
    const node=document.getElementById('gpDeviceStatus');
    if(node)node.textContent=response.ok?(response.action==='saveOwnedDevice'?'✓ Device saved successfully to Firebase.':'✓ Device assigned successfully.'):('Firebase error: '+(response.error||'Request failed (no error details returned)'));if(response.ok&&response.action==='saveOwnedDevice'){const password=document.getElementById('gpDevicePassword');if(password)password.value='';window.GrowPlotReloadOwnedDevices();}if(response.ok&&response.action==='assignOwnedDevice'){window.GrowPlotReloadOwnedDevices();window.GrowPlotRefreshHomeStreams?.();}
@@ -433,141 +334,9 @@ window.GrowPlotSaveCloudProfile=function(callback){
  if(!currentUser){saveNotice('Sign in before saving your user profile.',false);if(callback)callback(false,'Sign in first.');return;}if(currentUser.role==='ADMIN'){if(callback)callback(true,'');return;}
  if(!api||!api.configured()){saveNotice('Firebase unavailable. Data was not saved.',false);if(callback)callback(false,'Firebase is unavailable.');return;}
  const uid=String(currentUser.uid||currentUser.id||'');
- const mine=typeof plots==='undefined'?[]:plots.filter(p=>p&&p.id&&String(p.ownerUserId||p.ownerUid||'')===uid);
+ const mine=typeof plots==='undefined'?[]:plots.filter(p=>p&&p.id&&p.id!=='plot-1'&&!/demo/i.test(String(p.name||''))&&String(p.ownerUserId||'')===uid);
  saveProfileCallback=callback||null;saveNotice('Saving to Firebase…',false);request('saveProfile',{plots:mine,settings:{},selectedPlotId:typeof selectedPlotId==='undefined'?null:selectedPlotId});
 };
-
-// Owner-only Plot Management; Demo remains visible but read-only.
-(function(){
- const owner=()=>String(window.GrowPlotCurrentUser?.uid||window.GrowPlotCurrentUser?.id||'');
- const mine=p=>p&&String(p.ownerUserId||p.ownerUid||'')===owner();
- function filter(){
-  const el=document.getElementById('plotManagerSelect');if(!el)return;
-  const profile=window.GrowPlotCloudProfile;
-  if(!Array.isArray(profile?.plots))return;
-  for(const option of Array.from(el.options)){
-   if(option.value!=='plot-1'&&!profile.plots.some(p=>mine(p)&&String(p.id)===option.value))option.remove();
-  }
-  if(!Array.from(el.options).some(o=>o.value===el.value)){el.value='plot-1';el.dispatchEvent(new Event('change',{bubbles:true}));}
-  const del=document.getElementById('deletePlotBtn');if(del)del.disabled=el.value==='plot-1';
- }
- document.addEventListener('focusin',e=>{if(e.target?.id==='plotManagerSelect')filter();});
- document.addEventListener('click',e=>{
-  const button=e.target?.closest?.('#deletePlotBtn');
-  if(!button){setTimeout(filter,0);return;}
-  const id=document.getElementById('plotManagerSelect')?.value;
-  e.preventDefault();e.stopImmediatePropagation();
-  if(!id||id==='plot-1'||!window.GrowPlotCloudProfile?.plots?.some(p=>mine(p)&&String(p.id)===id))return;
-  if(!confirm('Permanently delete plot '+id+' from Firebase?'))return;
-  window.GrowPlotPendingPlotDeletion=id;
-  request('deleteOwnedPlot',{plotId:id});
-  const status=document.getElementById('plotManagementStatus');if(status)status.textContent='Deleting plot from Firebase…';
- },true);
- window.GrowPlotFilterOwnedManagePlots=filter;
-})();
-
-/* Manage Farm opens Plot Management. Plot actions live immediately below
- * the owner-scoped selector, ordered Add, Delete, Save. */
-(function installFarmPlotFirst(){
- const uid=()=>String(window.GrowPlotCurrentUser?.uid||window.GrowPlotCurrentUser?.id||'');
- const mine=p=>p&&String(p.ownerUserId||p.ownerUid||'')===uid();
- let originalParent=null,originalNext=null;
- const content=()=>document.getElementById('manageFarmContent');
- const panel=()=>document.getElementById('plotManagementSection');
- function arrange(){
-  const select=document.getElementById('plotManagerSelect'),section=panel();
-  if(!select||!section)return;
-  section.open=true;
-  const body=select.parentElement;
-  const actions=section.querySelector('.plot-actions');
-  if(actions){
-   select.insertAdjacentElement('afterend',actions);
-   actions.style.cssText='display:flex;gap:10px;flex-wrap:wrap;margin:12px 0 16px';
-   for(const id of ['addPlotBtn','deletePlotBtn','savePlotBtn']){const b=document.getElementById(id);if(b)actions.appendChild(b);}
-  }
-  const del=document.getElementById('deletePlotBtn');
-  if(del)del.disabled=select.value==='plot-1'||!Array.from(select.options).some(o=>o.value===select.value);
- }
- function showPlot(){
-  const root=content(),section=panel();if(!root||!section)return;
-  if(!originalParent){originalParent=section.parentElement;originalNext=section.nextSibling;}
-  root.replaceChildren();
-  const tabs=document.createElement('nav');tabs.className='manage-farm-tabs';
-  for(const [name,tab] of [['Plot','plot'],['Crop Planning','crops'],['Irrigation & Fertiliser','irrigation'],['Maintenance','maintenance']]){
-   const b=document.createElement('button');b.type='button';b.className='manage-farm-tab'+(tab==='plot'?' active':'');b.textContent=name;
-   b.onclick=()=>{if(tab==='plot'){showPlot();return;}if(originalParent&&section.parentElement!==originalParent)originalParent.insertBefore(section,originalNext);if(typeof selectManageFarmTab==='function')selectManageFarmTab(tab);};
-   tabs.appendChild(b);
-  }
-  root.appendChild(tabs);root.appendChild(section);root.hidden=false;
-  const intro=document.getElementById('aiText');if(intro)intro.textContent='Add, delete or save plots owned by your account. Demo Plot is read-only.';
-  arrange();window.GrowPlotFilterOwnedManagePlots?.();
- }
- document.getElementById('maintenanceBtn')?.addEventListener('click',()=>setTimeout(showPlot,0));
- document.addEventListener('change',e=>{if(e.target?.id==='plotManagerSelect')queueMicrotask(arrange);});
- // Replace the legacy Add handler: assign the next sequential plot number
- // and immediately persist the new owner-scoped plot to Firebase.
- document.addEventListener('click',e=>{
-  const add=e.target?.closest?.('#addPlotBtn');if(!add)return;
-  e.preventDefault();e.stopImmediatePropagation();
-  if(!uid()){const el=document.getElementById('plotManagementStatus');if(el)el.textContent='Sign in before adding a plot.';return;}
-  if(typeof plots==='undefined'||!Array.isArray(plots))return;
-  const numbers=plots.filter(mine).map(p=>Number(p.number||String(p.id).replace(/^plot-/,''))).filter(Number.isInteger);
-  const next=Math.max(0,...numbers)+1;
-  const used=new Set(plots.filter(mine).map(p=>String(p.id)));
-  let n=next;while(used.has('plot-'+n))n++;
-  const p={id:'plot-'+n,number:String(n),name:'New plot',ownerUserId:uid(),ownerEmail:String(window.GrowPlotCurrentUser?.email||''),greenhouseCount:1,sectionsPerGreenhouse:1,address:'',latitude:'',longitude:'',description:'',dataFeed:{enabled:false,folderUri:null}};
-  plots.push(p);if(Array.isArray(window.GrowPlotCloudProfile?.plots))window.GrowPlotCloudProfile.plots.push({...p});
-  selectedPlotId=p.id;
-  if(typeof savePlotData==='function')savePlotData();
-  if(typeof fillPlotSelectors==='function')fillPlotSelectors();
-  window.GrowPlotFilterOwnedManagePlots?.();
-  const select=document.getElementById('plotManagerSelect');if(select){select.value=p.id;select.dispatchEvent(new Event('change',{bubbles:true}));}
-  if(typeof loadPlotForm==='function')loadPlotForm();
-  arrange();
-  const status=document.getElementById('plotManagementStatus');
-  if(status)status.textContent='Creating Plot '+n+' in Firebase…';
-  window.GrowPlotSaveCloudProfile?.((ok,error)=>{if(status)status.textContent=ok?'Plot '+n+' created and saved.':('Plot '+n+' created locally; Firebase save failed: '+(error||'Retry Save Plot.'));});
- },true);
-})();
-
-// Persist the edited plot name/number against (owner UID, plot ID), not
-// against a plot ID that may also exist in another user's account.
-(function installOwnerScopedPlotSave(){
- document.addEventListener('click',event=>{
-  if(!event.target?.closest?.('#savePlotBtn'))return;
-  const user=window.GrowPlotCurrentUser||{},uid=String(user.uid||user.id||'');
-  const id=document.getElementById('plotManagerSelect')?.value;
-  const status=document.getElementById('plotManagementStatus');
-  const p=typeof plots!=='undefined'&&Array.isArray(plots)?plots.find(x=>x&&x.id===id&&String(x.ownerUserId||x.ownerUid||'')===uid):null;
-  event.preventDefault();event.stopImmediatePropagation();
-  if(!p){if(status)status.textContent='Select a plot owned by your account.';return;}
-  const number=document.getElementById('plotNumber')?.value.trim()||'';
-  const name=document.getElementById('plotName')?.value.trim()||'';
-  if(!number||!name){if(status)status.textContent='Enter a plot number and name.';return;}
-  if(plots.some(x=>x!==p&&String(x.ownerUserId||x.ownerUid||'')===uid&&String(x.number||'').trim()===number)){
-   if(status)status.textContent='You already have a plot with this number.';return;
-  }
-  p.number=number;p.name=name;
-  for(const [field,key] of [['plotAddress','address'],['plotLatitude','latitude'],['plotLongitude','longitude'],['plotDescription','description']]){
-   const el=document.getElementById(field);if(el)p[key]=el.value.trim();
-  }
-  const gh=Number(document.getElementById('plotGreenhouseCount')?.value);
-  const sections=Number(document.getElementById('plotSectionCount')?.value);
-  if(Number.isInteger(gh)&&gh>=1&&gh<=100)p.greenhouseCount=gh;
-  if(Number.isInteger(sections)&&sections>=1&&sections<=100)p.sectionsPerGreenhouse=sections;
-  const cloud=window.GrowPlotCloudProfile?.plots;
-  if(Array.isArray(cloud)){const entry=cloud.find(x=>x.id===p.id&&String(x.ownerUserId||x.ownerUid||'')===uid);if(entry)Object.assign(entry,p);}
-  if(typeof savePlotData==='function'){
-   const suppress=window.GrowPlotSuppressCloudSave;window.GrowPlotSuppressCloudSave=true;
-   try{savePlotData();}finally{window.GrowPlotSuppressCloudSave=suppress;}
-  }
-  if(typeof fillPlotSelectors==='function')fillPlotSelectors();
-  const manager=document.getElementById('plotManagerSelect');if(manager)manager.value=id;
-  window.GrowPlotFilterOwnedManagePlots?.();syncAuthorizedHomePlots();
-  if(status)status.textContent='Saving plot to Firebase…';
-  window.GrowPlotSaveCloudProfile?.((ok,error)=>{if(status)status.textContent=ok?'Plot name and details saved to Firebase.':'Firebase save failed: '+(error||'Retry.');});
- },true);
-})();
 
 // Plot structure controls: persisted as part of each plot's Firebase profile.
 (function installPlotStructureFields(){
@@ -687,11 +456,7 @@ window.GrowPlotDemoPowerUserUnlocked=false;
   const ghInput=document.getElementById('gpGreenhouseId'),secInput=document.getElementById('gpSectionId');
   function asDropdown(input){const select=document.createElement('select');select.id=input.id;select.setAttribute('aria-label',input.id==='gpGreenhouseId'?'Greenhouse':'Section');input.replaceWith(select);return select;}
   const ghSelect=asDropdown(ghInput),secSelect=asDropdown(secInput);
-  const currentPlot=()=>{
-   if(typeof plots==='undefined'||!Array.isArray(plots))return null;
-   const uid=String(window.GrowPlotCurrentUser?.uid||window.GrowPlotCurrentUser?.id||currentUser?.uid||'');
-   return plots.find(p=>p&&p.id===anchor.value&&String(p.ownerUserId||p.ownerUid||uid)===uid)||null;
-  };
+  const currentPlot=()=>typeof plots!=='undefined'&&Array.isArray(plots)?plots.find(p=>p&&p.id===anchor.value):null;
   const count=(v)=>Number.isInteger(Number(v))&&Number(v)>0?Math.min(Number(v),100):1;
   function populate(select,n,prefix){const old=select.value;select.replaceChildren();const placeholder=document.createElement('option');placeholder.value='';placeholder.textContent='Select '+prefix;select.appendChild(placeholder);for(let i=1;i<=n;i++){const opt=document.createElement('option');opt.value=prefix.toLowerCase()+'-'+i;opt.textContent=prefix+' '+String(i).padStart(2,'0');select.appendChild(opt);}if([...select.options].some(o=>o.value===old))select.value=old;}
   function refreshTargets(){const plot=currentPlot();populate(ghSelect,count(plot?.greenhouseCount),'Greenhouse');populate(secSelect,ghSelect.value?count(plot?.sectionsPerGreenhouse):0,'Section');}
@@ -737,7 +502,6 @@ window.GrowPlotDemoPowerUserUnlocked=false;
   function guard(){
    if(!currentUser||currentUser.developmentOnly||!api?.configured()){status.textContent='Firebase sign-in required.';return false;}
    if(!anchor.value||anchor.value==='plot-1'){status.textContent='Select your own non-demo plot.';return false;}
-   if(!currentPlot()){status.textContent='This plot is not owned by your signed-in account. Select your own plot to assign a device.';return false;}
    return true;
   }
   document.getElementById('gpSaveDevice').onclick=()=>{
@@ -776,64 +540,20 @@ const preview=document.getElementById('growplotPreviewButton');if(preview)previe
    const plot=document.getElementById('plot'),gh=document.getElementById('gh');
    if(!plot||!gh)return;
    if(!window.GrowPlotCurrentUser&&plot.value!=='plot-1')syncAuthorizedHomePlots();
-   const plotKey=plot.selectedOptions[0]?.dataset.plotKey||'demo:plot-1';
-   const plotId=plotKey==='demo:plot-1'?'demo:plot-1':plotKey;
+   const plotId=window.GrowPlotCurrentUser?(plot.value||'plot-1'):'plot-1';
    const rawGh=String(gh.value||'1');
    const greenhouse=!window.GrowPlotCurrentUser?'greenhouse-1':(/^greenhouse-[1-9][0-9]*$/.test(rawGh)?rawGh:'greenhouse-'+(Number(rawGh)||1));
    const uid=window.GrowPlotCurrentUser?.uid||window.GrowPlotCurrentUser?.userId||'';
-   const scope=uid+'|'+plotKey+'|'+greenhouse;
+   const scope=uid+'|'+plotId+'|'+greenhouse;
    if(!force&&scope===previous)return;
    previous=scope;
-   if(force&&window.GrowPlotBridge?.reloadActiveStreamingContext)window.GrowPlotBridge.reloadActiveStreamingContext(plotId,greenhouse);else window.GrowPlotBridge?.setActiveStreamingContext?.(plotId,greenhouse);
+   window.GrowPlotBridge?.setActiveStreamingContext?.(plotId,greenhouse);
   }
-  document.addEventListener('change',e=>{if(e.target?.id==='plot'||e.target?.id==='gh')sync(true);});
+  document.addEventListener('change',e=>{if(e.target?.id==='plot'||e.target?.id==='gh')sync(false);});
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)sync(true);});
   window.GrowPlotRefreshHomeStreams=()=>sync(true);
-  // No background polling; changes and explicit refresh events drive streaming.
+  setInterval(()=>sync(false),1800);
   sync(true);
  }
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
-})();
-
-/* Home CCTV section placeholders: six slots; absence of a configured
- * section, not absence of an assigned camera, determines emptiness. */
-(function installEmptySectionSlots(){
- const css=document.createElement('style');
- css.textContent='.gp-empty-section .feed{background:#101513!important;position:relative!important}.gp-empty-section .feed::after{content:"Empty Section";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#9ca9a1;font-size:clamp(14px,2vw,22px);font-weight:600;letter-spacing:.03em;background:#101513;z-index:20;pointer-events:none}.gp-empty-section .feedimg,.gp-empty-section video,.gp-empty-section iframe{visibility:hidden!important}.gp-empty-section .ipwebcam-state{visibility:hidden!important}';
- document.head.appendChild(css);
- let pending=false;
- function refresh(){
-  const root=document.getElementById('cameras'),plotSelect=document.getElementById('plot'),ghSelect=document.getElementById('gh');
-  if(!root||!plotSelect)return;
-  const plotId=plotSelect.value;
-  const key=plotSelect.selectedOptions[0]?.dataset.plotKey||'demo:plot-1';
-  const demo=key==='demo:plot-1';
-  const owner=key.split(':')[0];
-  const candidates=Array.isArray(window.GrowPlotCloudProfile?.plots)?window.GrowPlotCloudProfile.plots:[];
-  const plot=demo?null:candidates.find(p=>p&&String(p.id)===plotId&&String(p.ownerUserId||p.ownerUid||'')===owner);
-  const cards=Array.from(root.children).slice(0,6);
-  if(!demo&&!plot){cards.forEach(card=>card.classList.remove('gp-empty-section'));return;}
-  const gh=Number(String(ghSelect?.value||'1').replace(/^greenhouse-/,''));
-  const greenhouseCount=Number(plot?.greenhouseCount);
-  const sections=Number(plot?.sectionsPerGreenhouse);
-  const count=demo?3:(Number.isInteger(sections)&&sections>=0?Math.min(6,sections):0);
-  cards.forEach((card,index)=>{
-   const exists=demo?index<3:(Number.isInteger(gh)&&gh>=1&&gh<=greenhouseCount&&index<count);
-   card.classList.toggle('gp-empty-section',!exists);
-  });
- }
- function schedule(){if(pending)return;pending=true;requestAnimationFrame(()=>{pending=false;refresh();});}
- const observer=new MutationObserver(schedule);
- function start(){
-  const root=document.getElementById('cameras');
-  if(!root)return;
-  observer.observe(root,{childList:true});
-  document.getElementById('plot')?.addEventListener('change',schedule);
-  document.getElementById('gh')?.addEventListener('change',schedule);
-  schedule();
- }
- if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
- const old=window.GrowPlotRenderOwnedDevices;
- window.GrowPlotRenderOwnedDevices=function(){if(typeof old==='function')old.apply(this,arguments);schedule();};
- window.GrowPlotRefreshEmptyCctvSlots=schedule;
 })();
