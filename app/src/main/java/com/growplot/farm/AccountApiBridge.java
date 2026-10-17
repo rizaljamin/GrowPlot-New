@@ -404,7 +404,7 @@ public final class AccountApiBridge {
                 }).addOnFailureListener(e->respond(action,false,"Could not verify admins collection membership: "+e.getMessage(),null));
             }else if("deleteOwnedPlot".equals(action)){
                 String plotId=input.optString("plotId","");
-                if(!plotId.matches("[A-Za-z0-9_-]{1,100}")||"plot-1".equals(plotId)){
+                if(!plotId.matches("[A-Za-z0-9_-]{1,100}")){
                     respond(action,false,"Invalid or protected plot ID.",null);return;
                 }
                 String uid=user.getUid();
@@ -442,7 +442,7 @@ public final class AccountApiBridge {
                     JSONObject plot=incoming.optJSONObject(i);
                     if(plot==null)continue;
                     String plotId=plot.optString("id","");
-                    if(!plotId.matches("[A-Za-z0-9_-]{1,100}")||"plot-1".equals(plotId)){
+                    if(!plotId.matches("[A-Za-z0-9_-]{1,100}")){
                         respond(action,false,"Invalid or reserved plot ID.",null);return;
                     }
                     incomingIds.add(plotId);
