@@ -153,6 +153,18 @@ public final class AccountApiBridge {
             }
             FirebaseUser user=auth.getCurrentUser();
             if(user==null){respond(action,false,"Sign in first.",null);return;}
+            if("grantPlotVideo".equals(action)||"revokePlotVideo".equals(action)||"listPlotVideoAccess".equals(action)||"resolvePlotVideo".equals(action)){
+                final String functionName=action;
+                Map<String,Object> args=new com.google.gson.Gson().fromJson(input.toString(),java.util.Map.class);
+                FirebaseFunctions.getInstance("us-central1").getHttpsCallable(functionName).call(args)
+                    .addOnSuccessListener(result->{
+                        try{
+                            JSONObject data=new JSONObject(new com.google.gson.Gson().toJson(result.getData()));
+                            respond(functionName,true,"",data);
+                        }catch(Exception e){respond(functionName,false,"Invalid sharing response.",null);}
+                    }).addOnFailureListener(e->respond(functionName,false,e.getMessage(),null));
+                return;
+            }
             if("loadOwnedDevices".equals(action)){
                 String uid=user.getUid();
                 db.collection("data_feeds").whereEqualTo("ownerUserId",uid).get().addOnSuccessListener(devices->{
