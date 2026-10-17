@@ -561,7 +561,9 @@ public class MainActivity extends Activity {
         if (!force && scope.equals(activeStreamScope)) return;
         activeStreamScope = scope;
         final int generation = ++assignedStreamGeneration;
-        userStreamMode = !"plot-1".equals(plotId);
+        // A signed-in owner's plot-1 is not the global Demo Plot.
+        userStreamMode = !"plot-1".equals(plotId)
+                || com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser() != null;
         java.util.Arrays.fill(assignedStreamUrls, null);
         assignedStreamsLoading = userStreamMode;
         resetCctvSurfaces(); // Always reset all old frames before starting the newly selected scope.
@@ -583,15 +585,17 @@ public class MainActivity extends Activity {
             assignments.get().addOnSuccessListener(rows -> {
                 if (generation != assignedStreamGeneration) return;
                 assignedStreamsLoading = false;
+                android.util.Log.i("GrowPlotStreams","Loaded "+rows.size()+" assignment records for "+scope);
                 for (com.google.firebase.firestore.QueryDocumentSnapshot assignment : rows) {
                     if (!plotId.equals(assignment.getString("plotId")) || !greenhouseId.equals(assignment.getString("greenhouseId"))) continue;
                     String section = assignment.getString("sectionId"), deviceId = assignment.getString("deviceId");
-                    if (section == null || deviceId == null || !section.matches("section-[1-3]") || !deviceId.matches("[A-Za-z0-9_-]{1,100}")) continue;
+                    if (section == null || deviceId == null || !section.matches("section-[1-6]") || !deviceId.matches("[A-Za-z0-9_-]{1,100}")) continue;
                     int slot = Integer.parseInt(section.substring(8));
+                    if (slot > 3) { android.util.Log.i("GrowPlotStreams","Section "+slot+" assigned; native VLC player for slots 4–6 not implemented yet."); continue; }
                     String ownerUid=assignment.getString("ownerUserId");
                     if(ownerUid==null||(!admin&&!uid.equals(ownerUid)))continue;
                     store.collection("data_feeds").document(ownerUid+"_"+deviceId).get().addOnSuccessListener(device -> {
-                        if (generation != assignedStreamGeneration || !device.exists() || !ownerUid.equals(device.getString("ownerUserId")) || !("AV".equalsIgnoreCase(device.getString("deviceType")) || "Camera".equalsIgnoreCase(device.getString("deviceType")))) return;
+                        if (generation != assignedStreamGeneration || !device.exists() || !ownerUid.equals(device.getString("ownerUserId")) || !("AV".equalsIgnoreCase(device.getString("deviceType")) || "Camera".equalsIgnoreCase(device.getString("deviceType")))) { android.util.Log.w("GrowPlotStreams","Missing or invalid assigned device for slot "+slot); return; }
                         String host = device.getString("ipAddress"),protocol=device.getString("protocol"),path=device.getString("streamPath");
                         Number port = device.getDouble("port");
                         if (host == null || !host.matches("[A-Za-z0-9.-]{1,253}")) return;
@@ -601,6 +605,7 @@ public class MainActivity extends Activity {
                         if (path == null || path.isEmpty()) path = "rtsp".equals(scheme) ? "/stream1" : "/videofeed";
                         if (!path.startsWith("/") || path.contains("..") || path.contains("@") || path.contains("?")) return;
                         assignedStreamUrls[slot] = scheme+"://"+host+":"+actualPort+path;
+                        android.util.Log.i("GrowPlotStreams","Resolved assigned stream for slot "+slot+" using "+scheme+" at "+host+":"+actualPort);
                         refreshAssignedPlayer(slot);
                     });
                 }
