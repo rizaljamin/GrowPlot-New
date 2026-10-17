@@ -163,7 +163,50 @@ function userPage(){
    details.innerHTML='';
    const rows=[['Email',currentUser.email||currentUser.username||'Not available'],['Account type','Normal User'],['Registration date',formatDate(currentUser.registrationDate)],['Last login',formatDate(currentUser.lastLoginDate)],['Payment method','Not configured']];
    for(const [label,value] of rows){const row=document.createElement('p');row.style.margin='0 0 8px';const name=document.createElement('strong');name.textContent=label+': ';row.append(name,document.createTextNode(value));details.appendChild(row);}
+   installPlotVideoSharing(details);
    const allow=document.createElement('button');allow.type='button';allow.textContent='Allow Access';allow.style.cssText='padding:10px 14px;margin-top:10px;border:1px solid #72987b;border-radius:8px;background:white';allow.onclick=showAllowAccess;details.appendChild(allow);
+ }
+}
+// Owner-granted plot video access: the account view never exposes camera passwords.
+function installPlotVideoSharing(details){
+ const uid=String(currentUser?.uid||currentUser?.id||'');
+ const section=document.createElement('section');section.id='gpPlotVideoSharing';
+ section.style.cssText='margin-top:16px;padding-top:12px;border-top:1px solid #cbd8ce;line-height:1.5';
+ const heading=document.createElement('h3');heading.textContent='Plot Video Sharing';section.appendChild(heading);
+ const label=document.createElement('label');label.textContent='Grant video viewing for my plot';
+ const plotSelect=document.createElement('select');plotSelect.id='gpSharePlot';plotSelect.style.cssText='display:block;width:100%;padding:9px;margin:7px 0';
+ const owned=(Array.isArray(window.GrowPlotCloudProfile?.plots)?window.GrowPlotCloudProfile.plots:[]).filter(p=>p&&p.id!=='plot-1'&&String(p.ownerUserId||'')===uid);
+ for(const p of owned){const opt=document.createElement('option');opt.value=String(p.id);opt.textContent=String(p.name||p.id);plotSelect.appendChild(opt);}
+ const email=document.createElement('input');email.id='gpShareEmail';email.type='email';email.placeholder='Registered viewer email';email.style.cssText='width:100%;box-sizing:border-box;padding:9px;margin:7px 0';
+ const grant=document.createElement('button');grant.type='button';grant.textContent='Grant View Only';grant.disabled=!owned.length;grant.style.cssText='padding:10px;border:1px solid #72987b;border-radius:8px;background:white';
+ const status=document.createElement('p');status.id='gpShareStatus';status.textContent=owned.length?'Select a plot and enter a registered email.':'No owned plots available to share.';
+ grant.onclick=()=>{if(!email.validity.valid||!email.value.trim()){status.textContent='Enter a valid registered email.';return;}grant.disabled=true;status.textContent='Saving permission…';request('grantPlotVideo',{plotId:plotSelect.value,email:email.value.trim()});};
+ const outgoing=document.createElement('div');outgoing.id='gpOutgoingVideoGrants';
+ const incoming=document.createElement('div');incoming.id='gpIncomingVideoGrants';
+ const ownedHeading=document.createElement('h4');ownedHeading.textContent='Access I Have Granted';
+ const sharedHeading=document.createElement('h4');sharedHeading.textContent='Plots Shared With Me';
+ section.append(label,plotSelect,email,grant,status,ownedHeading,outgoing,sharedHeading,incoming);
+ details.appendChild(section);
+ if(api?.configured()&&uid)request('listPlotVideoAccess',{});
+}
+function renderPlotVideoAccess(data){
+ const outgoing=document.getElementById('gpOutgoingVideoGrants'),incoming=document.getElementById('gpIncomingVideoGrants');if(!outgoing||!incoming)return;
+ outgoing.replaceChildren();incoming.replaceChildren();
+ const grants=Array.isArray(data.grants)?data.grants:[],shared=Array.isArray(data.shared)?data.shared:[];
+ if(!grants.length)outgoing.textContent='No video grants yet.';
+ for(const g of grants){
+  const row=document.createElement('div');row.style.cssText='padding:8px 0;border-bottom:1px solid #ddd';
+  const txt=document.createElement('span');txt.textContent=String(g.plotId)+' → '+String(g.viewerEmail||'Viewer')+' ('+(g.active?'Active':'Revoked')+')';row.appendChild(txt);
+  if(g.active){const btn=document.createElement('button');btn.type='button';btn.textContent='Revoke';btn.style.marginLeft='8px';btn.onclick=()=>{btn.disabled=true;request('revokePlotVideo',{plotId:g.plotId,viewerUid:g.viewerUid});};row.appendChild(btn);}
+  outgoing.appendChild(row);
+ }
+ if(!shared.length)incoming.textContent='No plots shared with you.';
+ for(const p of shared){
+  const row=document.createElement('div');row.style.cssText='padding:8px 0;border-bottom:1px solid #ddd';
+  const title=document.createElement('span');title.textContent=String(p.plotName||p.plotId)+' — '+String(p.ownerEmail||'Plot owner');row.appendChild(title);
+  const open=document.createElement('button');open.type='button';open.textContent='Open Plot';open.style.marginLeft='8px';
+  open.onclick=()=>{const select=document.getElementById('plot');const opt=Array.from(select?.options||[]).find(o=>o.value===p.plotId);if(!opt){const status=document.getElementById('gpShareStatus');if(status)status.textContent='Shared plot is not in the Home plot selector yet. Refresh your profile.';return;}select.value=opt.value;select.dispatchEvent(new Event('change',{bubbles:true}));closeUserPage();goHome();};
+  row.appendChild(open);incoming.appendChild(row);
  }
 }
 function renderAccessUsers(data){
@@ -216,6 +259,15 @@ function saveNotice(message,success){
 }
 window.GrowPlotReloadOwnedDevices=function(){if(window.GrowPlotCurrentUser&&!window.GrowPlotCurrentUser.developmentOnly&&api?.configured())request('loadOwnedDevices',{});};
 window.GrowPlotAccountResponse=function(response){
+ if(response&&['listPlotVideoAccess','grantPlotVideo','revokePlotVideo'].includes(response.action)){
+  const status=document.getElementById('gpShareStatus'),btn=document.querySelector('#gpPlotVideoSharing button');
+  if(btn)btn.disabled=false;
+  if(!response.ok){if(status)status.textContent='Video sharing error: '+(response.error||'Request failed');return;}
+  if(response.action==='listPlotVideoAccess')renderPlotVideoAccess(response.data||{});
+  else{if(status)status.textContent=response.action==='grantPlotVideo'?'Video viewing granted.':'Viewing permission revoked.';request('listPlotVideoAccess',{});}
+  return;
+ }
+
  if(response&&response.action==='listAccessUsers'){
   const status=document.getElementById('gpAllowAccessStatus');
   if(response.ok)renderAccessUsers(response.data||{});
