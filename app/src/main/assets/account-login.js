@@ -500,6 +500,70 @@ window.GrowPlotSaveCloudProfile=function(callback){
  window.GrowPlotFilterOwnedManagePlots=filter;
 })();
 
+/* Manage Farm opens Plot Management. Plot actions live immediately below
+ * the owner-scoped selector, ordered Add, Delete, Save. */
+(function installFarmPlotFirst(){
+ const uid=()=>String(window.GrowPlotCurrentUser?.uid||window.GrowPlotCurrentUser?.id||'');
+ const mine=p=>p&&p.id!=='plot-1'&&String(p.ownerUserId||p.ownerUid||'')===uid();
+ let originalParent=null,originalNext=null;
+ const content=()=>document.getElementById('manageFarmContent');
+ const panel=()=>document.getElementById('plotManagementSection');
+ function arrange(){
+  const select=document.getElementById('plotManagerSelect'),section=panel();
+  if(!select||!section)return;
+  section.open=true;
+  const body=select.parentElement;
+  const actions=section.querySelector('.plot-actions');
+  if(actions){
+   select.insertAdjacentElement('afterend',actions);
+   actions.style.cssText='display:flex;gap:10px;flex-wrap:wrap;margin:12px 0 16px';
+   for(const id of ['addPlotBtn','deletePlotBtn','savePlotBtn']){const b=document.getElementById(id);if(b)actions.appendChild(b);}
+  }
+  const del=document.getElementById('deletePlotBtn');
+  if(del)del.disabled=select.value==='plot-1'||!Array.from(select.options).some(o=>o.value===select.value);
+ }
+ function showPlot(){
+  const root=content(),section=panel();if(!root||!section)return;
+  if(!originalParent){originalParent=section.parentElement;originalNext=section.nextSibling;}
+  root.replaceChildren();
+  const tabs=document.createElement('nav');tabs.className='manage-farm-tabs';
+  for(const [name,tab] of [['Plot','plot'],['Crop Planning','crops'],['Irrigation & Fertiliser','irrigation'],['Maintenance','maintenance']]){
+   const b=document.createElement('button');b.type='button';b.className='manage-farm-tab'+(tab==='plot'?' active':'');b.textContent=name;
+   b.onclick=()=>{if(tab==='plot'){showPlot();return;}if(originalParent&&section.parentElement!==originalParent)originalParent.insertBefore(section,originalNext);if(typeof selectManageFarmTab==='function')selectManageFarmTab(tab);};
+   tabs.appendChild(b);
+  }
+  root.appendChild(tabs);root.appendChild(section);root.hidden=false;
+  const intro=document.getElementById('aiText');if(intro)intro.textContent='Add, delete or save plots owned by your account. Demo Plot is read-only.';
+  arrange();window.GrowPlotFilterOwnedManagePlots?.();
+ }
+ document.getElementById('maintenanceBtn')?.addEventListener('click',()=>setTimeout(showPlot,0));
+ document.addEventListener('change',e=>{if(e.target?.id==='plotManagerSelect')queueMicrotask(arrange);});
+ // Replace the legacy Add handler: assign the next sequential plot number
+ // and immediately persist the new owner-scoped plot to Firebase.
+ document.addEventListener('click',e=>{
+  const add=e.target?.closest?.('#addPlotBtn');if(!add)return;
+  e.preventDefault();e.stopImmediatePropagation();
+  if(!uid()){const el=document.getElementById('plotManagementStatus');if(el)el.textContent='Sign in before adding a plot.';return;}
+  if(typeof plots==='undefined'||!Array.isArray(plots))return;
+  const numbers=plots.filter(mine).map(p=>Number(p.number||String(p.id).replace(/^plot-/,''))).filter(Number.isInteger);
+  const next=Math.max(0,...numbers)+1;
+  const used=new Set(plots.map(p=>String(p.id)));
+  let n=next;while(used.has('plot-'+n))n++;
+  const p={id:'plot-'+n,number:String(n),name:'New plot',ownerUserId:uid(),ownerEmail:String(window.GrowPlotCurrentUser?.email||''),greenhouseCount:1,sectionsPerGreenhouse:1,address:'',latitude:'',longitude:'',description:'',dataFeed:{enabled:false,folderUri:null}};
+  plots.push(p);if(Array.isArray(window.GrowPlotCloudProfile?.plots))window.GrowPlotCloudProfile.plots.push({...p});
+  selectedPlotId=p.id;
+  if(typeof savePlotData==='function')savePlotData();
+  if(typeof fillPlotSelectors==='function')fillPlotSelectors();
+  window.GrowPlotFilterOwnedManagePlots?.();
+  const select=document.getElementById('plotManagerSelect');if(select){select.value=p.id;select.dispatchEvent(new Event('change',{bubbles:true}));}
+  if(typeof loadPlotForm==='function')loadPlotForm();
+  arrange();
+  const status=document.getElementById('plotManagementStatus');
+  if(status)status.textContent='Creating Plot '+n+' in Firebase…';
+  window.GrowPlotSaveCloudProfile?.((ok,error)=>{if(status)status.textContent=ok?'Plot '+n+' created and saved.':('Plot '+n+' created locally; Firebase save failed: '+(error||'Retry Save Plot.'));});
+ },true);
+})();
+
 // Plot structure controls: persisted as part of each plot's Firebase profile.
 (function installPlotStructureFields(){
  function mount(){
