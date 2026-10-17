@@ -106,11 +106,44 @@ function syncAuthorizedHomePlots(){
   select.replaceChildren();choices.forEach((p,i)=>{const o=document.createElement('option');o.value=String(p.id);o.textContent=labels[i];select.appendChild(o);});
  }
  select.value=desired;
+ renderHomePlotTree();
  if(typeof selectedPlotId!=='undefined'&&selectedPlotId!==desired)selectedPlotId=desired;
  if(old!==desired){select.dispatchEvent(new Event('change',{bubbles:true}));window.GrowPlotRefreshHomeStreams?.();}
 }
 
 
+// Compact tree in the main Plot selector: owner → plot → greenhouse → section.
+// The native plot selector remains the source of truth for existing screens.
+function renderHomePlotTree(){
+ const select=document.getElementById('plot');if(!select||!select.parentElement)return;
+ let host=document.getElementById('gpHomePlotTree');
+ if(!host){host=document.createElement('div');host.id='gpHomePlotTree';host.style.cssText='margin:8px 0;max-height:220px;overflow:auto;border:1px solid #cbd8ce;border-radius:9px;padding:8px;font-size:13px;background:#fff';select.insertAdjacentElement('afterend',host);}
+ const profile=window.GrowPlotCloudProfile;
+ const authorized=Array.isArray(profile?.plots)?profile.plots:[];
+ const visible=new Set(Array.from(select.options).map(o=>o.value));
+ const plots=[{id:'plot-1',name:'Demo Plot',ownerEmail:'Demo'},...authorized.filter(p=>p&&visible.has(String(p.id))&&p.id!=='plot-1')];
+ const key=JSON.stringify(plots.map(p=>[p.ownerUserId,p.ownerEmail,p.id,p.name,p.greenhouseCount,p.sectionsPerGreenhouse,select.value]));
+ if(host.dataset.treeKey===key)return;host.dataset.treeKey=key;host.replaceChildren();
+ const groups=new Map();
+ for(const p of plots){const owner=String(p.ownerEmail||p.ownerName||p.ownerDisplayName||p.ownerUserId||'Owner');if(!groups.has(owner))groups.set(owner,[]);groups.get(owner).push(p);}
+ for(const [owner,items] of groups){
+  const ownerNode=document.createElement('details');ownerNode.open=true;
+  const ownerLabel=document.createElement('summary');ownerLabel.textContent='👤 '+owner;ownerLabel.style.cssText='font-weight:700;padding:5px 2px;cursor:pointer';ownerNode.appendChild(ownerLabel);
+  for(const p of items){
+   const plotNode=document.createElement('details');plotNode.open=String(select.value)===String(p.id);plotNode.style.marginLeft='14px';
+   const plotLabel=document.createElement('summary');plotLabel.style.cssText='padding:5px 2px;cursor:pointer';plotLabel.textContent='🌱 '+String(p.name||p.plotName||p.id);plotLabel.onclick=()=>{if(select.value!==String(p.id)){select.value=String(p.id);select.dispatchEvent(new Event('change',{bubbles:true}));}};plotNode.appendChild(plotLabel);
+   const ghCount=Math.min(100,Math.max(0,Number(p.greenhouseCount)||0)),secCount=Math.min(100,Math.max(0,Number(p.sectionsPerGreenhouse)||0));
+   for(let g=1;g<=ghCount;g++){
+    const greenhouse=document.createElement('details');greenhouse.style.marginLeft='16px';
+    const ghLabel=document.createElement('summary');ghLabel.textContent='🏡 Greenhouse '+g;ghLabel.style.cssText='padding:4px 2px;cursor:pointer';greenhouse.appendChild(ghLabel);
+    for(let n=1;n<=secCount;n++){const section=document.createElement('div');section.textContent='└ Section '+n;section.style.cssText='margin-left:18px;padding:3px 0;color:#4c6657';greenhouse.appendChild(section);}
+    plotNode.appendChild(greenhouse);
+   }
+   ownerNode.appendChild(plotNode);
+  }
+  host.appendChild(ownerNode);
+ }
+}
 window.GrowPlotSyncAuthorizedHomePlots=syncAuthorizedHomePlots;
 // The original Home renderer repopulates #plot; reapply owner restrictions after render.
 (function installHomePlotOwnerGuard(){
