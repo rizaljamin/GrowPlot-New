@@ -53,6 +53,10 @@ service cloud.firestore {
     match /plot_video_grants/{grantId} {
       allow read, write: if false;
     }
+    match /admins/{adminUid} {
+      allow read: if request.auth != null && request.auth.uid == adminUid;
+      allow write: if false;
+    }
     match /users/{uid}/data_feeds/{deviceId} {
       allow read, write: if false;
     }
@@ -61,12 +65,14 @@ service cloud.firestore {
         && request.auth.uid == uid
         && request.resource.data.role == 'USER'
         && request.resource.data.email == request.auth.token.email;
-      // Admin directory access is based on a server-issued custom claim.
-      // A profile's editable role field must never grant administrator rights.
+      // Administrator identities are registered as admins/{firebaseAuthUid}.
+      // Admin membership cannot be created or changed from a client.
       allow get: if request.auth != null && (
-        request.auth.uid == uid || request.auth.token.admin == true
+        request.auth.uid == uid ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
       );
-      allow list: if request.auth != null && request.auth.token.admin == true;
+      allow list: if request.auth != null &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid));
       allow update: if request.auth != null && request.auth.uid == uid
         && request.resource.data.role == resource.data.role
         && request.resource.data.email == resource.data.email
