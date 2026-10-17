@@ -61,7 +61,12 @@ service cloud.firestore {
         && request.auth.uid == uid
         && request.resource.data.role == 'USER'
         && request.resource.data.email == request.auth.token.email;
-      allow read: if request.auth != null && request.auth.uid == uid;
+      // Admin directory access is based on a server-issued custom claim.
+      // A profile's editable role field must never grant administrator rights.
+      allow get: if request.auth != null && (
+        request.auth.uid == uid || request.auth.token.admin == true
+      );
+      allow list: if request.auth != null && request.auth.token.admin == true;
       allow update: if request.auth != null && request.auth.uid == uid
         && request.resource.data.role == resource.data.role
         && request.resource.data.email == resource.data.email
