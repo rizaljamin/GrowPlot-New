@@ -142,10 +142,11 @@ function renderHomePlotTree(){
  const authorized=Array.isArray(profile?.plots)?profile.plots:[];
  const visible=new Set(Array.from(select.options).map(o=>o.value));
  const plots=[{id:'plot-1',name:'Demo Plot',ownerEmail:'Demo'},...authorized.filter(p=>p&&visible.has(String(p.id))&&p.id!=='plot-1')];
+ if(!authorized.length&&window.GrowPlotCurrentUser&&!host.dataset.profileRequested){host.dataset.profileRequested='1';if(api?.configured())request('profile',{});}
  const key=JSON.stringify(plots.map(p=>[p.ownerUserId,p.ownerEmail,p.id,p.name,p.greenhouseCount,p.sectionsPerGreenhouse,select.value]));
  if(host.dataset.treeKey===key)return;host.dataset.treeKey=key;host.replaceChildren();
  const groups=new Map();
- for(const p of plots){const owner=String(p.ownerEmail||p.ownerName||p.ownerDisplayName||p.ownerUserId||'Owner');if(!groups.has(owner))groups.set(owner,[]);groups.get(owner).push(p);}
+ for(const p of plots){const owner=String(p.ownerEmail||p.ownerName||p.ownerDisplayName||((p.ownerUserId===String(window.GrowPlotCurrentUser?.uid||window.GrowPlotCurrentUser?.id||''))?'My Plots':p.ownerUserId)||'Owner');if(!groups.has(owner))groups.set(owner,[]);groups.get(owner).push(p);}
  for(const [owner,items] of groups){
   const ownerNode=document.createElement('details');ownerNode.open=true;
   const ownerLabel=document.createElement('summary');ownerLabel.textContent='👤 '+owner;ownerLabel.style.cssText='font-weight:700;padding:5px 2px;cursor:pointer';ownerNode.appendChild(ownerLabel);
