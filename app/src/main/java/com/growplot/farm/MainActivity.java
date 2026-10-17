@@ -960,6 +960,18 @@ public class MainActivity extends Activity {
             // Use TextureView composition so Android modal dialogs can cover and hide
             // the VLC surface instead of a SurfaceView layer staying on top.
             ipWebcamVlcPlayer.attachViews(videoLayout, null, true, false);
+            // IP Webcam MJPEG: reconnect on VLC playback failure rather than leaving a black frame.
+            final org.videolan.libvlc.MediaPlayer sessionPlayer = ipWebcamVlcPlayer;
+            sessionPlayer.setEventListener(event -> {
+                if (event.type == org.videolan.libvlc.MediaPlayer.Event.EncounteredError) {
+                    mainHandler.postDelayed(() -> {
+                        if (!isFinishing() && activityResumed && ipWebcamVlcPlayer == sessionPlayer
+                                && ipWebcamVlcLayout == videoLayout) {
+                            startIpWebcamVlc(videoLayout);
+                        }
+                    }, 5000L);
+                }
+            });
             if (cctvStreamUrl(1).isEmpty()) { stopIpWebcamVlc(); return; }
             Media media = new Media(ipWebcamVlc, Uri.parse(cctvStreamUrl(1)));
             media.addOption(":network-caching=250");
@@ -1158,6 +1170,18 @@ public class MainActivity extends Activity {
             ipWebcam2VlcPlayer = new org.videolan.libvlc.MediaPlayer(ipWebcam2Vlc);
             // Match CCTV01 so this feed respects the same app/window layering.
             ipWebcam2VlcPlayer.attachViews(videoLayout, null, true, false);
+            // IP Webcam MJPEG: reconnect on VLC playback failure rather than leaving a black frame.
+            final org.videolan.libvlc.MediaPlayer sessionPlayer = ipWebcam2VlcPlayer;
+            sessionPlayer.setEventListener(event -> {
+                if (event.type == org.videolan.libvlc.MediaPlayer.Event.EncounteredError) {
+                    mainHandler.postDelayed(() -> {
+                        if (!isFinishing() && activityResumed && ipWebcam2VlcPlayer == sessionPlayer
+                                && ipWebcam2VlcLayout == videoLayout) {
+                            startCctv02Vlc(videoLayout);
+                        }
+                    }, 5000L);
+                }
+            });
             if (cctvStreamUrl(2).isEmpty()) { stopCctv02Vlc(); return; }
             Media media = new Media(ipWebcam2Vlc, Uri.parse(cctvStreamUrl(2)));
             media.addOption(":network-caching=250");
