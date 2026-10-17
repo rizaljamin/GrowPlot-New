@@ -396,6 +396,7 @@ window.GrowPlotAccountResponse=function(response){
   if(target)target.textContent=response.ok?'If a GrowPlot account matches that address, a reset email will arrive shortly. Check your inbox and spam folder.':(response.error||'Could not send a reset email. Please check your connection and try again.');
   return;
  }
+ if(!response.ok&&response.action==='deleteOwnedPlot'){const el=document.getElementById('plotManagementStatus');if(el)el.textContent='Deletion failed: '+(response.error||'Firebase error');window.GrowPlotPendingPlotDeletion=null;return;}
  if(!response.ok){if(response.action==='googleSignIn'){const createView=document.getElementById('createView');const target=createView&&!createView.hidden?document.getElementById('createStatus'):status;if(target)target.textContent=response.error||'Google sign-in failed.';}else if(response.action==='register'&&response.data&&response.data.duplicateEmail){showRegistrationReset();}else if(response.action==='register'){const target=registrationStatus();if(target)target.textContent=response.error||'Account request failed.';}else if(response.action==='profile'&&currentUser){window.GrowPlotCloudProfile=null;saveNotice('Signed in, but your Firebase cloud profile could not be loaded: '+(response.error||'Please retry.'),false);goHome();return;}else msg((response.action==='profile'?'Firebase profile could not be loaded: ':'')+(response.error||'Account request failed'));if(response.action==='saveProfile'){const callback=saveProfileCallback;saveProfileCallback=null;if(callback)callback(false,response.error||'Firebase save failed.');}if(response.action==='profile'){const authScreen=document.getElementById('authScreen');if(authScreen)authScreen.hidden=false;currentUser=null;window.GrowPlotCurrentUser=null;}if(response.action==='saveProfile')saveNotice('Firebase save failed: '+(response.error||'Please retry.'),false);if(response.action==='saveOwnedDevice'||response.action==='assignOwnedDevice'){const el=document.getElementById('gpDeviceStatus');if(el)el.textContent='Firebase error: '+(response.error||response.message||'Request failed (no error details returned).');}return;}
  const data=response.data||{};
  if(response.action==='accountWarning'){saveNotice(data.warning||'Cloud profile update failed. Your sign-in is still active.',false);return;}
@@ -430,6 +431,15 @@ window.GrowPlotAccountResponse=function(response){
      }
      goHome();setTimeout(()=>{syncAuthorizedHomePlots();window.GrowPlotRefreshHomeStreams?.();},650);
    }else{if(typeof fillPlotSelectors==='function')fillPlotSelectors();goHome();setTimeout(syncAuthorizedHomePlots,0);if(typeof window.GrowPlotNewUserPreview==='function')window.GrowPlotNewUserPreview();}
+ }else if(response.action==='deleteOwnedPlot'){
+   const id=window.GrowPlotPendingPlotDeletion;window.GrowPlotPendingPlotDeletion=null;
+   if(id&&response.ok){
+    if(typeof plots!=='undefined'&&Array.isArray(plots))for(let i=plots.length-1;i>=0;i--)if(plots[i]?.id===id&&String(plots[i]?.ownerUserId||'')===String(currentUser?.uid||''))plots.splice(i,1);
+    if(Array.isArray(window.GrowPlotCloudProfile?.plots))window.GrowPlotCloudProfile.plots=window.GrowPlotCloudProfile.plots.filter(p=>!(p.id===id&&String(p.ownerUserId||'')===String(currentUser?.uid||'')));
+    if(typeof fillPlotSelectors==='function')fillPlotSelectors();
+    window.GrowPlotFilterOwnedManagePlots?.();syncAuthorizedHomePlots();
+   }
+   const el=document.getElementById('plotManagementStatus');if(el)el.textContent=response.ok?'Plot deleted from Firebase.':'Deletion failed.';
  }else if(response.action==='saveOwnedDevice'||response.action==='assignOwnedDevice'){
    const node=document.getElementById('gpDeviceStatus');
    if(node)node.textContent=response.ok?(response.action==='saveOwnedDevice'?'✓ Device saved successfully to Firebase.':'✓ Device assigned successfully.'):('Firebase error: '+(response.error||'Request failed (no error details returned)'));if(response.ok&&response.action==='saveOwnedDevice'){const password=document.getElementById('gpDevicePassword');if(password)password.value='';window.GrowPlotReloadOwnedDevices();}if(response.ok&&response.action==='assignOwnedDevice'){window.GrowPlotReloadOwnedDevices();window.GrowPlotRefreshHomeStreams?.();}
@@ -460,6 +470,35 @@ window.GrowPlotSaveCloudProfile=function(callback){
  const mine=typeof plots==='undefined'?[]:plots.filter(p=>p&&p.id&&p.id!=='plot-1'&&!/demo/i.test(String(p.name||''))&&String(p.ownerUserId||'')===uid);
  saveProfileCallback=callback||null;saveNotice('Saving to Firebase…',false);request('saveProfile',{plots:mine,settings:{},selectedPlotId:typeof selectedPlotId==='undefined'?null:selectedPlotId});
 };
+
+// Owner-only Plot Management; Demo remains visible but read-only.
+(function(){
+ const owner=()=>String(window.GrowPlotCurrentUser?.uid||window.GrowPlotCurrentUser?.id||'');
+ const mine=p=>p&&String(p.ownerUserId||p.ownerUid||'')===owner();
+ function filter(){
+  const el=document.getElementById('plotManagerSelect');if(!el)return;
+  const profile=window.GrowPlotCloudProfile;
+  if(!Array.isArray(profile?.plots))return;
+  for(const option of Array.from(el.options)){
+   if(option.value!=='plot-1'&&!profile.plots.some(p=>mine(p)&&String(p.id)===option.value))option.remove();
+  }
+  if(!Array.from(el.options).some(o=>o.value===el.value)){el.value='plot-1';el.dispatchEvent(new Event('change',{bubbles:true}));}
+  const del=document.getElementById('deletePlotBtn');if(del)del.disabled=el.value==='plot-1';
+ }
+ document.addEventListener('focusin',e=>{if(e.target?.id==='plotManagerSelect')filter();});
+ document.addEventListener('click',e=>{
+  const button=e.target?.closest?.('#deletePlotBtn');
+  if(!button){setTimeout(filter,0);return;}
+  const id=document.getElementById('plotManagerSelect')?.value;
+  e.preventDefault();e.stopImmediatePropagation();
+  if(!id||id==='plot-1'||!window.GrowPlotCloudProfile?.plots?.some(p=>mine(p)&&String(p.id)===id))return;
+  if(!confirm('Permanently delete plot '+id+' from Firebase?'))return;
+  window.GrowPlotPendingPlotDeletion=id;
+  request('deleteOwnedPlot',{plotId:id});
+  const status=document.getElementById('plotManagementStatus');if(status)status.textContent='Deleting plot from Firebase…';
+ },true);
+ window.GrowPlotFilterOwnedManagePlots=filter;
+})();
 
 // Plot structure controls: persisted as part of each plot's Firebase profile.
 (function installPlotStructureFields(){
