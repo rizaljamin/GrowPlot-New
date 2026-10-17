@@ -94,21 +94,28 @@ function syncAuthorizedHomePlots(){
  const select=document.getElementById('plot');if(!select)return;
  const user=window.GrowPlotCurrentUser,uid=String(user?.uid||user?.id||'');
  const profile=window.GrowPlotCloudProfile,power=!!(uid&&profile?.powerUser===true);
- const seen=new Set(['plot-1']);
+ const keyOf=p=>p.id==='plot-1'?'demo:plot-1':String(p.ownerUserId||p.ownerUid||uid)+':'+String(p.id);
+ const seen=new Set(['demo:plot-1']);
  const safe=(uid&&Array.isArray(profile?.plots)?profile.plots:[]).filter(p=>{
-  if(!p||!p.id||seen.has(String(p.id)))return false;
-  seen.add(String(p.id));return true;
- }).sort((a,b)=>String(a.id).localeCompare(String(b.id),undefined,{numeric:true,sensitivity:'base'}));
+  if(!p||!p.id)return false;
+  const key=keyOf(p);if(seen.has(key))return false;seen.add(key);return true;
+ }).sort((a,b)=>keyOf(a).localeCompare(keyOf(b),undefined,{numeric:true,sensitivity:'base'}));
  const choices=[{id:'plot-1',name:'Demo Plot'},...safe];
- const labels=choices.map(p=>p.id==='plot-1'?'plot-1 - Demo Plot':String(p.id)+' - '+String(p.name||p.plotName||p.id)+' ('+String(p.ownerEmail||p.ownerName||p.ownerDisplayName||'Unknown owner')+')');
- const old=select.value,desired=choices.some(p=>String(p.id)===old)?old:'plot-1';
- if(select.options.length!==choices.length||Array.from(select.options).some((o,i)=>o.value!==String(choices[i].id)||o.textContent!==labels[i])){
-  select.replaceChildren();choices.forEach((p,i)=>{const o=document.createElement('option');o.value=String(p.id);o.textContent=labels[i];select.appendChild(o);});
+ const labels=choices.map(p=>p.id==='plot-1'?'plot-1 - Demo Plot':String(p.id)+' - '+String(p.name||p.plotName||p.id)+' ('+String(p.ownerEmail||p.ownerName||p.ownerDisplayName||p.ownerUserId||'Unknown owner')+')');
+ const old=select.value;
+ const currentKey=select.selectedOptions[0]?.dataset.plotKey||'';
+ const desired=choices.some(p=>keyOf(p)===currentKey)?currentKey:keyOf(choices.find(p=>p.id===old)||choices[0]);
+ const changed=select.options.length!==choices.length||Array.from(select.options).some((o,i)=>o.value!==String(choices[i].id)||o.dataset.plotKey!==keyOf(choices[i])||o.textContent!==labels[i]);
+ if(changed){
+  select.replaceChildren();choices.forEach((p,i)=>{const o=document.createElement('option');o.value=String(p.id);o.dataset.plotKey=keyOf(p);o.textContent=labels[i];select.appendChild(o);});
  }
- select.value=desired;
+ const index=choices.findIndex(p=>keyOf(p)===desired);
+ if(index>=0)select.selectedIndex=index;
+ window.GrowPlotSelectedOwnerPlotKey=desired;
+ window.GrowPlotSelectedPlotOwnerUid=choices[index]?.ownerUserId||choices[index]?.ownerUid||uid;
  renderHomePlotTree();
- if(typeof selectedPlotId!=='undefined'&&selectedPlotId!==desired)selectedPlotId=desired;
- if(old!==desired){select.dispatchEvent(new Event('change',{bubbles:true}));window.GrowPlotRefreshHomeStreams?.();}
+ if(typeof selectedPlotId!=='undefined'&&selectedPlotId!==select.value)selectedPlotId=select.value;
+ if(old!==select.value){select.dispatchEvent(new Event('change',{bubbles:true}));window.GrowPlotRefreshHomeStreams?.();}
 }
 
 
@@ -140,8 +147,8 @@ function renderHomePlotTree(){
  if(trigger){const chosen=Array.from(select.options).find(o=>o.value===select.value);trigger.textContent=(chosen?chosen.textContent:'Select Plot')+' ▾';}
  const profile=window.GrowPlotCloudProfile;
  const authorized=Array.isArray(profile?.plots)?profile.plots:[];
- const visible=new Set(Array.from(select.options).map(o=>o.value));
- const plots=[{id:'plot-1',name:'Demo Plot',ownerEmail:'Demo'},...authorized.filter(p=>p&&visible.has(String(p.id))&&p.id!=='plot-1')];
+ const visible=new Set(Array.from(select.options).map(o=>o.dataset.plotKey));
+ const plots=[{id:'plot-1',name:'Demo Plot',ownerEmail:'Demo'},...authorized.filter(p=>p&&visible.has(String(p.ownerUserId||p.ownerUid||String(window.GrowPlotCurrentUser?.uid||window.GrowPlotCurrentUser?.id||''))+':'+String(p.id))&&p.id!=='plot-1')];
  if(!authorized.length&&window.GrowPlotCurrentUser&&!host.dataset.profileRequested){host.dataset.profileRequested='1';if(api?.configured())request('profile',{});}
  const key=JSON.stringify(plots.map(p=>[p.ownerUserId,p.ownerEmail,p.id,p.name,p.greenhouseCount,p.sectionsPerGreenhouse,select.value]));
  if(host.dataset.treeKey===key)return;host.dataset.treeKey=key;host.replaceChildren();
@@ -151,8 +158,8 @@ function renderHomePlotTree(){
   const ownerNode=document.createElement('details');ownerNode.open=true;
   const ownerLabel=document.createElement('summary');ownerLabel.textContent='👤 '+owner;ownerLabel.style.cssText='font-weight:700;padding:8px 6px;cursor:pointer;color:#173e28!important;font-size:14px!important;line-height:1.5!important;white-space:normal!important;overflow-wrap:anywhere!important;opacity:1!important;visibility:visible!important';ownerNode.appendChild(ownerLabel);
   for(const p of items){
-   const plotNode=document.createElement('details');plotNode.open=String(select.value)===String(p.id);plotNode.style.marginLeft='14px';
-   const plotLabel=document.createElement('summary');plotLabel.style.cssText='padding:8px 6px;cursor:pointer;color:#173e28!important;font-size:14px!important;line-height:1.5!important;white-space:normal!important;overflow-wrap:anywhere!important;opacity:1!important;visibility:visible!important';plotLabel.textContent='🌱 '+String(p.name||p.plotName||p.id);plotLabel.onclick=()=>{if(select.value!==String(p.id)){select.value=String(p.id);select.dispatchEvent(new Event('change',{bubbles:true}));}window.GrowPlotClosePlotTree?.();};plotNode.appendChild(plotLabel);
+   const plotNode=document.createElement('details');plotNode.open=select.selectedOptions[0]?.dataset.plotKey===String(p.ownerUserId||p.ownerUid||String(window.GrowPlotCurrentUser?.uid||window.GrowPlotCurrentUser?.id||''))+':'+String(p.id);plotNode.style.marginLeft='14px';
+   const plotLabel=document.createElement('summary');plotLabel.style.cssText='padding:8px 6px;cursor:pointer;color:#173e28!important;font-size:14px!important;line-height:1.5!important;white-space:normal!important;overflow-wrap:anywhere!important;opacity:1!important;visibility:visible!important';plotLabel.textContent='🌱 '+String(p.name||p.plotName||p.id);plotLabel.onclick=()=>{const key=String(p.ownerUserId||p.ownerUid||String(window.GrowPlotCurrentUser?.uid||window.GrowPlotCurrentUser?.id||''))+':'+String(p.id);const option=Array.from(select.options).find(o=>o.dataset.plotKey===key);if(option){select.selectedIndex=option.index;window.GrowPlotSelectedOwnerPlotKey=key;window.GrowPlotSelectedPlotOwnerUid=p.ownerUserId||p.ownerUid;select.dispatchEvent(new Event('change',{bubbles:true}));}window.GrowPlotClosePlotTree?.();};plotNode.appendChild(plotLabel);
    const ghCount=Math.min(100,Math.max(0,Number(p.greenhouseCount)||0)),secCount=Math.min(100,Math.max(0,Number(p.sectionsPerGreenhouse)||0));
    for(let g=1;g<=ghCount;g++){
     const greenhouse=document.createElement('details');greenhouse.style.marginLeft='16px';
