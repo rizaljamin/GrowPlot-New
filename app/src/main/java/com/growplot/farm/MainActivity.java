@@ -556,13 +556,20 @@ public class MainActivity extends Activity {
     }
 
     private void loadAssignedStreams(String plotId, String greenhouseId, boolean force) {
+        // The web selector sends ownerUid:plotId, never just a potentially colliding plot ID.
+        final String selectedOwnerUid;
+        if (plotId.contains(":")) {
+            String[] parts = plotId.split(":", 2);
+            selectedOwnerUid = parts[0];
+            plotId = parts[1];
+        } else selectedOwnerUid = "";
         final String uidNow = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser() == null ? "" : com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser().getUid();
         String scope = uidNow+"|"+plotId+"|"+greenhouseId;
         if (!force && scope.equals(activeStreamScope)) return;
         activeStreamScope = scope;
         final int generation = ++assignedStreamGeneration;
         // A signed-in owner's plot-1 is not the global Demo Plot.
-        userStreamMode = !"plot-1".equals(plotId);
+        userStreamMode = !selectedOwnerUid.isEmpty() || !"plot-1".equals(plotId);
         java.util.Arrays.fill(assignedStreamUrls, null);
         assignedStreamsLoading = userStreamMode;
         resetCctvSurfaces(); // Always reset all old frames before starting the newly selected scope.
@@ -578,6 +585,11 @@ public class MainActivity extends Activity {
         user.getIdToken(false).addOnSuccessListener(token -> {
             boolean admin = Boolean.TRUE.equals(token.getClaims().get("admin"))
                     || Boolean.TRUE.equals(token.getClaims().get("powerUser"));
+            if (!selectedOwnerUid.isEmpty() && !uid.equals(selectedOwnerUid) && !admin) {
+                assignedStreamsLoading=false;
+                android.util.Log.w("GrowPlotStreams","Cross-owner streaming requires authorized access");
+                return;
+            }
             com.google.firebase.firestore.Query assignments = admin
                     ? store.collection("feed_assignments")
                     : store.collection("feed_assignments").whereEqualTo("ownerUserId",uid);
@@ -586,7 +598,7 @@ public class MainActivity extends Activity {
                 assignedStreamsLoading = false;
                 android.util.Log.i("GrowPlotStreams","Loaded "+rows.size()+" assignment records for "+scope);
                 for (com.google.firebase.firestore.QueryDocumentSnapshot assignment : rows) {
-                    if (!plotId.equals(assignment.getString("plotId")) || !greenhouseId.equals(assignment.getString("greenhouseId"))) continue;
+                    if (!plotId.equals(assignment.getString("plotId")) || !greenhouseId.equals(assignment.getString("greenhouseId")) || (!selectedOwnerUid.isEmpty() && !selectedOwnerUid.equals(assignment.getString("ownerUserId")))) continue;
                     String section = assignment.getString("sectionId"), deviceId = assignment.getString("deviceId");
                     if (section == null || deviceId == null || !section.matches("section-[1-6]") || !deviceId.matches("[A-Za-z0-9_-]{1,100}")) continue;
                     int slot = Integer.parseInt(section.substring(8));
