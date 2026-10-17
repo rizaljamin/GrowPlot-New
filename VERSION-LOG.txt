@@ -1,3 +1,10 @@
+2026-10-17 | Release governance correction (documentation only)
+---------------------------------------------------------------------
+- Owner confirmed that v0.6.02 overshot the 30-build cap and reached Build 32. Builds 31 and 32 are historical numbering exceptions, not the new convention.
+- Next intended APK release: v0.6.03 Build 01. Thereafter, Build 01–30 only; advance to v0.6.04 Build 01 after v0.6.03 Build 30.
+- APK GitHub Actions workflow display-name convention: GP_V0.6.03 Build 01, with any optional description after the name. Other Actions workflow names remain unchanged.
+- Preserve monotonically increasing Android versionCode and permanent APK signing certificate for installable updates. This entry is not an APK release and does not change version.properties.
+
 2026-10-15 | v0.6.02 Build 02 | versionCode 159
 - First-plot sign-in returns to Home before opening its prompt, preventing Settings from remaining underneath.
 - My Account uses a compact centered card constrained to the GrowPlot screen, with internal scrolling on short displays.
