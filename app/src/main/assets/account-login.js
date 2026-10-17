@@ -103,14 +103,14 @@ function syncAuthorizedHomePlots(){
  const select=document.getElementById('plot');if(!select)return;
  const user=window.GrowPlotCurrentUser,uid=String(user?.uid||user?.id||'');
  const profile=window.GrowPlotCloudProfile,power=!!(uid&&profile?.powerUser===true);
- const keyOf=p=>p.id==='plot-1'?'demo:plot-1':String(p.ownerUserId||p.ownerUid||uid)+':'+String(p.id);
+ const keyOf=p=>!p.ownerUserId&&!p.ownerUid&&p.id==='plot-1'?'demo:plot-1':String(p.ownerUserId||p.ownerUid||uid)+':'+String(p.id);
  const seen=new Set(['demo:plot-1']);
  const safe=(uid&&Array.isArray(profile?.plots)?profile.plots:[]).filter(p=>{
   if(!p||!p.id)return false;
   const key=keyOf(p);if(seen.has(key))return false;seen.add(key);return true;
  }).sort((a,b)=>keyOf(a).localeCompare(keyOf(b),undefined,{numeric:true,sensitivity:'base'}));
  const choices=[{id:'plot-1',name:'Demo Plot'},...safe];
- const labels=choices.map(p=>p.id==='plot-1'?'plot-1 - Demo Plot':String(p.id)+' - '+String(p.name||p.plotName||p.id)+' ('+gpOwnerLabel(p)+')');
+ const labels=choices.map(p=>!p.ownerUserId&&!p.ownerUid&&p.id==='plot-1'?'plot-1 - Demo Plot':String(p.id)+' - '+String(p.name||p.plotName||p.id)+' ('+gpOwnerLabel(p)+')');
  const old=select.value;
  const currentKey=select.selectedOptions[0]?.dataset.plotKey||'';
  const desired=choices.some(p=>keyOf(p)===currentKey)?currentKey:keyOf(choices.find(p=>p.id===old)||choices[0]);
@@ -157,7 +157,7 @@ function renderHomePlotTree(){
  const profile=window.GrowPlotCloudProfile;
  const authorized=Array.isArray(profile?.plots)?profile.plots:[];
  const visible=new Set(Array.from(select.options).map(o=>o.dataset.plotKey));
- const plots=[{id:'plot-1',name:'Demo Plot',ownerEmail:'Demo'},...authorized.filter(p=>p&&visible.has(String(p.ownerUserId||p.ownerUid||String(window.GrowPlotCurrentUser?.uid||window.GrowPlotCurrentUser?.id||''))+':'+String(p.id))&&p.id!=='plot-1')];
+ const plots=[{id:'plot-1',name:'Demo Plot',ownerEmail:'Demo'},...authorized.filter(p=>p&&visible.has(String(p.ownerUserId||p.ownerUid||String(window.GrowPlotCurrentUser?.uid||window.GrowPlotCurrentUser?.id||''))+':'+String(p.id))&&!(p.id==='plot-1'&&!p.ownerUserId&&!p.ownerUid))];
  if(!authorized.length&&window.GrowPlotCurrentUser&&!host.dataset.profileRequested){host.dataset.profileRequested='1';if(api?.configured())request('profile',{});}
  const key=JSON.stringify(plots.map(p=>[p.ownerUserId,gpOwnerLabel(p),p.id,p.name,p.greenhouseCount,p.sectionsPerGreenhouse,select.value]));
  if(host.dataset.treeKey===key)return;host.dataset.treeKey=key;host.replaceChildren();
@@ -470,7 +470,7 @@ window.GrowPlotSaveCloudProfile=function(callback){
  if(!currentUser){saveNotice('Sign in before saving your user profile.',false);if(callback)callback(false,'Sign in first.');return;}if(currentUser.role==='ADMIN'){if(callback)callback(true,'');return;}
  if(!api||!api.configured()){saveNotice('Firebase unavailable. Data was not saved.',false);if(callback)callback(false,'Firebase is unavailable.');return;}
  const uid=String(currentUser.uid||currentUser.id||'');
- const mine=typeof plots==='undefined'?[]:plots.filter(p=>p&&p.id&&p.id!=='plot-1'&&!/demo/i.test(String(p.name||''))&&String(p.ownerUserId||'')===uid);
+ const mine=typeof plots==='undefined'?[]:plots.filter(p=>p&&p.id&&String(p.ownerUserId||p.ownerUid||'')===uid);
  saveProfileCallback=callback||null;saveNotice('Saving to Firebase…',false);request('saveProfile',{plots:mine,settings:{},selectedPlotId:typeof selectedPlotId==='undefined'?null:selectedPlotId});
 };
 
@@ -507,7 +507,7 @@ window.GrowPlotSaveCloudProfile=function(callback){
  * the owner-scoped selector, ordered Add, Delete, Save. */
 (function installFarmPlotFirst(){
  const uid=()=>String(window.GrowPlotCurrentUser?.uid||window.GrowPlotCurrentUser?.id||'');
- const mine=p=>p&&p.id!=='plot-1'&&String(p.ownerUserId||p.ownerUid||'')===uid();
+ const mine=p=>p&&String(p.ownerUserId||p.ownerUid||'')===uid();
  let originalParent=null,originalNext=null;
  const content=()=>document.getElementById('manageFarmContent');
  const panel=()=>document.getElementById('plotManagementSection');
@@ -577,7 +577,7 @@ window.GrowPlotSaveCloudProfile=function(callback){
   const status=document.getElementById('plotManagementStatus');
   const p=typeof plots!=='undefined'&&Array.isArray(plots)?plots.find(x=>x&&x.id===id&&String(x.ownerUserId||x.ownerUid||'')===uid):null;
   event.preventDefault();event.stopImmediatePropagation();
-  if(!p||id==='plot-1'){if(status)status.textContent='Select a plot owned by your account.';return;}
+  if(!p){if(status)status.textContent='Select a plot owned by your account.';return;}
   const number=document.getElementById('plotNumber')?.value.trim()||'';
   const name=document.getElementById('plotName')?.value.trim()||'';
   if(!number||!name){if(status)status.textContent='Enter a plot number and name.';return;}
