@@ -1,4 +1,4 @@
-name: GP_V0.6.03 build 01 - ARM64 APK
+name: GP_V0.6.03 Build 01
 
 on:
   workflow_dispatch:
