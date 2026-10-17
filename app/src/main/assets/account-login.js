@@ -550,7 +550,7 @@ window.GrowPlotSaveCloudProfile=function(callback){
   if(typeof plots==='undefined'||!Array.isArray(plots))return;
   const numbers=plots.filter(mine).map(p=>Number(p.number||String(p.id).replace(/^plot-/,''))).filter(Number.isInteger);
   const next=Math.max(0,...numbers)+1;
-  const used=new Set(plots.map(p=>String(p.id)));
+  const used=new Set(plots.filter(mine).map(p=>String(p.id)));
   let n=next;while(used.has('plot-'+n))n++;
   const p={id:'plot-'+n,number:String(n),name:'New plot',ownerUserId:uid(),ownerEmail:String(window.GrowPlotCurrentUser?.email||''),greenhouseCount:1,sectionsPerGreenhouse:1,address:'',latitude:'',longitude:'',description:'',dataFeed:{enabled:false,folderUri:null}};
   plots.push(p);if(Array.isArray(window.GrowPlotCloudProfile?.plots))window.GrowPlotCloudProfile.plots.push({...p});
@@ -564,6 +564,45 @@ window.GrowPlotSaveCloudProfile=function(callback){
   const status=document.getElementById('plotManagementStatus');
   if(status)status.textContent='Creating Plot '+n+' in Firebase…';
   window.GrowPlotSaveCloudProfile?.((ok,error)=>{if(status)status.textContent=ok?'Plot '+n+' created and saved.':('Plot '+n+' created locally; Firebase save failed: '+(error||'Retry Save Plot.'));});
+ },true);
+})();
+
+// Persist the edited plot name/number against (owner UID, plot ID), not
+// against a plot ID that may also exist in another user's account.
+(function installOwnerScopedPlotSave(){
+ document.addEventListener('click',event=>{
+  if(!event.target?.closest?.('#savePlotBtn'))return;
+  const user=window.GrowPlotCurrentUser||{},uid=String(user.uid||user.id||'');
+  const id=document.getElementById('plotManagerSelect')?.value;
+  const status=document.getElementById('plotManagementStatus');
+  const p=typeof plots!=='undefined'&&Array.isArray(plots)?plots.find(x=>x&&x.id===id&&String(x.ownerUserId||x.ownerUid||'')===uid):null;
+  event.preventDefault();event.stopImmediatePropagation();
+  if(!p||id==='plot-1'){if(status)status.textContent='Select a plot owned by your account.';return;}
+  const number=document.getElementById('plotNumber')?.value.trim()||'';
+  const name=document.getElementById('plotName')?.value.trim()||'';
+  if(!number||!name){if(status)status.textContent='Enter a plot number and name.';return;}
+  if(plots.some(x=>x!==p&&String(x.ownerUserId||x.ownerUid||'')===uid&&String(x.number||'').trim()===number)){
+   if(status)status.textContent='You already have a plot with this number.';return;
+  }
+  p.number=number;p.name=name;
+  for(const [field,key] of [['plotAddress','address'],['plotLatitude','latitude'],['plotLongitude','longitude'],['plotDescription','description']]){
+   const el=document.getElementById(field);if(el)p[key]=el.value.trim();
+  }
+  const gh=Number(document.getElementById('plotGreenhouseCount')?.value);
+  const sections=Number(document.getElementById('plotSectionCount')?.value);
+  if(Number.isInteger(gh)&&gh>=1&&gh<=100)p.greenhouseCount=gh;
+  if(Number.isInteger(sections)&&sections>=1&&sections<=100)p.sectionsPerGreenhouse=sections;
+  const cloud=window.GrowPlotCloudProfile?.plots;
+  if(Array.isArray(cloud)){const entry=cloud.find(x=>x.id===p.id&&String(x.ownerUserId||x.ownerUid||'')===uid);if(entry)Object.assign(entry,p);}
+  if(typeof savePlotData==='function'){
+   const suppress=window.GrowPlotSuppressCloudSave;window.GrowPlotSuppressCloudSave=true;
+   try{savePlotData();}finally{window.GrowPlotSuppressCloudSave=suppress;}
+  }
+  if(typeof fillPlotSelectors==='function')fillPlotSelectors();
+  const manager=document.getElementById('plotManagerSelect');if(manager)manager.value=id;
+  window.GrowPlotFilterOwnedManagePlots?.();syncAuthorizedHomePlots();
+  if(status)status.textContent='Saving plot to Firebase…';
+  window.GrowPlotSaveCloudProfile?.((ok,error)=>{if(status)status.textContent=ok?'Plot name and details saved to Firebase.':'Firebase save failed: '+(error||'Retry.');});
  },true);
 })();
 
