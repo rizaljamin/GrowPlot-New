@@ -582,10 +582,11 @@ public class MainActivity extends Activity {
         }
         final String uid = user.getUid();
         com.google.firebase.firestore.FirebaseFirestore store = com.google.firebase.firestore.FirebaseFirestore.getInstance();
-        // Administrator scope is granted only by a verified Firebase custom claim.
-        user.getIdToken(false).addOnSuccessListener(token -> {
-            boolean admin = Boolean.TRUE.equals(token.getClaims().get("admin"))
-                    || Boolean.TRUE.equals(token.getClaims().get("powerUser"));
+        // Use the same Firestore admins/{UID} membership as AccountApiBridge.
+        // Firestore security rules remain authoritative for cross-owner reads.
+        store.collection("admins").document(uid).get().addOnSuccessListener(adminDoc -> {
+            if (generation != assignedStreamGeneration) return;
+            boolean admin = adminDoc.exists();
             if (!selectedOwnerUid.isEmpty() && !uid.equals(selectedOwnerUid) && !admin) {
                 assignedStreamsLoading=false;
                 android.util.Log.w("GrowPlotStreams","Cross-owner streaming requires authorized access");
@@ -622,7 +623,7 @@ public class MainActivity extends Activity {
                     });
                 }
             }).addOnFailureListener(e -> { assignedStreamsLoading = false; android.util.Log.w("GrowPlotStreams", "Assignment retrieval failed", e); });
-        }).addOnFailureListener(e -> { assignedStreamsLoading=false; android.util.Log.w("GrowPlotStreams","Privilege verification failed",e); });
+        }).addOnFailureListener(e -> { assignedStreamsLoading=false; android.util.Log.w("GrowPlotStreams","Firestore admin membership verification failed",e); });
     }
 
     private String cctvStreamUrl(int camera) {
