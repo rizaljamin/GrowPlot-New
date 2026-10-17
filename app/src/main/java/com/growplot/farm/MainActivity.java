@@ -551,7 +551,10 @@ public class MainActivity extends Activity {
         activeStreamScope = "";
         java.util.Arrays.fill(assignedStreamUrls, null);
         userStreamMode = false;
+        assignedStreamsLoading = false;
         resetCctvSurfaces();
+        // Restore the three independent Settings-based camera streams.
+        // Do not route Demo through Firebase assignments or user plot IDs.
         refreshAssignedPlayers();
     }
 
