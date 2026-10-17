@@ -101,31 +101,10 @@ function syncAuthorizedHomePlots(){
  }).sort((a,b)=>String(a.id).localeCompare(String(b.id),undefined,{numeric:true,sensitivity:'base'}));
  const choices=[{id:'plot-1',name:'Demo Plot'},...safe];
  const labels=choices.map(p=>p.id==='plot-1'?'plot-1 - Demo Plot':String(p.id)+' - '+String(p.name||p.plotName||p.id)+' ('+String(p.ownerName||p.ownerDisplayName||(p.ownerEmail?String(p.ownerEmail).split('@')[0]:'')||'Unknown owner')+')');
- const ownerGroups=new Map();
- for(const p of choices){
-  const owner=p.id==='plot-1'?'Demo':String(p.ownerName||p.ownerDisplayName||(p.ownerEmail?String(p.ownerEmail).split('@')[0]:'')||'Unknown owner');
-  if(!ownerGroups.has(owner))ownerGroups.set(owner,[]);
-  ownerGroups.get(owner).push(p);
- }
- let tree=document.getElementById('gpHomePlotTree');
- if(!tree){tree=document.createElement('div');tree.id='gpHomePlotTree';tree.style.cssText='max-height:240px;overflow:auto;border:1px solid #b7cdbb;border-radius:8px;padding:6px;background:white';select.insertAdjacentElement('afterend',tree);select.style.display='none';}
- const signature=JSON.stringify([...ownerGroups]);
- if(tree.dataset.signature!==signature){
-  tree.replaceChildren();
-  for(const [owner,items] of ownerGroups){
-   const group=document.createElement('details');group.open=true;
-   const heading=document.createElement('summary');heading.textContent=owner;group.appendChild(heading);
-   for(const p of items){
-    const button=document.createElement('button');button.type='button';button.textContent=String(p.name||p.plotName||p.id);button.dataset.plotId=String(p.id);
-    button.style.cssText='display:block;width:100%;padding:7px 16px;text-align:left;border:0;background:transparent;color:#173822';
-    button.onclick=()=>{select.value=String(p.id);select.dispatchEvent(new Event('change',{bubbles:true}));};
-    group.appendChild(button);
-   }
-   tree.appendChild(group);
-  }
-  tree.dataset.signature=signature;
- }
- for(const button of tree.querySelectorAll('button'))button.style.fontWeight=button.dataset.plotId===String(select.value)?'bold':'normal';
+ // Native select expands on tap and collapses after choosing a plot.
+ const oldTree=document.getElementById('gpHomePlotTree');
+ if(oldTree)oldTree.remove();
+ select.style.removeProperty('display');
  const old=select.value,desired=choices.some(p=>String(p.id)===old)?old:'plot-1';
  if(select.options.length!==choices.length||Array.from(select.options).some((o,i)=>o.value!==String(choices[i].id)||o.textContent!==labels[i])){
   select.replaceChildren();choices.forEach((p,i)=>{const o=document.createElement('option');o.value=String(p.id);o.textContent=labels[i];select.appendChild(o);});
@@ -140,15 +119,15 @@ window.GrowPlotSyncAuthorizedHomePlots=syncAuthorizedHomePlots;
 // The original Home renderer repopulates #plot; reapply owner restrictions after render.
 (function installHomePlotOwnerGuard(){
  function start(){
-   const root=document.getElementById('plot')?.parentElement||document.body;
+   const root=document.getElementById('plot');
+   if(!root)return;
    let queued=false;
    const observer=new MutationObserver(()=>{
      if(queued)return;
      queued=true;
      setTimeout(()=>{queued=false;syncAuthorizedHomePlots();},0);
    });
-   observer.observe(root,{childList:true,subtree:true});
-   setInterval(syncAuthorizedHomePlots,900);
+   observer.observe(root,{childList:true});
    syncAuthorizedHomePlots();
  }
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});
@@ -552,7 +531,6 @@ const preview=document.getElementById('growplotPreviewButton');if(preview)previe
   document.addEventListener('change',e=>{if(e.target?.id==='plot'||e.target?.id==='gh')sync(false);});
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)sync(true);});
   window.GrowPlotRefreshHomeStreams=()=>sync(true);
-  setInterval(()=>sync(false),1800);
   sync(true);
  }
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
