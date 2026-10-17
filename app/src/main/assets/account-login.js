@@ -117,7 +117,27 @@ function syncAuthorizedHomePlots(){
 function renderHomePlotTree(){
  const select=document.getElementById('plot');if(!select||!select.parentElement)return;
  let host=document.getElementById('gpHomePlotTree');
- if(!host){host=document.createElement('div');host.id='gpHomePlotTree';host.style.cssText='margin:8px 0;max-height:220px;overflow:auto;border:1px solid #cbd8ce;border-radius:9px;padding:8px;font-size:13px;background:#fff';select.insertAdjacentElement('afterend',host);}
+ if(!host){
+  // Keep the original select available for existing application logic, but
+  // replace its visible dropdown with an accessible tree popover.
+  const wrapper=document.createElement('div');wrapper.id='gpHomePlotPicker';wrapper.style.cssText='position:relative;min-width:0;width:100%';
+  const trigger=document.createElement('button');trigger.id='gpHomePlotTrigger';trigger.type='button';
+  trigger.setAttribute('aria-expanded','false');trigger.setAttribute('aria-controls','gpHomePlotTree');
+  trigger.style.cssText='width:100%;box-sizing:border-box;text-align:left;padding:10px 32px 10px 12px;border:1px solid #a9c7b1;border-radius:9px;background:#fff;color:#173e28;font:inherit;cursor:pointer';
+  host=document.createElement('div');host.id='gpHomePlotTree';host.hidden=true;
+  host.style.cssText='position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:5000;max-height:280px;overflow:auto;border:1px solid #cbd8ce;border-radius:9px;padding:8px;font-size:13px;background:#fff;box-shadow:0 9px 24px #0002';
+  select.insertAdjacentElement('afterend',wrapper);wrapper.append(trigger,host);
+  select.style.cssText+=';position:absolute!important;opacity:0!important;pointer-events:none!important;width:1px!important;height:1px!important;overflow:hidden!important';
+  select.tabIndex=-1;select.setAttribute('aria-hidden','true');
+  const toggle=open=>{host.hidden=!open;trigger.setAttribute('aria-expanded',String(open));};
+  trigger.onclick=()=>toggle(host.hidden);
+  document.addEventListener('pointerdown',event=>{if(!wrapper.contains(event.target))toggle(false);});
+  trigger.addEventListener('keydown',event=>{if(event.key==='Escape'){toggle(false);trigger.focus();}});
+  host.addEventListener('keydown',event=>{if(event.key==='Escape'){toggle(false);trigger.focus();}});
+  window.GrowPlotClosePlotTree=()=>toggle(false);
+ }
+ const trigger=document.getElementById('gpHomePlotTrigger');
+ if(trigger){const chosen=Array.from(select.options).find(o=>o.value===select.value);trigger.textContent=(chosen?chosen.textContent:'Select Plot')+' ▾';}
  const profile=window.GrowPlotCloudProfile;
  const authorized=Array.isArray(profile?.plots)?profile.plots:[];
  const visible=new Set(Array.from(select.options).map(o=>o.value));
@@ -131,7 +151,7 @@ function renderHomePlotTree(){
   const ownerLabel=document.createElement('summary');ownerLabel.textContent='👤 '+owner;ownerLabel.style.cssText='font-weight:700;padding:5px 2px;cursor:pointer';ownerNode.appendChild(ownerLabel);
   for(const p of items){
    const plotNode=document.createElement('details');plotNode.open=String(select.value)===String(p.id);plotNode.style.marginLeft='14px';
-   const plotLabel=document.createElement('summary');plotLabel.style.cssText='padding:5px 2px;cursor:pointer';plotLabel.textContent='🌱 '+String(p.name||p.plotName||p.id);plotLabel.onclick=()=>{if(select.value!==String(p.id)){select.value=String(p.id);select.dispatchEvent(new Event('change',{bubbles:true}));}};plotNode.appendChild(plotLabel);
+   const plotLabel=document.createElement('summary');plotLabel.style.cssText='padding:5px 2px;cursor:pointer';plotLabel.textContent='🌱 '+String(p.name||p.plotName||p.id);plotLabel.onclick=()=>{if(select.value!==String(p.id)){select.value=String(p.id);select.dispatchEvent(new Event('change',{bubbles:true}));}window.GrowPlotClosePlotTree?.();};plotNode.appendChild(plotLabel);
    const ghCount=Math.min(100,Math.max(0,Number(p.greenhouseCount)||0)),secCount=Math.min(100,Math.max(0,Number(p.sectionsPerGreenhouse)||0));
    for(let g=1;g<=ghCount;g++){
     const greenhouse=document.createElement('details');greenhouse.style.marginLeft='16px';
