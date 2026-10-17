@@ -3216,6 +3216,9 @@ public class MainActivity extends Activity {
         @JavascriptInterface public void setActiveStreamingContext(String plotId, String greenhouseId) {
             runOnUiThread(() -> MainActivity.this.loadAssignedStreams(safePlotId(plotId), greenhouseId, false));
         }
+        @JavascriptInterface public void reloadActiveStreamingContext(String plotId, String greenhouseId) {
+            runOnUiThread(() -> MainActivity.this.loadAssignedStreams(safePlotId(plotId), greenhouseId, true));
+        }
         @JavascriptInterface public void setActivePlot(String plotId) {
             String id = safePlotId(plotId);
             getPrefs().edit().putString(PREF_ACTIVE_PLOT_ID, id).apply();
