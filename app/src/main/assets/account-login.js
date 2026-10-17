@@ -88,6 +88,15 @@ if(adminTestLoginButton)adminTestLoginButton.addEventListener('click',function()
  if(typeof window.GrowPlotAdminVerified==='function')window.GrowPlotAdminVerified();
 });
 function goHome(){setTimeout(()=>window.GrowPlotRefreshHomeStreams?.(),300);const oldPage=document.getElementById('growplotUserManagementPage');if(oldPage)oldPage.remove();const auth=document.getElementById('authScreen');if(auth)auth.hidden=true;if(typeof returnHome==='function')returnHome();else if(typeof render==='function')render();}
+// Resolve the signed-in owner's display label from Firebase Authentication.
+function gpOwnerLabel(plot){
+ const user=window.GrowPlotCurrentUser||{};
+ const uid=String(user.uid||user.id||'');
+ const ownerUid=String(plot.ownerUserId||plot.ownerUid||'');
+ const signedInEmail=String(user.email||user.emailAddress||'').trim();
+ if(ownerUid&&ownerUid===uid&&signedInEmail)return signedInEmail;
+ return String(plot.ownerEmail||plot.ownerName||plot.ownerDisplayName||ownerUid||'Unknown owner');
+}
 // Owner-scoped Home dropdown: only the Demo Plot plus Firebase-authorized plots.
 // Plot dropdown logic is loaded separately; show Demo only until the module is ready.
 function syncAuthorizedHomePlots(){
@@ -101,7 +110,7 @@ function syncAuthorizedHomePlots(){
   const key=keyOf(p);if(seen.has(key))return false;seen.add(key);return true;
  }).sort((a,b)=>keyOf(a).localeCompare(keyOf(b),undefined,{numeric:true,sensitivity:'base'}));
  const choices=[{id:'plot-1',name:'Demo Plot'},...safe];
- const labels=choices.map(p=>p.id==='plot-1'?'plot-1 - Demo Plot':String(p.id)+' - '+String(p.name||p.plotName||p.id)+' ('+String(p.ownerEmail||p.ownerName||p.ownerDisplayName||p.ownerUserId||'Unknown owner')+')');
+ const labels=choices.map(p=>p.id==='plot-1'?'plot-1 - Demo Plot':String(p.id)+' - '+String(p.name||p.plotName||p.id)+' ('+gpOwnerLabel(p)+')');
  const old=select.value;
  const currentKey=select.selectedOptions[0]?.dataset.plotKey||'';
  const desired=choices.some(p=>keyOf(p)===currentKey)?currentKey:keyOf(choices.find(p=>p.id===old)||choices[0]);
@@ -150,10 +159,10 @@ function renderHomePlotTree(){
  const visible=new Set(Array.from(select.options).map(o=>o.dataset.plotKey));
  const plots=[{id:'plot-1',name:'Demo Plot',ownerEmail:'Demo'},...authorized.filter(p=>p&&visible.has(String(p.ownerUserId||p.ownerUid||String(window.GrowPlotCurrentUser?.uid||window.GrowPlotCurrentUser?.id||''))+':'+String(p.id))&&p.id!=='plot-1')];
  if(!authorized.length&&window.GrowPlotCurrentUser&&!host.dataset.profileRequested){host.dataset.profileRequested='1';if(api?.configured())request('profile',{});}
- const key=JSON.stringify(plots.map(p=>[p.ownerUserId,p.ownerEmail,p.id,p.name,p.greenhouseCount,p.sectionsPerGreenhouse,select.value]));
+ const key=JSON.stringify(plots.map(p=>[p.ownerUserId,gpOwnerLabel(p),p.id,p.name,p.greenhouseCount,p.sectionsPerGreenhouse,select.value]));
  if(host.dataset.treeKey===key)return;host.dataset.treeKey=key;host.replaceChildren();
  const groups=new Map();
- for(const p of plots){const owner=String(p.ownerEmail||p.ownerName||p.ownerDisplayName||((p.ownerUserId===String(window.GrowPlotCurrentUser?.uid||window.GrowPlotCurrentUser?.id||''))?'My Plots':p.ownerUserId)||'Owner');if(!groups.has(owner))groups.set(owner,[]);groups.get(owner).push(p);}
+ for(const p of plots){const owner=gpOwnerLabel(p);if(!groups.has(owner))groups.set(owner,[]);groups.get(owner).push(p);}
  for(const [owner,items] of groups){
   const ownerNode=document.createElement('details');ownerNode.open=true;
   const ownerLabel=document.createElement('summary');ownerLabel.textContent='👤 '+owner;ownerLabel.style.cssText='font-weight:700;padding:8px 6px;cursor:pointer;color:#173e28!important;font-size:14px!important;line-height:1.5!important;white-space:normal!important;overflow-wrap:anywhere!important;opacity:1!important;visibility:visible!important';ownerNode.appendChild(ownerLabel);
