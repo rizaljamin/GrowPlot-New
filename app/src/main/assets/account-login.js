@@ -830,7 +830,7 @@ const preview=document.getElementById('growplotPreviewButton');if(preview)previe
   document.addEventListener('change',e=>{if(e.target?.id==='plot'||e.target?.id==='gh')sync(true);});
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)sync(true);});
   window.GrowPlotRefreshHomeStreams=()=>sync(true);
-  setInterval(()=>sync(false),1800);
+  // No background polling; changes and explicit refresh events drive streaming.
   sync(true);
  }
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
