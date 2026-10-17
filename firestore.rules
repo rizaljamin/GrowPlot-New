@@ -47,6 +47,12 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['updatedAt']);
       allow delete: if request.auth != null && resource.data.ownerUserId == request.auth.uid;
     }
+    // Plot-video grants are created, listed and revoked only through authenticated
+    // Cloud Functions that verify the plot owner and intended viewer.
+    // Client reads and writes are denied, including collection queries.
+    match /plot_video_grants/{grantId} {
+      allow read, write: if false;
+    }
     match /users/{uid}/data_feeds/{deviceId} {
       allow read, write: if false;
     }
