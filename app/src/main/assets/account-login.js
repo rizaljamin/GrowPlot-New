@@ -570,7 +570,11 @@ window.GrowPlotDemoPowerUserUnlocked=false;
   const ghInput=document.getElementById('gpGreenhouseId'),secInput=document.getElementById('gpSectionId');
   function asDropdown(input){const select=document.createElement('select');select.id=input.id;select.setAttribute('aria-label',input.id==='gpGreenhouseId'?'Greenhouse':'Section');input.replaceWith(select);return select;}
   const ghSelect=asDropdown(ghInput),secSelect=asDropdown(secInput);
-  const currentPlot=()=>typeof plots!=='undefined'&&Array.isArray(plots)?plots.find(p=>p&&p.id===anchor.value):null;
+  const currentPlot=()=>{
+   if(typeof plots==='undefined'||!Array.isArray(plots))return null;
+   const uid=String(window.GrowPlotCurrentUser?.uid||window.GrowPlotCurrentUser?.id||currentUser?.uid||'');
+   return plots.find(p=>p&&p.id===anchor.value&&String(p.ownerUserId||p.ownerUid||uid)===uid)||null;
+  };
   const count=(v)=>Number.isInteger(Number(v))&&Number(v)>0?Math.min(Number(v),100):1;
   function populate(select,n,prefix){const old=select.value;select.replaceChildren();const placeholder=document.createElement('option');placeholder.value='';placeholder.textContent='Select '+prefix;select.appendChild(placeholder);for(let i=1;i<=n;i++){const opt=document.createElement('option');opt.value=prefix.toLowerCase()+'-'+i;opt.textContent=prefix+' '+String(i).padStart(2,'0');select.appendChild(opt);}if([...select.options].some(o=>o.value===old))select.value=old;}
   function refreshTargets(){const plot=currentPlot();populate(ghSelect,count(plot?.greenhouseCount),'Greenhouse');populate(secSelect,ghSelect.value?count(plot?.sectionsPerGreenhouse):0,'Section');}
@@ -616,6 +620,7 @@ window.GrowPlotDemoPowerUserUnlocked=false;
   function guard(){
    if(!currentUser||currentUser.developmentOnly||!api?.configured()){status.textContent='Firebase sign-in required.';return false;}
    if(!anchor.value||anchor.value==='plot-1'){status.textContent='Select your own non-demo plot.';return false;}
+   if(!currentPlot()){status.textContent='This plot is not owned by your signed-in account. Select your own plot to assign a device.';return false;}
    return true;
   }
   document.getElementById('gpSaveDevice').onclick=()=>{
