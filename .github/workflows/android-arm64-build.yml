@@ -1,14 +1,19 @@
-name: GP_V_APK_Generation
-run-name: ${{ github.event.head_commit.message || 'GP_V_APK_Generation_manual' }}
+name: Build GrowPlot ARM64 APK
 
-# Code-only commits do not build APKs; only version.properties changes or
-# explicit manual dispatch produce an APK.
 on:
   workflow_dispatch:
   push:
     branches: [main]
     paths:
       - 'version.properties'
+      - 'app/**'
+      - 'gradle/**'
+      - 'gradlew'
+      - 'gradle.properties'
+      - 'settings.gradle'
+      - 'build.gradle'
+      - 'tools/**'
+      - '.github/workflows/**'
 
 permissions:
   contents: read
@@ -112,16 +117,10 @@ jobs:
             echo "Development-only APK: it may not install over the current GrowPlot app, and Google sign-in is not verified for this runner key."
           fi
           sha256sum release/*
-      - name: Set versioned artifact identity
-        id: version
-        run: |
-          VERSION_NAME="$(sed -n 's/^versionName=//p' version.properties | head -n1)"
-          SAFE_NAME="$(printf '%s' "$VERSION_NAME" | sed 's/ Build /_Build_/' | tr ' ' '_')"
-          echo "artifact=GP_V${SAFE_NAME}_ARM64" >> "$GITHUB_OUTPUT"
       - name: Upload ARM64 artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.version.outputs.artifact }}
+          name: GrowPlot-${{ github.sha }}-ARM64
           path: |
             release/*.apk
             release/*-source.zip
