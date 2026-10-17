@@ -190,7 +190,7 @@ function installPlotVideoSharing(details){
  const owned=(Array.isArray(window.GrowPlotCloudProfile?.plots)?window.GrowPlotCloudProfile.plots:[]).filter(p=>p&&p.id!=='plot-1'&&String(p.ownerUserId||'')===uid);
  for(const p of owned){const opt=document.createElement('option');opt.value=String(p.id);opt.textContent=String(p.name||p.id);plotSelect.appendChild(opt);}
  const email=document.createElement('input');email.id='gpShareEmail';email.type='email';email.placeholder='Registered viewer email';email.style.cssText='width:100%;box-sizing:border-box;padding:9px;margin:7px 0';
- const grant=document.createElement('button');grant.type='button';grant.textContent='Grant Video View';grant.disabled=!owned.length;grant.style.cssText='padding:10px;border:1px solid #72987b;border-radius:8px;background:white';
+ const grant=document.createElement('button');grant.type='button';grant.id='gpShareGrantButton';grant.textContent='Grant Video View';grant.disabled=!owned.length;grant.style.cssText='padding:10px;border:1px solid #72987b;border-radius:8px;background:white';
  const status=document.createElement('p');status.id='gpShareStatus';status.setAttribute('role','status');status.textContent=owned.length?'Grant view-only access to a registered user.':'No owned plots available to share.';
  grant.onclick=()=>{if(!email.validity.valid||!email.value.trim()){status.textContent='Enter a valid registered email.';return;}grant.disabled=true;status.textContent='Saving permission…';request('grantPlotVideo',{plotId:plotSelect.value,email:email.value.trim()});};
  const outgoing=document.createElement('div');outgoing.id='gpOutgoingVideoGrants';
@@ -286,8 +286,8 @@ function saveNotice(message,success){
 window.GrowPlotReloadOwnedDevices=function(){if(window.GrowPlotCurrentUser&&!window.GrowPlotCurrentUser.developmentOnly&&api?.configured())request('loadOwnedDevices',{});};
 window.GrowPlotAccountResponse=function(response){
  if(response&&['listPlotVideoAccess','grantPlotVideo','revokePlotVideo'].includes(response.action)){
-  const status=document.getElementById('gpShareStatus'),btn=document.querySelector('#gpPlotVideoSharing button');
-  if(btn)btn.disabled=false;
+  const status=document.getElementById('gpShareStatus'),btn=document.getElementById('gpShareGrantButton');
+  if(btn)btn.disabled=!document.getElementById('gpSharePlot')?.options.length;
   if(!response.ok){if(status)status.textContent='Video sharing error: '+(response.error||'Request failed');return;}
   if(response.action==='listPlotVideoAccess')renderPlotVideoAccess(response.data||{});
   else{if(status)status.textContent=response.action==='grantPlotVideo'?'Video viewing granted.':'Viewing permission revoked.';request('listPlotVideoAccess',{});}
