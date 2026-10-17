@@ -550,9 +550,11 @@ public class MainActivity extends Activity {
         ++assignedStreamGeneration;
         activeStreamScope = "";
         java.util.Arrays.fill(assignedStreamUrls, null);
-        userStreamMode = true;
+        // Demo is independent of Firebase and uses the three Settings camera URLs.
+        userStreamMode = false;
+        assignedStreamsLoading = false;
         resetCctvSurfaces();
-        loadAssignedStreams("plot-1", "greenhouse-1", true);
+        refreshAssignedPlayers();
     }
 
     private void loadAssignedStreams(String plotId, String greenhouseId, boolean force) {
