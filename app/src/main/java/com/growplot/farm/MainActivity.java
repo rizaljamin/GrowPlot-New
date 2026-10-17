@@ -1334,7 +1334,15 @@ public class MainActivity extends Activity {
                     if (ipWebcam3VlcLayout != null) showCctv03VigiMessage(ipWebcam3VlcLayout, "VIGI rejected the saved login. Update the camera username or password.");
                     if (cctvVlcFeedsAllowedOnActiveScreen) promptForCctv03VigiCredentials();
                 } else if (ipWebcam3VlcLayout != null) {
-                    showCctv03VigiMessage(ipWebcam3VlcLayout, "VIGI stream unavailable. Saved login retained; tap Refresh to reconnect.");
+                    showCctv03VigiMessage(ipWebcam3VlcLayout, "VIGI RTSP stream unavailable. Retrying connection…");
+                    final VLCVideoLayout retryLayout = ipWebcam3VlcLayout;
+                    mainHandler.postDelayed(() -> {
+                        if (!isFinishing() && activityResumed && cctvVlcFeedsAllowedOnActiveScreen
+                                && !userStreamMode && !cctv03CredentialsRejected
+                                && player == ipWebcam3VlcPlayer && ipWebcam3VlcLayout == retryLayout) {
+                            startVigiCctv03Vlc(retryLayout);
+                        }
+                    }, 5000L);
                 }
             });
         });
