@@ -125,7 +125,7 @@ function renderHomePlotTree(){
   trigger.setAttribute('aria-expanded','false');trigger.setAttribute('aria-controls','gpHomePlotTree');
   trigger.style.cssText='width:100%;box-sizing:border-box;text-align:left;padding:10px 32px 10px 12px;border:1px solid #a9c7b1;border-radius:9px;background:#fff;color:#173e28;font:inherit;cursor:pointer';
   host=document.createElement('div');host.id='gpHomePlotTree';host.hidden=true;
-  host.style.cssText='position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:5000;max-height:280px;overflow:auto;border:1px solid #cbd8ce;border-radius:9px;padding:8px;font-size:13px;background:#fff;box-shadow:0 9px 24px #0002';
+  host.style.cssText='position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:5000;max-height:320px;min-width:280px;overflow:auto;border:1px solid #cbd8ce;border-radius:9px;padding:8px;font-size:13px;color:#173e28!important;background:#fff;box-shadow:0 9px 24px #0002';
   select.insertAdjacentElement('afterend',wrapper);wrapper.append(trigger,host);
   select.style.cssText+=';position:absolute!important;opacity:0!important;pointer-events:none!important;width:1px!important;height:1px!important;overflow:hidden!important';
   select.tabIndex=-1;select.setAttribute('aria-hidden','true');
@@ -149,15 +149,15 @@ function renderHomePlotTree(){
  for(const p of plots){const owner=String(p.ownerEmail||p.ownerName||p.ownerDisplayName||((p.ownerUserId===String(window.GrowPlotCurrentUser?.uid||window.GrowPlotCurrentUser?.id||''))?'My Plots':p.ownerUserId)||'Owner');if(!groups.has(owner))groups.set(owner,[]);groups.get(owner).push(p);}
  for(const [owner,items] of groups){
   const ownerNode=document.createElement('details');ownerNode.open=true;
-  const ownerLabel=document.createElement('summary');ownerLabel.textContent='👤 '+owner;ownerLabel.style.cssText='font-weight:700;padding:5px 2px;cursor:pointer';ownerNode.appendChild(ownerLabel);
+  const ownerLabel=document.createElement('summary');ownerLabel.textContent='👤 '+owner;ownerLabel.style.cssText='font-weight:700;padding:8px 6px;cursor:pointer;color:#173e28!important;font-size:14px!important;line-height:1.5!important;white-space:normal!important;overflow-wrap:anywhere!important;opacity:1!important;visibility:visible!important';ownerNode.appendChild(ownerLabel);
   for(const p of items){
    const plotNode=document.createElement('details');plotNode.open=String(select.value)===String(p.id);plotNode.style.marginLeft='14px';
-   const plotLabel=document.createElement('summary');plotLabel.style.cssText='padding:5px 2px;cursor:pointer';plotLabel.textContent='🌱 '+String(p.name||p.plotName||p.id);plotLabel.onclick=()=>{if(select.value!==String(p.id)){select.value=String(p.id);select.dispatchEvent(new Event('change',{bubbles:true}));}window.GrowPlotClosePlotTree?.();};plotNode.appendChild(plotLabel);
+   const plotLabel=document.createElement('summary');plotLabel.style.cssText='padding:8px 6px;cursor:pointer;color:#173e28!important;font-size:14px!important;line-height:1.5!important;white-space:normal!important;overflow-wrap:anywhere!important;opacity:1!important;visibility:visible!important';plotLabel.textContent='🌱 '+String(p.name||p.plotName||p.id);plotLabel.onclick=()=>{if(select.value!==String(p.id)){select.value=String(p.id);select.dispatchEvent(new Event('change',{bubbles:true}));}window.GrowPlotClosePlotTree?.();};plotNode.appendChild(plotLabel);
    const ghCount=Math.min(100,Math.max(0,Number(p.greenhouseCount)||0)),secCount=Math.min(100,Math.max(0,Number(p.sectionsPerGreenhouse)||0));
    for(let g=1;g<=ghCount;g++){
     const greenhouse=document.createElement('details');greenhouse.style.marginLeft='16px';
-    const ghLabel=document.createElement('summary');ghLabel.textContent='🏡 Greenhouse '+g;ghLabel.style.cssText='padding:4px 2px;cursor:pointer';greenhouse.appendChild(ghLabel);
-    for(let n=1;n<=secCount;n++){const section=document.createElement('div');section.textContent='└ Section '+n;section.style.cssText='margin-left:18px;padding:3px 0;color:#4c6657';greenhouse.appendChild(section);}
+    const ghLabel=document.createElement('summary');ghLabel.textContent='🏡 Greenhouse '+g;ghLabel.style.cssText='padding:7px 6px;cursor:pointer;color:#173e28!important;font-size:13px!important;line-height:1.5!important;white-space:normal!important;opacity:1!important;visibility:visible!important';greenhouse.appendChild(ghLabel);
+    for(let n=1;n<=secCount;n++){const section=document.createElement('div');section.textContent='└ Section '+n;section.style.cssText='margin-left:18px;padding:5px 0;color:#4c6657!important;font-size:13px!important;line-height:1.5!important;opacity:1!important;visibility:visible!important';greenhouse.appendChild(section);}
     plotNode.appendChild(greenhouse);
    }
    ownerNode.appendChild(plotNode);
