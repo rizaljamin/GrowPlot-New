@@ -365,12 +365,10 @@ public final class AccountApiBridge {
                 return;
             }
             if("profile".equals(action)){
-                // Privileged plot discovery requires an authenticated Firebase custom claim,
-                // never a locally editable role or power-user UI toggle.
-                user.getIdToken(false).addOnSuccessListener(token->{
-                    boolean powerUser="rizaljamin@gmail.com".equalsIgnoreCase(user.getEmail())
-                        && (Boolean.TRUE.equals(token.getClaims().get("powerUser"))
-                        || Boolean.TRUE.equals(token.getClaims().get("admin")));
+                // Membership is controlled by Firestore admins/{Firebase Auth UID}.
+                // Never infer administrator privileges from email or editable profile fields.
+                db.collection("admins").document(user.getUid()).get().addOnSuccessListener(adminDoc->{
+                    boolean powerUser=adminDoc.exists();
                     db.collection("users").document(user.getUid()).get().addOnSuccessListener(profile->{
                     db.collection("plots").get()
                       .addOnSuccessListener(owned->{
@@ -393,7 +391,7 @@ public final class AccountApiBridge {
                         respond(action,true,"",out);
                       }).addOnFailureListener(e->respond(action,false,e.getMessage(),null));
                     }).addOnFailureListener(e->respond(action,false,e.getMessage(),null));
-                }).addOnFailureListener(e->respond(action,false,"Could not verify account privileges: "+e.getMessage(),null));
+                }).addOnFailureListener(e->respond(action,false,"Could not verify admins collection membership: "+e.getMessage(),null));
             }else if("saveProfile".equals(action)){
                 // Plots are independent top-level records; never embed plot data in users.
                 JSONArray incoming=input.optJSONArray("plots");
