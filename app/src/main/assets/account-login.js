@@ -128,67 +128,26 @@ function syncAuthorizedHomePlots(){
 }
 
 
-// Compact Home plot picker width on tablet screens.
-(function(){const css=document.createElement('style');css.textContent='#gpHomePlotPicker{max-width:440px!important}#gpHomePlotTrigger{max-width:440px!important;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#gpHomePlotTree{max-width:440px!important}';document.head.appendChild(css);})();
-// Compact tree in the main Plot selector: owner → plot → greenhouse → section.
-// The native plot selector remains the source of truth for existing screens.
+// Use the standard native plot dropdown. Each option includes the plot name
+// and owner email/username; owner-qualified dataset.plotKey stays intact.
 function renderHomePlotTree(){
- const select=document.getElementById('plot');if(!select||!select.parentElement)return;
- let host=document.getElementById('gpHomePlotTree');
- if(!host){
-  // Keep the original select available for existing application logic, but
-  // replace its visible dropdown with an accessible tree popover.
-  const wrapper=document.createElement('div');wrapper.id='gpHomePlotPicker';wrapper.style.cssText='position:relative;min-width:0;width:100%';
-  const trigger=document.createElement('button');trigger.id='gpHomePlotTrigger';trigger.type='button';
-  trigger.setAttribute('aria-expanded','false');trigger.setAttribute('aria-controls','gpHomePlotTree');
-  trigger.style.cssText='width:100%;box-sizing:border-box;text-align:left;padding:10px 32px 10px 12px;border:1px solid #a9c7b1;border-radius:9px;background:#fff;color:#173e28;font:inherit;cursor:pointer';
-  host=document.createElement('div');host.id='gpHomePlotTree';host.hidden=true;
-  host.style.cssText='position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:5000;max-height:320px;min-width:280px;overflow:auto;border:1px solid #cbd8ce;border-radius:9px;padding:8px;font-size:13px;color:#173e28!important;background:#fff;box-shadow:0 9px 24px #0002';
-  select.insertAdjacentElement('afterend',wrapper);wrapper.append(trigger,host);
-  select.style.cssText+=';position:absolute!important;opacity:0!important;pointer-events:none!important;width:1px!important;height:1px!important;overflow:hidden!important';
-  select.tabIndex=-1;select.setAttribute('aria-hidden','true');
-  const toggle=open=>{host.hidden=!open;trigger.setAttribute('aria-expanded',String(open));};
-  trigger.onclick=()=>toggle(host.hidden);
-  document.addEventListener('pointerdown',event=>{if(!wrapper.contains(event.target))toggle(false);});
-  trigger.addEventListener('keydown',event=>{if(event.key==='Escape'){toggle(false);trigger.focus();}});
-  host.addEventListener('keydown',event=>{if(event.key==='Escape'){toggle(false);trigger.focus();}});
-  window.GrowPlotClosePlotTree=()=>toggle(false);
- }
- const trigger=document.getElementById('gpHomePlotTrigger');
- if(trigger){const chosen=Array.from(select.options).find(o=>o.value===select.value);trigger.textContent=(chosen?chosen.textContent:'Select Plot')+' ▾';}
- const profile=window.GrowPlotCloudProfile;
- const authorized=Array.isArray(profile?.plots)?profile.plots:[];
- const visible=new Set(Array.from(select.options).map(o=>o.dataset.plotKey));
- const plots=[{id:'plot-1',name:'Demo Plot',ownerEmail:'Demo'},...authorized.filter(p=>p&&visible.has(String(p.ownerUserId||p.ownerUid||String(window.GrowPlotCurrentUser?.uid||window.GrowPlotCurrentUser?.id||''))+':'+String(p.id))&&!(p.id==='plot-1'&&!p.ownerUserId&&!p.ownerUid))];
- if(!authorized.length&&window.GrowPlotCurrentUser&&!host.dataset.profileRequested){host.dataset.profileRequested='1';if(api?.configured())request('profile',{});}
- const key=JSON.stringify(plots.map(p=>[p.ownerUserId,gpOwnerLabel(p),p.id,p.name,p.greenhouseCount,p.sectionsPerGreenhouse,select.value]));
- if(host.dataset.treeKey===key)return;host.dataset.treeKey=key;host.replaceChildren();
- const groups=new Map();
- for(const p of plots){const owner=gpOwnerLabel(p);if(!groups.has(owner))groups.set(owner,[]);groups.get(owner).push(p);}
- for(const [owner,items] of groups){
-  const ownerNode=document.createElement('details');ownerNode.open=true;
-  const ownerLabel=document.createElement('summary');ownerLabel.textContent='👤 '+owner;ownerLabel.style.cssText='font-weight:700;padding:8px 6px;cursor:pointer;color:#173e28!important;font-size:14px!important;line-height:1.5!important;white-space:normal!important;overflow-wrap:anywhere!important;opacity:1!important;visibility:visible!important';ownerNode.appendChild(ownerLabel);
-  for(const p of items){
-   const plotNode=document.createElement('details');plotNode.open=select.selectedOptions[0]?.dataset.plotKey===String(p.ownerUserId||p.ownerUid||String(window.GrowPlotCurrentUser?.uid||window.GrowPlotCurrentUser?.id||''))+':'+String(p.id);plotNode.style.marginLeft='14px';
-   const plotLabel=document.createElement('summary');plotLabel.style.cssText='padding:8px 6px;cursor:pointer;color:#173e28!important;font-size:14px!important;line-height:1.5!important;white-space:normal!important;overflow-wrap:anywhere!important;opacity:1!important;visibility:visible!important';plotLabel.textContent='🌱 '+String(p.name||p.plotName||p.id);plotLabel.onclick=()=>{const key=(!p.ownerUserId&&!p.ownerUid&&p.id==='plot-1')?'demo:plot-1':String(p.ownerUserId||p.ownerUid||String(window.GrowPlotCurrentUser?.uid||window.GrowPlotCurrentUser?.id||''))+':'+String(p.id);const option=Array.from(select.options).find(o=>o.dataset.plotKey===key);if(option){select.selectedIndex=option.index;window.GrowPlotSelectedOwnerPlotKey=key;window.GrowPlotSelectedPlotOwnerUid=p.ownerUserId||p.ownerUid||'';selectedPlotId=p.id;select.dispatchEvent(new Event('change',{bubbles:true}));}window.GrowPlotClosePlotTree?.();};plotNode.appendChild(plotLabel);
-   const ghCount=Math.min(100,Math.max(0,Number(p.greenhouseCount)||0)),secCount=Math.min(100,Math.max(0,Number(p.sectionsPerGreenhouse)||0));
-   for(let g=1;g<=ghCount;g++){
-    const greenhouse=document.createElement('details');greenhouse.style.marginLeft='16px';
-    const ghLabel=document.createElement('summary');ghLabel.textContent='🏡 Greenhouse '+g;ghLabel.style.cssText='padding:7px 6px;cursor:pointer;color:#173e28!important;font-size:13px!important;line-height:1.5!important;white-space:normal!important;opacity:1!important;visibility:visible!important';greenhouse.appendChild(ghLabel);
-    for(let n=1;n<=secCount;n++){const section=document.createElement('div');section.textContent='└ Section '+n;section.style.cssText='margin-left:18px;padding:5px 0;color:#4c6657!important;font-size:13px!important;line-height:1.5!important;opacity:1!important;visibility:visible!important';greenhouse.appendChild(section);}
-    plotNode.appendChild(greenhouse);
-   }
-   ownerNode.appendChild(plotNode);
-  }
-  host.appendChild(ownerNode);
- }
+ const select=document.getElementById('plot');if(!select)return;
+ select.style.removeProperty('position');
+ select.style.removeProperty('opacity');
+ select.style.removeProperty('pointer-events');
+ select.style.removeProperty('width');
+ select.style.removeProperty('height');
+ select.style.removeProperty('overflow');
+ select.removeAttribute('aria-hidden');
+ select.removeAttribute('tabindex');
+ const oldPicker=document.getElementById('gpHomePlotPicker');
+ if(oldPicker)oldPicker.remove();
 }
 window.GrowPlotSyncAuthorizedHomePlots=syncAuthorizedHomePlots;
 // The original Home renderer repopulates #plot; reapply owner restrictions after render.
 (function installHomePlotOwnerGuard(){
  function start(){
-   const root=document.getElementById('plot')?.parentElement||document.body;
-   // Observe only native option changes; the custom tree lives beside #plot.
+    // Observe only native option changes; the custom tree lives beside #plot.
    // Observing its parent caused repeated render/mutation cycles after login.
    let queued=false;
    const nativeSelect=document.getElementById('plot');
