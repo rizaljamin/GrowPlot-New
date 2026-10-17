@@ -846,3 +846,8 @@ Build 7 validation: Gradle ARM64 build, package version, signature, alignment, S
 - Security blocker: `firestore.rules` allows authenticated users to read `plots`, but restricts `data_feeds` and `feed_assignments` reads to the owner. Cross-owner streaming requires a narrow, explicitly authorized viewer read path, without disclosing camera credentials or granting write access.
 - Acceptance: owner viewing own plot still works; authorized viewer sees correct owner's plot/section cameras; switching between owners does not reuse stale streams; unauthorized viewer cannot retrieve private feeds/credentials; demo plot unaffected.
 - Release target after implementation and validation: `GP_V0.6.03 Build 01`; keep Android versionCode > 189 and permanent signing certificate. This log entry is not a release and does not claim an APK was built.
+
+### Owner-granted viewing model — clarified by project owner (17 October 2026)
+- A plot owner may grant a registered user plot-viewing access, including for a plot lease or a specialist/arborist performing remote video-based diagnosis. Merely being registered does not grant access to every plot's CCTV.
+- Resolve the plot owner from the selected plot record, check the signed-in viewer's owner-granted permission, then resolve owner-scoped plot/section camera assignments and streams. Viewing is not ownership and must not grant camera credential editing, assignment changes, or plot ownership changes.
+- Support owner revocation; do not return camera passwords to viewers. Authorization and cross-owner data access require an explicit secured implementation and tests before APK release.
