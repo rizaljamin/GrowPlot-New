@@ -1,24 +1,12 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Administrator membership is defined by admins/{Firebase Auth UID}.
-    function isAdmin() {
-      return request.auth != null &&
-        exists(/databases/$(database)/documents/admins/$(request.auth.uid));
-    }
-
-    // Administrator access across all collections and nested documents.
-    match /{document=**} {
-      allow read, write: if isAdmin();
-    }
-
     match /plots/{plotId} {
       allow create: if request.auth != null
         && request.resource.data.ownerUserId == request.auth.uid
         && plotId.matches(request.auth.uid + '_[A-Za-z0-9_-]+');
       // All authenticated users may view plots; only owners may delete.
       allow read: if request.auth != null;
-      // Regular plot writes retain the existing owner-only restrictions.
       allow delete: if request.auth != null
         && resource.data.ownerUserId == request.auth.uid;
       allow update: if request.auth != null
@@ -59,16 +47,6 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['updatedAt']);
       allow delete: if request.auth != null && resource.data.ownerUserId == request.auth.uid;
     }
-    // Plot-video grants are created, listed and revoked only through authenticated
-    // Cloud Functions that verify the plot owner and intended viewer.
-    // Client reads and writes are denied, including collection queries.
-    match /plot_video_grants/{grantId} {
-      allow read, write: if false;
-    }
-    match /admins/{adminUid} {
-      allow read: if request.auth != null && request.auth.uid == adminUid;
-      allow write: if false;
-    }
     match /users/{uid}/data_feeds/{deviceId} {
       allow read, write: if false;
     }
@@ -77,14 +55,7 @@ service cloud.firestore {
         && request.auth.uid == uid
         && request.resource.data.role == 'USER'
         && request.resource.data.email == request.auth.token.email;
-      // Administrator identities are registered as admins/{firebaseAuthUid}.
-      // Admin membership cannot be created or changed from a client.
-      allow get: if request.auth != null && (
-        request.auth.uid == uid ||
-        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
-      );
-      allow list: if request.auth != null &&
-        exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+      allow read: if request.auth != null && request.auth.uid == uid;
       allow update: if request.auth != null && request.auth.uid == uid
         && request.resource.data.role == resource.data.role
         && request.resource.data.email == resource.data.email
