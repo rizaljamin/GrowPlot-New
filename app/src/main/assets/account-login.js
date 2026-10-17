@@ -677,24 +677,29 @@ const preview=document.getElementById('growplotPreviewButton');if(preview)previe
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
 
-/* Home CCTV occupancy: six fixed positions; only assigned devices are live slots.
- * Demo retains its original sample camera behaviour. */
-(function installEmptyCctvSlots(){
+/* Home CCTV section placeholders: six slots; absence of a configured
+ * section, not absence of an assigned camera, determines emptiness. */
+(function installEmptySectionSlots(){
  const css=document.createElement('style');
- css.textContent='.gp-empty-cctv .feed{background:#101513!important;position:relative!important}.gp-empty-cctv .feed::after{content:"Empty CCTV Slot";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#9ca9a1;font-size:clamp(14px,2vw,22px);font-weight:600;letter-spacing:.03em;background:#101513;z-index:20;pointer-events:none}.gp-empty-cctv .feedimg,.gp-empty-cctv video,.gp-empty-cctv iframe{visibility:hidden!important}.gp-empty-cctv .ipwebcam-state{visibility:hidden!important}';
+ css.textContent='.gp-empty-section .feed{background:#101513!important;position:relative!important}.gp-empty-section .feed::after{content:"Empty Section";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#9ca9a1;font-size:clamp(14px,2vw,22px);font-weight:600;letter-spacing:.03em;background:#101513;z-index:20;pointer-events:none}.gp-empty-section .feedimg,.gp-empty-section video,.gp-empty-section iframe{visibility:hidden!important}.gp-empty-section .ipwebcam-state{visibility:hidden!important}';
  document.head.appendChild(css);
  let pending=false;
  function refresh(){
   const root=document.getElementById('cameras'),plotSelect=document.getElementById('plot'),ghSelect=document.getElementById('gh');
   if(!root||!plotSelect)return;
-  const plotId=plotSelect.value,owner=String(window.GrowPlotSelectedPlotOwnerUid||window.GrowPlotCurrentUser?.uid||'');
-  const gh='greenhouse-'+String(ghSelect?.value||'1').replace(/^greenhouse-/,'');
-  const data=window.GrowPlotOwnedDeviceData||{};
-  const assignments=Array.isArray(data.assignments)?data.assignments:[];
+  const plotId=plotSelect.value;
+  const owner=String(window.GrowPlotSelectedPlotOwnerUid||window.GrowPlotCurrentUser?.uid||'');
+  const plot=(Array.isArray(window.GrowPlotCloudProfile?.plots)?window.GrowPlotCloudProfile.plots:[]).find(p=>p&&String(p.id)===plotId&&String(p.ownerUserId||p.ownerUid||owner)===owner)
+    ||(typeof plots!=='undefined'&&Array.isArray(plots)?plots.find(p=>p&&String(p.id)===plotId&&String(p.ownerUserId||p.ownerUid||owner)===owner):null);
+  // If metadata has not loaded, do not falsely mark live sections empty.
+  if(!plot&&plotId!=='plot-1')return;
+  const greenhouseNumber=Number(String(ghSelect?.value||'1').replace(/^greenhouse-/,''));
+  const greenhouseCount=Number(plot?.greenhouseCount||1);
+  const sectionCount=Number(plot?.sectionsPerGreenhouse||6);
   const cards=Array.from(root.children).slice(0,6);
   cards.forEach((card,index)=>{
-   const occupied=plotId==='plot-1'||assignments.some(a=>String(a.plotId)===plotId&&String(a.ownerUserId||owner)===owner&&String(a.greenhouseId)===gh&&String(a.sectionId)==='section-'+(index+1));
-   card.classList.toggle('gp-empty-cctv',!occupied);
+   const sectionExists=plotId==='plot-1'||(greenhouseNumber>=1&&greenhouseNumber<=greenhouseCount&&index<sectionCount);
+   card.classList.toggle('gp-empty-section',!sectionExists);
   });
  }
  function schedule(){if(pending)return;pending=true;requestAnimationFrame(()=>{pending=false;refresh();});}
