@@ -124,7 +124,7 @@ function syncAuthorizedHomePlots(){
  window.GrowPlotSelectedPlotOwnerUid=choices[index]?.ownerUserId||choices[index]?.ownerUid||uid;
  renderHomePlotTree();
  if(typeof selectedPlotId!=='undefined'&&selectedPlotId!==select.value)selectedPlotId=select.value;
- if(old!==select.value){select.dispatchEvent(new Event('change',{bubbles:true}));window.GrowPlotRefreshHomeStreams?.();}
+ if(old!==select.value||currentKey!==desired){select.dispatchEvent(new Event('change',{bubbles:true}));window.GrowPlotRefreshHomeStreams?.();}
 }
 
 
@@ -815,11 +815,12 @@ const preview=document.getElementById('growplotPreviewButton');if(preview)previe
    const plot=document.getElementById('plot'),gh=document.getElementById('gh');
    if(!plot||!gh)return;
    if(!window.GrowPlotCurrentUser&&plot.value!=='plot-1')syncAuthorizedHomePlots();
-   const plotId=window.GrowPlotCurrentUser?(plot.value||'plot-1'):'plot-1';
+   const plotKey=plot.selectedOptions[0]?.dataset.plotKey||'demo:plot-1';
+   const plotId=plotKey==='demo:plot-1'?'demo:plot-1':(plot.value||'plot-1');
    const rawGh=String(gh.value||'1');
    const greenhouse=!window.GrowPlotCurrentUser?'greenhouse-1':(/^greenhouse-[1-9][0-9]*$/.test(rawGh)?rawGh:'greenhouse-'+(Number(rawGh)||1));
    const uid=window.GrowPlotCurrentUser?.uid||window.GrowPlotCurrentUser?.userId||'';
-   const scope=uid+'|'+plotId+'|'+greenhouse;
+   const scope=uid+'|'+plotKey+'|'+greenhouse;
    if(!force&&scope===previous)return;
    previous=scope;
    if(force&&window.GrowPlotBridge?.reloadActiveStreamingContext)window.GrowPlotBridge.reloadActiveStreamingContext(plotId,greenhouse);else window.GrowPlotBridge?.setActiveStreamingContext?.(plotId,greenhouse);
@@ -844,20 +845,20 @@ const preview=document.getElementById('growplotPreviewButton');if(preview)previe
   const root=document.getElementById('cameras'),plotSelect=document.getElementById('plot'),ghSelect=document.getElementById('gh');
   if(!root||!plotSelect)return;
   const plotId=plotSelect.value;
-  const owner=String(plotSelect.selectedOptions[0]?.dataset.plotKey?.split(':')[0]||window.GrowPlotSelectedPlotOwnerUid||window.GrowPlotCurrentUser?.uid||'');
-  const plot=(Array.isArray(window.GrowPlotCloudProfile?.plots)?window.GrowPlotCloudProfile.plots:[]).find(p=>p&&String(p.id)===plotId&&String(p.ownerUserId||p.ownerUid||owner)===owner)
-    ||(typeof plots!=='undefined'&&Array.isArray(plots)?plots.find(p=>p&&String(p.id)===plotId&&String(p.ownerUserId||p.ownerUid||owner)===owner):null);
-  // If metadata has not loaded, do not falsely mark live sections empty.
-  if(!plot)return;
-  const greenhouseNumber=Number(String(ghSelect?.value||'1').replace(/^greenhouse-/,''));
-  const greenhouseCount=Number(plot?.greenhouseCount||1);
-  const configuredSections=Number(plot?.sectionsPerGreenhouse);
-   const sectionCount=Number.isInteger(configuredSections)&&configuredSections>=1?Math.min(6,configuredSections):6;
+  const key=plotSelect.selectedOptions[0]?.dataset.plotKey||'demo:plot-1';
+  const demo=key==='demo:plot-1';
+  const owner=key.split(':')[0];
+  const candidates=Array.isArray(window.GrowPlotCloudProfile?.plots)?window.GrowPlotCloudProfile.plots:[];
+  const plot=demo?null:candidates.find(p=>p&&String(p.id)===plotId&&String(p.ownerUserId||p.ownerUid||'')===owner);
   const cards=Array.from(root.children).slice(0,6);
+  if(!demo&&!plot){cards.forEach(card=>card.classList.remove('gp-empty-section'));return;}
+  const gh=Number(String(ghSelect?.value||'1').replace(/^greenhouse-/,''));
+  const greenhouseCount=Number(plot?.greenhouseCount);
+  const sections=Number(plot?.sectionsPerGreenhouse);
+  const count=demo?3:(Number.isInteger(sections)&&sections>=0?Math.min(6,sections):0);
   cards.forEach((card,index)=>{
-   const demo=!plot?.ownerUserId&&!plot?.ownerUid&&plotId==='plot-1';
-    const sectionExists=demo||(greenhouseNumber>=1&&greenhouseNumber<=greenhouseCount&&index<sectionCount);
-   card.classList.toggle('gp-empty-section',!sectionExists);
+   const exists=demo?index<3:(Number.isInteger(gh)&&gh>=1&&gh<=greenhouseCount&&index<count);
+   card.classList.toggle('gp-empty-section',!exists);
   });
  }
  function schedule(){if(pending)return;pending=true;requestAnimationFrame(()=>{pending=false;refresh();});}
