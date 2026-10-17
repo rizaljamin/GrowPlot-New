@@ -838,31 +838,3 @@ Build 7 validation: Gradle ARM64 build, package version, signature, alignment, S
 **Fix:** Removed only the account Username field; login and registration use email, password and confirm password. Password confirmation is checked before Firebase registration. Google Credential Manager sign-in is exchanged with Firebase Auth and creates a Firestore user profile on first use. A new or empty account now sees the first-plot prompt inside the login card, then waits for the Firebase save response before entering the dashboard. Local plot saves for authenticated users also write the profile to Firestore and show success or failure.
 
 **Verification / limits:** Account registration regression, JavaScript syntax, Manage Farm, Kindwise and feed-history checks pass. The GitHub `google-services.json` currently has no OAuth clients, so Google sign-in cannot complete until the Google provider is enabled in Firebase Authentication and a new config with the web OAuth client is committed. Target-device sign-in and layout verification remain pending.
-
-## 2026-10-17 — Cross-owner plot CCTV streaming lookup (OPEN; APK not generated)
-
-- Repro: user B selects a plot owned by user A; CCTV stream retrieval incorrectly scopes `data_feeds` and `feed_assignments` to current Firebase auth UID in `AccountApiBridge.loadOwnedDevices`.
-- Required lookup identity: `<plot owner UID>.<plot ID>.<section ID>` (and greenhouse ID where needed to disambiguate), resolving owner from the selected plot's trusted Firestore record, never from the viewing user's UID.
-- Security blocker: `firestore.rules` allows authenticated users to read `plots`, but restricts `data_feeds` and `feed_assignments` reads to the owner. Cross-owner streaming requires a narrow, explicitly authorized viewer read path, without disclosing camera credentials or granting write access.
-- Acceptance: owner viewing own plot still works; authorized viewer sees correct owner's plot/section cameras; switching between owners does not reuse stale streams; unauthorized viewer cannot retrieve private feeds/credentials; demo plot unaffected.
-- Release target after implementation and validation: `GP_V0.6.03 Build 01`; keep Android versionCode > 189 and permanent signing certificate. This log entry is not a release and does not claim an APK was built.
-
-### Owner-granted viewing model — clarified by project owner (17 October 2026)
-- A plot owner may grant a registered user plot-viewing access, including for a plot lease or a specialist/arborist performing remote video-based diagnosis. Merely being registered does not grant access to every plot's CCTV.
-- Resolve the plot owner from the selected plot record, check the signed-in viewer's owner-granted permission, then resolve owner-scoped plot/section camera assignments and streams. Viewing is not ownership and must not grant camera credential editing, assignment changes, or plot ownership changes.
-- Support owner revocation; do not return camera passwords to viewers. Authorization and cross-owner data access require an explicit secured implementation and tests before APK release.
-
-### My Account — plot video sharing flow (approved design, pending code)
-- My Account offers two panels: **Grant Plot Video Access** (owner) and **Plots Shared With Me** (viewer). Owner selects owned plot, enters registered viewer email, grants a view-only permission, sees existing grants and can revoke each. Viewer sees granted plots, owner, and view access status, and can open the plot/section stream.
-- Use owner-scoped grant document keyed by plot owner UID + plot ID + viewer UID, with status active/revoked and timestamps; resolve recipient UID from a trusted server-side email lookup (never client-controlled UID/role). Avoid public user-directory email enumeration.
-- Streaming resolution must use the selected plot's canonical owner UID, plot ID, greenhouse ID (when applicable), section ID, then assigned feed; never current viewer UID as feed owner. Check active grant before returning a minimal view-only feed descriptor. Keep passwords and device administrative details inaccessible to viewers; credentials must be handled by a protected streaming relay or equally secure mechanism, not sent in Firestore or client JSON.
-- Permissions: only owner can grant/revoke; owner retains management rights; viewer may view plot/video only, cannot edit camera, device assignment, plot setup, or credentials. Revocation invalidates access promptly; changing plots/users must clear stale streams and caches.
-- Do not broaden Firestore `data_feeds`/`feed_assignments` read permissions to all authenticated users. Implement narrowly authorized server-side read flow and deploy corresponding backend/rules before declaring feature functional.
-- Test own plot, shared plot, multiple owners with identical plot/section IDs, revoked grant, non-granted user, and credential non-disclosure. Next APK target `GP_V0.6.03 Build 01`, versionCode >=190; no APK yet produced.
-
-### 2026-10-17 implementation progress — source committed, NOT RELEASED
-- `functions/index.js`: callable owner-controlled grant/revoke/list and `resolvePlotVideo` permission-checked lookup, with no passwords returned.
-- `AccountApiBridge.java`: forwards sharing actions to Firebase callable functions.
-- `account-login.js`: My Account grant, revoke, shared-with-me UI.
-- Remaining blockers: deploy Firebase callable functions; integrate `resolvePlotVideo` into the actual CCTV player on plot/section change; ensure secure authenticated camera playback (no passwords disclosed); test end-to-end on Android and revocation; compile signed APK. Shared-plot 'Open Plot' currently depends on the existing public plot selector and is not a verified cross-owner streaming solution.
-- Do not label `GP_V0.6.03 Build 01` complete or bump version.properties until those blockers are resolved and the APK build is verified.
