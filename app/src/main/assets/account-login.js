@@ -436,8 +436,11 @@ window.GrowPlotAccountResponse=function(response){
    if(id&&response.ok){
     if(typeof plots!=='undefined'&&Array.isArray(plots))for(let i=plots.length-1;i>=0;i--)if(plots[i]?.id===id&&String(plots[i]?.ownerUserId||'')===String(currentUser?.uid||''))plots.splice(i,1);
     if(Array.isArray(window.GrowPlotCloudProfile?.plots))window.GrowPlotCloudProfile.plots=window.GrowPlotCloudProfile.plots.filter(p=>!(p.id===id&&String(p.ownerUserId||'')===String(currentUser?.uid||'')));
+    if(typeof savePlotData==='function')savePlotData();
     if(typeof fillPlotSelectors==='function')fillPlotSelectors();
-    window.GrowPlotFilterOwnedManagePlots?.();syncAuthorizedHomePlots();
+    window.GrowPlotFilterOwnedManagePlots?.();
+    if(typeof loadPlotForm==='function')loadPlotForm();
+    syncAuthorizedHomePlots();
    }
    const el=document.getElementById('plotManagementStatus');if(el)el.textContent=response.ok?'Plot deleted from Firebase.':'Deletion failed.';
  }else if(response.action==='saveOwnedDevice'||response.action==='assignOwnedDevice'){
