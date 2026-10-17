@@ -676,3 +676,39 @@ const preview=document.getElementById('growplotPreviewButton');if(preview)previe
  }
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
+
+/* Home CCTV occupancy: six fixed positions; only assigned devices are live slots.
+ * Demo retains its original sample camera behaviour. */
+(function installEmptyCctvSlots(){
+ const css=document.createElement('style');
+ css.textContent='.gp-empty-cctv .feed{background:#101513!important;position:relative!important}.gp-empty-cctv .feed::after{content:"Empty CCTV Slot";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#9ca9a1;font-size:clamp(14px,2vw,22px);font-weight:600;letter-spacing:.03em;background:#101513;z-index:20;pointer-events:none}.gp-empty-cctv .feedimg,.gp-empty-cctv video,.gp-empty-cctv iframe{visibility:hidden!important}.gp-empty-cctv .ipwebcam-state{visibility:hidden!important}';
+ document.head.appendChild(css);
+ let pending=false;
+ function refresh(){
+  const root=document.getElementById('cameras'),plotSelect=document.getElementById('plot'),ghSelect=document.getElementById('gh');
+  if(!root||!plotSelect)return;
+  const plotId=plotSelect.value,owner=String(window.GrowPlotSelectedPlotOwnerUid||window.GrowPlotCurrentUser?.uid||'');
+  const gh='greenhouse-'+String(ghSelect?.value||'1').replace(/^greenhouse-/,'');
+  const data=window.GrowPlotOwnedDeviceData||{};
+  const assignments=Array.isArray(data.assignments)?data.assignments:[];
+  const cards=Array.from(root.children).slice(0,6);
+  cards.forEach((card,index)=>{
+   const occupied=plotId==='plot-1'||assignments.some(a=>String(a.plotId)===plotId&&String(a.ownerUserId||owner)===owner&&String(a.greenhouseId)===gh&&String(a.sectionId)==='section-'+(index+1));
+   card.classList.toggle('gp-empty-cctv',!occupied);
+  });
+ }
+ function schedule(){if(pending)return;pending=true;requestAnimationFrame(()=>{pending=false;refresh();});}
+ const observer=new MutationObserver(schedule);
+ function start(){
+  const root=document.getElementById('cameras');
+  if(!root)return;
+  observer.observe(root,{childList:true});
+  document.getElementById('plot')?.addEventListener('change',schedule);
+  document.getElementById('gh')?.addEventListener('change',schedule);
+  schedule();
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
+ const old=window.GrowPlotRenderOwnedDevices;
+ window.GrowPlotRenderOwnedDevices=function(){if(typeof old==='function')old.apply(this,arguments);schedule();};
+ window.GrowPlotRefreshEmptyCctvSlots=schedule;
+})();
