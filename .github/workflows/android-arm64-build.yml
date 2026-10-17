@@ -1,19 +1,10 @@
-name: GP_V0.6.03 Build 03
+name: GP_V_APK_Generation
+run-name: GP_V0.6.03_Build_03_APK_Generation
 
+# Code-only commits must NOT start an APK build. Trigger this workflow
+# explicitly when a versioned, installable Android package is requested.
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - 'version.properties'
-      - 'app/**'
-      - 'gradle/**'
-      - 'gradlew'
-      - 'gradle.properties'
-      - 'settings.gradle'
-      - 'build.gradle'
-      - 'tools/**'
-      - '.github/workflows/**'
 
 permissions:
   contents: read
@@ -120,7 +111,7 @@ jobs:
       - name: Upload ARM64 artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: GrowPlot-${{ github.sha }}-ARM64
+          name: GP_V0.6.03_Build_03_ARM64
           path: |
             release/*.apk
             release/*-source.zip
