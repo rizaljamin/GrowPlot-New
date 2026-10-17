@@ -838,3 +838,11 @@ Build 7 validation: Gradle ARM64 build, package version, signature, alignment, S
 **Fix:** Removed only the account Username field; login and registration use email, password and confirm password. Password confirmation is checked before Firebase registration. Google Credential Manager sign-in is exchanged with Firebase Auth and creates a Firestore user profile on first use. A new or empty account now sees the first-plot prompt inside the login card, then waits for the Firebase save response before entering the dashboard. Local plot saves for authenticated users also write the profile to Firestore and show success or failure.
 
 **Verification / limits:** Account registration regression, JavaScript syntax, Manage Farm, Kindwise and feed-history checks pass. The GitHub `google-services.json` currently has no OAuth clients, so Google sign-in cannot complete until the Google provider is enabled in Firebase Authentication and a new config with the web OAuth client is committed. Target-device sign-in and layout verification remain pending.
+
+## 2026-10-17 — Cross-owner plot CCTV streaming lookup (OPEN; APK not generated)
+
+- Repro: user B selects a plot owned by user A; CCTV stream retrieval incorrectly scopes `data_feeds` and `feed_assignments` to current Firebase auth UID in `AccountApiBridge.loadOwnedDevices`.
+- Required lookup identity: `<plot owner UID>.<plot ID>.<section ID>` (and greenhouse ID where needed to disambiguate), resolving owner from the selected plot's trusted Firestore record, never from the viewing user's UID.
+- Security blocker: `firestore.rules` allows authenticated users to read `plots`, but restricts `data_feeds` and `feed_assignments` reads to the owner. Cross-owner streaming requires a narrow, explicitly authorized viewer read path, without disclosing camera credentials or granting write access.
+- Acceptance: owner viewing own plot still works; authorized viewer sees correct owner's plot/section cameras; switching between owners does not reuse stale streams; unauthorized viewer cannot retrieve private feeds/credentials; demo plot unaffected.
+- Release target after implementation and validation: `GP_V0.6.03 Build 01`; keep Android versionCode > 189 and permanent signing certificate. This log entry is not a release and does not claim an APK was built.
