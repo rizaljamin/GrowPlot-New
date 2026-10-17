@@ -378,8 +378,18 @@ public final class AccountApiBridge {
                             for(com.google.firebase.firestore.DocumentSnapshot doc:owned.getDocuments()){
                                 Map<String,Object> item=doc.getData();
                                 if(item!=null){
-                                    // Owner identity is saved on each plot. Reading other
-                                    // users' private profile documents is not permitted.
+                                    // Recover ownership for older plot records saved before
+                                    // ownerUserId was persisted. Firestore IDs are UID_plotId.
+                                    String plotId=String.valueOf(item.getOrDefault("id",""));
+                                    String docId=doc.getId();
+                                    if((!item.containsKey("ownerUserId") || String.valueOf(item.get("ownerUserId")).isEmpty())
+                                        && !plotId.isEmpty() && docId.endsWith("_"+plotId)){
+                                        item.put("ownerUserId",docId.substring(0,docId.length()-plotId.length()-1));
+                                    }
+                                    if(user.getUid().equals(String.valueOf(item.get("ownerUserId")))
+                                        && (item.get("ownerEmail")==null || String.valueOf(item.get("ownerEmail")).trim().isEmpty())){
+                                        item.put("ownerEmail",user.getEmail()==null?"":user.getEmail());
+                                    }
                                     arr.put(new JSONObject(new com.google.gson.Gson().toJson(item)));
                                 }
                             }
