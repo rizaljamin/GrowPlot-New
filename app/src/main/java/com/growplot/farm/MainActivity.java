@@ -550,9 +550,9 @@ public class MainActivity extends Activity {
         ++assignedStreamGeneration;
         activeStreamScope = "";
         java.util.Arrays.fill(assignedStreamUrls, null);
-        userStreamMode = true;
+        userStreamMode = false;
         resetCctvSurfaces();
-        loadAssignedStreams("plot-1", "greenhouse-1", true);
+        refreshAssignedPlayers();
     }
 
     private void loadAssignedStreams(String plotId, String greenhouseId, boolean force) {
@@ -562,8 +562,7 @@ public class MainActivity extends Activity {
         activeStreamScope = scope;
         final int generation = ++assignedStreamGeneration;
         // A signed-in owner's plot-1 is not the global Demo Plot.
-        userStreamMode = !"plot-1".equals(plotId)
-                || com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser() != null;
+        userStreamMode = !"plot-1".equals(plotId);
         java.util.Arrays.fill(assignedStreamUrls, null);
         assignedStreamsLoading = userStreamMode;
         resetCctvSurfaces(); // Always reset all old frames before starting the newly selected scope.
@@ -3219,10 +3218,10 @@ public class MainActivity extends Activity {
             runOnUiThread(() -> MainActivity.this.returnToDemoStreams());
         }
         @JavascriptInterface public void setActiveStreamingContext(String plotId, String greenhouseId) {
-            runOnUiThread(() -> MainActivity.this.loadAssignedStreams(safePlotId(plotId), greenhouseId, false));
+            runOnUiThread(() -> { if ("demo:plot-1".equals(plotId)) MainActivity.this.returnToDemoStreams(); else MainActivity.this.loadAssignedStreams(safePlotId(plotId), greenhouseId, false); });
         }
         @JavascriptInterface public void reloadActiveStreamingContext(String plotId, String greenhouseId) {
-            runOnUiThread(() -> MainActivity.this.loadAssignedStreams(safePlotId(plotId), greenhouseId, true));
+            runOnUiThread(() -> { if ("demo:plot-1".equals(plotId)) MainActivity.this.returnToDemoStreams(); else MainActivity.this.loadAssignedStreams(safePlotId(plotId), greenhouseId, true); });
         }
         @JavascriptInterface public void setActivePlot(String plotId) {
             String id = safePlotId(plotId);
