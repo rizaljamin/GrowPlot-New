@@ -128,6 +128,8 @@ function syncAuthorizedHomePlots(){
 }
 
 
+// Compact Home plot picker width on tablet screens.
+(function(){const css=document.createElement('style');css.textContent='#gpHomePlotPicker{max-width:440px!important}#gpHomePlotTrigger{max-width:440px!important;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#gpHomePlotTree{max-width:440px!important}';document.head.appendChild(css);})();
 // Compact tree in the main Plot selector: owner → plot → greenhouse → section.
 // The native plot selector remains the source of truth for existing screens.
 function renderHomePlotTree(){
@@ -820,9 +822,9 @@ const preview=document.getElementById('growplotPreviewButton');if(preview)previe
    const scope=uid+'|'+plotId+'|'+greenhouse;
    if(!force&&scope===previous)return;
    previous=scope;
-   window.GrowPlotBridge?.setActiveStreamingContext?.(plotId,greenhouse);
+   if(force&&window.GrowPlotBridge?.reloadActiveStreamingContext)window.GrowPlotBridge.reloadActiveStreamingContext(plotId,greenhouse);else window.GrowPlotBridge?.setActiveStreamingContext?.(plotId,greenhouse);
   }
-  document.addEventListener('change',e=>{if(e.target?.id==='plot'||e.target?.id==='gh')sync(false);});
+  document.addEventListener('change',e=>{if(e.target?.id==='plot'||e.target?.id==='gh')sync(true);});
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)sync(true);});
   window.GrowPlotRefreshHomeStreams=()=>sync(true);
   setInterval(()=>sync(false),1800);
