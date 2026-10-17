@@ -153,18 +153,6 @@ public final class AccountApiBridge {
             }
             FirebaseUser user=auth.getCurrentUser();
             if(user==null){respond(action,false,"Sign in first.",null);return;}
-            if("grantPlotVideo".equals(action)||"revokePlotVideo".equals(action)||"listPlotVideoAccess".equals(action)||"resolvePlotVideo".equals(action)){
-                final String functionName=action;
-                Map<String,Object> args=new com.google.gson.Gson().fromJson(input.toString(),java.util.Map.class);
-                FirebaseFunctions.getInstance("us-central1").getHttpsCallable(functionName).call(args)
-                    .addOnSuccessListener(result->{
-                        try{
-                            JSONObject data=new JSONObject(new com.google.gson.Gson().toJson(result.getData()));
-                            respond(functionName,true,"",data);
-                        }catch(Exception e){respond(functionName,false,"Invalid sharing response.",null);}
-                    }).addOnFailureListener(e->respond(functionName,false,e.getMessage(),null));
-                return;
-            }
             if("loadOwnedDevices".equals(action)){
                 String uid=user.getUid();
                 db.collection("data_feeds").whereEqualTo("ownerUserId",uid).get().addOnSuccessListener(devices->{
@@ -316,36 +304,27 @@ public final class AccountApiBridge {
                 return;
             }
             if("listAccessUsers".equals(action)){
-                // Firestore rules authorize directory queries only for UIDs
-                // registered in admins/{uid}. Do not use an Admin SDK callable
-                // here: it bypasses those rules.
-                db.collection("users").orderBy("email").limit(200).get()
-                    .addOnSuccessListener(snapshot->{
-                        try{
-                            JSONArray users=new JSONArray();
-                            for(com.google.firebase.firestore.DocumentSnapshot doc:snapshot.getDocuments()){
-                                if(doc.getId().equals(user.getUid()))continue;
-                                String email=doc.getString("email");
-                                if(email==null||email.trim().isEmpty())continue;
-                                JSONObject entry=new JSONObject();
-                                entry.put("uid",doc.getId());
-                                entry.put("email",email);
-                                users.put(entry);
-                            }
-                            JSONObject out=new JSONObject();
-                            out.put("users",users);
-                            db.collection("users").document(user.getUid()).get()
-                                .addOnSuccessListener(own->{
-                                    try{
-                                        Object allowed=own.get("allowedMonitorUids");
-                                        out.put("allowedMonitorUids",new JSONArray(new com.google.gson.Gson().toJson(
-                                            allowed==null?new java.util.ArrayList<>():allowed)));
-                                        respond(action,true,"",out);
-                                    }catch(Exception e){respond(action,false,e.getMessage(),null);}
-                                }).addOnFailureListener(e->respond(action,false,e.getMessage(),null));
-                        }catch(Exception e){respond(action,false,e.getMessage(),null);}
-                    }).addOnFailureListener(e->respond(action,false,
-                        "Admin directory access denied. Verify admins/"+user.getUid()+" exists and Firestore rules are deployed: "+e.getMessage(),null));
+                db.collection("users").get().addOnSuccessListener(snapshot->{
+                    try{
+                        JSONArray users=new JSONArray();
+                        for(com.google.firebase.firestore.DocumentSnapshot doc:snapshot.getDocuments()){
+                            if(doc.getId().equals(user.getUid()))continue;
+                            String email=doc.getString("email");
+                            if(email==null||email.trim().isEmpty())continue;
+                            JSONObject entry=new JSONObject();
+                            entry.put("uid",doc.getId());entry.put("email",email);
+                            users.put(entry);
+                        }
+                        JSONObject out=new JSONObject();out.put("users",users);
+                        db.collection("users").document(user.getUid()).get().addOnSuccessListener(own->{
+                            try{out.put("allowedMonitorUids",new JSONArray(new com.google.gson.Gson().toJson(
+                                own.get("allowedMonitorUids")==null?new java.util.ArrayList<>():own.get("allowedMonitorUids"))));
+                                respond(action,true,"",out);
+                            }catch(Exception e){respond(action,false,e.getMessage(),null);}
+                        }).addOnFailureListener(e->respond(action,false,e.getMessage(),null));
+                    }catch(Exception e){respond(action,false,e.getMessage(),null);}
+                }).addOnFailureListener(e->respond(action,false,
+                    "Cannot list registered users. Firestore rules must authorize directory lookup: "+e.getMessage(),null));
                 return;
             }
             if("saveAccessUsers".equals(action)){
@@ -365,10 +344,12 @@ public final class AccountApiBridge {
                 return;
             }
             if("profile".equals(action)){
-                // Membership is controlled by Firestore admins/{Firebase Auth UID}.
-                // Never infer administrator privileges from email or editable profile fields.
-                db.collection("admins").document(user.getUid()).get().addOnSuccessListener(adminDoc->{
-                    boolean powerUser=adminDoc.exists();
+                // Privileged plot discovery requires an authenticated Firebase custom claim,
+                // never a locally editable role or power-user UI toggle.
+                user.getIdToken(false).addOnSuccessListener(token->{
+                    boolean powerUser="rizaljamin@gmail.com".equalsIgnoreCase(user.getEmail())
+                        && (Boolean.TRUE.equals(token.getClaims().get("powerUser"))
+                        || Boolean.TRUE.equals(token.getClaims().get("admin")));
                     db.collection("users").document(user.getUid()).get().addOnSuccessListener(profile->{
                     db.collection("plots").get()
                       .addOnSuccessListener(owned->{
@@ -377,22 +358,9 @@ public final class AccountApiBridge {
                             JSONArray arr=new JSONArray();
                             for(com.google.firebase.firestore.DocumentSnapshot doc:owned.getDocuments()){
                                 Map<String,Object> item=doc.getData();
-                                if(item!=null){
-                                    // Recover ownership for older plot records saved before
-                                    // ownerUserId was persisted. Firestore IDs are UID_plotId.
-                                    String plotId=String.valueOf(item.getOrDefault("id",""));
-                                    String docId=doc.getId();
-                                    if((!item.containsKey("ownerUserId") || String.valueOf(item.get("ownerUserId")).isEmpty())
-                                        && !plotId.isEmpty() && docId.endsWith("_"+plotId)){
-                                        item.put("ownerUserId",docId.substring(0,docId.length()-plotId.length()-1));
-                                    }
-                                    if(user.getUid().equals(String.valueOf(item.get("ownerUserId")))
-                                        && (item.get("ownerEmail")==null || String.valueOf(item.get("ownerEmail")).trim().isEmpty())){
-                                        item.put("ownerEmail",user.getEmail()==null?"":user.getEmail());
-                                    }
-                                    arr.put(new JSONObject(new com.google.gson.Gson().toJson(item)));
-                                }
+                                if(item!=null)arr.put(new JSONObject(new com.google.gson.Gson().toJson(item)));
                             }
+                            // Public plot visibility for authenticated users; writes remain owner-restricted.
                             out.put("plots",arr);
                             out.put("powerUser",powerUser);
                             String selected=profile.getString("selectedPlotId");
@@ -401,38 +369,7 @@ public final class AccountApiBridge {
                         respond(action,true,"",out);
                       }).addOnFailureListener(e->respond(action,false,e.getMessage(),null));
                     }).addOnFailureListener(e->respond(action,false,e.getMessage(),null));
-                }).addOnFailureListener(e->respond(action,false,"Could not verify admins collection membership: "+e.getMessage(),null));
-            }else if("deleteOwnedPlot".equals(action)){
-                String plotId=input.optString("plotId","");
-                if(!plotId.matches("[A-Za-z0-9_-]{1,100}")){
-                    respond(action,false,"Invalid or protected plot ID.",null);return;
-                }
-                String uid=user.getUid();
-                db.collection("plots").document(uid+"_"+plotId).get()
-                    .addOnSuccessListener(plot->{
-                        if(!plot.exists()||!uid.equals(plot.getString("ownerUserId"))){
-                            respond(action,false,"Only the plot owner can delete this plot.",null);return;
-                        }
-                        // Remove the plot and its section/device assignments together.
-                        // Device definitions remain because they may serve other plots.
-                        db.collection("feed_assignments")
-                            .whereEqualTo("ownerUserId",uid)
-                            .whereEqualTo("plotId",plotId)
-                            .get()
-                            .addOnSuccessListener(assignments->{
-                                if(assignments.size()>498){
-                                    respond(action,false,"Too many assignments to delete in one operation. Contact support.",null);return;
-                                }
-                                com.google.firebase.firestore.WriteBatch batch=db.batch();
-                                for(com.google.firebase.firestore.DocumentSnapshot item:assignments.getDocuments())
-                                    batch.delete(item.getReference());
-                                batch.delete(plot.getReference());
-                                batch.commit()
-                                    .addOnSuccessListener(v->respond(action,true,"Plot and its device assignments deleted from Firebase.",null))
-                                    .addOnFailureListener(e->respond(action,false,"Plot deletion failed: "+e.getMessage(),null));
-                            })
-                            .addOnFailureListener(e->respond(action,false,"Assignment lookup failed: "+e.getMessage(),null));
-                    }).addOnFailureListener(e->respond(action,false,"Plot lookup failed: "+e.getMessage(),null));
+                }).addOnFailureListener(e->respond(action,false,"Could not verify account privileges: "+e.getMessage(),null));
             }else if("saveProfile".equals(action)){
                 // Plots are independent top-level records; never embed plot data in users.
                 JSONArray incoming=input.optJSONArray("plots");
@@ -442,13 +379,12 @@ public final class AccountApiBridge {
                     JSONObject plot=incoming.optJSONObject(i);
                     if(plot==null)continue;
                     String plotId=plot.optString("id","");
-                    if(!plotId.matches("[A-Za-z0-9_-]{1,100}")){
+                    if(!plotId.matches("[A-Za-z0-9_-]{1,100}")||"plot-1".equals(plotId)){
                         respond(action,false,"Invalid or reserved plot ID.",null);return;
                     }
                     incomingIds.add(plotId);
                     Map<String,Object> record=new com.google.gson.Gson().fromJson(plot.toString(),java.util.Map.class);
                     record.put("ownerUserId",user.getUid());
-                    record.put("ownerEmail",user.getEmail()==null?"":user.getEmail());
                     record.put("updatedAt",com.google.firebase.firestore.FieldValue.serverTimestamp());
                     batch.set(db.collection("plots").document(user.getUid()+"_"+plotId),record,SetOptions.merge());
                 }
