@@ -1,12 +1,24 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Administrator membership is defined by admins/{Firebase Auth UID}.
+    function isAdmin() {
+      return request.auth != null &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // Administrator access across all collections and nested documents.
+    match /{document=**} {
+      allow read, write: if isAdmin();
+    }
+
     match /plots/{plotId} {
       allow create: if request.auth != null
         && request.resource.data.ownerUserId == request.auth.uid
         && plotId.matches(request.auth.uid + '_[A-Za-z0-9_-]+');
       // All authenticated users may view plots; only owners may delete.
       allow read: if request.auth != null;
+      // Regular plot writes retain the existing owner-only restrictions.
       allow delete: if request.auth != null
         && resource.data.ownerUserId == request.auth.uid;
       allow update: if request.auth != null
