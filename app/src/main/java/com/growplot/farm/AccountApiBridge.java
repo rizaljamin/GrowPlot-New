@@ -413,9 +413,25 @@ public final class AccountApiBridge {
                         if(!plot.exists()||!uid.equals(plot.getString("ownerUserId"))){
                             respond(action,false,"Only the plot owner can delete this plot.",null);return;
                         }
-                        plot.getReference().delete()
-                            .addOnSuccessListener(v->respond(action,true,"Plot deleted from Firebase.",null))
-                            .addOnFailureListener(e->respond(action,false,"Plot deletion failed: "+e.getMessage(),null));
+                        // Remove the plot and its section/device assignments together.
+                        // Device definitions remain because they may serve other plots.
+                        db.collection("feed_assignments")
+                            .whereEqualTo("ownerUserId",uid)
+                            .whereEqualTo("plotId",plotId)
+                            .get()
+                            .addOnSuccessListener(assignments->{
+                                if(assignments.size()>498){
+                                    respond(action,false,"Too many assignments to delete in one operation. Contact support.",null);return;
+                                }
+                                com.google.firebase.firestore.WriteBatch batch=db.batch();
+                                for(com.google.firebase.firestore.DocumentSnapshot item:assignments.getDocuments())
+                                    batch.delete(item.getReference());
+                                batch.delete(plot.getReference());
+                                batch.commit()
+                                    .addOnSuccessListener(v->respond(action,true,"Plot and its device assignments deleted from Firebase.",null))
+                                    .addOnFailureListener(e->respond(action,false,"Plot deletion failed: "+e.getMessage(),null));
+                            })
+                            .addOnFailureListener(e->respond(action,false,"Assignment lookup failed: "+e.getMessage(),null));
                     }).addOnFailureListener(e->respond(action,false,"Plot lookup failed: "+e.getMessage(),null));
             }else if("saveProfile".equals(action)){
                 // Plots are independent top-level records; never embed plot data in users.
