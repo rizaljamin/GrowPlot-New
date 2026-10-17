@@ -18,11 +18,3 @@
 - Record verification performed and remaining device checks before claiming a release is verified. Never claim governance or artifacts were saved unless the remote write succeeded.
 
 - Generate only the ARM64 (`arm64-v8a`) APK moving forward. Do not generate a universal APK unless the user explicitly changes this policy.
-
-## APK release numbering and workflow naming (confirmed 17 October 2026)
-
-- The owner confirmed a maximum of 30 builds per release. After `v0.6.02 Build 30`, the next intended release is `v0.6.03 Build 01`, not Build 31 or 32. The previous release accidentally reached Build 32; treat that as a historical numbering error, not a precedent.
-- For each release use Build 01 through Build 30 inclusive, then advance the release component and restart at Build 01 (e.g. `v0.6.03 Build 30` -> `v0.6.04 Build 01`). Never issue Build 31 or higher.
-- The APK GitHub Actions workflow display name follows exactly `GP_V0.6.03 Build 01` (substituting the current release and two-digit build number). Optional descriptions follow the name, not precede it. Do not rename non-APK workflows.
-- Before the next installable, reconcile `version.properties`, the APK workflow name, and release notes to the intended release. Android `versionCode` must strictly increase from the last published APK, and the existing permanent signing certificate must remain unchanged for in-place upgrades.
-- This policy entry does not itself change `version.properties` or produce an APK.
