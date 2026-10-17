@@ -402,6 +402,21 @@ public final class AccountApiBridge {
                       }).addOnFailureListener(e->respond(action,false,e.getMessage(),null));
                     }).addOnFailureListener(e->respond(action,false,e.getMessage(),null));
                 }).addOnFailureListener(e->respond(action,false,"Could not verify admins collection membership: "+e.getMessage(),null));
+            }else if("deleteOwnedPlot".equals(action)){
+                String plotId=input.optString("plotId","");
+                if(!plotId.matches("[A-Za-z0-9_-]{1,100}")||"plot-1".equals(plotId)){
+                    respond(action,false,"Invalid or protected plot ID.",null);return;
+                }
+                String uid=user.getUid();
+                db.collection("plots").document(uid+"_"+plotId).get()
+                    .addOnSuccessListener(plot->{
+                        if(!plot.exists()||!uid.equals(plot.getString("ownerUserId"))){
+                            respond(action,false,"Only the plot owner can delete this plot.",null);return;
+                        }
+                        plot.getReference().delete()
+                            .addOnSuccessListener(v->respond(action,true,"Plot deleted from Firebase.",null))
+                            .addOnFailureListener(e->respond(action,false,"Plot deletion failed: "+e.getMessage(),null));
+                    }).addOnFailureListener(e->respond(action,false,"Plot lookup failed: "+e.getMessage(),null));
             }else if("saveProfile".equals(action)){
                 // Plots are independent top-level records; never embed plot data in users.
                 JSONArray incoming=input.optJSONArray("plots");
