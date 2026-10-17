@@ -188,14 +188,16 @@ window.GrowPlotSyncAuthorizedHomePlots=syncAuthorizedHomePlots;
 (function installHomePlotOwnerGuard(){
  function start(){
    const root=document.getElementById('plot')?.parentElement||document.body;
+   // Observe only native option changes; the custom tree lives beside #plot.
+   // Observing its parent caused repeated render/mutation cycles after login.
    let queued=false;
+   const nativeSelect=document.getElementById('plot');
    const observer=new MutationObserver(()=>{
      if(queued)return;
      queued=true;
-     setTimeout(()=>{queued=false;syncAuthorizedHomePlots();},0);
+     setTimeout(()=>{queued=false;syncAuthorizedHomePlots();},100);
    });
-   observer.observe(root,{childList:true,subtree:true});
-   setInterval(syncAuthorizedHomePlots,900);
+   if(nativeSelect)observer.observe(nativeSelect,{childList:true});
    syncAuthorizedHomePlots();
  }
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});
