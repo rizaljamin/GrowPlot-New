@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       zip_path:
-        description: 'Repository-relative ZIP path (upload the ZIP to the repository root first)'
+        description: 'ZIP filename inside GP_Zip folder'
         required: true
         default: 'GrowPlot-v0.7.00-build02-optimized-source.zip'
         type: string
@@ -36,8 +36,8 @@ jobs:
           rel = pathlib.PurePosixPath(os.environ["ZIP_PATH"])
           if (rel.is_absolute() or ".." in rel.parts or len(rel.parts) != 1
                   or rel.suffix.lower() != ".zip"):
-              raise SystemExit("ZIP must be a .zip file in repository root")
-          archive = root / rel.as_posix()
+              raise SystemExit("Enter only a .zip filename inside GP_Zip")
+          archive = root / "GP_Zip" / rel.as_posix()
           if not archive.is_file():
               raise SystemExit(f"ZIP not found: {rel}")
           prefix = "app/src/main/assets/"
@@ -82,7 +82,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -- app/src/main/assets
-          git rm -f -- "$ZIP_PATH"
+          git rm -f -- "GP_Zip/$ZIP_PATH"
           if git diff --cached --quiet; then
             echo "No changes to commit."
           else
