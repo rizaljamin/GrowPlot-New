@@ -4,7 +4,7 @@ GrowPlot is an Android farm-management application with CCTV monitoring, Google 
 
 **Current GitHub baseline:** v0.7.00 Build 02 (`versionCode=215`, Android package `com.growplot.farm`). The complete working Build 02 source was restored as the **gold copy** on 18 October 2026. The next planned installable is **v0.7.00 Build 03** (`versionCode=216`), not yet released.
 
-## Verified Build 02 behavior
+## Verified Build 02 important features
 
 - All six CCTV streaming slots display on the user's Android device.
 - The existing Google Drive image scan reports per-camera image counts. An independent folder listing confirmed **99 JPEG images: CCTV01 29, CCTV02 70, CCTV03–06 0**, in the `growplot2026@gmail.com` folder at the time of checking.
