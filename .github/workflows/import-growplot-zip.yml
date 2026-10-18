@@ -1,12 +1,16 @@
 name: Import GrowPlot source ZIP
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'GP_Zip/GrowPlot-PlantHealth-v0.7.00-B02-changes-paths.zip'
   workflow_dispatch:
     inputs:
       zip_path:
         description: 'ZIP filename inside GP_Zip folder'
         required: true
-        default: 'GrowPlot-v0.7.00-build02-optimized-source.zip'
+        default: 'GrowPlot-PlantHealth-v0.7.00-B02-changes-paths.zip'
         type: string
 
 permissions:
@@ -28,7 +32,7 @@ jobs:
           persist-credentials: true
       - name: Validate and import Android web assets
         env:
-          ZIP_PATH: ${{ inputs.zip_path }}
+          ZIP_PATH: ${{ inputs.zip_path || 'GrowPlot-PlantHealth-v0.7.00-B02-changes-paths.zip' }}
         run: |
           python3 - <<'PY'
           import os, pathlib, stat, zipfile
@@ -41,18 +45,21 @@ jobs:
           if not archive.is_file():
               raise SystemExit(f"ZIP not found: {rel}")
           prefix = "app/src/main/assets/"
+          allowed = {prefix + "index.html", "app/src/main/java/com/growplot/farm/MainActivity.java", "app/src/main/java/com/growplot/farm/TimelineBuckets.java"}
           imported = []
           with zipfile.ZipFile(archive) as z:
               names = set(z.namelist())
               if prefix + "index.html" not in names:
                   raise SystemExit("ZIP does not contain app/src/main/assets/index.html")
-              if z.getinfo(prefix + "index.html").file_size > 1000000:
-                  raise SystemExit("index.html exceeds 1 MB; refusing unoptimized archive")
+              if z.getinfo(prefix + "index.html").file_size > 8000000:
+                  raise SystemExit("index.html exceeds 8 MB")
               entries = []
               for info in z.infolist():
                   name = info.filename
-                  if not name.startswith(prefix) or info.is_dir():
+                  if info.is_dir():
                       continue
+                  if name not in allowed:
+                      raise SystemExit(f"Unexpected ZIP entry: {name}")
                   path = pathlib.PurePosixPath(name)
                   if (path.is_absolute() or ".." in path.parts or "\\" in name
                           or (info.external_attr >> 16) & 0o170000 == stat.S_IFLNK):
@@ -66,7 +73,7 @@ jobs:
                   raise SystemExit("Unpacked assets exceed 40 MB")
               for info in entries:
                   dest = (root / info.filename).resolve()
-                  if not dest.is_relative_to(root / prefix):
+                  if not dest.is_relative_to(root / "app/src/main"):
                       raise SystemExit(f"Path escape: {info.filename}")
                   dest.parent.mkdir(parents=True, exist_ok=True)
                   dest.write_bytes(z.read(info))
@@ -81,7 +88,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -- app/src/main/assets
+          git add -- app/src/main/assets app/src/main/java/com/growplot/farm/MainActivity.java app/src/main/java/com/growplot/farm/TimelineBuckets.java
           git rm -f -- "GP_Zip/$ZIP_PATH"
           if git diff --cached --quiet; then
             echo "No changes to commit."
