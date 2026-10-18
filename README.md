@@ -1,49 +1,39 @@
-# GrowPlot v0.6.01 Build 28
+# GrowPlot — v0.7.00 Build 02
 
-GrowPlot is an Android A.I driven app for farm camera monitoring, plant health workflows, plot management, and diagnosis media.Fully coded by A.I Agents with human directive guided by the requirement specification documents.
+GrowPlot is an Android farm-management application with CCTV monitoring, Google Drive image feeds, A.I Plant Health, diagnosis workflows and plot management.
 
-GrowPlot retains the selected Google Drive folder grant and storage paths between normal launches. Android may require a new one-time grant after reinstall, cleared app data, or permission revocation. Build 8 connects the saved Kindwise crop.health key to automatic photo and video-frame diagnosis alongside Pl@ntNet; provider results remain separate and are saved with the section history.
+**Current GitHub baseline:** v0.7.00 Build 02 (`versionCode=215`, Android package `com.growplot.farm`). The complete working Build 02 source was restored as the **gold copy** on 18 October 2026. The next planned installable is **v0.7.00 Build 03** (`versionCode=216`), not yet released.
 
-Batch the next 2–3 discrete enhancements before generating an APK, unless the user explicitly asks for an earlier build. Keep source changes tracked between builds; then use `tools/build-apk.sh` to validate and package the batch. It uses the included Gradle wrapper and bootstraps the Android SDK once for this project environment. Use `tools/release-growplot.sh` for the stricter installable-candidate gate that requires the existing Build 30 signing key and the private Pl@ntNet key. Details are in `AGENTS.md` and `RELEASE-PROCESS.md`
-Current source prepares v0.6.01 Build 28 (Android versionCode 155, package `com.growplot.farm`) from the current Build 26 main branch. It preserves Firebase authentication success independently of Firestore, restores the login recovery/account details/first-plot modal changes, and retains the stable signing-key workflow. GitHub ARM64 build and Android device verification are pending.
+## Verified Build 02 behavior
 
-The previously verified Build 9 ARM64 development APK has SHA-256 `dce0cc453307290d422e933f2f1142d964c8abfcea2283fc0877ed874776d469`; its matching source ZIP SHA-256 is `4a6d531b4f79874ad257f8f837ef28671f262d99f482a7a815873ba184f4cf71`. Its signing certificate differs from the saved Build 30 certificate, and the Pl@ntNet build key is absent, so it is development-only and is not a safe in-place update. Keep the existing installed app and its data; use only an APK signed by the saved Build 30 key for an in-place update. Android device and live provider verification remain pending. Google Play upload/publication has not been performed or verified.
+- All six CCTV streaming slots display on the user's Android device.
+- The existing Google Drive image scan reports per-camera image counts. An independent folder listing confirmed **99 JPEG images: CCTV01 29, CCTV02 70, CCTV03–06 0**, in the `growplot2026@gmail.com` folder at the time of checking.
+- A.I Plant Health displays the expected diagnosis images.
+- **Outstanding:** daily image analysis is not functioning as intended. The next development focus is pixel analysis for plant identification, visible leaf counting and maturity/growth-stage estimation. Plant age inferred from images is approximate unless a planting date is available.
+- A dedicated per-CCTV count summary in A.I Health remains an enhancement; the existing Java image counting works. Do not claim the summary UI is complete without Android verification.
 
-## Development-stage versioning policy
+## Gold-copy and release discipline
 
-During active GrowPlot development, use the version format `vMAJOR.MINOR.RELEASE Build NN`.
+1. Treat the restored **v0.7.00 Build 02** source on GitHub `main` as the working baseline. Preserve CCTV streaming, Google Drive scanning and the two restored Java files: `MainActivity.java` and `TimelineBuckets.java`.
+2. Make the smallest required enhancement; do not replace the complete app to add a display-only summary. If an enhancement breaks working functionality, restore the gold copy first.
+3. Use `version.properties` as the authoritative version identity. Increment `versionCode` for each new installable; documentation changes do not require a build.
+4. Run the established `.github/workflows/android-arm64-build.yml` workflow to produce the **ARM64-only** APK, matching source ZIP and build manifest. Use `tools/build-apk.sh` locally. Do not introduce duplicate build workflows.
+5. Inspect build logs, APK metadata, signing and artifact before describing a build as complete. Compilation alone does not establish Android camera or Google Drive functionality.
+6. Keep signing keys and API credentials outside the repository and archives. For in-place updates, preserve the stable signing certificate.
 
-- **Build number:** Starts at Build 01 for each release and may increase through **Build 30**. Each newly generated installable APK increments the build number; source-only changes do not.
-- **Release number:** After **Build 30**, the next installable begins the next release at **Build 01**. The release component ranges from **01 to 09**.
-- **Minor version:** After **Release 09, Build 30**, advance the minor version and reset to **Release 01, Build 01** (for example, `v0.6.09 Build 30` → `v0.7.01 Build 01`).
-- **Version code:** Android `versionCode` must increase monotonically for every installable, including when the display version resets its build/release components.
-- **Release control:** Version progression is a development convention, not permission to change the release unexpectedly. Confirm the intended release transition with the project owner before applying it.
-- **Build batching:** Implement and review related fixes together before triggering a single GitHub APK build, rather than building on every source commit.
+See [AGENTS.md](AGENTS.md) and [RELEASE-PROCESS.md](RELEASE-PROCESS.md) for complete build, signing and verification procedures.
 
-Current development release: **v0.6.02**. The latest recorded source identity is **Build 10**; a successful APK for that corrected identity has not yet been verified.
+## Current workflow and next steps
 
-## APK distribution and device compatibility
+- **Source of truth:** [GitHub repository](https://github.com/rizaljamin/GrowPlot-New), branch `main`.
+- **APK workflow:** [Build GrowPlot ARM64 APK](https://github.com/rizaljamin/GrowPlot-New/actions/workflows/android-arm64-build.yml).
+- **Next Build 03 scope:** plant type/species identification, pixel-level foliage analysis, visible leaf counting, maturity/growth-stage estimation and repair of daily image analysis.
+- **Development workflow improvement:** avoid manual source ZIP download/upload where possible. The restored gold baseline currently takes priority over an experimental ZIP importer.
 
-From 12 October 2026 onward, distribute the ARM64-only APK (`arm64-v8a`) for GrowPlot. A universal APK is no longer required for future releases. The build and strict-release workflows generate one ARM64 APK; universal APK and debug AAB generation have been removed from the routine build.
+## Versioning
 
-**Compatibility disclaimer:** The ARM64 APK requires Android 7.0 (API 24) or later and a device whose Android operating system supports the `arm64-v8a` ABI. It cannot be installed on ARM32-only devices, devices running a 32-bit Android operating system even with a 64-bit processor, or x86/x86_64 devices. Confirm ARM64 Android support before installation.
+Development versions use `vMAJOR.MINOR.RELEASE Build NN`; the Android `versionCode` increases monotonically. The planned next version is **v0.7.00 Build 03 / versionCode 216**, subject to completing and testing the planned enhancements.
 
-The VLC streaming libraries remain bundled in GrowPlot so CCTV playback stays inside the app; users do not need to install the separate VLC app. For v0.6.01 Build 3, the measured ARM64 APK is 61,445,519 bytes (61.45 MB), compared with 101,182,574 bytes (101.18 MB) for the historical universal APK. Future sizes may change.
+## Device compatibility
 
-Settings sections open collapsed and expand on tap. VIGI login is encrypted on the device and reused after restart; blank password edits retain the saved password. Missing login prompts for input. A confirmed RTSP authentication rejection prompts for correction; a network failure retains the saved login.
-
-
-## Standard APK build workflow (14 October 2026)
-
-When the project owner instructs **build APK** or **generate APK**, follow this process without requesting separate GitHub build instructions:
-
-1. Implement and commit all approved source changes in a development branch. A version-number-only commit is not a completed implementation.
-2. Validate source syntax and regression tests, and review differences against the protected Build 9 baseline.
-3. Merge the completed, reviewed branch into `main` only when the actual source is present and checks pass. Preserve `archive/main-before-build9-recovery-20261013` for rollback.
-4. The `.github/workflows/android-arm64-build.yml` GitHub Actions workflow runs on relevant source pushes to `main` and produces an ARM64 APK, source ZIP, and build manifest. It bootstraps Android SDK using `tools/ensure-android-sdk.sh`, the same path used locally. Only this workflow builds APKs, preventing duplicate CI runs.
-5. Inspect GitHub Actions success, APK package/version, signing certificate and ABI before sharing the artifact. Device installation and CCTV streaming remain user-device acceptance checks.
-6. **Do not sync to Google Drive as part of the APK build.** The existing separate Drive workflow is not a prerequisite for APK generation.
-
-Do not describe an APK as built merely because source was zipped, a version file changed, or a workflow was configured. If a step is blocked, report the exact blocked operation and last successful commit.
-
-**Build 10 status:** The repository version identity is Build 10 / versionCode 137, but app code still matches Build 9. Do not describe the Build 10 APK as produced until the repaired GitHub Actions run succeeds and its artifact is inspected.
+GrowPlot APKs target `arm64-v8a` devices running Android 7.0 (API 24) or newer. Android device testing is still required for camera playback, Google Drive access, diagnosis providers and installation over a previous signed build.
