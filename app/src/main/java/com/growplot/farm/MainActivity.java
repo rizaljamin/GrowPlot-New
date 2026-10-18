@@ -1545,7 +1545,14 @@ public class MainActivity extends Activity {
         org.videolan.libvlc.MediaPlayer player = camera == 1 ? ipWebcamVlcPlayer
                 : camera == 2 ? ipWebcam2VlcPlayer : ipWebcam3VlcPlayer;
         if (!activityResumed || !ready || !cctvVlcFeedsAllowedOnActiveScreen || !player.isPlaying() || !snapshotDue(camera)) return;
-        if (camera == 3) { captureCctvVlcFrame(camera); return; }
+        // RTSP is already decoded by VLC. Do not probe it as an HTTP MJPEG feed.
+        String streamUrl = cctvStreamUrl(camera);
+        boolean rtsp = streamUrl.regionMatches(true, 0, "rtsp://", 0, 7)
+                || streamUrl.regionMatches(true, 0, "rtsps://", 0, 8);
+        if (rtsp || camera == 3) {
+            captureCctvVlcFrame(camera);
+            return;
+        }
         try {
             cctvSnapshotWorker.execute(() -> {
                 boolean available = isIpWebcamFrameAvailable(camera);
