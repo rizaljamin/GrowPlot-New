@@ -192,7 +192,7 @@ public class MainActivity extends Activity {
         @Override public void run() {
             if (!activityResumed || ipWebcam2VlcPlayer == null || ipWebcam2VlcLayout == null) return;
             checkIpWebcamBeforeSnapshot(2);
-            mainHandler.postDelayed(this, cctvSnapshotIntervalMillis);
+            mainHandler.postDelayed(this, snapshotDue(2) ? 5000L : cctvSnapshotIntervalMillis);
         }
     };
     private LibVLC ipWebcamVlc;
@@ -1626,6 +1626,7 @@ public class MainActivity extends Activity {
             PixelCopy.request(surface, frame, result -> {
                 if (result != PixelCopy.SUCCESS) {
                     if (!frame.isRecycled()) frame.recycle();
+                    notifyFeedCaptureStatus("CCTV"+String.format(Locale.US,"%02d",camera)+" snapshot: video frame unavailable (PixelCopy " + result + "); will retry.");
                     return;
                 }
                 saveCctvVlcFrameToDrive(camera, frame, capturePlotId);
@@ -1635,8 +1636,9 @@ public class MainActivity extends Activity {
         android.view.TextureView texture = findVlcTextureView(layout);
         if (texture != null && texture.getWidth() > 0 && texture.getHeight() > 0 && texture.isAvailable()) {
             Bitmap frame = texture.getBitmap();
-            if (frame != null) saveCctvVlcFrameToDrive(camera, frame, capturePlotId);
+            if (frame != null) { saveCctvVlcFrameToDrive(camera, frame, capturePlotId); return; }
         }
+        notifyFeedCaptureStatus("CCTV"+String.format(Locale.US,"%02d",camera)+" snapshot: video surface not ready; will retry.");
     }
 
     private void saveCctvVlcFrameToDrive(int camera, Bitmap frame, String plotId) {
@@ -1644,7 +1646,10 @@ public class MainActivity extends Activity {
             try {
                 saveFeedPhotoToDrive(null, frame, plotId, camera, false);
                 getPrefs().edit().putLong(snapshotLastSuccessKey(camera,plotId),System.currentTimeMillis()).apply();
-                mainHandler.post(() -> scanSnapshotFolder(plotId));
+                mainHandler.post(() -> {
+                    notifyFeedCaptureStatus("CCTV"+String.format(Locale.US,"%02d",camera)+" snapshot saved successfully to the configured plot folder.");
+                    scanSnapshotFolder(plotId);
+                });
             } catch (Exception error) {
                 runOnUiThread(() -> notifyFeedCaptureStatus("CCTV" + String.format(Locale.US, "%02d", camera) + " frame could not be saved to the selected plot Google Drive image feed: "
                         + (error.getMessage() == null ? "check the saved folder permission" : error.getMessage())));
