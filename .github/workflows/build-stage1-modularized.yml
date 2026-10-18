@@ -1,0 +1,52 @@
+name: Stage 1 modularized ARM64 APK
+on:
+  push:
+    branches: [refactor/stage1-modularize-assets]
+    paths: ['.github/workflows/build-stage1-modularized.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Install Android SDK packages
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+      - name: Verify modularized assets
+        run: |
+          set -euo pipefail
+          test -s app/src/main/assets/index.html
+          test -s app/src/main/assets/css/app.css
+          test -s app/src/main/assets/js/app.js
+          grep -Fq 'href="css/app.css"' app/src/main/assets/index.html
+          grep -Fq 'src="js/app.js"' app/src/main/assets/index.html
+          node --check app/src/main/assets/js/app.js
+      - name: Run regression tests
+        run: |
+          node tools/tests/kindwise-regression.js
+          node tools/tests/manage-farm-regression.js
+          node tools/tests/account-registration-regression.js
+      - name: Build ARM64 APK
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon --max-workers=1 -Pandroid.useAndroidX=true -PgrowplotAbi=arm64-v8a assembleDebug
+      - name: Verify APK
+        run: |
+          set -euo pipefail
+          test -s app/build/outputs/apk/debug/app-debug.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose app/build/outputs/apk/debug/app-debug.apk
+          unzip -Z1 app/build/outputs/apk/debug/app-debug.apk | grep -qx 'lib/arm64-v8a/libvlc.so'
+          if unzip -Z1 app/build/outputs/apk/debug/app-debug.apk | grep -q '^lib/armeabi-v7a/'; then exit 1; fi
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: GrowPlot-stage1-arm64-development-only
+          path: app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 7
