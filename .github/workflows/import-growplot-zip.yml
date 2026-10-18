@@ -97,3 +97,5 @@ jobs:
             git commit -m "Import optimized GrowPlot v0.7 web assets from ZIP"
             git push origin HEAD:main
           fi
+
+# Trigger pending GP_Zip import for GrowPlot Plant Health package
