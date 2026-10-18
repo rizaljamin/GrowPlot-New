@@ -180,7 +180,7 @@ public class MainActivity extends Activity {
     private boolean cctv03CredentialCheckInProgress;
     private boolean cctv03CredentialsRejected;
     private boolean activityResumed;
-    private volatile long cctvSnapshotIntervalMillis = 30_000L;
+    private volatile long cctvSnapshotIntervalMillis = 900_000L;
     private final Runnable cctv01SnapshotTicker = new Runnable() {
         @Override public void run() {
             if (!activityResumed || ipWebcamVlcPlayer == null || ipWebcamVlcLayout == null) return;
@@ -349,9 +349,9 @@ public class MainActivity extends Activity {
             pendingDiagnosisOutput = state.getParcelable("diagnosis_output");
         }
         refreshIntervalMinutes = getPrefs().getInt(PREF_INTERVAL, 5);
-        cctvSnapshotIntervalMillis = getPrefs().getLong(PREF_CCTV_SNAPSHOT_INTERVAL_MILLIS, 30_000L);
+        cctvSnapshotIntervalMillis = getPrefs().getLong(PREF_CCTV_SNAPSHOT_INTERVAL_MILLIS, 900_000L);
         if (cctvSnapshotIntervalMillis < 30_000L || cctvSnapshotIntervalMillis > 86_400_000L) {
-            cctvSnapshotIntervalMillis = 30_000L;
+            cctvSnapshotIntervalMillis = 900_000L;
         }
         timelineInterval = getPrefs().getString(PREF_TIMELINE_INTERVAL, "weekly");
         if (!"weekly".equals(timelineInterval) && !"monthly".equals(timelineInterval)
