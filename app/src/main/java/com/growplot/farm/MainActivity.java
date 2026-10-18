@@ -1182,15 +1182,28 @@ public class MainActivity extends Activity {
                     }, 5000L);
                 }
             });
-            if (cctvStreamUrl(2).isEmpty()) { stopCctv02Vlc(); return; }
-            Media media = new Media(ipWebcam2Vlc, Uri.parse(cctvStreamUrl(2)));
+            String route = cctvStreamUrl(2);
+            if (route.isEmpty()) { stopCctv02Vlc(); return; }
+            if (userStreamMode && (route.startsWith("rtsp://") || route.startsWith("rtsps://"))) {
+                String[] credentials = vigiCctv03Credentials();
+                if (credentials[0].isEmpty() || credentials[1].isEmpty()) {
+                    stopCctv02Vlc();
+                    promptForAssignedVigiCctv02Credentials();
+                    return;
+                }
+                int schemeEnd = route.indexOf("://") + 3;
+                if (!route.substring(schemeEnd).split("/",2)[0].contains("@")) {
+                    route = route.substring(0,schemeEnd)+Uri.encode(credentials[0])+":"+Uri.encode(credentials[1])+"@"+route.substring(schemeEnd);
+                }
+            }
+            Media media = new Media(ipWebcam2Vlc, Uri.parse(route));
             media.addOption(":network-caching=250");
             media.addOption(":live-caching=250");
             ipWebcam2VlcPlayer.setMedia(media);
             media.release();
             ipWebcam2VlcPlayer.play();
             mainHandler.removeCallbacks(cctv02SnapshotTicker);
-            mainHandler.postDelayed(cctv02SnapshotTicker, cctvSnapshotIntervalMillis);
+            mainHandler.postDelayed(cctv02SnapshotTicker, snapshotDue(2) ? 5000L : cctvSnapshotIntervalMillis);
         } catch (Exception error) {
             stopCctv02Vlc();
             TextView message = new TextView(this);
@@ -1313,7 +1326,7 @@ public class MainActivity extends Activity {
             media.release();
             ipWebcam3VlcPlayer.play();
             mainHandler.removeCallbacks(cctv03SnapshotTicker);
-            mainHandler.postDelayed(cctv03SnapshotTicker, cctvSnapshotIntervalMillis);
+            mainHandler.postDelayed(cctv03SnapshotTicker, snapshotDue(3) ? 5000L : cctvSnapshotIntervalMillis);
         } catch (Exception error) {
             stopCctv03Vlc();
             TextView message = new TextView(this);
@@ -1417,6 +1430,39 @@ public class MainActivity extends Activity {
         dialog.show();
     }
 
+    // CCTV02 can host an assigned VIGI RTSP feed (e.g. PP5 Section 2).
+    // Keep the camera login local to Android Keystore, not Firestore.
+    private void promptForAssignedVigiCctv02Credentials() {
+        if (!activityResumed || isFinishing() || cctv03CredentialsPromptShowing) return;
+        cctv03CredentialsPromptShowing = true;
+        LinearLayout form = new LinearLayout(this);
+        form.setOrientation(LinearLayout.VERTICAL);
+        form.setPadding(dp(24),dp(8),dp(24),dp(4));
+        EditText username = new EditText(this);
+        username.setSingleLine(true);
+        username.setHint("VIGI username");
+        username.setText(vigiCctv03Credentials()[0]);
+        form.addView(username);
+        EditText password = new EditText(this);
+        password.setSingleLine(true);
+        password.setHint("VIGI password");
+        password.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        form.addView(password);
+        android.app.AlertDialog dialog = new android.app.AlertDialog.Builder(this)
+            .setTitle("Connect assigned CCTV02 · VIGI")
+            .setView(form).setNegativeButton("Cancel",(d,w)->{})
+            .setPositiveButton("Connect",null).create();
+        dialog.setOnDismissListener(d->cctv03CredentialsPromptShowing=false);
+        dialog.setOnShowListener(d->dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{
+            String user=username.getText().toString().trim(),secret=password.getText().toString();
+            if(user.isEmpty()){username.setError("Enter VIGI username");return;}
+            if(secret.isEmpty()){password.setError("Enter VIGI password");return;}
+            if(!saveVigiCctv03Credentials(user,secret)){password.setError("Could not encrypt camera login on this device");return;}
+            password.setText("");dialog.dismiss();reconnectCctv02Vlc();
+        }));
+        dialog.show();
+    }
+
     private void reconnectCctv03Vlc() {
         if (isFinishing() || !activityResumed) return;
         VLCVideoLayout videoLayout = ipWebcam3VlcLayout;
@@ -1481,6 +1527,16 @@ public class MainActivity extends Activity {
         }
     }
 
+    private String snapshotLastSuccessKey(int camera,String plotId) {
+        return "last_successful_snapshot_"+plotId+"_"+camera;
+    }
+
+    private boolean snapshotDue(int camera) {
+        String plotId=safePlotId(getPrefs().getString(PREF_ACTIVE_PLOT_ID,DEFAULT_PLOT_ID));
+        long last=getPrefs().getLong(snapshotLastSuccessKey(camera,plotId),0L);
+        return last<=0 || System.currentTimeMillis()-last>=cctvSnapshotIntervalMillis;
+    }
+
     private void checkIpWebcamBeforeSnapshot(int camera) {
         boolean ready = camera == 1
                 ? ipWebcamVlcPlayer != null && ipWebcamVlcLayout != null && ipWebcamVlcFrame != null && ipWebcamVlcFrame.getVisibility() == View.VISIBLE
@@ -1488,7 +1544,7 @@ public class MainActivity extends Activity {
                 : ipWebcam3VlcPlayer != null && ipWebcam3VlcLayout != null && ipWebcam3VlcFrame != null && ipWebcam3VlcFrame.getVisibility() == View.VISIBLE;
         org.videolan.libvlc.MediaPlayer player = camera == 1 ? ipWebcamVlcPlayer
                 : camera == 2 ? ipWebcam2VlcPlayer : ipWebcam3VlcPlayer;
-        if (!activityResumed || !ready || !cctvVlcFeedsAllowedOnActiveScreen || !player.isPlaying()) return;
+        if (!activityResumed || !ready || !cctvVlcFeedsAllowedOnActiveScreen || !player.isPlaying() || !snapshotDue(camera)) return;
         if (camera == 3) { captureCctvVlcFrame(camera); return; }
         try {
             cctvSnapshotWorker.execute(() -> {
@@ -1580,6 +1636,7 @@ public class MainActivity extends Activity {
         cctvSnapshotWorker.execute(() -> {
             try {
                 saveFeedPhotoToDrive(null, frame, plotId, camera, false);
+                getPrefs().edit().putLong(snapshotLastSuccessKey(camera,plotId),System.currentTimeMillis()).apply();
                 mainHandler.post(() -> scanSnapshotFolder(plotId));
             } catch (Exception error) {
                 runOnUiThread(() -> notifyFeedCaptureStatus("CCTV" + String.format(Locale.US, "%02d", camera) + " frame could not be saved to the selected plot Google Drive image feed: "
