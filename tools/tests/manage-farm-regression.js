@@ -3,7 +3,7 @@ const vm = require('node:vm');
 const assert = require('node:assert/strict');
 
 const html = fs.readFileSync('app/src/main/assets/index.html', 'utf8');
-const script = html.slice(html.indexOf('<script>') + 8, html.indexOf('</script>'));
+const script = fs.readFileSync('app/src/main/assets/js/app.js', 'utf8');
 const line = (name) => {
   const start = script.indexOf(`function ${name}(`);
   assert.notEqual(start, -1, `missing ${name}`);
