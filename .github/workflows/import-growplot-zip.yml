@@ -4,14 +4,14 @@ on:
   push:
     branches: [main]
     paths:
-      - 'GP_Zip/GrowPlot-B02-AIHealth-CCTV-Counts.zip'
+      - 'GP_Zip/GrowPlot-B02-CCTV-Count-Summary-ONLY.zip'
       - '.github/workflows/import-growplot-zip.yml'
   workflow_dispatch:
     inputs:
       zip_path:
         description: 'ZIP filename inside GP_Zip folder'
         required: true
-        default: 'GrowPlot-B02-AIHealth-CCTV-Counts.zip'
+        default: 'GrowPlot-B02-CCTV-Count-Summary-ONLY.zip'
         type: string
 
 permissions:
@@ -34,7 +34,7 @@ jobs:
           persist-credentials: true
       - name: Validate and import Android web assets
         env:
-          ZIP_PATH: ${{ inputs.zip_path || 'GrowPlot-B02-AIHealth-CCTV-Counts.zip' }}
+          ZIP_PATH: ${{ inputs.zip_path || 'GrowPlot-B02-CCTV-Count-Summary-ONLY.zip' }}
         run: |
           python3 - <<'PY'
           import os, pathlib, stat, zipfile
