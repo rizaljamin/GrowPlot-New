@@ -208,7 +208,21 @@ public final class AccountApiBridge {
                     Map<String,Object> args=new com.google.gson.Gson().fromJson(input.toString(),java.util.Map.class);
                     FirebaseFunctions.getInstance("us-central1").getHttpsCallable("saveOwnedDevice").call(args)
                         .addOnSuccessListener(result->respond(action,true,"Device and encrypted password saved.",null))
-                        .addOnFailureListener(e->respond(action,false,"Encrypted password save failed: "+e.getMessage(),null));
+                        .addOnFailureListener(e->{
+                            // Cloud Functions may not be deployed. Save only non-secret device metadata.
+                            // For the legacy VIGI CCTV03, keep credentials encrypted by Android Keystore.
+                            // Never put the password in Firestore or logs.
+                            boolean locallyProtected=false;
+                            if("CCTV03".equals(deviceId)&&activity instanceof MainActivity){
+                                locallyProtected=((MainActivity)activity).saveVigiCctv03Credentials(input.optString("username",""),password);
+                            }
+                            final boolean protectedOnDevice=locallyProtected;
+                            db.collection("data_feeds").document(user.getUid()+"_"+deviceId).set(record,SetOptions.merge())
+                              .addOnSuccessListener(v->respond(action,true,
+                                protectedOnDevice?"Device saved. VIGI password protected on this device only; cloud encryption unavailable.":
+                                "Device saved without cloud password. Enter camera credentials when connecting; cloud encryption unavailable.",null))
+                              .addOnFailureListener(err->respond(action,false,"Device metadata save failed: "+err.getMessage(),null));
+                        });
                 }else{
                     db.collection("data_feeds").document(user.getUid()+"_"+deviceId).set(record,SetOptions.merge())
                         .addOnSuccessListener(v->respond(action,true,"Device saved to Firestore.",null))
