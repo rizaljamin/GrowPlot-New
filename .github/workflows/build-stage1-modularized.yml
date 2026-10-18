@@ -51,4 +51,4 @@ jobs:
           path: app/build/outputs/apk/debug/app-debug.apk
           retention-days: 7
 
-# Manual build requested 2026-10-18
+# Retry after Stage 1 regression test compatibility fix 2026-10-18
