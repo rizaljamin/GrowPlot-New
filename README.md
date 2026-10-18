@@ -20,7 +20,7 @@ During active GrowPlot development, use the version format `vMAJOR.MINOR.RELEASE
 - **Release control:** Version progression is a development convention, not permission to change the release unexpectedly. Confirm the intended release transition with the project owner before applying it.
 - **Build batching:** Implement and review related fixes together before triggering a single GitHub APK build, rather than building on every source commit.
 
-Current project version (owner-reported): **v0.7.00 Build 2**. This README update records the intended version label; Android versionName/versionCode, APK build, and device installation have not been independently verified.
+Current source release identity (verified from `version.properties`): **v0.7.00 Build 02**, Android **versionCode 215**, package **`com.growplot.farm`**. APK build success, artifact checksums, signing certificate, and device installation for this release have not yet been verified from its build manifest.
 
 ## APK distribution and device compatibility
 
@@ -46,4 +46,10 @@ When the project owner instructs **build APK** or **generate APK**, follow this 
 
 Do not describe an APK as built merely because source was zipped, a version file changed, or a workflow was configured. If a step is blocked, report the exact blocked operation and last successful commit.
 
-**Build 10 status:** The repository version identity is Build 10 / versionCode 137, but app code still matches Build 9. Do not describe the Build 10 APK as produced until the repaired GitHub Actions run succeeds and its artifact is inspected.
+## Release records and build manifests
+
+- **Current source identity:** `v0.7.00 Build 02`, `versionCode=215`, from `version.properties` on `main` (checked 18 October 2026).
+- **Latest entry in repository `VERSION-LOG.txt`:** `v0.6.02 Build 02`, versionCode 159, dated 15 October 2026. It records GitHub Actions run #119 as passing regression tests, ARM64 compilation, package/version/signature checks, and artifact upload. APK SHA-256: `7ae9425fd88d3b55b1be5275b4128581fac36784cd525d24071ad325621a86c4`; source ZIP SHA-256: `6dc9c016b8b403d3b76fa560e34c064f776c3a925ee0e41483e9e2a53440d828`; signer SHA-256: `fc5edb30ece8df673c50aa907b61357bceb807eb843ef853d89c276e5501b204`. These hashes belong to the older build, **not** v0.7.00 Build 02.
+- **Manifest gap:** The GitHub Actions build manifest for `v0.7.00 Build 02` has not been retrieved or inspected. Its run ID, artifact hashes, signing identity, and build success must not be inferred from historical manifests.
+- **Historical build notes:** The Build 9 and Build 10 statements above are archival, not the latest release status. `VERSION-LOG.txt` needs a subsequent entry once the v0.7.00 Build 02 manifest is confirmed.
+
