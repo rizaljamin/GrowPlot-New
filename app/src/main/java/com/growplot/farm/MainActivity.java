@@ -1245,6 +1245,22 @@ public class MainActivity extends Activity {
         if (userStreamMode) {
             String route = cctvStreamUrl(3);
             if (route == null || route.isEmpty()) { stopCctv03Vlc(); return; }
+            // Assigned RTSP feeds must request camera credentials at connection time.
+            // Never persist the camera password in Firebase or embed it in a log.
+            if (route.startsWith("rtsp://") || route.startsWith("rtsps://")) {
+                String[] credentials = vigiCctv03Credentials();
+                if (credentials[0].isEmpty() || credentials[1].isEmpty() || cctv03CredentialsRejected) {
+                    showCctv03VigiMessage(videoLayout, "Enter VIGI credentials to connect");
+                    promptForCctv03VigiCredentials();
+                    return;
+                }
+                if (!route.substring(route.indexOf("://") + 3).split("/", 2)[0].contains("@")) {
+                    int schemeEnd = route.indexOf("://") + 3;
+                    route = route.substring(0, schemeEnd)
+                            + Uri.encode(credentials[0]) + ":" + Uri.encode(credentials[1]) + "@"
+                            + route.substring(schemeEnd);
+                }
+            }
             try {
                 ArrayList<String> options = new ArrayList<>();
                 options.add("--no-audio"); options.add("--network-caching=350");
