@@ -496,6 +496,21 @@ window.GrowPlotDemoPowerUserUnlocked=false;
    const matches=assignments.filter(a=>a.plotId===plotId);
    const info=document.createElement('p');info.textContent=matches.length+' assigned to this plot · '+devices.length+' saved in your account';list.appendChild(info);
    const shown=new Set();
+   const plot=currentPlot(), ghCount=count(plot?.greenhouseCount), secCount=count(plot?.sectionsPerGreenhouse);
+   const matrix=document.createElement('div');
+   matrix.style.cssText='display:grid;gap:7px;margin:12px 0';
+   for(let gh=1;gh<=ghCount;gh++)for(let sec=1;sec<=secCount;sec++){
+    const greenhouseId='greenhouse-'+gh,sectionId='section-'+sec;
+    const links=matches.filter(a=>a.greenhouseId===greenhouseId&&a.sectionId===sectionId);
+    const cameras=links.filter(a=>{const d=devices.find(x=>x.deviceId===a.deviceId);return !d||d.deviceType==='AV';});
+    const row=document.createElement('button');row.type='button';
+    row.style.cssText='text-align:left;border:1px solid #ccd9d0;border-radius:8px;padding:10px;background:#f8fbf9;color:#193b2b';
+    row.textContent='Greenhouse '+gh+' / Section '+sec+'  |  Camera: '+(cameras.length?cameras.map(a=>{const d=devices.find(x=>x.deviceId===a.deviceId);return d?.deviceName||a.deviceId;}).join(', '):'');
+    row.onclick=()=>{ghSelect.value=greenhouseId;ghSelect.dispatchEvent(new Event('change'));secSelect.value=sectionId;if(cameras.length){const a=cameras[0],d=devices.find(x=>x.deviceId===a.deviceId);if(d)selectSavedDevice(d,a);}};
+    matrix.appendChild(row);
+   }
+   list.appendChild(matrix);
+   const inventoryTitle=document.createElement('strong');inventoryTitle.textContent='Device inventory';list.appendChild(inventoryTitle);
    for(const a of matches){
     const d=devices.find(x=>x.deviceId===a.deviceId)||{deviceId:a.deviceId,deviceName:a.deviceId};shown.add(a.deviceId);
     const item=document.createElement('button');item.type='button';item.style.cssText='text-align:left;background:#f2f7f3;border:1px solid #a7c7b1;border-radius:8px;padding:10px;color:#193b2b';
