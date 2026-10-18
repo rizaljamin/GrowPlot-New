@@ -277,6 +277,7 @@ window.GrowPlotAccountResponse=function(response){
    }
    window.GrowPlotReloadOwnedDevices();
    setTimeout(syncAuthorizedHomePlots,0);
+   setTimeout(()=>window.dispatchEvent(new Event('growplot-plot-profile-updated')),0);
    // Never replace the Demo Plot with a stale device-local user record.
    if(Array.isArray(data.plots)&&data.plots.length){
      if(typeof plots!=='undefined'&&Array.isArray(plots)){
@@ -328,18 +329,35 @@ window.GrowPlotSaveCloudProfile=function(callback){
   const select=document.getElementById('plotManagerSelect');
   const sync=()=>{const plot=typeof plots!=='undefined'&&Array.isArray(plots)?plots.find(p=>p.id===select?.value):null;document.getElementById('plotGreenhouseCount').value=plot?.greenhouseCount||1;document.getElementById('plotSectionCount').value=plot?.sectionsPerGreenhouse||1;};
   select?.addEventListener('change',sync);
-  // Refresh the visible plot record after the existing plot selector handler completes.
-  select?.addEventListener('change',()=>setTimeout(()=>{
-    const plot=typeof plots!=='undefined'&&Array.isArray(plots)?plots.find(p=>p&&p.id===select.value):null;
+  // Sync the selected plot into all form fields, including when the shared panel
+  // is moved from Settings to Manage Farm or its options are rebuilt.
+  function syncPlotDetails(){
+    const plot=typeof plots!=='undefined'&&Array.isArray(plots)?plots.find(p=>p&&String(p.id)===String(select?.value)):null;
     if(!plot)return;
-    for(const [id,keys] of Object.entries({plotName:['name'],plotAddress:['address'],plotLatitude:['latitude','lat'],plotLongitude:['longitude','lng'],plotDescription:['description'],plotNumber:['number','plotNumber']})){
-      const field=document.getElementById(id);if(!field)continue;
-      const key=keys.find(k=>Object.prototype.hasOwnProperty.call(plot,k));
-      field.value=key===undefined?'':String(plot[key]??'');
+    const values={
+      plotName:plot.name??plot.plotName,
+      plotAddress:plot.address??plot.plotAddress,
+      plotLatitude:plot.latitude??plot.lat,
+      plotLongitude:plot.longitude??plot.lng,
+      plotDescription:plot.description,
+      plotNumber:plot.number??plot.plotNumber
+    };
+    for(const [id,value] of Object.entries(values)){
+      const field=document.getElementById(id);
+      if(field)field.value=value==null?'':String(value);
     }
     sync();
-    if(typeof window.GrowPlotRenderOwnedDevices==='function')window.GrowPlotRenderOwnedDevices();
-  },0));
+    window.GrowPlotRenderOwnedDevices?.();
+  }
+  // Capture before any other listener that might rebuild the dropdown.
+  select?.addEventListener('change',()=>setTimeout(syncPlotDetails,0));
+  window.GrowPlotSyncPlotDetails=syncPlotDetails;
+  document.addEventListener('click',e=>{
+    if(e.target?.closest?.('[data-tab="plot"],[data-manage-tab="plot"],#plotManagerSelect'))
+      setTimeout(syncPlotDetails,0);
+  },true);
+  window.addEventListener('growplot-plot-profile-updated',()=>setTimeout(syncPlotDetails,0));
+  setTimeout(syncPlotDetails,0);
   document.getElementById('savePlotBtn')?.addEventListener('click',()=>{
    const gh=Number(document.getElementById('plotGreenhouseCount').value),sections=Number(document.getElementById('plotSectionCount').value);
    if(!Number.isInteger(gh)||gh<1||gh>100||!Number.isInteger(sections)||sections<1||sections>100){document.getElementById('plotManagementStatus').textContent='Enter valid greenhouse and section counts (1–100).';return;}
