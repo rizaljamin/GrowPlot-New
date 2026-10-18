@@ -86,7 +86,7 @@ jobs:
           PY
       - name: Commit imported assets and remove temporary ZIP
         env:
-          ZIP_PATH: ${{ inputs.zip_path }}
+          ZIP_PATH: ${{ inputs.zip_path || 'GrowPlot-B02-CCTV-Count-Summary-ONLY.zip' }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
