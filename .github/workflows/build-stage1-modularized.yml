@@ -48,11 +48,30 @@ jobs:
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose app/build/outputs/apk/debug/app-debug.apk
           unzip -Z1 app/build/outputs/apk/debug/app-debug.apk | grep -qx 'lib/arm64-v8a/libvlc.so'
           if unzip -Z1 app/build/outputs/apk/debug/app-debug.apk | grep -q '^lib/armeabi-v7a/'; then exit 1; fi
+      - name: Package source, manifest, and APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release/stage1
+          cp app/build/outputs/apk/debug/app-debug.apk release/stage1/GrowPlot-stage1-arm64-development-only.apk
+          git archive --format=zip --output=release/stage1/GrowPlot-stage1-source.zip HEAD
+          {
+            echo "GrowPlot Stage 1 modularized build manifest"
+            echo "source_commit=$(git rev-parse HEAD)"
+            echo "source_branch=$(git branch --show-current)"
+            cat version.properties
+            echo "abi=arm64-v8a"
+            echo "signing=development-only (GitHub runner debug key; not the permanent GrowPlot certificate)"
+            echo "source_archive=GrowPlot-stage1-source.zip"
+            echo "apk=GrowPlot-stage1-arm64-development-only.apk"
+          } > release/stage1/BUILD-MANIFEST.txt
+          (cd release/stage1 && sha256sum GrowPlot-stage1-source.zip GrowPlot-stage1-arm64-development-only.apk > SHA256SUMS.txt)
+          (cd release/stage1 && zip -q ../GrowPlot-stage1-complete-bundle.zip GrowPlot-stage1-source.zip GrowPlot-stage1-arm64-development-only.apk BUILD-MANIFEST.txt SHA256SUMS.txt)
       - uses: actions/upload-artifact@v4
         if: success()
         with:
-          name: GrowPlot-stage1-arm64-development-only
-          path: app/build/outputs/apk/debug/app-debug.apk
-          retention-days: 7
+          name: GrowPlot-stage1-complete-bundle
+          path: release/GrowPlot-stage1-complete-bundle.zip
+          retention-days: 14
 
 # Retry after Stage 1 regression test compatibility fix 2026-10-18
