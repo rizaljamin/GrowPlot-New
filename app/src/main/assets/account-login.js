@@ -527,6 +527,27 @@ window.GrowPlotDemoPowerUserUnlocked=false;
    if(!devices.length){const empty=document.createElement('p');empty.textContent='No saved devices found for this Firebase account.';list.appendChild(empty);}
   };
   anchor.addEventListener('change',()=>{window.GrowPlotRenderOwnedDevices();window.GrowPlotReloadOwnedDevices();});
+  // Keep the Manage Farm selector synchronized with the authoritative Home plot.
+  function syncManagedPlotFromHome(){
+   const home=document.getElementById('plot');
+   if(!home||!anchor)return;
+   const desired=String(home.value||'');
+   if(!desired||!Array.from(anchor.options).some(o=>o.value===desired))return;
+   if(anchor.value!==desired){
+    anchor.value=desired;
+    anchor.dispatchEvent(new Event('change',{bubbles:true}));
+   }
+   window.GrowPlotSyncPlotDetails?.();
+   window.GrowPlotRenderOwnedDevices?.();
+  }
+  document.getElementById('plot')?.addEventListener('change',()=>setTimeout(syncManagedPlotFromHome,0));
+  document.addEventListener('click',e=>{
+   if(e.target?.closest?.('#manageFarmTab,[data-tab="manage-farm"],#manageFarmModal,#growplotOwnedDevices'))
+    setTimeout(syncManagedPlotFromHome,0);
+  },true);
+  window.GrowPlotSyncManagedPlotFromHome=syncManagedPlotFromHome;
+  setTimeout(syncManagedPlotFromHome,0);
+
   window.GrowPlotReloadOwnedDevices();
   const val=id=>document.getElementById(id)?.value.trim()||'';
   const status=document.getElementById('gpDeviceStatus');
