@@ -840,3 +840,5 @@ Build 7 validation: Gradle ARM64 build, package version, signature, alignment, S
 **Verification / limits:** Account registration regression, JavaScript syntax, Manage Farm, Kindwise and feed-history checks pass. The GitHub `google-services.json` currently has no OAuth clients, so Google sign-in cannot complete until the Google provider is enabled in Firebase Authentication and a new config with the web OAuth client is committed. Target-device sign-in and layout verification remain pending.
 
 - 2026-10-17 | v0.6.04 Build 04 | Demo Plot streaming: added VLC error retry for CCTV01/02 IP Webcam and transient RTSP retry for VIGI CCTV03. Device network, stream playback and snapshot capture remain unverified.
+
+- 2026-10-18 | v0.7.00 Build 02 | CCTV02 VIGI snapshot cadence: fixed overlapping saves and scheduler drift; checks derive remaining delay from last successful saved frame. Default 15 minutes; stored user preference overrides it. Verify JPEG timestamps and Google Drive history on PP5 tablet; compilation/signature and live test pending.
