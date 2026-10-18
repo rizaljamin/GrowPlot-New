@@ -21,6 +21,7 @@ GrowPlot is an Android farm-management application with CCTV monitoring, Google 
 5. Inspect build logs, APK metadata, signing and artifact before describing a build as complete. Compilation alone does not establish Android camera or Google Drive functionality.
 6. Keep signing keys and API credentials outside the repository and archives. For in-place updates, preserve the stable signing certificate.
 
+
 See [AGENTS.md](AGENTS.md) and [RELEASE-PROCESS.md](RELEASE-PROCESS.md) for complete build, signing and verification procedures.
 
 ## Current workflow and next steps
