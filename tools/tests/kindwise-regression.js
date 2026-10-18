@@ -1,6 +1,6 @@
 const fs = require('fs');
 const java = fs.readFileSync('app/src/main/java/com/growplot/farm/MainActivity.java', 'utf8');
-const html = fs.readFileSync('app/src/main/assets/index.html', 'utf8');
+const html = fs.readFileSync('app/src/main/assets/index.html', 'utf8') + '\n' + fs.readFileSync('app/src/main/assets/js/app.js', 'utf8');
 
 function requireMatch(pattern, source, message) {
   if (!pattern.test(source)) throw new Error(message);
