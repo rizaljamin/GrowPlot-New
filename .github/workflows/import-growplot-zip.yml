@@ -1,0 +1,91 @@
+name: Import GrowPlot source ZIP
+
+on:
+  workflow_dispatch:
+    inputs:
+      zip_path:
+        description: 'Repository-relative ZIP path (upload the ZIP to the repository root first)'
+        required: true
+        default: 'GrowPlot-v0.7.00-build02-optimized-source.zip'
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: growplot-import-main
+  cancel-in-progress: false
+
+jobs:
+  import-assets:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: true
+      - name: Validate and import Android web assets
+        env:
+          ZIP_PATH: ${{ inputs.zip_path }}
+        run: |
+          python3 - <<'PY'
+          import os, pathlib, stat, zipfile
+          root = pathlib.Path.cwd().resolve()
+          rel = pathlib.PurePosixPath(os.environ["ZIP_PATH"])
+          if (rel.is_absolute() or ".." in rel.parts or len(rel.parts) != 1
+                  or rel.suffix.lower() != ".zip"):
+              raise SystemExit("ZIP must be a .zip file in repository root")
+          archive = root / rel.as_posix()
+          if not archive.is_file():
+              raise SystemExit(f"ZIP not found: {rel}")
+          prefix = "app/src/main/assets/"
+          imported = []
+          with zipfile.ZipFile(archive) as z:
+              names = set(z.namelist())
+              if prefix + "index.html" not in names:
+                  raise SystemExit("ZIP does not contain app/src/main/assets/index.html")
+              if z.getinfo(prefix + "index.html").file_size > 1000000:
+                  raise SystemExit("index.html exceeds 1 MB; refusing unoptimized archive")
+              entries = []
+              for info in z.infolist():
+                  name = info.filename
+                  if not name.startswith(prefix) or info.is_dir():
+                      continue
+                  path = pathlib.PurePosixPath(name)
+                  if (path.is_absolute() or ".." in path.parts or "\\" in name
+                          or (info.external_attr >> 16) & 0o170000 == stat.S_IFLNK):
+                      raise SystemExit(f"Unsafe ZIP entry: {name}")
+                  if name.endswith("/index_old.html"):
+                      continue
+                  if info.file_size > 12000000:
+                      raise SystemExit(f"Asset too large: {name}")
+                  entries.append(info)
+              if sum(x.file_size for x in entries) > 40000000:
+                  raise SystemExit("Unpacked assets exceed 40 MB")
+              for info in entries:
+                  dest = (root / info.filename).resolve()
+                  if not dest.is_relative_to(root / prefix):
+                      raise SystemExit(f"Path escape: {info.filename}")
+                  dest.parent.mkdir(parents=True, exist_ok=True)
+                  dest.write_bytes(z.read(info))
+                  imported.append(info.filename)
+          print(f"Imported {len(imported)} assets:")
+          for path in imported:
+              print("  " + path)
+          PY
+      - name: Commit imported assets and remove temporary ZIP
+        env:
+          ZIP_PATH: ${{ inputs.zip_path }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- app/src/main/assets
+          git rm -f -- "$ZIP_PATH"
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "Import optimized GrowPlot v0.7 web assets from ZIP"
+            git push origin HEAD:main
+          fi
