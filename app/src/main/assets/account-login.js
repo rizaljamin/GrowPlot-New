@@ -370,6 +370,10 @@ window.GrowPlotDemoPowerUserUnlocked=false;
   if(isLocked&&status&&status.textContent!=='Demo Plot is read-only. Select Login as Power User to unlock editing.')status.textContent='Demo Plot is read-only. Select Login as Power User to unlock editing.';
  }
  document.addEventListener('change',e=>{if(e.target?.id==='plotManagerSelect')queueMicrotask(refresh);},true);
+ // The Plot panel is moved between Settings and Manage Farm; restore editability on entry.
+ document.addEventListener('click',e=>{
+  if(e.target?.closest?.('[data-tab="plot"], [data-manage-tab="plot"], #manageFarmTab, #plotManagementSection, #plotManagerSelect'))setTimeout(refresh,0);
+ },true);
  document.addEventListener('click',e=>{
   const element=e.target?.closest?.('#savePlotBtn,#deletePlotBtn,#pickPlotOnMapBtn,#useMapPinBtn,#createDefaultFeedBtn,#chooseCustomFeedBtn');
   if(!element||!locked())return;
@@ -382,7 +386,7 @@ window.GrowPlotDemoPowerUserUnlocked=false;
  window.addEventListener('growplot-power-user-change',refresh);
  // Avoid a MutationObserver feedback loop: updating status.textContent mutates
  // the observed subtree and previously froze navigation throughout the app.
- const start=()=>{refresh();};
+ const start=()=>{refresh();const managerSelect=manager();if(managerSelect)managerSelect.addEventListener('focus',refresh);};
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
 
