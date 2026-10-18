@@ -50,3 +50,5 @@ jobs:
           name: GrowPlot-stage1-arm64-development-only
           path: app/build/outputs/apk/debug/app-debug.apk
           retention-days: 7
+
+# Manual build requested 2026-10-18
