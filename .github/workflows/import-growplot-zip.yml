@@ -16,6 +16,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 concurrency:
   group: growplot-import-main
@@ -99,3 +100,9 @@ jobs:
           fi
 
 # Trigger pending GP_Zip import for GrowPlot Plant Health package
+
+      - name: Start established ARM64 APK workflow after import
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh workflow run android-arm64-build.yml --ref main
