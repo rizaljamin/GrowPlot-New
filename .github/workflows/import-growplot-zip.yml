@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'GP_Zip/GrowPlot-PlantHealth-v0.7.00-B02-changes-paths.zip'
+      - '.github/workflows/import-growplot-zip.yml'
   workflow_dispatch:
     inputs:
       zip_path:
