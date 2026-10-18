@@ -1527,6 +1527,12 @@ public class MainActivity extends Activity {
         }
     }
 
+    private final java.util.Set<String> snapshotInFlight = java.util.Collections.synchronizedSet(new java.util.HashSet<>());
+
+    private String snapshotFlightKey(int camera,String plotId) {
+        return safePlotId(plotId)+"|"+camera;
+    }
+
     private String snapshotLastSuccessKey(int camera,String plotId) {
         return "last_successful_snapshot_"+plotId+"_"+camera;
     }
@@ -1534,7 +1540,8 @@ public class MainActivity extends Activity {
     private boolean snapshotDue(int camera) {
         String plotId=safePlotId(getPrefs().getString(PREF_ACTIVE_PLOT_ID,DEFAULT_PLOT_ID));
         long last=getPrefs().getLong(snapshotLastSuccessKey(camera,plotId),0L);
-        return last<=0 || System.currentTimeMillis()-last>=cctvSnapshotIntervalMillis;
+        return !snapshotInFlight.contains(snapshotFlightKey(camera,plotId))
+                && (last<=0 || System.currentTimeMillis()-last>=cctvSnapshotIntervalMillis);
     }
 
     private void checkIpWebcamBeforeSnapshot(int camera) {
@@ -1642,6 +1649,11 @@ public class MainActivity extends Activity {
     }
 
     private void saveCctvVlcFrameToDrive(int camera, Bitmap frame, String plotId) {
+        String key=snapshotFlightKey(camera,plotId);
+        if (!snapshotInFlight.add(key)) {
+            if (!frame.isRecycled()) frame.recycle();
+            return;
+        }
         cctvSnapshotWorker.execute(() -> {
             try {
                 saveFeedPhotoToDrive(null, frame, plotId, camera, false);
@@ -1654,6 +1666,7 @@ public class MainActivity extends Activity {
                 runOnUiThread(() -> notifyFeedCaptureStatus("CCTV" + String.format(Locale.US, "%02d", camera) + " frame could not be saved to the selected plot Google Drive image feed: "
                         + (error.getMessage() == null ? "check the saved folder permission" : error.getMessage())));
             } finally {
+                snapshotInFlight.remove(key);
                 if (!frame.isRecycled()) frame.recycle();
             }
         });
