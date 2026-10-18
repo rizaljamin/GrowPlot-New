@@ -214,7 +214,7 @@ public class MainActivity extends Activity {
     private volatile boolean rescanRequested;
     private String pendingPageUpdate;
     private volatile int refreshIntervalMinutes = 5;
-    private volatile String timelineInterval = "weekly";
+    private volatile String timelineInterval = "daily";
 
     private final Runnable scheduledScan = new Runnable() {
         @Override public void run() {
@@ -353,9 +353,9 @@ public class MainActivity extends Activity {
         if (cctvSnapshotIntervalMillis < 30_000L || cctvSnapshotIntervalMillis > 86_400_000L) {
             cctvSnapshotIntervalMillis = 900_000L;
         }
-        timelineInterval = getPrefs().getString(PREF_TIMELINE_INTERVAL, "weekly");
-        if (!"weekly".equals(timelineInterval) && !"monthly".equals(timelineInterval)
-                && !"yearly".equals(timelineInterval)) timelineInterval = "weekly";
+        timelineInterval = getPrefs().getString(PREF_TIMELINE_INTERVAL, "daily");
+        if (!"daily".equals(timelineInterval) && !"weekly".equals(timelineInterval) && !"monthly".equals(timelineInterval)
+                && !"yearly".equals(timelineInterval)) timelineInterval = "daily";
         web = new WebView(this);
         WebSettings settings = web.getSettings();
         settings.setJavaScriptEnabled(true);
@@ -3423,7 +3423,7 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface public void setTimelineInterval(String interval) {
-            if (!"weekly".equals(interval) && !"monthly".equals(interval)
+            if (!"daily".equals(interval) && !"weekly".equals(interval) && !"monthly".equals(interval)
                     && !"yearly".equals(interval)) return;
             runOnUiThread(() -> {
                 timelineInterval = interval;
@@ -4767,7 +4767,7 @@ public class MainActivity extends Activity {
     private JSONArray makeTimelinePhotos(Map<Integer, List<Photo>> photosByCamera) throws Exception {
         JSONArray timelines = new JSONArray();
         List<TimelineBuckets.Period> periods = TimelineBuckets.latestFour(timelineInterval, System.currentTimeMillis());
-        String periodName = "monthly".equals(timelineInterval) ? "Month"
+        String periodName = "daily".equals(timelineInterval) ? "Day" : "monthly".equals(timelineInterval) ? "Month"
                 : "yearly".equals(timelineInterval) ? "Year" : "Week";
         for (int camera = 1; camera <= 6; camera++) {
             List<Photo> group = photosByCamera.get(camera);
