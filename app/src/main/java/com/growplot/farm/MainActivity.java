@@ -192,7 +192,7 @@ public class MainActivity extends Activity {
         @Override public void run() {
             if (!activityResumed || ipWebcam2VlcPlayer == null || ipWebcam2VlcLayout == null) return;
             checkIpWebcamBeforeSnapshot(2);
-            mainHandler.postDelayed(this, snapshotDue(2) ? 5000L : cctvSnapshotIntervalMillis);
+            mainHandler.postDelayed(this, nextSnapshotCheckDelay(2));
         }
     };
     private LibVLC ipWebcamVlc;
@@ -1203,7 +1203,7 @@ public class MainActivity extends Activity {
             media.release();
             ipWebcam2VlcPlayer.play();
             mainHandler.removeCallbacks(cctv02SnapshotTicker);
-            mainHandler.postDelayed(cctv02SnapshotTicker, snapshotDue(2) ? 5000L : cctvSnapshotIntervalMillis);
+            mainHandler.postDelayed(cctv02SnapshotTicker, nextSnapshotCheckDelay(2));
         } catch (Exception error) {
             stopCctv02Vlc();
             TextView message = new TextView(this);
@@ -1542,6 +1542,14 @@ public class MainActivity extends Activity {
         long last=getPrefs().getLong(snapshotLastSuccessKey(camera,plotId),0L);
         return !snapshotInFlight.contains(snapshotFlightKey(camera,plotId))
                 && (last<=0 || System.currentTimeMillis()-last>=cctvSnapshotIntervalMillis);
+    }
+    private long nextSnapshotCheckDelay(int camera) {
+        String plotId=safePlotId(getPrefs().getString(PREF_ACTIVE_PLOT_ID,DEFAULT_PLOT_ID));
+        long last=getPrefs().getLong(snapshotLastSuccessKey(camera,plotId),0L);
+        if (snapshotInFlight.contains(snapshotFlightKey(camera,plotId))) return 5000L;
+        if (last<=0) return 5000L;
+        long remaining=cctvSnapshotIntervalMillis-(System.currentTimeMillis()-last);
+        return remaining<=0 ? 5000L : remaining;
     }
 
     private void checkIpWebcamBeforeSnapshot(int camera) {
@@ -3402,7 +3410,7 @@ public class MainActivity extends Activity {
                     mainHandler.postDelayed(cctv01SnapshotTicker, cctvSnapshotIntervalMillis);
                 }
                 if (activityResumed && ipWebcam2VlcPlayer != null && ipWebcam2VlcLayout != null) {
-                    mainHandler.postDelayed(cctv02SnapshotTicker, cctvSnapshotIntervalMillis);
+                    mainHandler.postDelayed(cctv02SnapshotTicker, nextSnapshotCheckDelay(2));
                 }
                 if (activityResumed && ipWebcam3VlcPlayer != null && ipWebcam3VlcLayout != null) {
                     mainHandler.postDelayed(cctv03SnapshotTicker, cctvSnapshotIntervalMillis);
