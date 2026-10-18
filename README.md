@@ -7,7 +7,7 @@ GrowPlot is an Android farm-management application with CCTV monitoring, Google 
 ## Verified Build 02 important features
 
 - All six CCTV streaming slots display on the user's Android device.
-- The existing Google Drive image scan reports per-camera image counts. An independent folder listing confirmed **99 JPEG images: CCTV01 29, CCTV02 70, CCTV03–06 0**, in the `growplot2026@gmail.com` folder at the time of checking.
+- The existing Google Drive image scan reports per-camera image counts.
 - A.I Plant Health displays the expected diagnosis images.
 - **Outstanding:** daily image analysis is not functioning as intended. The next development focus is pixel analysis for plant identification, visible leaf counting and maturity/growth-stage estimation. Plant age inferred from images is approximate unless a planting date is available.
 - A dedicated per-CCTV count summary in A.I Health remains an enhancement; the existing Java image counting works. Do not claim the summary UI is complete without Android verification.
