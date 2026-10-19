@@ -1,0 +1,47 @@
+name: Import GrowPlot GP_Zip assets
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'GP_Zip/GrowPlot-Build03-Snapshot-Interval-to-Data-Feed.zip'
+      - '.github/workflows/import-growplot-zip.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Verify and apply snapshot interval UI change
+        run: |
+          python3 - <<'PY'
+          import hashlib, pathlib, zipfile
+          path = pathlib.Path('app/src/main/assets/index.html')
+          archive = pathlib.Path('GP_Zip/GrowPlot-Build03-Snapshot-Interval-to-Data-Feed.zip')
+          expected = 'ae9bf2965a0c80cc7dc63ff81f1598d101256074'
+          old = path.read_bytes()
+          sha = hashlib.sha1(b'blob ' + str(len(old)).encode() + b'\0' + old).hexdigest()
+          if sha != expected:
+              raise SystemExit('STOP: index.html no longer matches verified gold baseline; refusing overwrite: ' + sha)
+          with zipfile.ZipFile(archive) as z:
+              names = z.namelist()
+              if names != ['app/src/main/assets/index.html']:
+                  raise SystemExit('STOP: ZIP contains unexpected files: ' + str(names))
+              new = z.read(names[0])
+          if b'id="cctvSnapshotInterval"' not in new or b'id="liveFeedSettingsSection"' in new:
+              raise SystemExit('STOP: requested relocation not verified')
+          path.write_bytes(new)
+          print('Updated app index.html; preserved all other source files')
+          PY
+      - name: Commit updated app asset
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/assets/index.html
+          if ! git diff --cached --quiet; then
+            git commit -m "fix: move snapshot interval setting to Plot Management Data Feed"
+            git push
+          fi
