@@ -1,0 +1,62 @@
+name: Fix CV Engine Loading
+on:
+  push:
+    paths: ['.github/workflows/fix-cv-engine-load.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ensure leaf CV engine is loaded before Run diagnosis
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('app/src/main/assets/index.html')
+          h=p.read_text()
+          assert 'leaf-cv.js' in h
+          assert 'function showGrowPlotInlineCV(camera)' in h
+          assert 'async function runDiagnosisScreen(camera)' in h
+          # WebView may execute inline diagnosis before an async/deferred script has initialized.
+          # Load the local engine on demand, wait for it, and expose a useful error on failure.
+          loader="""function ensureGrowPlotCVLoaded(){
+            if(window.GrowPlotCV&&typeof window.GrowPlotCV.analyze==='function')return Promise.resolve(window.GrowPlotCV);
+            if(window.__growplotCVLoading)return window.__growplotCVLoading;
+            window.__growplotCVLoading=new Promise((resolve,reject)=>{
+              const script=document.createElement('script');
+              script.src='leaf-cv.js';
+              script.onload=()=>{
+                if(window.GrowPlotCV&&typeof window.GrowPlotCV.analyze==='function')resolve(window.GrowPlotCV);
+                else reject(new Error('leaf-cv.js loaded without initializing GrowPlotCV'));
+              };
+              script.onerror=()=>reject(new Error('Unable to load local leaf-cv.js'));
+              document.head.appendChild(script);
+            }).catch(error=>{window.__growplotCVLoading=null;throw error});
+            return window.__growplotCVLoading;
+          }
+          """
+          if 'function ensureGrowPlotCVLoaded()' not in h:
+              h=h.replace('function showGrowPlotInlineCV(camera){',loader+'function showGrowPlotInlineCV(camera){',1)
+          old="""if(window.GrowPlotCV&&typeof window.GrowPlotCV.analyze==='function'){
+              window.__growplotInlineCVPromise=window.GrowPlotCV.analyze(camera);
+            }else if(result){result.textContent='CV engine unavailable. Check leaf-cv.js loading.'}"""
+          new="""window.__growplotInlineCVPromise=ensureGrowPlotCVLoaded()
+              .then(engine=>engine.analyze(camera))
+              .catch(error=>{if(result)result.textContent='CV analysis error: '+error.message;});"""
+          assert old in h,'Expected unavailable-engine code missing'
+          h=h.replace(old,new,1)
+          p.write_text(h)
+          assert 'ensureGrowPlotCVLoaded()' in h
+          print('PASS: CV engine loads on demand before Frame 2 analysis')
+          PY
+      - name: Commit
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/assets/index.html
+          if ! git diff --cached --quiet; then
+            git commit -m "fix: load local CV engine before rendering Frame 2"
+            git push
+          fi
