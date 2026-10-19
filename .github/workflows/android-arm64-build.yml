@@ -135,3 +135,5 @@ jobs:
 
 # Rebuild after verified Build 05 source import d401cd5.
 # Trigger Build 06 CV diagnosis flow correction (5749d945).
+
+# Trigger corrected CV-first import commit 66a740ec for ARM64 APK.
