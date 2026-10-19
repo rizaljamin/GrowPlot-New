@@ -1,0 +1,45 @@
+name: Import Build 04 Daily Timeline
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'GP_Zip/GrowPlot-Build04-Daily-Timeline-PATCH.zip'
+      - '.github/workflows/import-build04-daily.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate and extract Build 04 patch
+        run: |
+          python3 - <<'PY'
+          import zipfile, hashlib, pathlib
+          archive='GP_Zip/GrowPlot-Build04-Daily-Timeline-PATCH.zip'
+          expected={
+            'app/src/main/assets/index.html':'fb87b4ecf62c065b3687e1944d80b873c1561f89',
+            'app/src/main/java/com/growplot/farm/MainActivity.java':'8bdbe11a96fda224b015844c93d8cb213e777cb9',
+            'app/src/main/java/com/growplot/farm/TimelineBuckets.java':'61efa14c09ab63e2f7246e47b2a471eb2f2cb94a',
+            'version.properties':'bedc22e98128689e224474d327e047e5ddc8f3f0',
+          }
+          with zipfile.ZipFile(archive) as z:
+            for path,sha in expected.items():
+              data=z.read(path)
+              actual=hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()
+              if actual != sha: raise SystemExit('Patch integrity check failed: '+path)
+              if path.endswith('index.html') and (b'Daily' not in data or b'cctvSnapshotInterval' not in data): raise SystemExit('UI check failed')
+              if path=='version.properties' and (b'Build 04' not in data or b'versionCode=217' not in data): raise SystemExit('Version check failed')
+              pathlib.Path(path).write_bytes(data)
+          print('Verified and applied four source files')
+          PY
+      - name: Commit patched sources
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/assets/index.html app/src/main/java/com/growplot/farm/MainActivity.java app/src/main/java/com/growplot/farm/TimelineBuckets.java version.properties
+          if ! git diff --cached --quiet; then
+            git commit -m "feat: Build 04 daily photo timeline and Data Feed folder picker"
+            git push
+          fi
