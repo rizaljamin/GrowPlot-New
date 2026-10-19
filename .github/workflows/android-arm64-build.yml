@@ -139,3 +139,5 @@ jobs:
 # Trigger corrected CV-first import commit 66a740ec for ARM64 APK.
 
 # Verify CV-first source in packaged APK; rebuild requested 2026-10-19.
+
+# Rebuild after CV overlay and restored photo analysis commit bf710ef297368bbefb1d4fecc3506e98a37ae64d.
