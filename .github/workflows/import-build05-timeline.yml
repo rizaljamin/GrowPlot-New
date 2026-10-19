@@ -1,0 +1,55 @@
+name: Import Build 05 Timeline Population
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'GP_Zip/GrowPlot-Build05-Timeline-Population-PATCH.zip'
+      - '.github/workflows/import-build05-timeline.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Verify and apply Build 05 patch
+        run: |
+          python3 - <<'PY'
+          import pathlib,zipfile,hashlib
+          archive=pathlib.Path('GP_Zip/GrowPlot-Build05-Timeline-Population-PATCH.zip')
+          expected_before={'app/src/main/assets/index.html':'fb87b4ecf62c065b3687e1944d80b873c1561f89','app/src/main/java/com/growplot/farm/MainActivity.java':'8bdbe11a96fda224b015844c93d8cb213e777cb9','app/src/main/java/com/growplot/farm/TimelineBuckets.java':'61efa14c09ab63e2f7246e47b2a471eb2f2cb94a','version.properties':'bedc22e98128689e224474d327e047e5ddc8f3f0'}
+          expected_after={
+            'app/src/main/assets/index.html':'TO_BE_REPLACED',
+          }
+          def sha(data):
+              return hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()
+          for path,digest in expected_before.items():
+              if sha(pathlib.Path(path).read_bytes())!=digest:
+                  raise SystemExit('STOP: Source changed since verified Build 04: '+path)
+          with zipfile.ZipFile(archive) as z:
+              files=set(z.namelist())
+              if files != set(expected_before)|{'PATCH-NOTES.txt'}:
+                  raise SystemExit('STOP: Unexpected patch entries '+str(files))
+              replacements={path:z.read(path) for path in expected_before}
+          if b'versionCode=218' not in replacements['version.properties'] or b'Build 05' not in replacements['version.properties']:
+              raise SystemExit('STOP: Build 05 identity missing')
+          if b'value="daily"' not in replacements['app/src/main/assets/index.html']:
+              raise SystemExit('STOP: Daily timeline missing')
+          if b'newestCapture' not in replacements['app/src/main/java/com/growplot/farm/MainActivity.java']:
+              raise SystemExit('STOP: Timeline capture anchor missing')
+          for path,data in replacements.items():
+              pathlib.Path(path).write_bytes(data)
+          print('Applied Build 05 patch successfully')
+          PY
+      - name: Commit patched sources
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/assets/index.html app/src/main/java/com/growplot/farm/MainActivity.java app/src/main/java/com/growplot/farm/TimelineBuckets.java version.properties
+          if ! git diff --cached --quiet; then
+            git commit -m "fix: Build 05 populate timeline from plot Drive capture dates"
+            git push
+          fi
