@@ -1,0 +1,55 @@
+name: Embed CV Engine In WebView HTML
+on:
+  push:
+    paths: ['.github/workflows/embed-cv-engine.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inline packaged CV script into loaded dashboard
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('app/src/main/java/com/growplot/farm/MainActivity.java')
+          s=p.read_text()
+          old='''            web.loadDataWithBaseURL("https://appassets.androidplatform.net/", html,
+                    "text/html", "UTF-8", null);'''
+          new='''            // Embed the packaged CV engine directly: no WebView network/asset request required.
+            try (InputStream cvInput = getAssets().open("leaf-cv.js");
+                 ByteArrayOutputStream cvOutput = new ByteArrayOutputStream()) {
+                byte[] cvBuffer = new byte[8192];
+                int cvRead;
+                while ((cvRead = cvInput.read(cvBuffer)) != -1) {
+                    cvOutput.write(cvBuffer, 0, cvRead);
+                }
+                String cvScript = cvOutput.toString(StandardCharsets.UTF_8.name());
+                String cvTag = "<script>" + cvScript + "</script>";
+                if (html.contains("</head>")) {
+                    html = html.replace("</head>", cvTag + "</head>");
+                } else if (html.contains("</body>")) {
+                    html = html.replace("</body>", cvTag + "</body>");
+                } else {
+                    throw new IllegalStateException("Dashboard HTML missing head/body closing tag");
+                }
+            }
+            web.loadDataWithBaseURL("https://appassets.androidplatform.net/", html,
+                    "text/html", "UTF-8", null);'''
+          assert s.count(old)==1, 'Dashboard load statement changed; manual review needed'
+          assert 'leaf-cv.js' in Path('app/src/main/assets/index.html').read_text()
+          s=s.replace(old,new,1)
+          p.write_text(s)
+          print('PASS: CV JavaScript embedded into WebView HTML before page load')
+          PY
+          node --check app/src/main/assets/leaf-cv.js
+          git diff --check
+      - name: Commit
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/java/com/growplot/farm/MainActivity.java
+          git commit -m "fix(android): inline bundled CV engine in dashboard HTML"
+          git push
