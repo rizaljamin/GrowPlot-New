@@ -1,0 +1,38 @@
+name: Import GrowPlot Two-Frame Diagnosis UI
+on:
+  push:
+    paths:
+      - '.github/workflows/import-two-frame-diagnosis.yml'
+      - 'GP_Zip/GrowPlot-Two-Frame-Diagnosis-UI-gp_zip.zip'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Apply uploaded two-frame UI patch
+        run: |
+          set -euo pipefail
+          unzip -o GP_Zip/GrowPlot-Two-Frame-Diagnosis-UI-gp_zip.zip -d /tmp/growplot-two-frame
+          python3 /tmp/growplot-two-frame/apply_patch.py "$GITHUB_WORKSPACE"
+          python3 - <<'PY'
+          from pathlib import Path
+          h=Path('app/src/main/assets/index.html').read_text()
+          assert 'function showGrowPlotCVWindow(camera)' in h
+          assert 'async function runDiagnosisScreen(camera){showGrowPlotCVWindow(camera);return;' in h
+          assert 'growplotCVOriginal' in h and 'growplotCVResults' in h
+          print('PASS: diagnosis button opens original photo + CV result frames')
+          PY
+      - name: Commit updated app source
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/assets/index.html
+          if ! git diff --cached --quiet; then
+            git commit -m "feat: open two-frame plant CV diagnosis window from Run diagnosis"
+            git push
+          fi
