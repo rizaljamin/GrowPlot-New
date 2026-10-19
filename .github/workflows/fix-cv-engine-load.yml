@@ -39,14 +39,13 @@ jobs:
           """
           if 'function ensureGrowPlotCVLoaded()' not in h:
               h=h.replace('function showGrowPlotInlineCV(camera){',loader+'function showGrowPlotInlineCV(camera){',1)
-          old="""if(window.GrowPlotCV&&typeof window.GrowPlotCV.analyze==='function'){
-              window.__growplotInlineCVPromise=window.GrowPlotCV.analyze(camera);
-            }else if(result){result.textContent='CV engine unavailable. Check leaf-cv.js loading.'}"""
+          import re
+          pattern=r"if\(window\.GrowPlotCV&&typeof window\.GrowPlotCV\.analyze==='function'\)\s*\{\s*window\.__growplotInlineCVPromise=window\.GrowPlotCV\.analyze\(camera\);\s*\}\s*else if\(result\)\s*\{\s*result\.textContent='CV engine unavailable\. Check leaf-cv\.js loading\.';?\s*\}"
           new="""window.__growplotInlineCVPromise=ensureGrowPlotCVLoaded()
               .then(engine=>engine.analyze(camera))
               .catch(error=>{if(result)result.textContent='CV analysis error: '+error.message;});"""
-          assert old in h,'Expected unavailable-engine code missing'
-          h=h.replace(old,new,1)
+          h,count=re.subn(pattern,new,h,count=1)
+          assert count==1, 'Expected CV engine fallback not found; inspect source before proceeding'
           p.write_text(h)
           assert 'ensureGrowPlotCVLoaded()' in h
           print('PASS: CV engine loads on demand before Frame 2 analysis')
