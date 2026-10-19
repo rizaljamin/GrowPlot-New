@@ -1,0 +1,55 @@
+name: Import Build 06 Ginger CV and trigger ARM64
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/import-build06-ginger-cv.yml'
+      - 'GP_Zip/GrowPlot-Build06-GingerStyle-Integrated-gp_zip.zip'
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: write
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Import verified patch
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import pathlib, zipfile
+          archive=pathlib.Path('GP_Zip/GrowPlot-Build06-GingerStyle-Integrated-gp_zip.zip')
+          if not archive.is_file(): raise SystemExit('Build 06 ZIP missing')
+          with zipfile.ZipFile(archive) as z:
+              names=set(z.namelist())
+              expected={'apply_patch.py','app/src/main/assets/leaf-cv.js','README.txt'}
+              if names != expected: raise SystemExit(f'Unexpected ZIP contents: {names}')
+              z.extractall('/tmp/growplot-build06')
+          PY
+          python3 /tmp/growplot-build06/apply_patch.py .
+          node --check app/src/main/assets/leaf-cv.js
+          grep -Fq '<script src="leaf-cv.js"></script>' app/src/main/assets/index.html
+          grep -Fxq 'versionCode=219' version.properties
+          git diff --check
+      - name: Commit imported source
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/assets/index.html app/src/main/assets/leaf-cv.js version.properties
+          if git diff --cached --quiet; then
+            echo "Build 06 source already integrated"
+          else
+            git commit -m "feat: integrate ginger-style CV diagnosis for Build 06"
+            git push origin HEAD:main
+          fi
+      - name: Dispatch signed ARM64 build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run android-arm64-build.yml --ref main
