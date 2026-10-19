@@ -147,3 +147,5 @@ jobs:
 # Build verified Frame 2 CV execution source 650f6e22a9a3d40807bef7719fd23a7b76750b64.
 
 # Requested ARM64 APK rebuild after CV engine load repair workflow (2026-10-19).
+
+# Build 07 (versionCode 220): CV loader fix c2de9e8 and version bump bdc06bf.
