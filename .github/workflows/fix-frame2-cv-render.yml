@@ -1,0 +1,39 @@
+name: Fix Frame 2 CV Rendering
+on:
+  push:
+    paths: ['.github/workflows/fix-frame2-cv-render.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Connect CV analysis directly to inline results frame
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('app/src/main/assets/index.html')
+          h=p.read_text()
+          needle="if(result)result.textContent='CV analysis output will appear in this frame.';"
+          assert h.count(needle)==1, 'Inline CV helper changed; stop rather than silently patching wrong location'
+          # Execute on UI creation. Awaiting the CV engine in the existing diagnosis handler remains safe;
+          # use a single in-flight promise to avoid duplicated work.
+          h=h.replace(needle,"if(result)result.textContent='Analysing photograph…';\n            if(window.GrowPlotCV&&typeof window.GrowPlotCV.analyze==='function'){\n              window.__growplotInlineCVPromise=window.GrowPlotCV.analyze(camera);\n            }else if(result){result.textContent='CV engine unavailable. Check leaf-cv.js loading.'}",1)
+          old="try{await window.GrowPlotCV.analyze(camera)}"
+          assert h.count(old)==1, 'Expected diagnosis CV call missing'
+          h=h.replace(old,"try{await (window.__growplotInlineCVPromise||window.GrowPlotCV.analyze(camera));window.__growplotInlineCVPromise=null}",1)
+          assert 'growplotInlineResults' in h and 'showGrowPlotInlineCV(camera);' in h
+          p.write_text(h)
+          print('PASS: Run diagnosis triggers CV engine in Frame 2 and waits for result')
+          PY
+      - name: Commit
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/assets/index.html
+          if ! git diff --cached --quiet; then
+            git commit -m "fix: execute CV analysis inside inline Frame 2 on Run diagnosis"
+            git push
+          fi
