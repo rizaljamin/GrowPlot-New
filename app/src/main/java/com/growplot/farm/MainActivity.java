@@ -4168,6 +4168,18 @@ public class MainActivity extends Activity {
             while ((read = input.read(buffer)) != -1) output.write(buffer, 0, read);
             String html = output.toString(StandardCharsets.UTF_8.name())
                     .replace("{{GROWPLOT_VERSION}}", "v" + BuildConfig.VERSION_NAME);
+            // Inline the packaged CV engine so WebView never needs to fetch leaf-cv.js.
+            try (InputStream cvInput = getAssets().open("leaf-cv.js");
+                 ByteArrayOutputStream cvOutput = new ByteArrayOutputStream()) {
+                byte[] cvBuffer = new byte[8192];
+                int cvRead;
+                while ((cvRead = cvInput.read(cvBuffer)) != -1) cvOutput.write(cvBuffer, 0, cvRead);
+                String cvScript = cvOutput.toString(StandardCharsets.UTF_8.name());
+                String cvTag = "<script>" + cvScript + "</script>";
+                if (html.contains("</head>")) html = html.replace("</head>", cvTag + "</head>");
+                else if (html.contains("</body>")) html = html.replace("</body>", cvTag + "</body>");
+                else throw new IllegalStateException("Dashboard HTML missing head/body closing tag");
+            }
             web.loadDataWithBaseURL("https://appassets.androidplatform.net/", html,
                     "text/html", "UTF-8", null);
         } catch (Exception error) {
