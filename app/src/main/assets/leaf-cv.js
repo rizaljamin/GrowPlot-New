@@ -18,5 +18,93 @@
  result.innerHTML='<img class="cv-preview" alt="Photo annotated with numbered candidate foliage regions" src="'+png+'"><div class="cv-metrics"><span><b>'+report.greenPercent+'%</b>Green</span><span><b>'+report.yellowPercent+'%</b>Yellow</span><span><b>'+report.brownPercent+'%</b>Brown</span></div><p><b>'+regions.length+' candidate foliage regions highlighted.</b> These numbered boxes are not a reliable leaf count: overlapping leaves may merge and single leaves may split.</p><p><b>Observations:</b> '+(report.yellowPercent>20?'Yellow-like pixels are prominent. ':'')+(report.brownPercent>12?'Brown-like pixels warrant closer inspection for dry edges or spots. ':'')+(report.yellowPercent<=20&&report.brownPercent<=12?'The screen found no dominant yellow/brown cue. ':'')+'Inspect leaf surfaces, margins and new growth before diagnosing.</p><p><b>Growth stage / age:</b> Cannot be determined reliably from colour screening alone; use species, planting date and whole-plant photographs.</p><p><b>Flowering / fruiting:</b> Not assessed by this colour-only detector.</p><p><b>Follow-up:</b> Photograph individual leaves against a plain background, including upper and lower surfaces. Check irrigation, root-zone moisture and growing-medium pH/EC before treatment.</p><small class="cv-caution">Preliminary visual screening only. No species identification, leaf-instance segmentation or disease confirmation is performed. Source image remains unchanged.</small>';status.textContent='Annotated image and per-region explanations complete · summary saved locally for this plot and section.'}catch(e){status.textContent='Unable to analyse photo: '+e.message}}
 
  // Explicit API: invoked by runDiagnosisScreen, not by a second click listener.
- window.GrowPlotCV={analyze:analyze};
+
+ // Vision API enhancement. Never store an API key in the Android app.
+ const localAnalyze=analyze;
+ const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ function boxCoords(box,w,h){
+   if(!Array.isArray(box)||box.length!==4||box.some(v=>typeof v!=='number'||!Number.isFinite(v)))return null;
+   const a=box.map((v,i)=>Math.max(0,Math.min(i%2===0?w:h,Math.round(v*(i%2===0?w:h)/1000))));
+   return [Math.min(a[0],a[2]),Math.min(a[1],a[3]),Math.max(a[0],a[2]),Math.max(a[1],a[3])];
+ }
+ async function visionAnalyze(camera){
+   const root=panel(camera);if(!root)return;
+   const status=root.querySelector('#cvProgress'),result=root.querySelector('#cvResult');
+   const endpoint=(localStorage.getItem('growplotVisionEndpoint')||'').trim();
+   if(!endpoint){
+     status.textContent='OpenAI vision backend not configured. Local screening shown below.';
+     await localAnalyze(camera);
+     const r=document.getElementById('growplotInlineResults')||root;
+     r.insertAdjacentHTML('afterbegin','<p class="cv-caution">AI vision is not active. Configure its HTTPS backend below.</p>');
+     showEndpointEditor(r);
+     return;
+   }
+   if(!/^https:\/\//i.test(endpoint)){
+     status.textContent='Vision endpoint must use HTTPS.';
+     showEndpointEditor(root);return;
+   }
+   const item=findPhoto(camera);
+   if(!item){status.textContent='No photograph available for AI analysis.';showEndpointEditor(root);return;}
+   status.textContent='Analysing plant, pot and individual leaves using OpenAI vision…';
+   try{
+     const img=await load(item.url),scale=Math.min(1,1024/Math.max(img.width,img.height));
+     const w=Math.round(img.width*scale),h=Math.round(img.height*scale);
+     const canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;
+     const ctx=canvas.getContext('2d');ctx.drawImage(img,0,0,w,h);
+     const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),80000);
+     let response;
+     try{
+       response=await fetch(endpoint.replace(/\/$/,'')+'/api/plant-analysis',{
+         method:'POST',headers:{'Content-Type':'application/json'},
+         body:JSON.stringify({image:canvas.toDataURL('image/jpeg',0.82)}),
+         signal:controller.signal
+       });
+     }finally{clearTimeout(timeout)}
+     const data=await response.json();
+     if(!response.ok||!data.analysis)throw Error(data.error||'Vision server returned no analysis');
+     const a=data.analysis;
+     ctx.lineWidth=Math.max(2,Math.round(w/250));ctx.font='bold '+Math.max(13,Math.round(w/35))+'px sans-serif';
+     function outline(box,color,label,ellipse){
+       const b=boxCoords(box,w,h);if(!b)return;
+       ctx.strokeStyle=color;ctx.fillStyle=color;ctx.beginPath();
+       if(ellipse)ctx.ellipse((b[0]+b[2])/2,(b[1]+b[3])/2,Math.max(5,(b[2]-b[0])/2),Math.max(5,(b[3]-b[1])/2),0,0,Math.PI*2);
+       else ctx.rect(b[0],b[1],b[2]-b[0],b[3]-b[1]);
+       ctx.stroke();ctx.fillRect(b[0],Math.max(0,b[1]-22),Math.max(28,label.length*10),22);
+       ctx.fillStyle='#ffffff';ctx.fillText(label,b[0]+4,Math.max(17,b[1]-5));
+     }
+     outline(a.plant_box,'#32cf69','PLANT',false);
+     outline(a.container_box,'#34b9ff','POT',false);
+     const leaves=Array.isArray(a.leaves)?a.leaves.slice(0,20):[];
+     leaves.forEach((leaf,i)=>outline(leaf.box,'#ffe35a','L'+(i+1),true));
+     const items=v=>Array.isArray(v)?v.slice(0,12).map(x=>'<li>'+esc(x)+'</li>').join(''):'';
+     result.innerHTML='<img class="cv-preview" alt="Original photograph with AI-estimated plant, pot and leaf outlines" src="'+canvas.toDataURL('image/jpeg',.87)+'">'+
+       '<p><b>Plant:</b> '+esc(a.plant_name||'Uncertain')+' · confidence: '+esc(a.plant_confidence||'unknown')+'</p>'+
+       '<p><b>Container:</b> '+(a.container_box?'Blue boundary':'Not confidently located')+' · <b>Leaf candidates:</b> '+leaves.length+'</p>'+
+       '<p><b>Visible observations</b></p><ul>'+items(a.observations)+'</ul>'+
+       '<p><b>Recommended checks</b></p><ul>'+items(a.recommendations)+'</ul>'+
+       '<p><b>Individual leaves</b></p><ul>'+leaves.map((l,i)=>'<li>L'+(i+1)+': '+esc(l.condition||'Not assessed')+' ('+esc(l.confidence||'unknown')+')</li>').join('')+'</ul>'+
+       '<small class="cv-caution">AI-estimated outlines are approximate, not validated segmentation. '+esc(a.limitations||'Visual screening cannot confirm disease.')+'</small>';
+     status.textContent='OpenAI vision analysis completed · '+esc(data.model||'vision model');
+     try{localStorage.setItem('growplotVisionResult:'+String(window.selectedPlotId||'')+':'+camera,JSON.stringify({at:new Date().toISOString(),analysis:a,model:data.model}))}catch(e){}
+     showEndpointEditor(root);
+   }catch(error){
+     status.textContent='AI analysis unavailable: '+error.message+'. Local colour screening is available.';
+     showEndpointEditor(root);
+   }
+ }
+ function showEndpointEditor(root){
+   if(root.querySelector('#growplotVisionSettings'))return;
+   const wrap=document.createElement('details');wrap.id='growplotVisionSettings';
+   wrap.innerHTML='<summary>OpenAI vision backend settings</summary><label>HTTPS backend URL (no API key): <input id="growplotVisionUrl" type="url" style="max-width:100%;width:95%" placeholder="https://your-backend.example"></label><button type="button" id="growplotVisionSave">Save URL</button>';
+   root.appendChild(wrap);
+   wrap.querySelector('input').value=localStorage.getItem('growplotVisionEndpoint')||'';
+   wrap.querySelector('button').addEventListener('click',()=>{
+     const url=wrap.querySelector('input').value.trim().replace(/\/$/,'');
+     if(url&&!/^https:\/\//i.test(url)){alert('HTTPS URL required');return;}
+     localStorage.setItem('growplotVisionEndpoint',url);
+     alert('Backend URL saved. Run diagnosis again.');
+   });
+ }
+
+ window.GrowPlotCV={analyze:visionAnalyze,localAnalyze:localAnalyze};
 })();
