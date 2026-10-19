@@ -35,7 +35,7 @@ final class TimelineBuckets {
             current.set(Calendar.DAY_OF_MONTH, 1);
         } else if ("yearly".equals(interval)) {
             current.set(Calendar.DAY_OF_YEAR, 1);
-        } else {
+        } else if (!"daily".equals(interval)) {
             int daysSinceMonday = (current.get(Calendar.DAY_OF_WEEK) + 5) % 7;
             current.add(Calendar.DAY_OF_YEAR, -daysSinceMonday);
         }
@@ -45,11 +45,13 @@ final class TimelineBuckets {
         for (int i = 0; i < 4; i++) {
             start = (Calendar) current.clone();
             int offset = i - 3;
-            if ("monthly".equals(interval)) start.add(Calendar.MONTH, offset);
+            if ("daily".equals(interval)) start.add(Calendar.DAY_OF_YEAR, offset);
+            else if ("monthly".equals(interval)) start.add(Calendar.MONTH, offset);
             else if ("yearly".equals(interval)) start.add(Calendar.YEAR, offset);
             else start.add(Calendar.WEEK_OF_YEAR, offset);
             Calendar end = (Calendar) start.clone();
-            if ("monthly".equals(interval)) end.add(Calendar.MONTH, 1);
+            if ("daily".equals(interval)) end.add(Calendar.DAY_OF_YEAR, 1);
+            else if ("monthly".equals(interval)) end.add(Calendar.MONTH, 1);
             else if ("yearly".equals(interval)) end.add(Calendar.YEAR, 1);
             else end.add(Calendar.WEEK_OF_YEAR, 1);
             periods.add(new Period(i + 1, start.getTimeInMillis(), end.getTimeInMillis()));
