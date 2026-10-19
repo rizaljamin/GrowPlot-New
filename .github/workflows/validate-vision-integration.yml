@@ -1,0 +1,19 @@
+name: Validate GrowPlot Vision Integration
+on:
+  push:
+    paths: ['.github/workflows/validate-vision-integration.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check JavaScript and backend Python syntax
+        run: |
+          node --check app/src/main/assets/leaf-cv.js
+          python3 -m py_compile backend/vision_server.py
+          grep -q 'GrowPlotCV={analyze:visionAnalyze' app/src/main/assets/leaf-cv.js
+          grep -q 'getAssets().open("leaf-cv.js")' app/src/main/java/com/growplot/farm/MainActivity.java
+          echo "PASS: vision integration syntax and wiring"
