@@ -16,7 +16,7 @@
   document.addEventListener('click',function(event){
    const run=event.target.closest('#runDiagnosisButton');
    if(!run)return;
-   const match=document.querySelector('#diagnosisModal .diagnosis-dialog h3')?.textContent.match(/CCTV\\s*(\\d+)/i);
+   const match=document.querySelector('#diagnosisModal .diagnosis-dialog h3')?.textContent.match(/CCTV\s*(\d+)/i);
    const camera=match?Number(match[1]):window.activeDiagnosisCamera;
    if(!camera)return;
    pending=true;
@@ -25,12 +25,12 @@
   const observer=new MutationObserver(function(){
    const host=currentPanel();
    if(!host)return;
-   const match=host.querySelector('h3')?.textContent.match(/CCTV\\s*(\\d+)/i);
+   const match=host.querySelector('h3')?.textContent.match(/CCTV\s*(\d+)/i);
    if(match&&!host.querySelector('#cvLeafPanel'))panel(Number(match[1]));
   });
   observer.observe(document.body,{childList:true,subtree:true});
   const host=currentPanel();
-  if(host){const match=host.querySelector('h3')?.textContent.match(/CCTV\\s*(\\d+)/i);if(match)panel(Number(match[1]))}
+  if(host){const match=host.querySelector('h3')?.textContent.match(/CCTV\s*(\d+)/i);if(match)panel(Number(match[1]))}
  }
  install();
 })();
