@@ -375,6 +375,15 @@ public class MainActivity extends Activity {
         web.addJavascriptInterface(accountApiBridge, "GrowPlotAccount");
         web.setWebViewClient(new WebViewClient() {
             @Override public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+      String requestedUrl = request.getUrl().toString();
+      if ("https://appassets.androidplatform.net/leaf-cv.js".equals(requestedUrl)) {
+          try {
+              return new WebResourceResponse("application/javascript", "UTF-8", getAssets().open("leaf-cv.js"));
+          } catch (Exception error) {
+              android.util.Log.e("GrowPlotCV", "Failed to serve bundled leaf-cv.js", error);
+          }
+      }
+
                 WebResourceResponse diagnosis = localDiagnosisMediaResponse(request.getUrl().toString(), request.getRequestHeaders());
                 if (diagnosis != null) return diagnosis;
                 WebResourceResponse image = localImageResponse(request.getUrl().toString());
