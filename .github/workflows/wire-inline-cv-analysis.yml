@@ -1,0 +1,52 @@
+name: Wire CV Analysis Into Frame 2
+on:
+  push:
+    paths: ['.github/workflows/wire-inline-cv-analysis.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Connect existing CV engine to inline Frame 2
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          index=Path('app/src/main/assets/index.html')
+          cv=Path('app/src/main/assets/leaf-cv.js')
+          h=index.read_text()
+          j=cv.read_text()
+          assert 'function showGrowPlotInlineCV(camera)' in h
+          assert 'growplotInlineResults' in h
+          assert 'await window.GrowPlotCV.analyze(camera)' in h
+          # The existing CV engine generated output in an unrelated floating panel.
+          # Redirect its output to the inline Frame 2 within Photo analysis.
+          old='function panel(camera){let host=currentPanel();if(!host)return null;'
+          new="""function panel(camera){
+            const inline=document.getElementById('growplotInlineResults');
+            if(inline){
+              inline.innerHTML='<p id="cvProgress" role="status">Preparing foliage analysis…</p><div id="cvResult"></div>';
+              return inline;
+            }
+            let host=currentPanel();if(!host)return null;"""
+          if old in j:
+              j=j.replace(old,new,1)
+          else:
+              assert 'const inline=document.getElementById(\'growplotInlineResults\')' in j, 'CV panel insertion point changed'
+          # Ensure CV output is not immediately overwritten by the Photo analysis renderer.
+          assert h.index('showGrowPlotInlineCV(camera);',h.index('async function runDiagnosisScreen(camera)')) < h.index('await window.GrowPlotCV.analyze(camera)',h.index('async function runDiagnosisScreen(camera)'))
+          assert 'result.innerHTML=' in j and 'regions.map(' in j
+          cv.write_text(j)
+          print('PASS: Run diagnosis -> inline photo -> Frame 2 CV annotated image + region findings')
+          PY
+      - name: Commit
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/assets/leaf-cv.js
+          if ! git diff --cached --quiet; then
+            git commit -m "feat: render annotated foliage CV and findings inside Frame 2"
+            git push
+          fi
