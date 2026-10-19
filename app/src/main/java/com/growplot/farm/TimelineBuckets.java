@@ -48,13 +48,11 @@ final class TimelineBuckets {
             start = (Calendar) current.clone();
             int offset = i - 3;
             if ("daily".equals(interval)) start.add(Calendar.DAY_OF_YEAR, offset);
-            else if ("daily".equals(interval)) start.add(Calendar.DAY_OF_YEAR, offset);
             else if ("monthly".equals(interval)) start.add(Calendar.MONTH, offset);
             else if ("yearly".equals(interval)) start.add(Calendar.YEAR, offset);
             else start.add(Calendar.WEEK_OF_YEAR, offset);
             Calendar end = (Calendar) start.clone();
             if ("daily".equals(interval)) end.add(Calendar.DAY_OF_YEAR, 1);
-            else if ("daily".equals(interval)) end.add(Calendar.DAY_OF_YEAR, 1);
             else if ("monthly".equals(interval)) end.add(Calendar.MONTH, 1);
             else if ("yearly".equals(interval)) end.add(Calendar.YEAR, 1);
             else end.add(Calendar.WEEK_OF_YEAR, 1);

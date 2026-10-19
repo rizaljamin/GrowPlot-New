@@ -4766,9 +4766,20 @@ public class MainActivity extends Activity {
 
     private JSONArray makeTimelinePhotos(Map<Integer, List<Photo>> photosByCamera) throws Exception {
         JSONArray timelines = new JSONArray();
-        List<TimelineBuckets.Period> periods = TimelineBuckets.latestFour(timelineInterval, System.currentTimeMillis());
+        // Anchor the four buckets to the latest capture in the selected plot's configured
+        // Drive folder, rather than today's date. Historical Drive photos must remain visible.
+        long newestCapture = 0L;
+        for (List<Photo> cameraPhotos : photosByCamera.values()) {
+            if (cameraPhotos == null) continue;
+            for (Photo photo : cameraPhotos) {
+                if (photo.capturedAt > newestCapture && photo.capturedAt <= System.currentTimeMillis() + 86_400_000L)
+                    newestCapture = photo.capturedAt;
+            }
+        }
+        long anchorTime = newestCapture > 0 ? newestCapture : System.currentTimeMillis();
+        List<TimelineBuckets.Period> periods = TimelineBuckets.latestFour(timelineInterval, anchorTime);
         String periodName = "daily".equals(timelineInterval) ? "Day" : "monthly".equals(timelineInterval) ? "Month"
-                : "yearly".equals(timelineInterval) ? "Year" : "daily".equals(timelineInterval) ? "Day" : "Week";
+                : "yearly".equals(timelineInterval) ? "Year" : "Week";
         for (int camera = 1; camera <= 6; camera++) {
             List<Photo> group = photosByCamera.get(camera);
             JSONObject timeline = new JSONObject();
