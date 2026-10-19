@@ -1,0 +1,38 @@
+name: Add CV Analysis Test Button
+on:
+  push:
+    paths:
+      - '.github/workflows/add-cv-analysis-test-button.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Add independent CV analysis button to AI Health diagnosis modal
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('app/src/main/assets/index.html')
+          h=p.read_text(encoding='utf-8')
+          assert 'function showGrowPlotCVWindow(camera)' in h, 'Two-frame modal not imported'
+          original='>Run diagnosis</button><p class="diagnosis-analysis-note">'
+          replacement='>Run diagnosis</button><button id="openCVAnalysisButton" type="button" class="diagnose-primary" style="margin-left:8px" onclick="showGrowPlotCVWindow(${camera})">CV analysis</button><p class="diagnosis-analysis-note">'
+          if 'id="openCVAnalysisButton"' not in h:
+              assert h.count(original)==1, 'Cannot locate diagnosis button exactly'
+              h=h.replace(original,replacement,1)
+          assert 'onclick="showGrowPlotCVWindow(${camera})"' in h
+          p.write_text(h,encoding='utf-8')
+          print('PASS: CV analysis button directly opens two-frame window')
+          PY
+      - name: Commit AI Health change
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/assets/index.html
+          if ! git diff --cached --quiet; then
+            git commit -m "feat: add independent CV analysis test button in AI Health"
+            git push
+          fi
