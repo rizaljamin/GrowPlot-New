@@ -143,3 +143,5 @@ jobs:
 # Rebuild after CV overlay and restored photo analysis commit bf710ef297368bbefb1d4fecc3506e98a37ae64d.
 
 # Trigger ARM64 build after inline Frame 2 CV integration commit 216240bdad8476ad6ff3230c2816902f3f1f7734.
+
+# Build verified Frame 2 CV execution source 650f6e22a9a3d40807bef7719fd23a7b76750b64.
