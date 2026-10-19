@@ -353,9 +353,9 @@ public class MainActivity extends Activity {
         if (cctvSnapshotIntervalMillis < 30_000L || cctvSnapshotIntervalMillis > 86_400_000L) {
             cctvSnapshotIntervalMillis = 900_000L;
         }
-        timelineInterval = getPrefs().getString(PREF_TIMELINE_INTERVAL, "weekly");
-        if (!"weekly".equals(timelineInterval) && !"monthly".equals(timelineInterval)
-                && !"yearly".equals(timelineInterval)) timelineInterval = "weekly";
+        timelineInterval = getPrefs().getString(PREF_TIMELINE_INTERVAL, "daily");
+        if (!"daily".equals(timelineInterval) && !"weekly".equals(timelineInterval) && !"monthly".equals(timelineInterval)
+                && !"yearly".equals(timelineInterval)) timelineInterval = "daily";
         web = new WebView(this);
         WebSettings settings = web.getSettings();
         settings.setJavaScriptEnabled(true);
@@ -4768,7 +4768,7 @@ public class MainActivity extends Activity {
         JSONArray timelines = new JSONArray();
         List<TimelineBuckets.Period> periods = TimelineBuckets.latestFour(timelineInterval, System.currentTimeMillis());
         String periodName = "daily".equals(timelineInterval) ? "Day" : "monthly".equals(timelineInterval) ? "Month"
-                : "yearly".equals(timelineInterval) ? "Year" : "Week";
+                : "yearly".equals(timelineInterval) ? "Year" : "daily".equals(timelineInterval) ? "Day" : "Week";
         for (int camera = 1; camera <= 6; camera++) {
             List<Photo> group = photosByCamera.get(camera);
             JSONObject timeline = new JSONObject();
