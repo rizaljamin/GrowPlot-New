@@ -208,6 +208,21 @@ function showGrowPlotCVWindow(camera){
  if(photo){image.hidden=false;image.src=photo.url;status.textContent='Latest selected section photograph'}
  else{image.hidden=true;image.removeAttribute('src');status.textContent='No photograph available for this CCTV section.'}
 }
+function ensureGrowPlotCVLoaded(){
+  if(window.GrowPlotCV&&typeof window.GrowPlotCV.analyze==='function')return Promise.resolve(window.GrowPlotCV);
+  if(window.__growplotCVLoading)return window.__growplotCVLoading;
+  window.__growplotCVLoading=new Promise((resolve,reject)=>{
+    const script=document.createElement('script');
+    script.src='leaf-cv.js';
+    script.onload=()=>{
+      if(window.GrowPlotCV&&typeof window.GrowPlotCV.analyze==='function')resolve(window.GrowPlotCV);
+      else reject(new Error('leaf-cv.js loaded without initializing GrowPlotCV'));
+    };
+    script.onerror=()=>reject(new Error('Unable to load local leaf-cv.js'));
+    document.head.appendChild(script);
+  }).catch(error=>{window.__growplotCVLoading=null;throw error});
+  return window.__growplotCVLoading;
+}
 function showGrowPlotInlineCV(camera){
   const host=document.getElementById('growplotInlineCV');
   if(!host)return;
@@ -220,9 +235,9 @@ function showGrowPlotInlineCV(camera){
   if(photo){image.style.display='block';image.src=photo.url;note.textContent='Latest selected section photograph'}
   else{image.style.display='none';image.removeAttribute('src');note.textContent='No photograph available for this section'}
   if(result)result.textContent='Analysing photograph…';
-            if(window.GrowPlotCV&&typeof window.GrowPlotCV.analyze==='function'){
-              window.__growplotInlineCVPromise=window.GrowPlotCV.analyze(camera);
-            }else if(result){result.textContent='CV engine unavailable. Check leaf-cv.js loading.'}
+            window.__growplotInlineCVPromise=ensureGrowPlotCVLoaded()
+    .then(engine=>engine.analyze(camera))
+    .catch(error=>{if(result)result.textContent='CV analysis error: '+error.message;});
 }
 async function runDiagnosisScreen(camera){showGrowPlotInlineCV(camera);const plotId=selectedPlotId,symptom=document.getElementById('diagnosisSymptom')?.value||'',confirmedAtStart=(()=>{try{return JSON.parse(localStorage.getItem('growplotSpecies:'+plotId+':cctv'+camera)||'null')}catch(e){return null}})(),status=document.getElementById('diagnosisStatus'),button=document.getElementById('runDiagnosisButton'),result=document.getElementById('diagnosisDescription');const saved=diagnosisMediaFor(camera),sources=saved.filter(item=>item.kind==='photo').map(item=>({url:item.url,kind:'photo'})).filter(item=>item.url);if(!sources.length){if(status)status.textContent='Add a close-up photo first; video scans run automatically when you play a video.';return}if(button)button.disabled=true;
 if(status)status.textContent='Running foliage CV analysis…';
