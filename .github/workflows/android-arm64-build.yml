@@ -137,3 +137,5 @@ jobs:
 # Trigger Build 06 CV diagnosis flow correction (5749d945).
 
 # Trigger corrected CV-first import commit 66a740ec for ARM64 APK.
+
+# Verify CV-first source in packaged APK; rebuild requested 2026-10-19.
