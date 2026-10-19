@@ -128,3 +128,5 @@ jobs:
             release/*-build-manifest.txt
           if-no-files-found: error
           retention-days: 30
+
+# Trigger ARM64 build for imported Data Feed snapshot interval UI.
