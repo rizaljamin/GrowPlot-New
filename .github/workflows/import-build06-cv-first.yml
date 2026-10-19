@@ -1,0 +1,44 @@
+name: Import Build 06 CV-First Diagnosis Fix
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'GP_Zip/GrowPlot-Build06-CV-FIRST-gp_zip-PATCH.zip'
+      - '.github/workflows/import-build06-cv-first.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Verify ZIP and apply CV-first patch
+        run: |
+          python3 - <<'PY'
+          import pathlib,zipfile,subprocess,tempfile
+          archive=pathlib.Path('GP_Zip/GrowPlot-Build06-CV-FIRST-gp_zip-PATCH.zip')
+          if not archive.is_file(): raise SystemExit('Missing uploaded GP_Zip patch')
+          with zipfile.ZipFile(archive) as z:
+              names=set(z.namelist())
+              required={'apply_patch.py','README.txt','app/src/main/assets/leaf-cv.js'}
+              if names != required: raise SystemExit('Unexpected patch ZIP contents: '+repr(names))
+              with tempfile.TemporaryDirectory() as d:
+                  z.extractall(d)
+                  subprocess.run(['python3',str(pathlib.Path(d)/'apply_patch.py'),'.'],check=True)
+          subprocess.run(['node','--check','app/src/main/assets/leaf-cv.js'],check=True)
+          print('CV-first patch applied and JavaScript syntax verified')
+          PY
+      - name: Commit updated GrowPlot diagnosis source
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/assets/index.html app/src/main/assets/leaf-cv.js
+          if ! git diff --cached --quiet; then
+            git commit -m "fix: run foliage CV before pixel screening from diagnosis button"
+            git push
+          else
+            echo "Already applied"
+          fi
