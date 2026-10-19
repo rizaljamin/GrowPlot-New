@@ -141,3 +141,5 @@ jobs:
 # Verify CV-first source in packaged APK; rebuild requested 2026-10-19.
 
 # Rebuild after CV overlay and restored photo analysis commit bf710ef297368bbefb1d4fecc3506e98a37ae64d.
+
+# Trigger ARM64 build after inline Frame 2 CV integration commit 216240bdad8476ad6ff3230c2816902f3f1f7734.
