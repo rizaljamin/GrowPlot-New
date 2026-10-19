@@ -1,0 +1,47 @@
+name: Fix Local CV Asset Route
+on:
+  push:
+    paths: ['.github/workflows/fix-local-cv-asset-route.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Serve leaf-cv.js from bundled Android assets
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('app/src/main/java/com/growplot/farm/MainActivity.java')
+          s=p.read_text()
+          anchor='@Override public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {'
+          assert s.count(anchor)==1
+          insert="""@Override public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+                String requestedUrl = request.getUrl().toString();
+                if ("https://appassets.androidplatform.net/leaf-cv.js".equals(requestedUrl)) {
+                    try {
+                        return new WebResourceResponse("application/javascript", "UTF-8", getAssets().open("leaf-cv.js"));
+                    } catch (Exception error) {
+                        android.util.Log.e("GrowPlotCV", "Failed to serve bundled leaf-cv.js", error);
+                    }
+                }
+          """
+          if '"https://appassets.androidplatform.net/leaf-cv.js".equals(requestedUrl)' not in s:
+              s=s.replace(anchor,insert,1)
+          assert '"https://appassets.androidplatform.net/leaf-cv.js".equals(requestedUrl)' in s
+          assert 'getAssets().open("leaf-cv.js")' in s
+          assert Path('app/src/main/assets/leaf-cv.js').exists()
+          p.write_text(s)
+          print('PASS: WebView intercepts CV script URL and serves APK asset')
+          PY
+      - name: Commit fix
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/java/com/growplot/farm/MainActivity.java
+          if ! git diff --cached --quiet; then
+            git commit -m "fix(android): serve bundled leaf-cv.js to WebView asset origin"
+            git push
+          fi
