@@ -1,0 +1,40 @@
+name: Run Diagnosis with CV Overlay
+on:
+  push:
+    paths: ['.github/workflows/restore-run-diagnosis-with-cv-overlay.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore diagnosis and show CV window above it
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('app/src/main/assets/index.html')
+          h=p.read_text(encoding='utf-8')
+          assert 'function showGrowPlotCVWindow(camera)' in h
+          old='async function runDiagnosisScreen(camera){showGrowPlotCVWindow(camera);return;'
+          new='async function runDiagnosisScreen(camera){showGrowPlotCVWindow(camera);'
+          if old in h:
+              h=h.replace(old,new,1)
+          else:
+              assert new in h, 'Cannot locate expected diagnosis handler'
+          assert 'await window.GrowPlotCV.analyze(camera)' in h, 'CV integration missing'
+          assert 'Running colour-pixel screening' in h, 'Pixel analysis missing'
+          assert 'growplotCVOriginal' in h and 'growplotCVResults' in h
+          p.write_text(h,encoding='utf-8')
+          print('PASS: Run diagnosis opens CV overlay and continues existing analysis')
+          PY
+      - name: Commit change
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/assets/index.html
+          if ! git diff --cached --quiet; then
+            git commit -m "fix: Run diagnosis opens two-frame CV overlay without skipping photo analysis"
+            git push
+          fi
