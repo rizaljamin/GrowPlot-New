@@ -267,8 +267,12 @@ public class MainActivity extends Activity {
         String[] pieces = relative.split("/", 2);
         try {
             File latest = new File(new File(new File(getFilesDir(), "latest_images"), pieces[0]), pieces[1]);
-            if (!latest.isFile() && !DEFAULT_PLOT_ID.equals(pieces[0])) return null;
-            InputStream input = latest.isFile() ? new FileInputStream(latest) : getAssets().open("images/" + pieces[1]);
+            boolean useBundledFallback = "growplotFallback=1".equals(uri.getQuery());
+            if (useBundledFallback && !DEFAULT_PLOT_ID.equals(pieces[0])) return null;
+            if (!useBundledFallback && !latest.isFile() && !DEFAULT_PLOT_ID.equals(pieces[0])) return null;
+            InputStream input = useBundledFallback || !latest.isFile()
+                    ? getAssets().open("images/" + pieces[1])
+                    : new FileInputStream(latest);
             return new WebResourceResponse("image/jpeg", null, input);
         } catch (Exception ignored) { return null; }
     }
