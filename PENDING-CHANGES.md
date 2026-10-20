@@ -1,3 +1,11 @@
+## Pending — Firestore plot and data-feed saves (2026-10-20)
+
+- Save plot continues to sync the plot record through the existing Firebase profile save flow.
+- Selecting a data-feed folder immediately writes `dataFeed.enabled=true` and the Drive-relative `dataFeed.relativePath` to that plot document. Android's SAF folder URI and permission stay device-local.
+- The general plot-save batch omits its potentially stale local `dataFeed` map, preserving the path written by folder selection.
+- Added an in-app success/failure notice for the Firestore path write.
+- Source changes are on GitHub main. Static source review only; no APK build or Android/Firebase device verification yet. Keep the current version identity until the next planned build batch.
+
 ## v0.6.02 Build 02 — delivered
 
 - Baseline: GitHub main at v0.6.02 Build 01 / versionCode 158, commit `9fd4dd0727b4bf4460929a319ff8ac8b67a49008`.
