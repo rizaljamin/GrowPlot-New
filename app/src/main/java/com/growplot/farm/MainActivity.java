@@ -4191,7 +4191,7 @@ public class MainActivity extends Activity {
                     } catch (Exception error) {
                         String reason = error.getMessage() == null ? "Drive folder could not be created" : error.getMessage();
                         publishStatus(makeStatus("Expected Google Drive path: " + expectedFeedPathLabel(pickerPlotId)
-                                + "\\nFolder status: unavailable — " + reason));
+                                + " | Folder status: unavailable — " + reason));
                     }
                     return;
                 }
