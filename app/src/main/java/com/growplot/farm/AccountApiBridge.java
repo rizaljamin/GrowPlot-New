@@ -430,6 +430,9 @@ public final class AccountApiBridge {
                     }
                     incomingIds.add(plotId);
                     Map<String,Object> record=new com.google.gson.Gson().fromJson(plot.toString(),java.util.Map.class);
+                    // Feed selection is saved immediately by saveImageFeedPath(); exclude its
+                    // device-local/stale JS copy so Save Plot cannot replace dataFeed.relativePath.
+                    record.remove("dataFeed");
                     record.put("ownerUserId",user.getUid());
                     record.put("updatedAt",com.google.firebase.firestore.FieldValue.serverTimestamp());
                     batch.set(db.collection("plots").document(user.getUid()+"_"+plotId),record,SetOptions.merge());
