@@ -1345,3 +1345,8 @@ Signing / provider keys: This APK's certificate does not match the saved Build 3
 2026-10-17 | v0.6.04 Build 04 | Demo Plot CCTV01/02 IP Webcam MJPEG VLC playback error reconnect (5s); CCTV03 VIGI RTSP transient failure reconnect (5s), retaining credential rejection handling. Source-reviewed only; tablet playback not yet verified.
 
 2026-10-18 | v0.7.00 Build 02 | CCTV snapshot default changed to 900 seconds (15 minutes) for installations without a saved interval. Prevent overlapping snapshot saves per plot/camera; CCTV02 due-time checks now calculate remaining time from last successful save and retry overdue frames every 5 seconds. Existing user-selected intervals remain unchanged. GitHub Actions ARM64 build and target tablet verification pending.
+2026-10-20 | v0.7.00 Build 08 | versionCode 221 | com.growplot.farm
+---------------------------------------------------------------------
+Baseline: GitHub branch `codex/externalize-cctv-fallback-images`, commit `5fc78f76e8493ae44410176ebddf97b84b2c0cd9`.
+Changes: Save the prior dashboard HTML as `index_gold.html`, then place the posted updated HTML at `app/src/main/assets/index.html`. Keep the six JPEGs as separate Android assets and load them through the app asset route for fallback display. This isolates the APK build in `.github/workflows/growplot-build-08.yml`; the existing ARM64 workflow is unchanged.
+Validation: Static checks and GitHub Actions ARM64 build pending. Android tablet visual verification pending.

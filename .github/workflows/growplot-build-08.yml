@@ -1,0 +1,124 @@
+name: GrowPlot Build 08 Isolated APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [codex/build-08-external-fallbacks]
+    paths:
+      - 'version.properties'
+      - 'app/**'
+      - 'tools/**'
+      - '.github/workflows/growplot-build-08.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: growplot-build-08-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      GRADLE_OPTS: '-Dorg.gradle.daemon=false -Dorg.gradle.workers.max=1'
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Restore stable APK signing key when available
+        env:
+          SIGNING_KEYSTORE_BASE64: ${{ secrets.GROWPLOT_SIGNING_KEYSTORE_BASE64 }}
+          SIGNING_STORE_PASSWORD: ${{ secrets.GROWPLOT_SIGNING_STORE_PASSWORD }}
+          SIGNING_KEY_PASSWORD: ${{ secrets.GROWPLOT_SIGNING_KEY_PASSWORD }}
+          SIGNING_KEY_ALIAS: ${{ secrets.GROWPLOT_SIGNING_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$SIGNING_KEYSTORE_BASE64" ]]; then
+            echo "GROWPLOT_STABLE_SIGNING_KEY_AVAILABLE=false" >> "$GITHUB_ENV"
+            echo "::notice::No stable signing key supplied. Building a development-only APK with the runner debug key."
+            exit 0
+          fi
+          if [[ -z "$SIGNING_STORE_PASSWORD" || -z "$SIGNING_KEY_ALIAS" ]]; then
+            echo "GROWPLOT_STABLE_SIGNING_KEY_AVAILABLE=false" >> "$GITHUB_ENV"
+            echo "::notice::Stable signing credentials are incomplete. Building a development-only APK with the runner debug key."
+            exit 0
+          fi
+          umask 077
+          if ! printf '%s' "$SIGNING_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/growplot-signing.jks"; then
+            rm -f "$RUNNER_TEMP/growplot-signing.jks"
+            echo "GROWPLOT_STABLE_SIGNING_KEY_AVAILABLE=false" >> "$GITHUB_ENV"
+            echo "::notice::Signing keystore secret is not valid base64. Building a development-only APK with the runner debug key."
+            exit 0
+          fi
+          if ! keytool -list -keystore "$RUNNER_TEMP/growplot-signing.jks" -storepass "$SIGNING_STORE_PASSWORD" -alias "$SIGNING_KEY_ALIAS" >/dev/null 2>&1; then
+            rm -f "$RUNNER_TEMP/growplot-signing.jks"
+            echo "GROWPLOT_STABLE_SIGNING_KEY_AVAILABLE=false" >> "$GITHUB_ENV"
+            echo "::notice::Signing keystore could not be opened with the supplied password and alias. Building a development-only APK with the runner debug key."
+            exit 0
+          fi
+          echo "GROWPLOT_STABLE_SIGNING_KEY_AVAILABLE=true" >> "$GITHUB_ENV"
+          echo "GROWPLOT_DEBUG_KEYSTORE=$RUNNER_TEMP/growplot-signing.jks" >> "$GITHUB_ENV"
+          echo "GROWPLOT_DEBUG_KEY_ALIAS=$SIGNING_KEY_ALIAS" >> "$GITHUB_ENV"
+          echo "GROWPLOT_DEBUG_KEYSTORE_PASSWORD=$SIGNING_STORE_PASSWORD" >> "$GITHUB_ENV"
+          echo "GROWPLOT_DEBUG_KEY_PASSWORD=${SIGNING_KEY_PASSWORD:-$SIGNING_STORE_PASSWORD}" >> "$GITHUB_ENV"
+      - name: Record runner memory before compilation
+        run: free -h && df -h .
+      - name: Build and verify ARM64
+        env:
+          GROWPLOT_PLANTNET_API_KEY: ${{ secrets.GROWPLOT_PLANTNET_API_KEY }}
+        run: |
+          chmod +x gradlew tools/*.sh
+          ./tools/build-apk.sh
+      - name: Verify release manifest and package
+        run: |
+          VERSION_NAME="$(sed -n 's/^versionName=//p' version.properties | head -n1)"
+          VERSION_CODE="$(sed -n 's/^versionCode=//p' version.properties | head -n1)"
+          test "$(find release -maxdepth 1 -name '*.apk' | wc -l)" -eq 1
+          test "$(find release -maxdepth 1 -name '*-source.zip' | wc -l)" -eq 1
+          test "$(find release -maxdepth 1 -name '*-build-manifest.txt' | wc -l)" -eq 1
+          grep -Fxq "Version: $VERSION_NAME" release/*-build-manifest.txt
+          grep -Fxq "versionCode: $VERSION_CODE" release/*-build-manifest.txt
+          if [[ "$GROWPLOT_STABLE_SIGNING_KEY_AVAILABLE" == "true" ]]; then
+            SIGNING_STATUS="$(sed -n 's/^Signing status: //p' release/*-build-manifest.txt | head -n1)"
+            SIGNER_SHA1="$(sed -n 's/^Signing certificate SHA-1: //p' release/*-build-manifest.txt | head -n1)"
+            echo "APK signing certificate SHA-1: $SIGNER_SHA1"
+            python3 - "$SIGNER_SHA1" app/google-services.json <<'PY'
+          import json, sys
+          signer = sys.argv[1].lower().replace(':', '')
+          with open(sys.argv[2], encoding='utf-8') as source:
+              config = json.load(source)
+          hashes = [
+              str(oauth.get('android_info', {}).get('certificate_hash', '')).lower().replace(':', '')
+              for client in config.get('client', [])
+              for oauth in client.get('oauth_client', [])
+          ]
+          if not signer or signer not in hashes:
+              raise SystemExit('Firebase OAuth client does not include this APK signer SHA-1')
+          print('Firebase Google OAuth SHA-1 matches the APK signer.')
+          PY
+            if [[ "$SIGNING_STATUS" != "Matches the saved Build 30 certificate." ]]; then
+              grep -Fxq "Signing status: Signed with configured stable keystore; certificate differs from saved Build 30 certificate." release/*-build-manifest.txt
+              echo "::warning::APK uses the configured new stable key and cannot update an app signed with the previous certificate."
+            fi
+          else
+            grep -Eq '^Arm64 APK: .*development-only\.apk$' release/*-build-manifest.txt
+            echo "Development-only APK: it may not install over the current GrowPlot app, and Google sign-in is not verified for this runner key."
+          fi
+          sha256sum release/*
+      - name: Upload ARM64 artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: GrowPlot-Build08-${{ github.sha }}-ARM64
+          path: |
+            release/*.apk
+            release/*-source.zip
+            release/*-build-manifest.txt
+          if-no-files-found: error
+          retention-days: 30
