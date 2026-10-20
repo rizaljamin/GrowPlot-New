@@ -1,3 +1,10 @@
+## Pending — email-scoped default image-feed paths (2026-10-20)
+
+- Default feed folders now use `Projects/GrowPlot/Image_Feed/<email-folder>/<plot-folder>`, with the authenticated email normalized to lowercase and made Drive-safe (for example, `growplot2026_at_gmail.com`).
+- Folder selection writes the same user- and plot-scoped relative path to Firestore. Each Android device still needs its own folder permission.
+- The Data Feed label shows the user-scoped suggested base path before connection. Existing saved folders are reused only when they match the current user's default path.
+- Source is on feature branch `feature/email-scoped-image-feed-path`. Build identity remains v0.7.00 Build 07 / versionCode 220. No APK build or Android/Firestore device verification has been performed.
+
 ## Pending — Data feed plot targeting and cloud path display (2026-10-20)
 
 - Home plot synchronization now refreshes the Plot Management selection even when the visible dropdown value was already current.
