@@ -1,3 +1,9 @@
+## Pending — Firestore relativepath field correction (2026-10-20)
+
+- Folder selection writes the selected Drive-relative path to the plot document's top-level `relativepath` string, matching the existing Firestore schema, and mirrors it to `dataFeed.relativePath` for compatibility.
+- The generic Save Plot batch excludes stale local copies of both fields so it cannot erase the path written on selection.
+- Static source review only; APK build and device-side Firestore confirmation pending.
+
 ## Pending — Firestore plot and data-feed saves (2026-10-20)
 ## Pending — Home data-feed shortcut removal (2026-10-20)
 

@@ -96,8 +96,9 @@ public final class AccountApiBridge {
         String detail=error==null||error.getMessage()==null?"Please check the connection and try again.":error.getMessage();
         respond("googleSignIn",false,"Google was authenticated, but GrowPlot "+reason+". Please try again. "+detail,null);
     }
-    /** Persist the user's Drive-relative feed folder in the existing plot dataFeed map.
-     * Android's SAF URI and permission stay local to this device. */
+    /** Persist the user's Drive-relative feed folder in the plot document's top-level
+     * relativepath field and mirror it in dataFeed for existing readers. The Android SAF
+     * URI and permission stay local to this device. */
     public void saveImageFeedPath(String plotId,String displayPath,String relativePath){
         FirebaseUser user=auth.getCurrentUser();
         if(user==null){respond("saveFeedPath",false,"Sign in to save this folder path to Firestore. The folder remains saved on this device.",null);return;}
@@ -109,6 +110,7 @@ public final class AccountApiBridge {
             respond("saveFeedPath",false,"Choose a feed folder inside Google Drive → Projects → GrowPlot so its relative path can be shared with other devices. The folder remains saved on this device.",null);return;
         }
         Map<String,Object> updates=new HashMap<>();
+        updates.put("relativepath",relativePath);
         updates.put("dataFeed.enabled",true);
         updates.put("dataFeed.relativePath",relativePath);
         updates.put("updatedAt",com.google.firebase.firestore.FieldValue.serverTimestamp());
@@ -119,7 +121,7 @@ public final class AccountApiBridge {
                     respond("saveFeedPath",true,"",result);
                 })
                 .addOnFailureListener(e->respond("saveFeedPath",false,
-                        "The folder is saved on this device, but Firestore could not save plots/"+user.getUid()+"_"+plotId+".dataFeed.relativePath: "+e.getMessage(),null));
+                        "The folder is saved on this device, but Firestore could not save plots/"+user.getUid()+"_"+plotId+".relativepath: "+e.getMessage(),null));
     }
 
     private boolean isValidRelativeFeedPath(String path){
@@ -430,8 +432,9 @@ public final class AccountApiBridge {
                     }
                     incomingIds.add(plotId);
                     Map<String,Object> record=new com.google.gson.Gson().fromJson(plot.toString(),java.util.Map.class);
-                    // Feed selection is saved immediately by saveImageFeedPath(); exclude its
-                    // device-local/stale JS copy so Save Plot cannot replace dataFeed.relativePath.
+                    // Feed selection is saved immediately by saveImageFeedPath(); exclude stale
+                    // form copies so Save Plot cannot replace either synced path field.
+                    record.remove("relativepath");
                     record.remove("dataFeed");
                     record.put("ownerUserId",user.getUid());
                     record.put("updatedAt",com.google.firebase.firestore.FieldValue.serverTimestamp());
