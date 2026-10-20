@@ -1,8 +1,15 @@
+2026-10-20 | v0.7.00 Build 12 | versionCode 226 | com.growplot.farm
+---------------------------------------------------------------------
+Baseline: v0.7.00 Build 11 on branch codex/build-09-firestore-feed-path.
+Changes: Restore Daily to the A.I. Health photo timeline (the Android timeline bridge already defaults to daily). Restore the Build 07 two-pane Run diagnosis flow, showing the original selected plant photo beside the bundled on-device CV analysis and annotated result. Run diagnosis waits for CV analysis before continuing the existing pixel screen and provider checks. Ensure both panes use the same latest selected photo. Keep the Build 11 Data Feed settings and external CCTV JPEG assets.
+Validation: Inline JavaScript and existing Kindwise, Manage Farm, and account regression checks passed locally. ARM64 package, signer and Firebase OAuth checks pending.
+Build status: GitHub ARM64 build pending.
+
 2026-10-20 | v0.7.00 Build 11 | versionCode 225 | com.growplot.farm
 ---------------------------------------------------------------------
 Baseline: v0.7.00 Build 10 source on branch codex/build-09-firestore-feed-path.
 Changes: Shorten Data Feed help text. Move details into tap/hover info icons with a highlighted focus state. Keep Data Feed configuration under Settings → Plot Management → Data Feed.
-Build status: ARM64 rebuild requested to remove the obsolete signing-certificate comparison; configured signer fingerprint remains in manifest.
+Build status: ARM64 build passed; stable signer SHA-256 matches Build 08.
 
 2026-10-20 | v0.7.00 Build 10 | versionCode 224 | com.growplot.farm
 ---------------------------------------------------------------------
