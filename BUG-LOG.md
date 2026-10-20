@@ -846,8 +846,8 @@ Build 7 validation: Gradle ARM64 build, package version, signature, alignment, S
 ## BUG-078 — Embedded fallback photos make the dashboard HTML unnecessarily large
 
 **Reported:** 2026-10-20
-**Status:** Built as v0.7.00 Build 08 (versionCode 221) in isolated GitHub Actions run #1; Android verification pending.
+**Status:** Build 08 startup correction prepared on 2026-10-20; corrected APK build and Android verification pending.
 
 **Fix:** Preserved the prior dashboard page as `index_gold.html` and placed the updated page at `index.html`. The six fallback JPEGs stay as separate Android assets; the WebView asset route serves them when a live image request fails.
 
-**Verification / limits:** The HTML contains six external asset fallback URLs and no embedded JPEG data URIs. Isolated Actions run #1 passed JavaScript regression checks, ARM64 compilation, package/version verification, signing and artifact upload. The APK signer differs from the saved Build 30 certificate, so it cannot update the current installation. Tablet rendering remains unverified.
+**Verification / limits:** The HTML contains six external asset fallback URLs and no embedded JPEG data URIs. The new timeline guard prevents a saved Android daily preference from stopping page startup before six camera cards render. Existing image fallback behavior is unchanged. Corrected APK is being rebuilt as Build 08; tablet rendering and live playback remain unverified.
