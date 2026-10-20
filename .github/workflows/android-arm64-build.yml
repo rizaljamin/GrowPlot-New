@@ -1,3 +1,4 @@
+# Re-run Build 09 ARM64 package after user reported incomplete APK.
 name: Build GrowPlot ARM64 APK
 # Rebuild verified v0.7.00 Build 02 gold source
 
