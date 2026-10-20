@@ -2021,6 +2021,10 @@ public class MainActivity extends Activity {
                     JSONObject entry = feeds.optJSONObject(plotId);
                     String path = entry == null ? null : entry.optString("relativePath", null);
                     if (path == null || !path.regionMatches(true, 0, "Image_Feed/", 0, "Image_Feed/".length())) continue;
+                    String safeId = safePlotId(plotId);
+                    // A plot's account-level folder preference takes precedence over the
+                    // shared starter config once the user has selected or synced a path.
+                    if (getPrefs().getBoolean(feedUserSelectedKey(safeId), false)) continue;
                     String documentId = growPlotId;
                     boolean found = true;
                     for (String segment : path.split("/")) {
@@ -2028,7 +2032,6 @@ public class MainActivity extends Activity {
                         documentId = findOrCreateChildFolder(treeUri, documentId, segment);
                     }
                     if (!found) continue;
-                    String safeId = safePlotId(plotId);
                     // Drive config is authoritative for the default plot paths. Refresh local
                     // document IDs from it on launch so a stale but still-valid folder selection
                     // cannot keep pointing at yesterday's image_feed location.
@@ -2219,10 +2222,21 @@ public class MainActivity extends Activity {
             String targetDocumentId = DocumentsContract.getTreeDocumentId(folderUri);
             String defaultRelativePath = null;
             if (pickerCreatesDefaultFeed) {
-                String imageFeedId = findOrCreateChildFolder(folderUri, targetDocumentId, "Image_Feed");
-                String plotFolder = safeFolderName(pickerDefaultFolderName);
-                targetDocumentId = findOrCreateChildFolder(folderUri, imageFeedId, plotFolder);
-                defaultRelativePath = "Image_Feed/" + plotFolder;
+                String savedRelativePath = getPrefs().getString(cloudFeedRelativePathKey(plotId), "");
+                String growPlotId = resolveGrowPlotDocumentId(folderUri);
+                if (isValidGrowPlotRelativePath(savedRelativePath) && growPlotId != null) {
+                    targetDocumentId = growPlotId;
+                    for (String segment : savedRelativePath.split("/")) {
+                        targetDocumentId = findOrCreateChildFolder(folderUri, targetDocumentId, segment);
+                    }
+                    defaultRelativePath = savedRelativePath;
+                }
+                if (defaultRelativePath == null) {
+                    String imageFeedId = findOrCreateChildFolder(folderUri, targetDocumentId, "Image_Feed");
+                    String plotFolder = safeFolderName(pickerDefaultFolderName);
+                    targetDocumentId = findOrCreateChildFolder(folderUri, imageFeedId, plotFolder);
+                    defaultRelativePath = "Image_Feed/" + plotFolder;
+                }
             }
             locationLabel = defaultRelativePath == null
                     ? getDocumentPathLabel(folderUri, targetDocumentId)
@@ -2235,11 +2249,18 @@ public class MainActivity extends Activity {
                     .putString(feedTreeKey(plotId), folderUri.toString())
                     .putString(feedFolderDocumentKey(plotId), targetDocumentId)
                     .putString(feedLocationKey(plotId), locationLabel)
+                    .putString(cloudFeedLocationKey(plotId), locationLabel)
+                    .putString(cloudFeedRelativePathKey(plotId), relativePathFromGrowPlot(locationLabel) == null
+                            ? "" : relativePathFromGrowPlot(locationLabel))
+                    .putBoolean(feedUserSelectedKey(plotId), true)
                     .putString("data_feed_config_" + plotId, config.toString())
                     .putString(PREF_ACTIVE_PLOT_ID, plotId)
                     .apply();
             rememberGrowPlotTreeIfScoped(folderUri);
             storageConfigSaved = saveDriveStorageConfig(folderUri);
+            if (accountApiBridge != null) {
+                accountApiBridge.saveImageFeedPath(plotId, locationLabel, relativePathFromGrowPlot(locationLabel));
+            }
         } catch (Exception error) {
             publishStatus(makeStatus(pickerCreatesDefaultFeed
                     ? "Could not use the default Image_Feed folder here. Choose a writable GrowPlot folder, or choose an existing image feed folder."
@@ -3277,6 +3298,56 @@ public class MainActivity extends Activity {
         @JavascriptInterface public String getFeedLocation(String plotId) {
             String id = safePlotId(plotId);
             return feedLocationLabel(id);
+        }
+
+        @JavascriptInterface public void applyCloudFeedPaths(String payload) {
+            try {
+                JSONObject cloudPaths = new JSONObject(payload == null ? "{}" : payload);
+                Uri treeUri = findGrowPlotScopedTreeUri();
+                String growPlotId = treeUri == null ? null : resolveGrowPlotDocumentId(treeUri);
+                java.util.Iterator<String> plotIds = cloudPaths.keys();
+                while (plotIds.hasNext()) {
+                    String plotId = plotIds.next();
+                    if (!plotId.matches("[A-Za-z0-9_-]{1,64}")) continue;
+                    JSONObject entry = cloudPaths.optJSONObject(plotId);
+                    if (entry == null) continue;
+                    String displayPath = entry.optString("displayPath", "").trim();
+                    String relativePath = entry.optString("relativePath", "").trim();
+                    if (displayPath.isEmpty() || displayPath.length() > 512) continue;
+                    String safeId = safePlotId(plotId);
+                    getPrefs().edit().putString(cloudFeedLocationKey(safeId), displayPath)
+                            .putString(cloudFeedRelativePathKey(safeId), relativePath).apply();
+                    boolean hasRelativeFeedPath = isValidGrowPlotRelativePath(relativePath);
+                    if (!hasRelativeFeedPath || growPlotId == null) {
+                        String localPath = feedLocationLabel(safeId);
+                        if (!displayPath.equals(localPath)) {
+                            SharedPreferences.Editor editor = getPrefs().edit().remove(feedTreeKey(safeId))
+                                    .remove(feedFolderDocumentKey(safeId)).remove(feedLocationKey(safeId))
+                                    .putBoolean(feedUserSelectedKey(safeId), true);
+                            if (DEFAULT_PLOT_ID.equals(safeId)) editor.remove(PREF_IMAGE_FEED_TREE_URI);
+                            editor.apply();
+                        }
+                        continue;
+                    }
+                    String documentId = growPlotId;
+                    for (String segment : relativePath.split("/")) {
+                        if (segment.isEmpty() || ".".equals(segment) || "..".equals(segment)) {
+                            documentId = null;
+                            break;
+                        }
+                        documentId = findOrCreateChildFolder(treeUri, documentId, segment);
+                    }
+                    if (documentId != null) {
+                        getPrefs().edit().putString(feedTreeKey(safeId), treeUri.toString())
+                                .putString(feedFolderDocumentKey(safeId), documentId)
+                                .putString(feedLocationKey(safeId), getDocumentPathLabel(treeUri, documentId))
+                                .putBoolean(feedUserSelectedKey(safeId), true).apply();
+                    }
+                }
+                mainHandler.post(MainActivity.this::scanSnapshotFolder);
+            } catch (Exception error) {
+                android.util.Log.w("GrowPlotFeed", "Could not apply account feed paths", error);
+            }
         }
 
         @JavascriptInterface public void openIpWebcam() {
@@ -4529,6 +4600,18 @@ public class MainActivity extends Activity {
 
     private String feedLocationKey(String plotId) { return "data_feed_location_label_" + safePlotId(plotId); }
 
+    private String feedUserSelectedKey(String plotId) { return "data_feed_user_selected_" + safePlotId(plotId); }
+
+    private String cloudFeedLocationKey(String plotId) { return "data_feed_cloud_location_" + safePlotId(plotId); }
+
+    private String cloudFeedRelativePathKey(String plotId) { return "data_feed_cloud_relative_path_" + safePlotId(plotId); }
+
+    private boolean isValidGrowPlotRelativePath(String path) {
+        if (path == null || path.length() > 240 || !path.matches("[A-Za-z0-9 _./-]{1,240}") || path.startsWith("/")) return false;
+        for (String segment : path.split("/")) if (segment.isEmpty() || ".".equals(segment) || "..".equals(segment)) return false;
+        return true;
+    }
+
     private String feedLocationLabel(String plotId) {
         String id = safePlotId(plotId);
         String label = getPrefs().getString(feedLocationKey(id), "");
@@ -4546,7 +4629,10 @@ public class MainActivity extends Activity {
         if (tree == null && DEFAULT_PLOT_ID.equals(id)) tree = getPrefs().getString(PREF_IMAGE_FEED_TREE_URI, null);
         String documentId = getPrefs().getString(feedFolderDocumentKey(id), null);
         if (tree != null && documentId != null) return getDocumentPathLabel(Uri.parse(tree), documentId);
-        return tree == null ? "" : getStorageLabel(Uri.parse(tree)) + ": /" + getDocumentName(Uri.parse(tree));
+        if (tree != null) return getStorageLabel(Uri.parse(tree)) + ": /" + getDocumentName(Uri.parse(tree));
+        String cloudPath = getPrefs().getString(cloudFeedLocationKey(id), "");
+        return cloudPath == null || cloudPath.isEmpty() ? ""
+                : "Saved in Firestore: " + cloudPath + " · Choose the folder on this device to grant access";
     }
 
     private long photoFreshness(Photo photo) {

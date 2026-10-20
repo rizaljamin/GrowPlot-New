@@ -233,6 +233,18 @@ window.GrowPlotAccountResponse=function(response){
   return;
  }
 
+ if(response&&response.action==='saveFeedPath'){
+  const status=document.getElementById('folderCheckStatus');
+  if(response.ok&&typeof plots!=='undefined'&&Array.isArray(plots)){
+   const plot=plots.find(item=>item&&item.id===response.data?.plotId);
+   if(plot)plot.dataFeed={...(plot.dataFeed&&typeof plot.dataFeed==='object'?plot.dataFeed:{}),enabled:true,relativePath:response.data.relativePath};
+  }
+  if(status)status.textContent=response.ok
+   ?'Relative feed path saved in this plot’s Firestore dataFeed map. Android folder access is saved on this device.'
+   :'Selected path is saved on this device. '+(response.error||'Firestore could not save it; sign in and retry.')
+  return;
+ }
+
  if(response&&response.action==='saveVigiCloudCredentials'){const n=document.getElementById('growplotFeedCloudStatus');if(n)n.textContent=response.ok?'VIGI password encrypted and saved in Firebase.':'VIGI cloud credential save failed: '+(response.error||'Unknown error');return;}
  if(response&&response.action==='loadVigiCloudCredentials'){if(response.ok){window.vigiCctv03HasPassword=true;const n=document.getElementById('growplotFeedCloudStatus');if(n)n.textContent='VIGI credentials restored from encrypted Firebase storage.';}return;}
 
@@ -265,6 +277,22 @@ window.GrowPlotAccountResponse=function(response){
    else {request('profile',{});}
  }else if(response.action==='profile'){
    window.GrowPlotCloudProfile=data;
+   const feedPaths={};
+   for(const plot of Array.isArray(data.plots)?data.plots:[]){
+     if(!plot||!plot.id)continue;
+     const raw=plot.dataFeed;
+     const relativePath=String(raw?.relativePath||'');
+     const storedPath=String(raw?.displayPath||raw?.path||'');
+     const validRelativePath=/^[A-Za-z0-9 _./-]{1,240}$/.test(relativePath)&&!relativePath.startsWith('/')&&relativePath.split('/').every(part=>part&&part!=='.'&&part!=='..');
+     const displayPath=storedPath||(validRelativePath
+       ?'Google Drive: /Projects/GrowPlot/'+relativePath:'');
+     if(displayPath)feedPaths[String(plot.id)]={displayPath,relativePath};
+   }
+   data.feedPaths=feedPaths;
+   if(window.GrowPlotBridge&&window.GrowPlotBridge.applyCloudFeedPaths){
+     try{window.GrowPlotBridge.applyCloudFeedPaths(JSON.stringify(data.feedPaths||{}));}catch(e){}
+   }
+   if(typeof updateFeedScope==='function')updateFeedScope();
    // The HTML renderer reads this shared array, so remove every non-authorized
    // plot before it renders. Do not erase persisted local records.
    if(typeof plots!=='undefined'&&Array.isArray(plots)){

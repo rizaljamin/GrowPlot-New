@@ -1,3 +1,14 @@
+## BUG-079 — Selected Data Feed path is not reusable on another device
+
+**Reported:** 2026-10-20
+**Status:** Implemented for v0.7.00 Build 09 (versionCode 223); GitHub ARM64 build and device verification pending.
+
+**Cause:** The Android Storage Access Framework `folderUri` and its permission are specific to the device that granted them, so copying that URI through Firestore cannot restore access on a second device.
+
+**Fix:** Save the folder path relative to Google Drive → Projects → GrowPlot in the existing Firestore plot map as `dataFeed.relativePath`. On another device, GrowPlot can resolve or recreate the saved relative path after the user grants access to the GrowPlot folder. The SAF URI and permission remain local.
+
+**Verification / limits:** JavaScript syntax, feed-history, settings-save, Manage Farm, and diff checks pass. GitHub ARM64 packaging must confirm `assets/index.html` and six external CCTV fallback JPEGs. Cross-device Drive access still requires tablet testing.
+
 ## BUG-077 — First-plot sign-in prompt appears over Settings
 
 **Reported:** 2026-10-15

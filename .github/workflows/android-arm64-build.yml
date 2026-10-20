@@ -4,7 +4,7 @@ name: Build GrowPlot ARM64 APK
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, codex/build-09-firestore-feed-path]
     paths:
       - 'version.properties'
       - 'app/**'
@@ -91,6 +91,13 @@ jobs:
           test "$(find release -maxdepth 1 -name '*-build-manifest.txt' | wc -l)" -eq 1
           grep -Fxq "Version: $VERSION_NAME" release/*-build-manifest.txt
           grep -Fxq "versionCode: $VERSION_CODE" release/*-build-manifest.txt
+          APK_PATH="$(find release -maxdepth 1 -name '*.apk' -print -quit)"
+          APK_ENTRIES="$(unzip -Z1 "$APK_PATH")"
+          grep -Fxq 'assets/index.html' <<<"$APK_ENTRIES"
+          for CAMERA in 01 02 03 04 05 06; do
+            grep -Fxq "assets/images/cctv_${CAMERA}.jpg" <<<"$APK_ENTRIES"
+          done
+          echo "Packaged index.html and all six external CCTV fallback JPEGs."
           if [[ "$GROWPLOT_STABLE_SIGNING_KEY_AVAILABLE" == "true" ]]; then
             SIGNING_STATUS="$(sed -n 's/^Signing status: //p' release/*-build-manifest.txt | head -n1)"
             SIGNER_SHA1="$(sed -n 's/^Signing certificate SHA-1: //p' release/*-build-manifest.txt | head -n1)"
