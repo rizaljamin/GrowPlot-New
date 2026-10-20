@@ -70,16 +70,16 @@ mkdir -p "$ROOT/release"
 SAFE_VERSION="$(printf '%s' "$VERSION_NAME" | tr '[:upper:] ' '[:lower:]-' | tr -cd 'a-z0-9.-')"
 if [[ "$CERT" == "${EXPECTED_CERT,,}" && -n "${GROWPLOT_PLANTNET_API_KEY:-}" ]]; then
   APK_SUFFIX="test-candidate"
-  SIGNING_STATE="Matches the saved Build 30 certificate."
+  SIGNING_STATE="Matches the configured release signing certificate."
 elif [[ "$CERT" == "${EXPECTED_CERT,,}" ]]; then
   APK_SUFFIX="stable"
-  SIGNING_STATE="Matches the saved Build 30 certificate."
+  SIGNING_STATE="Matches the configured release signing certificate."
 elif [[ "${GROWPLOT_STABLE_SIGNING_KEY_AVAILABLE:-false}" == "true" ]]; then
   APK_SUFFIX="signed-new-key"
-  SIGNING_STATE="Signed with configured stable keystore; certificate differs from saved Build 30 certificate."
+  SIGNING_STATE="Signed with configured stable keystore; certificate differs from the previously used release signing certificate."
 else
   APK_SUFFIX="development-only"
-  SIGNING_STATE="Does not match the saved Build 30 certificate; Android may reject it as an update. Do not uninstall the installed app to install this file."
+  SIGNING_STATE="Does not match the previously used release signing certificate; Android may reject it as an update. Do not uninstall the installed app to install this file."
 fi
 ARM64_OUT="$ROOT/release/v${SAFE_VERSION}-GrowPlot-arm64-${APK_SUFFIX}.apk"
 ARM64_ENTRIES="$(unzip -Z1 "$APK")"
