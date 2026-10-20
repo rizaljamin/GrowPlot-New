@@ -132,3 +132,8 @@ Validation: executable combined-save regression, saved-password reuse, invalid G
 2026-10-12 | Pending next build after Build 6
 Added collapsed Plugins · API Keys Settings menu with default Pl@ntNet key portal and Kindwise admin links. Masked key fields save through the overall diskette Save action; blank fields retain saved keys. Keys use Android Keystore AES-GCM encrypted device preferences and are never returned to the WebView. Pl@ntNet requests use the saved device key first, then the existing build-key fallback. Kindwise key storage is available; diagnosis provider integration remains unconnected.
 Validation: Java 17 compilation against Android API 35/VLC and existing Settings/feed regression checks passed. Live provider validation and Android device checks pending; Packaged in Build 7; APK checks passed.
+
+
+2026-10-20 | Pending next APK
+Google Drive image-feed Connect now creates or reuses `Image_Feed/<signed-in-email>/<selected-plot>` under the authorized GrowPlot folder. Reuses the saved Android folder grant when available; otherwise, the user authorizes the GrowPlot folder once, then the selected user's plot path is created. If folder creation fails, the expected path and the failure status are reported separately.
+Verification: source change committed; Android build and Google Drive provider/device verification pending.
