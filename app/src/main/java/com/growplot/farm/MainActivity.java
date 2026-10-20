@@ -2215,10 +2215,12 @@ public class MainActivity extends Activity {
             String targetDocumentId = DocumentsContract.getTreeDocumentId(folderUri);
             String defaultRelativePath = null;
             if (pickerCreatesDefaultFeed) {
+                String emailFolder = signedInEmailFolderName();
                 String imageFeedId = findOrCreateChildFolder(folderUri, targetDocumentId, "Image_Feed");
+                String userFolderId = findOrCreateChildFolder(folderUri, imageFeedId, emailFolder);
                 String plotFolder = safeFolderName(pickerDefaultFolderName);
-                targetDocumentId = findOrCreateChildFolder(folderUri, imageFeedId, plotFolder);
-                defaultRelativePath = "Image_Feed/" + plotFolder;
+                targetDocumentId = findOrCreateChildFolder(folderUri, userFolderId, plotFolder);
+                defaultRelativePath = "Image_Feed/" + emailFolder + "/" + plotFolder;
             }
             locationLabel = defaultRelativePath == null
                     ? getDocumentPathLabel(folderUri, targetDocumentId)
@@ -4135,6 +4137,47 @@ public class MainActivity extends Activity {
         }
     }
 
+    private String signedInEmailFolderName() {
+        com.google.firebase.auth.FirebaseUser user =
+                com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+        String email = user == null ? null : user.getEmail();
+        if (email == null || email.trim().isEmpty())
+            throw new IllegalStateException("Sign in to connect this plot's Google Drive folder.");
+        String safe = email.trim().toLowerCase(Locale.ROOT)
+                .replaceAll("[^a-z0-9@._+-]+", "_");
+        if (safe.length() > 100) safe = safe.substring(0, 100);
+        return safe;
+    }
+
+    private void connectDefaultFeedInSavedTree(String plotId, Uri treeUri) throws Exception {
+        String rootId = DocumentsContract.getTreeDocumentId(treeUri);
+        String imageFeedId = findOrCreateChildFolder(treeUri, rootId, "Image_Feed");
+        String userFolder = signedInEmailFolderName();
+        String userFolderId = findOrCreateChildFolder(treeUri, imageFeedId, userFolder);
+        String plotFolder = safeFolderName(pickerDefaultFolderName);
+        String plotFolderId = findOrCreateChildFolder(treeUri, userFolderId, plotFolder);
+        String relativePath = "Image_Feed/" + userFolder + "/" + plotFolder;
+        String locationLabel = getDocumentPathLabel(treeUri, rootId) + "/" + relativePath;
+        JSONObject config = new JSONObject(getPrefs().getString("data_feed_config_" + plotId, "{}"));
+        config.put("plotId", plotId);
+        config.put("enabled", true);
+        config.put("folderUri", treeUri.toString());
+        getPrefs().edit()
+                .putString(feedTreeKey(plotId), treeUri.toString())
+                .putString(feedFolderDocumentKey(plotId), plotFolderId)
+                .putString(feedLocationKey(plotId), locationLabel)
+                .putString("data_feed_config_" + plotId, config.toString())
+                .putString(PREF_ACTIVE_PLOT_ID, plotId)
+                .apply();
+        rememberGrowPlotTreeIfScoped(treeUri);
+        saveDriveStorageConfig(treeUri);
+        if (accountApiBridge != null)
+            accountApiBridge.saveImageFeedPath(plotId, locationLabel, relativePath);
+        pickerCreatesDefaultFeed = false;
+        notifyFeedSettingsSaved(plotId, locationLabel);
+        scanSnapshotFolder(plotId);
+    }
+
     private void openImageFeedFolderPicker() {
         if (isFinishing()) return;
         if (pickerCreatesDefaultFeed) {
@@ -4143,9 +4186,13 @@ public class MainActivity extends Activity {
             if (savedTree != null && savedFolder != null) {
                 Uri savedTreeUri = Uri.parse(savedTree);
                 if (hasPersistedReadWriteGrant(savedTreeUri)) {
-                    getPrefs().edit().putString(PREF_ACTIVE_PLOT_ID, pickerPlotId).apply();
-                    publishStatus(makeStatus("Using the saved Google Drive folder: " + feedLocationLabel(pickerPlotId)));
-                    scanSnapshotFolder(pickerPlotId);
+                    try {
+                        connectDefaultFeedInSavedTree(pickerPlotId, savedTreeUri);
+                    } catch (Exception error) {
+                        String reason = error.getMessage() == null ? "Drive folder could not be created" : error.getMessage();
+                        publishStatus(makeStatus("Expected Google Drive path: " + expectedFeedPathLabel(pickerPlotId)
+                                + "\\nFolder status: unavailable — " + reason));
+                    }
                     return;
                 }
             }
@@ -4528,10 +4575,20 @@ public class MainActivity extends Activity {
 
     private String feedLocationKey(String plotId) { return "data_feed_location_label_" + safePlotId(plotId); }
 
+    private String expectedFeedPathLabel(String plotId) {
+        String userFolder;
+        try { userFolder = signedInEmailFolderName(); }
+        catch (Exception error) { return "Google Drive: /Projects/GrowPlot/Image_Feed/<signed-in-user>/<plot>"; }
+        String plot = safeFolderName(pickerDefaultFolderName);
+        return "Google Drive: /Projects/GrowPlot/Image_Feed/" + userFolder + "/" + plot;
+    }
+
     private String feedLocationLabel(String plotId) {
         String id = safePlotId(plotId);
         String label = getPrefs().getString(feedLocationKey(id), "");
         if (label != null && label.contains(": /")) return label;
+        if (pickerCreatesDefaultFeed && id.equals(safePlotId(pickerPlotId)))
+            return expectedFeedPathLabel(id);
         if (label != null && !label.isEmpty()) {
             if (label.startsWith("Google Drive/")) {
                 String suffix = label.substring("Google Drive/".length());
