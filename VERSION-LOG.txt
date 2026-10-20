@@ -1350,3 +1350,8 @@ Signing / provider keys: This APK's certificate does not match the saved Build 3
 Baseline: GitHub branch `codex/externalize-cctv-fallback-images`, commit `5fc78f76e8493ae44410176ebddf97b84b2c0cd9`.
 Changes: Save the prior dashboard HTML as `index_gold.html`, then place the posted updated HTML at `app/src/main/assets/index.html`. Keep the six JPEGs as separate Android assets and load them through the app asset route for fallback display. This isolates the APK build in `.github/workflows/growplot-build-08.yml`; the existing ARM64 workflow is unchanged.
 Validation: Isolated GitHub Actions run #1 (https://github.com/rizaljamin/GrowPlot-New/actions/runs/39352628208) passed inline JavaScript and regression checks, ARM64 Gradle packaging, package/version metadata, APK signature, alignment, and artifact upload. APK SHA-256: `0b925405c6a4f43217d7c3c4b32f579d2084011e4a052838c609505eb394b776`; source ZIP SHA-256: `56c1ed5141d1453f37f4f08186555c07c99c057e35c862f19afa3f166b08668c`. Signing certificate SHA-256 `fc5edb30ece8df673c50aa907b61357bceb807eb843ef853d89c276e5501b204` differs from the saved Build 30 certificate, so this APK cannot update the current install. Firebase OAuth signer check passed. Pl@ntNet key is absent. Android tablet verification pending.
+
+
+2026-10-20 | v0.7.00 Build 08 corrected startup | versionCode 222
+- Keep the Build 08 display label and fix the home dashboard startup crash when Android returns a saved daily timeline preference. Invalid timeline values now fall back to weekly so render() can create all six CCTV cards. No snapshot cadence or daily snapshot behavior changed.
+- Rebuild requested by user. ARM64 APK and Android device validation pending.
