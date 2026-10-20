@@ -1354,4 +1354,6 @@ Validation: Isolated GitHub Actions run #1 (https://github.com/rizaljamin/GrowPl
 
 2026-10-20 | v0.7.00 Build 08 corrected startup | versionCode 222
 - Keep the Build 08 display label and fix the home dashboard startup crash when Android returns a saved daily timeline preference. Invalid timeline values now fall back to weekly so render() can create all six CCTV cards. No snapshot cadence or daily snapshot behavior changed.
-- Rebuild requested by user. ARM64 APK and Android device validation pending.
+- Isolated GitHub Actions run #3 passed inline JavaScript/regression checks, ARM64 compilation, package/version metadata, signing, alignment and artifact upload.
+- APK SHA-256: `bb2683898ab379d2932f3af29d72a6b4470dd36e5a2ca52799d16df88a851d81`; source ZIP SHA-256: `3a30c2a5a8338b79b9cb976346f27422f9f0dc8e7214837f3e2097a8b3c13bc2`.
+- Android tablet rendering and live CCTV playback still require device verification.
