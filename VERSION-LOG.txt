@@ -2,7 +2,7 @@
 ---------------------------------------------------------------------
 Baseline: GitHub main v0.7.00 Build 07 / versionCode 220. Source commit: 046f5a6c788d40586e1e49878d0eea2eba6384e8.
 Changes: Scope default image-feed folders to the signed-in email and plot; save the relative path to Firestore; simplify Data Feed controls to one default-folder connection button with a five-minute automatic scan and invalid-folder feedback.
-Validation: GitHub ARM64 workflow run #370 passed build, package/version/signature checks, and artifact upload. APK SHA-256: 132c8e40c1c25220efec7096056989f42d3a4d60f70dcdfe03ca80b10310c32d; source ZIP SHA-256: 9d52a525bc6f55ad5b1781d78e7cfddc33f4857dba953d801a6fca895b4df036. Configured signer SHA-256 fc5edb30ece8df673c50aa907b61357bceb807eb843ef853d89c276e5501b204 differs from the saved Build 30 certificate. Pl@ntNet key absent. Tablet verification pending.
+Validation: [GitHub ARM64 workflow run #370](https://github.com/rizaljamin/GrowPlot-New/actions/runs/39445331020#artifacts) passed build, package/version/signature checks, and artifact upload. APK SHA-256: 132c8e40c1c25220efec7096056989f42d3a4d60f70dcdfe03ca80b10310c32d; source ZIP SHA-256: 9d52a525bc6f55ad5b1781d78e7cfddc33f4857dba953d801a6fca895b4df036. Configured signer SHA-256 fc5edb30ece8df673c50aa907b61357bceb807eb843ef853d89c276e5501b204 differs from the saved Build 30 certificate. Pl@ntNet key absent. Tablet verification pending.
 
 2026-10-15 | v0.6.02 Build 02 | versionCode 159
 - First-plot sign-in returns to Home before opening its prompt, preventing Settings from remaining underneath.
