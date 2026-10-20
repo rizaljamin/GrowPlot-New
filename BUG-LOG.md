@@ -843,11 +843,11 @@ Build 7 validation: Gradle ARM64 build, package version, signature, alignment, S
 
 - 2026-10-18 | v0.7.00 Build 02 | CCTV02 VIGI snapshot cadence: fixed overlapping saves and scheduler drift; checks derive remaining delay from last successful saved frame. Default 15 minutes; stored user preference overrides it. Verify JPEG timestamps and Google Drive history on PP5 tablet; compilation/signature and live test pending.
 
-## BUG-077 — Embedded fallback photos make the dashboard HTML unnecessarily large
+## BUG-078 — Embedded fallback photos make the dashboard HTML unnecessarily large
 
 **Reported:** 2026-10-20
-**Status:** Implemented in v0.7.00 Build 08 source; isolated ARM64 build and Android verification pending.
+**Status:** Built as v0.7.00 Build 08 (versionCode 221) in isolated GitHub Actions run #1; Android verification pending.
 
 **Fix:** Preserved the prior dashboard page as `index_gold.html` and placed the updated page at `index.html`. The six fallback JPEGs stay as separate Android assets; the WebView asset route serves them when a live image request fails.
 
-**Verification / limits:** The HTML contains external asset URLs and no embedded JPEG data URIs. Build 08 uses a separate GitHub Actions workflow on its feature branch; the existing ARM64 workflow is unchanged. APK compilation, signing, and device rendering are pending.
+**Verification / limits:** The HTML contains six external asset fallback URLs and no embedded JPEG data URIs. Isolated Actions run #1 passed JavaScript regression checks, ARM64 compilation, package/version verification, signing and artifact upload. The APK signer differs from the saved Build 30 certificate, so it cannot update the current installation. Tablet rendering remains unverified.
