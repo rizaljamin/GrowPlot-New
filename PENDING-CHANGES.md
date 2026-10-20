@@ -1,4 +1,10 @@
 ## Pending — Firestore plot and data-feed saves (2026-10-20)
+## Pending — Home data-feed shortcut removal (2026-10-20)
+
+- Removed the Home data-feed status strip and Feed settings shortcut. Data-feed controls remain under Settings → Plot Management / Manage Farm → Plot Management.
+- Demo Plot stays read-only. Selecting a user-owned plot clears the Demo-only notice and leaves the folder picker enabled for that plot.
+- Static source review only; no APK build or Android device verification yet. Keep Build 07 identity until the next planned batch.
+
 
 - Save plot continues to sync the plot record through the existing Firebase profile save flow.
 - Selecting a data-feed folder immediately writes `dataFeed.enabled=true` and the Drive-relative `dataFeed.relativePath` to that plot document. Android's SAF folder URI and permission stay device-local.

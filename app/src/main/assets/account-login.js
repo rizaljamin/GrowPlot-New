@@ -390,7 +390,11 @@ window.GrowPlotDemoPowerUserUnlocked=false;
    if(element){element.disabled=isLocked;element.setAttribute('aria-disabled',String(isLocked));}
   }
   const status=document.getElementById('plotManagementStatus');
-  if(isLocked&&status&&status.textContent!=='Demo Plot is read-only. Select Login as Power User to unlock editing.')status.textContent='Demo Plot is read-only. Select Login as Power User to unlock editing.';
+  const demoMessage='Demo Plot is read-only. Select one of your plots to edit settings.';
+  if(status){
+   if(isLocked)status.textContent=demoMessage;
+   else if(status.textContent===demoMessage)status.textContent='';
+  }
  }
  document.addEventListener('change',e=>{if(e.target?.id==='plotManagerSelect')queueMicrotask(refresh);},true);
  // The Plot panel is moved between Settings and Manage Farm; restore editability on entry.
