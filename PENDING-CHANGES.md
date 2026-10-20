@@ -1,3 +1,9 @@
+## Pending — simplify Data Feed folder controls (2026-10-20)
+
+- Kept the default folder connection and renamed its button to **Connect to folder**. Removed the custom-folder button, manual Check now button, and scan interval selector.
+- Automatic scans remain enabled at a fixed five-minute interval while GrowPlot is open. Unavailable folders display **Invalid path/folder**.
+- Source changes are on `feature/email-scoped-image-feed-path`; Build 07 is unchanged. No APK build or Android device verification has been performed.
+
 ## Pending — email-scoped default image-feed paths (2026-10-20)
 
 - Default feed folders now use `Projects/GrowPlot/Image_Feed/<email-address>/<plot-folder>`, using the authenticated email in lowercase as the user folder (for example, `growplot2026@gmail.com`).
