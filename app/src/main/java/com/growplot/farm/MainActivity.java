@@ -805,7 +805,7 @@ public class MainActivity extends Activity {
             int index = displayPath.indexOf(marker);
             if (index >= 0) {
                 String path = displayPath.substring(index + marker.length()).replace('\\', '/');
-                if (path.matches("[A-Za-z0-9 _./-]{1,240}") && !path.contains("../") && !path.startsWith("../")) return path;
+                if (path.matches("[A-Za-z0-9 _@.!#$%&'+-]{1,240}") && !path.contains("../") && !path.startsWith("../")) return path;
             }
         }
         return null;
