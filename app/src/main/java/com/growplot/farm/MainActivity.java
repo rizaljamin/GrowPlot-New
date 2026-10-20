@@ -133,6 +133,7 @@ public class MainActivity extends Activity {
     private volatile String pickerPlotId = DEFAULT_PLOT_ID;
     private volatile boolean pickerCreatesDefaultFeed;
     private volatile String pickerDefaultFolderName = "Demo_plot";
+    private volatile String pickerUserFolderName = "";
     private volatile String locationPermissionPlotId = DEFAULT_PLOT_ID;
     private volatile String locationLookupPlotId = DEFAULT_PLOT_ID;
     private volatile boolean locationRequestInFlight;
@@ -2216,9 +2217,10 @@ public class MainActivity extends Activity {
             String defaultRelativePath = null;
             if (pickerCreatesDefaultFeed) {
                 String imageFeedId = findOrCreateChildFolder(folderUri, targetDocumentId, "Image_Feed");
+                String userFolderId = findOrCreateChildFolder(folderUri, imageFeedId, pickerUserFolderName);
                 String plotFolder = safeFolderName(pickerDefaultFolderName);
-                targetDocumentId = findOrCreateChildFolder(folderUri, imageFeedId, plotFolder);
-                defaultRelativePath = "Image_Feed/" + plotFolder;
+                targetDocumentId = findOrCreateChildFolder(folderUri, userFolderId, plotFolder);
+                defaultRelativePath = "Image_Feed/" + pickerUserFolderName + "/" + plotFolder;
             }
             locationLabel = defaultRelativePath == null
                     ? getDocumentPathLabel(folderUri, targetDocumentId)
@@ -3268,14 +3270,19 @@ public class MainActivity extends Activity {
         @JavascriptInterface public void createDefaultDataFeed(String plotId, String folderName) {
             pickerPlotId = safePlotId(plotId);
             pickerDefaultFolderName = safeFolderName(folderName);
+            pickerUserFolderName = accountApiBridge == null ? "" : accountApiBridge.getCurrentFeedEmailFolderName();
             pickerCreatesDefaultFeed = true;
+            if (pickerUserFolderName.isEmpty()) {
+                publishStatus(makeStatus("Sign in with your email account before connecting a personal data feed."));
+                return;
+            }
             getPrefs().edit().putString(PREF_ACTIVE_PLOT_ID, pickerPlotId).apply();
             runOnUiThread(MainActivity.this::openImageFeedFolderPicker);
         }
 
         @JavascriptInterface public String getFeedLocation(String plotId) {
             String id = safePlotId(plotId);
-            return feedLocationLabel(id);
+            return feedLocationDisplayLabel(id);
         }
 
         @JavascriptInterface public void openIpWebcam() {
@@ -4140,7 +4147,9 @@ public class MainActivity extends Activity {
         if (pickerCreatesDefaultFeed) {
             String savedTree = getPrefs().getString(feedTreeKey(pickerPlotId), null);
             String savedFolder = getPrefs().getString(feedFolderDocumentKey(pickerPlotId), null);
-            if (savedTree != null && savedFolder != null) {
+            String savedLabel = feedLocationLabel(pickerPlotId);
+            String expectedSuffix = "/Image_Feed/" + pickerUserFolderName + "/" + safeFolderName(pickerDefaultFolderName);
+            if (savedTree != null && savedFolder != null && savedLabel.endsWith(expectedSuffix)) {
                 Uri savedTreeUri = Uri.parse(savedTree);
                 if (hasPersistedReadWriteGrant(savedTreeUri)) {
                     getPrefs().edit().putString(PREF_ACTIVE_PLOT_ID, pickerPlotId).apply();
@@ -4152,7 +4161,8 @@ public class MainActivity extends Activity {
         }
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
         intent.putExtra(Intent.EXTRA_TITLE, pickerCreatesDefaultFeed
-                ? "Choose GrowPlot once to connect Image_Feed/Plot01_demo" : "Choose this plot's image feed folder");
+                ? "Choose Projects/GrowPlot to connect Image_Feed/" + pickerUserFolderName + "/" + safeFolderName(pickerDefaultFolderName)
+                : "Choose this plot's image feed folder");
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
                 | Intent.FLAG_GRANT_WRITE_URI_PERMISSION
                 | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
@@ -4527,6 +4537,14 @@ public class MainActivity extends Activity {
     private String feedFolderDocumentKey(String plotId) { return "data_feed_folder_document_" + safePlotId(plotId); }
 
     private String feedLocationKey(String plotId) { return "data_feed_location_label_" + safePlotId(plotId); }
+
+    private String feedLocationDisplayLabel(String plotId) {
+        String saved = feedLocationLabel(plotId);
+        if (saved != null && !saved.isEmpty()) return saved;
+        String emailFolder = accountApiBridge == null ? "" : accountApiBridge.getCurrentFeedEmailFolderName();
+        if (emailFolder.isEmpty()) return "Sign in to see this user's suggested Google Drive data-feed path.";
+        return "Not connected · suggested Google Drive path: /Projects/GrowPlot/Image_Feed/" + emailFolder + "/<plot-folder>";
+    }
 
     private String feedLocationLabel(String plotId) {
         String id = safePlotId(plotId);
@@ -5104,7 +5122,7 @@ public class MainActivity extends Activity {
             status.put("intervalMinutes", refreshIntervalMinutes);
             String activePlot = safePlotId(getPrefs().getString(PREF_ACTIVE_PLOT_ID, DEFAULT_PLOT_ID));
             status.put("plotId", activePlot);
-            status.put("feedLocation", feedLocationLabel(activePlot));
+            status.put("feedLocation", feedLocationDisplayLabel(activePlot));
         } catch (Exception ignored) { }
         return status;
     }
