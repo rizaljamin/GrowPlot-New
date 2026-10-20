@@ -96,6 +96,38 @@ public final class AccountApiBridge {
         String detail=error==null||error.getMessage()==null?"Please check the connection and try again.":error.getMessage();
         respond("googleSignIn",false,"Google was authenticated, but GrowPlot "+reason+". Please try again. "+detail,null);
     }
+    /** Persist the user's Drive-relative feed folder in the existing plot dataFeed map.
+     * Android's SAF URI and permission stay local to this device. */
+    public void saveImageFeedPath(String plotId,String displayPath,String relativePath){
+        FirebaseUser user=auth.getCurrentUser();
+        if(user==null){respond("saveFeedPath",false,"Sign in to save this folder path to Firestore. The folder remains saved on this device.",null);return;}
+        if(plotId==null||!plotId.matches("[A-Za-z0-9_-]{1,100}")||"plot-1".equals(plotId)
+                ||displayPath==null||displayPath.trim().isEmpty()||displayPath.length()>512||displayPath.startsWith("content://")){
+            respond("saveFeedPath",false,"The selected folder path is invalid or this is the shared Demo Plot.",null);return;
+        }
+        if(!isValidRelativeFeedPath(relativePath)){
+            respond("saveFeedPath",false,"Choose a feed folder inside Google Drive → Projects → GrowPlot so its relative path can be shared with other devices. The folder remains saved on this device.",null);return;
+        }
+        Map<String,Object> updates=new HashMap<>();
+        updates.put("dataFeed.enabled",true);
+        updates.put("dataFeed.relativePath",relativePath);
+        updates.put("updatedAt",com.google.firebase.firestore.FieldValue.serverTimestamp());
+        db.collection("plots").document(user.getUid()+"_"+plotId).update(updates)
+                .addOnSuccessListener(v->{
+                    JSONObject result=new JSONObject();
+                    try{result.put("plotId",plotId);result.put("displayPath",displayPath.trim());result.put("relativePath",relativePath);}catch(Exception ignored){}
+                    respond("saveFeedPath",true,"",result);
+                })
+                .addOnFailureListener(e->respond("saveFeedPath",false,
+                        "The folder is saved on this device, but Firestore could not save plots/"+user.getUid()+"_"+plotId+".dataFeed.relativePath: "+e.getMessage(),null));
+    }
+
+    private boolean isValidRelativeFeedPath(String path){
+        if(path==null||path.length()>240||!path.matches("[A-Za-z0-9 _./-]{1,240}")||path.startsWith("/"))return false;
+        for(String segment:path.split("/"))if(segment.isEmpty()||".".equals(segment)||"..".equals(segment))return false;
+        return true;
+    }
+
     @JavascriptInterface public void request(String action,String payload){
         activity.runOnUiThread(()->execute(action,payload));
     }
