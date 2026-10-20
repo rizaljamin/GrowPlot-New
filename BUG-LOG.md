@@ -1,3 +1,14 @@
+## BUG-080 — Home screen exposes a duplicate Feed settings shortcut
+
+**Reported:** 2026-10-20
+**Status:** Implemented in v0.7.00 Build 10 (versionCode 224); ARM64 build pending.
+
+**Cause:** Home screen offered Feed settings in addition to the plot configuration.
+
+**Fix:** Removed the Home shortcut and its click handler. The Data Feed configuration remains in Settings → Plot Management → Data Feed.
+
+---
+
 ## BUG-079 — Selected Data Feed path is not reusable on another device
 
 **Reported:** 2026-10-20

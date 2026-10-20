@@ -1,3 +1,9 @@
+2026-10-20 | v0.7.00 Build 10 | versionCode 224 | com.growplot.farm
+---------------------------------------------------------------------
+Baseline: v0.7.00 Build 09 on branch codex/build-09-firestore-feed-path.
+Changes: Remove the Home-screen Feed settings shortcut from the data-feed status banner. Keep Data Feed configuration under Settings → Plot Management → Data Feed.
+Build status: Source updated; ARM64 build pending.
+
 2026-10-20 | v0.7.00 Build 09 | versionCode 223 | com.growplot.farm
 ---------------------------------------------------------------------
 Baseline: corrected v0.7.00 Build 08, GitHub branch codex/build-08-external-fallbacks, commit c5eba5ff2017cc5ed6786b202fbd0d1be57b42b6.
