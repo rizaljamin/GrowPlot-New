@@ -102,9 +102,7 @@ public final class AccountApiBridge {
         String email=user==null?null:user.getEmail();
         if(email==null||email.trim().isEmpty())return "";
         String normalized=email.trim().toLowerCase(java.util.Locale.ROOT);
-        String folder=normalized.replace("@","_at_").replaceAll("[^A-Za-z0-9_.-]","_");
-        if(folder.length()>100)folder=folder.substring(0,80)+"_"+Integer.toHexString(normalized.hashCode());
-        return folder;
+        return normalized;
     }
 
     /** Persist the user's Drive-relative feed folder in the plot document's top-level
@@ -136,7 +134,7 @@ public final class AccountApiBridge {
     }
 
     private boolean isValidRelativeFeedPath(String path){
-        if(path==null||path.length()>240||!path.matches("[A-Za-z0-9 _./-]{1,240}")||path.startsWith("/"))return false;
+        if(path==null||path.length()>240||!path.matches("[A-Za-z0-9 _@.!#$%&'+-]{1,240}")||path.startsWith("/"))return false;
         for(String segment:path.split("/"))if(segment.isEmpty()||".".equals(segment)||"..".equals(segment))return false;
         return true;
     }
