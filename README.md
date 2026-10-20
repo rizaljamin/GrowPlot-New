@@ -1,8 +1,8 @@
-# GrowPlot — v0.7.00 Build 10
+# GrowPlot — v0.7.00 Build 11
 
 GrowPlot is an Android farm-management application with CCTV monitoring, Google Drive image feeds, A.I Plant Health, diagnosis workflows and plot management.
 
-**Current source version:** v0.7.00 Build 10 (`versionCode=224`, Android package `com.growplot.farm`). This identity is recorded in `version.properties`. A version number in source does not by itself confirm that a matching APK has been built; check the GitHub Actions run and its build manifest before distributing an APK.
+**Current source version:** v0.7.00 Build 11 (`versionCode=225`, Android package `com.growplot.farm`). This identity is recorded in `version.properties`. A version number in source does not by itself confirm that a matching APK has been built; check the GitHub Actions run and its build manifest before distributing an APK.
 
 ## Verified app baseline
 
@@ -19,7 +19,7 @@ The following behavior was documented as device-verified for v0.7.00 Build 02:
 1. Use the current source on GitHub `main` as the working baseline. Preserve the restored Build 02 gold copy as a rollback point, including CCTV streaming, Google Drive scanning and `MainActivity.java` / `TimelineBuckets.java`.
 2. Make the smallest required enhancement. If it breaks working functionality, restore the gold copy first.
 3. Use `version.properties` as the authoritative version identity. Increment `versionCode` for each new installable; documentation changes do not require a build.
-4. Build 10 uses the existing `.github/workflows/android-arm64-build.yml` workflow to produce the ARM64-only APK, matching source ZIP and build manifest. The workflow verifies that `index.html` and all six external CCTV fallback JPEGs are included in the APK. Build 08 remains the last device-tested baseline.
+4. Build 11 uses the existing `.github/workflows/android-arm64-build.yml` workflow to produce the ARM64-only APK, matching source ZIP and build manifest. The workflow verifies that `index.html` and all six external CCTV fallback JPEGs are included in the APK. Build 08 remains the last device-tested baseline.
 5. Inspect build logs, APK metadata, signing and artifact before describing a build as complete. Compilation alone does not establish Android camera or Google Drive functionality.
 6. Keep signing keys and API credentials outside the repository and archives. For in-place updates, preserve the stable signing certificate.
 

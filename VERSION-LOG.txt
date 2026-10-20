@@ -1,3 +1,9 @@
+2026-10-20 | v0.7.00 Build 11 | versionCode 225 | com.growplot.farm
+---------------------------------------------------------------------
+Baseline: v0.7.00 Build 10 source on branch codex/build-09-firestore-feed-path.
+Changes: Shorten Data Feed help text. Move details into tap/hover info icons with a highlighted focus state. Keep Data Feed configuration under Settings → Plot Management → Data Feed.
+Build status: Source updated; ARM64 build pending.
+
 2026-10-20 | v0.7.00 Build 10 | versionCode 224 | com.growplot.farm
 ---------------------------------------------------------------------
 Baseline: v0.7.00 Build 09 on branch codex/build-09-firestore-feed-path.

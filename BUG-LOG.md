@@ -1,3 +1,12 @@
+## BUG-081 — Data Feed help text is too long
+
+**Reported:** 2026-10-20
+**Status:** Implemented in v0.7.00 Build 11 (versionCode 225); ARM64 build pending.
+
+**Fix:** Shorten visible Data Feed instructions and put details in tap/hover info popovers. The info icon highlights on hover, keyboard focus or tap.
+
+---
+
 ## BUG-080 — Home screen exposes a duplicate Feed settings shortcut
 
 **Reported:** 2026-10-20
