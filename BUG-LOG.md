@@ -1,3 +1,12 @@
+## BUG-078 — Data Feed folder path and redundant controls
+
+**Reported:** 2026-10-20  
+**Status:** Built in v0.7.00 Build 08 (versionCode 221); GitHub ARM64 workflow run #370 passed. Tablet verification pending.
+
+**Fix:** The default folder now follows the signed-in user's email and selected plot, with its relative path saved to Firestore. The Data Feed panel keeps one **Connect to folder** button; the custom picker, manual scan button, and interval selector are removed. Scanning remains automatic every five minutes while the app is open. An unavailable folder reports **Invalid path/folder**.
+
+**Verification:** ARM64 compilation, package/version/signature checks, and artifact upload passed. Google Drive permission and feed behavior still need tablet testing.
+
 ## BUG-077 — First-plot sign-in prompt appears over Settings
 
 **Reported:** 2026-10-15
