@@ -1,3 +1,9 @@
+## Pending — Data feed plot targeting and cloud path display (2026-10-20)
+
+- Home plot synchronization now refreshes the Plot Management selection even when the visible dropdown value was already current.
+- The Data Feed panel displays the saved Firestore `relativepath` on another device, while making clear that each Android device still needs its own local folder permission.
+- Static JS syntax checks passed; APK build and device verification pending.
+
 ## Pending — Firestore relativepath field correction (2026-10-20)
 
 - Folder selection writes the selected Drive-relative path to the plot document's top-level `relativepath` string, matching the existing Firestore schema, and mirrors it to `dataFeed.relativePath` for compatibility.

@@ -11,13 +11,13 @@ function syncAuthorizedHomePlots(){
  }).sort((a,b)=>String(a.id).localeCompare(String(b.id),undefined,{numeric:true,sensitivity:'base'}));
  const choices=[{id:'plot-1',name:'Demo Plot'},...safe];
  const labels=choices.map(p=>p.id==='plot-1'?'plot-1 - Demo Plot':String(p.id)+' - '+String(p.name||p.plotName||p.id)+(power?' ('+String(p.ownerEmail||p.ownerName||p.ownerUserId||'Unknown owner')+')':''));
- const old=select.value,desired=choices.some(p=>String(p.id)===old)?old:'plot-1';
+ const old=select.value,previousSelected=typeof selectedPlotId!=='undefined'?selectedPlotId:old,desired=choices.some(p=>String(p.id)===old)?old:'plot-1';
  if(select.options.length!==choices.length||Array.from(select.options).some((o,i)=>o.value!==String(choices[i].id)||o.textContent!==labels[i])){
   select.replaceChildren();choices.forEach((p,i)=>{const o=document.createElement('option');o.value=String(p.id);o.textContent=labels[i];select.appendChild(o);});
  }
  select.value=desired;
- if(typeof selectedPlotId!=='undefined'&&selectedPlotId!==desired)selectedPlotId=desired;
- if(old!==desired){select.dispatchEvent(new Event('change',{bubbles:true}));window.GrowPlotRefreshHomeStreams?.();}
+ if(typeof selectedPlotId!=='undefined')selectedPlotId=desired;
+ if(old!==desired||previousSelected!==desired){select.dispatchEvent(new Event('change',{bubbles:true}));window.GrowPlotRefreshHomeStreams?.();}
 }
 
 window.GrowPlotPlotDropdownSync=syncAuthorizedHomePlots;
