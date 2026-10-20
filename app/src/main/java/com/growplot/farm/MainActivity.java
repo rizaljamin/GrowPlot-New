@@ -2236,6 +2236,9 @@ public class MainActivity extends Activity {
                     .apply();
             rememberGrowPlotTreeIfScoped(folderUri);
             storageConfigSaved = saveDriveStorageConfig(folderUri);
+            if (accountApiBridge != null) {
+                accountApiBridge.saveImageFeedPath(plotId, locationLabel, relativePathFromGrowPlot(locationLabel));
+            }
         } catch (Exception error) {
             publishStatus(makeStatus(pickerCreatesDefaultFeed
                     ? "Could not use the default Image_Feed folder here. Choose a writable GrowPlot folder, or choose an existing image feed folder."
