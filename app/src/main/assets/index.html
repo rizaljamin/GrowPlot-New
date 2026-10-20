@@ -77,7 +77,7 @@ const plantIds=[
 {malay:'Ubi kayu',scientific:'Manihot esculenta',confidence:'Likely Manihot esculenta'}
 ];
 const timelineModes={weekly:{unit:'Week'},monthly:{unit:'Month'},yearly:{unit:'Year'}};
-let timelineInterval='weekly';try{if(window.GrowPlotBridge)timelineInterval=GrowPlotBridge.getTimelineInterval()}catch(e){}
+let timelineInterval='weekly';try{if(window.GrowPlotBridge)timelineInterval=GrowPlotBridge.getTimelineInterval()}catch(e){}if(!timelineModes[timelineInterval])timelineInterval='weekly';
 function rollingTimelineSlots(mode){const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kuala_Lumpur',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date()),v=Object.fromEntries(parts.map(p=>[p.type,p.value])),utc=new Date(Date.UTC(Number(v.year),Number(v.month)-1,Number(v.day),4));if(mode==='monthly')utc.setUTCDate(1);else if(mode==='yearly'){utc.setUTCMonth(0,1)}else{utc.setUTCDate(utc.getUTCDate()-((utc.getUTCDay()+6)%7))}return Array.from({length:4},(_,i)=>{const d=new Date(utc);if(mode==='monthly')d.setUTCMonth(d.getUTCMonth()+i-3);else if(mode==='yearly')d.setUTCFullYear(d.getUTCFullYear()+i-3);else d.setUTCDate(d.getUTCDate()+(i-3)*7);const date=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Kuala_Lumpur',day:'2-digit',month:'short',year:'numeric'}).format(d).replaceAll(',','');const unit=timelineModes[mode].unit;return {label:unit+' '+(i+1)+' (start '+date+')',day:i+1,expectedDate:date,available:false,imageUrl:'',capturedAt:''}})}
 function emptyTimeline(camera,mode){const slots=rollingTimelineSlots(mode);return {camera,interval:mode,baselineDate:slots[0].expectedDate,slots}}
 let cameraTimeline=plantIds.map((_,i)=>emptyTimeline(i+1,timelineInterval));
