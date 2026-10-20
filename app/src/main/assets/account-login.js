@@ -236,6 +236,11 @@ window.GrowPlotAccountResponse=function(response){
  if(response&&response.action==='saveVigiCloudCredentials'){const n=document.getElementById('growplotFeedCloudStatus');if(n)n.textContent=response.ok?'VIGI password encrypted and saved in Firebase.':'VIGI cloud credential save failed: '+(response.error||'Unknown error');return;}
  if(response&&response.action==='loadVigiCloudCredentials'){if(response.ok){window.vigiCctv03HasPassword=true;const n=document.getElementById('growplotFeedCloudStatus');if(n)n.textContent='VIGI credentials restored from encrypted Firebase storage.';}return;}
 
+ if(response&&response.action==='saveFeedPath'){
+  saveNotice(response.ok?'Selected data feed path saved to Firebase for this plot.':(response.error||'Data feed path could not be saved to Firebase.'),!!response.ok);
+  return;
+ }
+
  if(response&&response.action==='saveDataFeeds'){const node=document.getElementById('growplotFeedCloudStatus');if(node)node.textContent=response.ok?'Firebase: CCTV01–CCTV03 saved successfully.':'Firebase save failed: '+(response.error||'Unknown error');return;}
 
  if(response.action==='loadOwnedDevices'){
