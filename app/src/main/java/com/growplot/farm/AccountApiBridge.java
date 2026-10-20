@@ -96,6 +96,15 @@ public final class AccountApiBridge {
         String detail=error==null||error.getMessage()==null?"Please check the connection and try again.":error.getMessage();
         respond("googleSignIn",false,"Google was authenticated, but GrowPlot "+reason+". Please try again. "+detail,null);
     }
+    /** Derive a Drive-safe, stable folder name from the authenticated user's email. */
+    public String getCurrentFeedEmailFolderName(){
+        FirebaseUser user=auth.getCurrentUser();
+        String email=user==null?null:user.getEmail();
+        if(email==null||email.trim().isEmpty())return "";
+        String normalized=email.trim().toLowerCase(java.util.Locale.ROOT);
+        return normalized;
+    }
+
     /** Persist the user's Drive-relative feed folder in the plot document's top-level
      * relativepath field and mirror it in dataFeed for existing readers. The Android SAF
      * URI and permission stay local to this device. */
@@ -125,7 +134,7 @@ public final class AccountApiBridge {
     }
 
     private boolean isValidRelativeFeedPath(String path){
-        if(path==null||path.length()>240||!path.matches("[A-Za-z0-9 _./-]{1,240}")||path.startsWith("/"))return false;
+        if(path==null||path.length()>240||!path.matches("[A-Za-z0-9 _@.!#$%&'+-]{1,240}")||path.startsWith("/"))return false;
         for(String segment:path.split("/"))if(segment.isEmpty()||".".equals(segment)||"..".equals(segment))return false;
         return true;
     }

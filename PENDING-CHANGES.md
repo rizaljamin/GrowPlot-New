@@ -1,3 +1,16 @@
+## Pending — simplify Data Feed folder controls (2026-10-20)
+
+- Kept the default folder connection and renamed its button to **Connect to folder**. Removed the custom-folder button, manual Check now button, and scan interval selector.
+- Automatic scans remain enabled at a fixed five-minute interval while GrowPlot is open. Unavailable folders display **Invalid path/folder**.
+- Included in v0.7.00 Build 08 / versionCode 221. GitHub ARM64 run #370 passed and uploaded the APK. Source commit: `046f5a6c788d40586e1e49878d0eea2eba6384e8`. Android device verification remains pending.
+
+## Pending — email-scoped default image-feed paths (2026-10-20)
+
+- Default feed folders now use `Projects/GrowPlot/Image_Feed/<email-address>/<plot-folder>`, using the authenticated email in lowercase as the user folder (for example, `growplot2026@gmail.com`).
+- Folder selection writes the same user- and plot-scoped relative path to Firestore. Each Android device still needs its own folder permission.
+- The Data Feed label shows the user-scoped suggested base path before connection. Existing saved folders are reused only when they match the current user's default path.
+- Included in v0.7.00 Build 08 / versionCode 221 on `feature/email-scoped-image-feed-path`. GitHub ARM64 run #370 passed and uploaded the APK. Android and Firestore device verification remain pending.
+
 ## Pending — Data feed plot targeting and cloud path display (2026-10-20)
 
 - Home plot synchronization now refreshes the Plot Management selection even when the visible dropdown value was already current.
