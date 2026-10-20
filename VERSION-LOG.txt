@@ -1,3 +1,10 @@
+2026-10-20 | v0.7.00 Build 13 | versionCode 227 | com.growplot.farm
+---------------------------------------------------------------------
+Baseline: v0.7.00 Build 12 on branch codex/build-09-firestore-feed-path.
+Changes: Restore the missing Run diagnosis JavaScript functions. Open the two-frame original-photo and CV-analysis panel immediately on tap, scroll it into view, and keep the button active so the panel can explain when no photo is loaded.
+Validation: Source wiring checked; ARM64 build and package checks pending.
+Build status: GitHub ARM64 build pending.
+
 2026-10-20 | v0.7.00 Build 12 | versionCode 226 | com.growplot.farm
 ---------------------------------------------------------------------
 Baseline: v0.7.00 Build 11 on branch codex/build-09-firestore-feed-path.
