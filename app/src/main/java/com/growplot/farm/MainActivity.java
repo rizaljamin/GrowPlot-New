@@ -416,6 +416,16 @@ public class MainActivity extends Activity {
                     while ((accountRead = accountInput.read(accountBuffer)) != -1) accountBytes.write(accountBuffer, 0, accountRead);
                     view.evaluateJavascript(accountBytes.toString(StandardCharsets.UTF_8.name()), null);
                 } catch (Exception accountError) { android.util.Log.e("GrowPlot", "Account login UI could not load", accountError); }
+                try (InputStream dataFeedUiInput = getAssets().open("data-feed-ui.js");
+                     ByteArrayOutputStream dataFeedUiBytes = new ByteArrayOutputStream()) {
+                    byte[] dataFeedUiBuffer = new byte[4096];
+                    int dataFeedUiRead;
+                    while ((dataFeedUiRead = dataFeedUiInput.read(dataFeedUiBuffer)) != -1)
+                        dataFeedUiBytes.write(dataFeedUiBuffer, 0, dataFeedUiRead);
+                    view.evaluateJavascript(dataFeedUiBytes.toString(StandardCharsets.UTF_8.name()), null);
+                } catch (Exception dataFeedUiError) {
+                    android.util.Log.e("GrowPlot", "Data feed UI could not load", dataFeedUiError);
+                }
                 if (pendingPageUpdate != null) {
                     String update = pendingPageUpdate;
                     pendingPageUpdate = null;
@@ -3278,6 +3288,15 @@ public class MainActivity extends Activity {
         @JavascriptInterface public String getFeedLocation(String plotId) {
             String id = safePlotId(plotId);
             return feedLocationLabel(id);
+        }
+
+        @JavascriptInterface public String getExpectedFeedPath(String plotId, String folderName) {
+            try {
+                return "Google Drive: /Projects/GrowPlot/Image_Feed/" + signedInEmailFolderName()
+                        + "/" + safeFolderName(folderName);
+            } catch (Exception error) {
+                return "";
+            }
         }
 
         @JavascriptInterface public void openIpWebcam() {
