@@ -1,9 +1,9 @@
-## Pending — Build 27 interval photo visibility fix
+## Completed — Build 27 interval photo visibility fix
 
 - Cached photo snapshots now populate the day/week/month/year period that matches their capture timestamp, even when older than today.
 - If no plot-feed photos exist, show the supplied six-camera sample set in its dated interval bucket and label it as a sample rather than plot history.
 - Regression coverage exercises all four intervals and all six bundled sample images.
-- Build 26 still only restored a cached image when it matched the current period. Build 27 ARM64 build and tablet verification pending.
+- Build 26 restored cached images only when they matched the current period. Build 27 supersedes that behavior. Regression suite and inline JavaScript syntax checks passed. GitHub Actions ARM64 run #399 succeeded from commit `685a40f53a1f8338914b192d9b8546eea971432d`; package version 0.7.00 Build 27 / versionCode 231; stable signing verified. APK SHA-256: `ee8501633f3f5870ff284e19d3aa1486effe86c58cf693d5cd789dd7e561e2a1`. Android tablet behavior remains pending.
 
 ## Completed — Build 26 interval photo restoration (2026-10-21)
 

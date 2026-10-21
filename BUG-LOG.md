@@ -974,7 +974,7 @@ Build 7 validation: Gradle ARM64 build, package version, signature, alignment, S
 ## BUG-070 — Interval photo timeline is empty beside supplied-photo diagnosis baseline
 
 **Reported:** 2026-10-21
-**Status:** Fixed in v0.7.00 Build 27 (versionCode 231); ARM64 build and tablet verification pending.
+**Status:** Fixed in v0.7.00 Build 27 (versionCode 231); GitHub ARM64 build passed, tablet verification pending.
 
 **Finding:** The diagnosis baseline uses six bundled sample JPEGs, while interval history was populated only from the selected plot's Image_Feed scan or a cached current image. The timeline also compared cached captures against periods anchored to today, so older captures could remain invisible even though the image was saved.
 
