@@ -986,7 +986,7 @@ Build 7 validation: Gradle ARM64 build, package version, signature, alignment, S
 ## BUG-071 — Timeline sample photos have broken image URLs
 
 **Reported:** 2026-10-21
-**Status:** Fixed in v0.7.00 Build 28 (versionCode 232); GitHub ARM64 build and tablet verification pending.
+**Status:** Fixed in v0.7.00 Build 28 (versionCode 232); GitHub ARM64 build passed, tablet verification pending.
 
 **Finding:** The timeline used relative `images/cctv_NN.jpg` URLs, but the WebView loads `index.html` with base URL `https://appassets.androidplatform.net/`. Those URLs resolved outside the APK asset tree, so interval dates rendered while the image requests failed.
 

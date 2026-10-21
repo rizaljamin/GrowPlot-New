@@ -1,8 +1,8 @@
-## Pending — Build 28 broken bundled-photo URL fix
+## Completed — Build 28 broken bundled-photo URL fix
 
 - Build 27 displayed correct interval dates but the bundled-image URL resolved to the wrong path under the appassets WebView base URL.
 - Android now serves sample photos through `/assets/baseline/cctv_NN.jpg`; the HTML uses that same-origin path for bundled-image fallbacks.
-- Regression checks cover URL routing and all six bundled JPEGs. GitHub ARM64 build and tablet verification pending.
+- Regression suite, inline JavaScript syntax, and the Android ARM64 package/signature checks passed. GitHub Actions run #400 succeeded from commit `b0322c4ea8884bcafa3d2f02e6499c165b16df09`; package version 0.7.00 Build 28 / versionCode 232; stable signing verified. APK SHA-256: `4215a2998bb141d31b60c4ad09c8579537dbdbdf4591ee60af4400db7420a0e6`. Tablet image rendering remains pending.
 
 ## Completed — Build 27 interval photo visibility fix
 
