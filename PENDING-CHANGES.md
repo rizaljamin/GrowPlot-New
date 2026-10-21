@@ -1,7 +1,8 @@
 ## Pending — Data feed plot targeting and cloud path display (2026-10-20)
 
 - Home plot synchronization now refreshes the Plot Management selection even when the visible dropdown value was already current.
-- The Data Feed panel displays the saved Firestore `relativepath` on another device, while making clear that each Android device still needs its own local folder permission.
+- The Data Feed label always shows the canonical expected path `/Projects/GrowPlot/Image_Feed/<signed-in-email>/<selected-plot>`, calculated for the currently selected plot and signed-in account even when that Drive folder does not exist. The saved Firestore `relativepath` remains for sync, while connection status is shown separately; each Android device still needs its own local folder permission.
+- Verified with a Node syntax check and mocked display test: an existing legacy folder path does not replace the expected path, and changing the plot or signed-in account refreshes the label. APK build and Android/Firebase/Drive verification remain pending.
 - Static JS syntax checks passed; APK build and device verification pending.
 
 ## Pending — Firestore relativepath field correction (2026-10-20)
