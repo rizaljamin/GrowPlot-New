@@ -1,3 +1,10 @@
+## Completed — Build 24 diagnosis fallback and interval timeline retention (2026-10-21)
+
+- Run Diagnosis and foliage CV now try the latest cached CCTV Image_Feed snapshot when a saved diagnosis photo cannot be read.
+- Status-only scan callbacks preserve the last successful four-period interval timeline; complete scans still refresh it. Added a feed-history regression check for this case.
+- v0.7.00 Build 24 / versionCode 228 ARM64 build succeeded in GitHub Actions run #395 from source commit `96d998797d99495becfbc06db5c9ea8a4842fa06`. APK SHA-256: `e9a628f5658f8e9438240fe9590a09ca93b8adcf1588e92e4d390aad65564d91`; stable signing verified.
+- YOLO and Pl@ntNet remain unavailable in this APK because their service URL/token and API key are not configured. Android tablet verification remains pending.
+
 ## Completed — Build 23 diagnosis HSV/CV stages and plant confirmation (2026-10-21)
 
 - Run Diagnosis now runs shared HSV pixel analysis, waits for foliage/basic CV and YOLO request status, and displays an hourglass plus photo → HSV → foliage CV → YOLO → provider → final stages.
