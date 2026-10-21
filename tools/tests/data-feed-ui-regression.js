@@ -18,6 +18,13 @@ const picker=java.slice(java.indexOf('private void connectDefaultFeedInSavedTree
 assert(picker.includes('"Image_Feed"')&&picker.includes('signedInEmailFolderName()'),'create or reuse the signed-in user Image_Feed folder');
 assert(picker.includes('safeFolderName(pickerDefaultFolderName)'),'derive the target folder from the selected plot');
 assert(picker.includes('findOrCreateChildFolder'),'create each missing folder while reusing existing folders');
-assert(picker.includes('Choose the GrowPlot parent folder for '),'show plot-specific first-use guidance');
+assert(java.includes('resolveGrowPlotDocumentId(folderUri)'),'resolve either Projects or GrowPlot as the authorized parent');
+assert(java.includes('feed_picker_creates_default'),'restore the pending connection if Android recreates the activity');
+assert(java.includes('Google Drive selection was cancelled'),'show a clear status when the picker returns without a folder');
+const ui=fs.readFileSync('app/src/main/assets/data-feed-ui.js','utf8');
+assert(ui.includes('feedConnectInfoButton'),'replace the long setup paragraph with an info icon');
+assert(ui.includes("addEventListener('mouseenter'"),'show setup guidance on hover');
+assert(ui.includes("addEventListener('click'"),'show setup guidance on tap');
+assert(!ui.includes('Expected folder path is based on the signed-in user and selected plot'),'remove the long inline explanation');
 assert(!picker.includes('Plot01_demo'),'avoid hard-coded demo-plot picker guidance');
-console.log('Data-feed display and connection regression checks passed.');
+console.log('Data-feed display, folder creation, picker return, and info-tooltip regression checks passed.');

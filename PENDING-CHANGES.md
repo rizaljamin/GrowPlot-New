@@ -1,9 +1,10 @@
-## Pending — Selected plot Drive feed folder creation (2026-10-21)
+## Pending — Google Drive picker and compact Data Feed help (2026-10-21)
 
-- First-use picker guidance now identifies the selected plot instead of the demo folder.
-- Connect creates or reuses `Projects/GrowPlot/Image_Feed/<signed-in email>/<selected plot folder>` after the GrowPlot parent is authorized.
-- Target: v0.7.00 Build 12 / versionCode 216, ARM64 only.
-- Static regression and GitHub Actions ARM64 verification pending; Google Drive folder creation must still be confirmed on the Android tablet.
+- First-use setup accepts the Projects or GrowPlot folder in My Drive; GrowPlot creates missing folders through the selected parent permission.
+- Picker selection state survives activity recreation, and cancellation/provider errors are shown back in GrowPlot.
+- Data Feed explanations are collapsed behind tap/hover info icons.
+- Target: v0.7.00 Build 13 / versionCode 217, ARM64 only.
+- Focused and existing static tests passed; GitHub Actions ARM64 build and Android Drive picker/folder verification pending.
 
 ## Pending — Data feed plot targeting and cloud path display (2026-10-20)
 
@@ -80,68 +81,4 @@
 - Manage Farm now filters planting, irrigation, and maintenance records by plot, greenhouse, and section; all-section records remain visible when a single section is selected.
 - Maintenance shows overdue / due today / upcoming / completed cues; Mark complete saves a completion date and syncs. Irrigation records sort by their first scheduled date.
 - Added `tools/tests/manage-farm-regression.js` and made it a build gate. Static regressions and inline JavaScript syntax pass.
-- Build 24 batch: Firebase Google OAuth config now targets project `growplot` / package `com.growplot.farm` and contains Android plus web OAuth client entries. The project owner reports Email/Password and Google providers are enabled. Google Services Gradle plugin updated to 4.5.0 and Firebase BoM to 35.0.0. Build identity: v0.6.01 Build 24 / versionCode 151. Build 24 APK and source ZIP generated successfully in GitHub Actions run #74. Email/password and Firestore connectivity still need device verification. The Build 24 APK's Android OAuth fingerprint initially mismatched its signer. GitHub source now contains the corrected Build 24 SHA-1 (commit 57f3100071dbf72b0d64ec44ac357051af4ef186); the next APK signer must still be checked.
-
-# GrowPlot enhancement batch
-
-- Verified GitHub source baseline: v0.6.01 Build 7 (versionCode 134), commit a803ae919bf8db1acbe6217a87d151fd794e997e.
-- Current source/build: v0.6.01 Build 8 (versionCode 135), ARM64 only; based on the verified GitHub Build 7 baseline.
-- Batch: connects crop.health diagnosis to the encrypted Kindwise Settings key for photo and video-frame analysis; stores and shows Kindwise results alongside Pl@ntNet; adds a build-time regression gate.
-- Build 8 ARM64 debug compilation, package/version, APK signature, and alignment checks passed. Its signer differs from the saved Build 30 certificate, so it is development-only and must not replace the installed app. Pl@ntNet key, live Kindwise request, and Android device checks remain pending.
-- Keep the 2–3 enhancement batch before the next APK. BUG-046 remains open outside this batch.
-
-## Build 16 delivered
-
-- BUG-062: Compare each camera's two newest distinct saved snapshots using a low-resolution visible-green and brightness estimate. Show the comparison, both capture times, before/after estimates, and a plain-language limitation in each camera's Image history. Explain when there are fewer than two snapshots.
-- Java compilation and inline JavaScript syntax passed. APK package/version, signature, alignment, and device checks are recorded in the build manifest; Android-device verification remains pending.
-- Build the next APK after 2–3 discrete enhancements are completed, or sooner only if the user explicitly asks for an APK sooner.
-
-## Build 15 delivered
-
-- BUG-061: Use TextureView composition for both VLC feeds so dialog and menu visibility changes can cover/hide the native video windows; scheduled frame snapshots remain supported through TextureView bitmap capture. CCTV02 explicitly streams `http://192.168.1.227:8080/videofeed`; CCTV01 remains at `http://192.168.1.241:8080/videofeed`.
-
-APK: `release/v0.5.09-build-15-GrowPlot-development-only.apk`. Build, package/version metadata, signature, alignment, and JavaScript checks passed. APK SHA-256: `43b80b27b028565e0aeae24548bbe75d55e65042e2224fdd5afd811b03ac763c`. The debug certificate differs from Build 30; this APK may not update an existing installation.
-
-## Build 14 delivered
-
-- BUG-060: Add the CCTV02 VLC live feed at `192.168.1.227:8080`, independent Refresh, same menu/lifecycle behavior, and the shared checked snapshot interval.
-
-## Changes in Build 24
-
-- BUG-050/051: CCTV01 retains the direct IP Webcam stream and explicit HTTP image allowance, limited to the webcam IP by Android network security.
-- BUG-052: Added an **IP webcam** button which opens the webcam's own page in a full-screen in-app WebView, with Close to return to GrowPlot. The viewer has no GrowPlot JavaScript bridge.
-- This APK was built from the authorized Build 19 source archive with the CCTV01 display and WebView stream corrections. Build 20/21 source changes were not available in this workspace.
-- This APK was built from the authorized Build 19 source archive with the CCTV01 fix. Build 20/21 source changes were not available in this workspace.
-
-## Changes in Build 25
-
-- BUG-053: Added a compact CCTV07 home-screen tile that plays the IP Webcam stream directly, shows connection/retry status, and retries the `/videofeed` endpoint after errors. CCTV01–CCTV06 and the Drive history/diagnosis handling remain unchanged.
-- Built from the authorized Build 19 source archive with the previously recorded Build 22–24 updates. Build 20/21 source changes were not available in this workspace.
-- Android stream playback remains pending on the user's Wi-Fi.
-
-## Changes in Build 26
-
-- BUG-054: The CCTV07 frame remains visible but blank at startup. The adjacent **IP webcam** button starts the direct `/videofeed` stream inside that frame; clicking again restarts it. No live request is made until the button is pressed. Connection state and retry handling remain in the frame.
-- Existing CCTV01–CCTV06 and Drive history/diagnosis handling remain unchanged.
-- Android playback remains pending on the user's Wi-Fi.
-
-## Changes in Build 27
-
-- BUG-055: Removed the IP webcam button and CCTV07 frame from the home screen, along with their embedded stream-start logic. The existing six camera cards and CCTV01 feed behavior remain in place.
-
-## Pending
-
-- BUG-046: make all user-owned GrowPlot records consistent across devices through Google Drive. Existing crop/irrigation/maintenance Drive sync is partial; plot settings and diagnosis history remain local, and Firebase account authentication is now implemented; cross-device Drive data sync remains incomplete. Implement stable per-user identity, cloud load/merge/save/delete for each data type, then validate sync and user isolation on two devices. A first Drive folder grant may be required once per device.
-
-2026-10-12 | Pending next build after v0.6.01 Build 5
-Settings: Added a diskette Save button beside Home, visible only in Settings. It validates current plot details, GPS, camera IPs/login, snapshot interval and rescan interval, then saves all those edits without leaving Settings. Blank VIGI password keeps the saved login. Reports partial save failures instead of unconditional success. Existing folder grants/config remain unchanged.
-Validation: executable combined-save regression, saved-password reuse, invalid GPS/no writes, partial failure and plot rollback checks passed; JS syntax and feed-history regression passed. Android UI verification pending. Packaged in Build 6 on explicit user request; regression and APK build checks passed. Device verification pending.
-
-2026-10-12 | Pending next build after Build 6
-Added collapsed Plugins · API Keys Settings menu with default Pl@ntNet key portal and Kindwise admin links. Masked key fields save through the overall diskette Save action; blank fields retain saved keys. Keys use Android Keystore AES-GCM encrypted device preferences and are never returned to the WebView. Pl@ntNet requests use the saved device key first, then the existing build-key fallback. Kindwise key storage is available; diagnosis provider integration remains unconnected.
-Validation: Java 17 compilation against Android API 35/VLC and existing Settings/feed regression checks passed. Live provider validation and Android device checks pending; Packaged in Build 7; APK checks passed.
-
-
-2026-10-20 | Pending next APK
-Google Drive image-feed Connect now creates or reuses `Image_Feed/<signed-in-email>/<selected-plot>` under the authorized GrowPlot folder. Reuses the saved Android folder grant when available; otherwise, the user authorizes the GrowPlot folder once, then the selected user's plot path is created. If folder creation fails, the expected path and the failure status are reported separately.
-Verification: source change committed; Android build and Google Drive provider/device verification pending.
+- Build 24 batch: Fi
