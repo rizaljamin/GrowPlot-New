@@ -1,6 +1,15 @@
 ## BUG-086 — Diagnosis stopped on unreadable selected photo and interval cards were cleared
 
 **Reported:** 2026-10-21
+**Status:** Fixed in v0.7.00 Build 24 (versionCode 228); GitHub ARM64 run #395 succeeded, stable certificate verified.
+
+**Cause:** Run Diagnosis discarded every image-load error and stopped before HSV/CV if saved diagnosis media could not be decoded. The foliage analyzer used the same unreadable file without a fallback. Separately, each snapshot status callback reset the timeline, even when a status-only/error response omitted timeline data.
+
+**Fix:** Try saved diagnosis photos first, then the current cached CCTV Image_Feed snapshot for HSV and foliage CV. Preserve the last successful interval cards when a status-only scan callback omits timeline data; a complete new scan still replaces them.
+
+**Verification / limits:** Regression checks, JavaScript syntax, Gradle ARM64 build, package/version, SHA-256, alignment, and stable signing checks passed. APK SHA-256: `e9a628f5658f8e9438240fe9590a09ca93b8adcf1588e92e4d390aad65564d91`. The diagnosis proxy and Pl@ntNet key remain unconfigured, so YOLO inference and provider-backed identification are unavailable. Android tablet verification remains pending.
+
+**Reported:** 2026-10-21
 **Status:** Source fix prepared for v0.7.00 Build 24 (versionCode 228); ARM64 build and tablet verification pending.
 
 **Cause:** Run Diagnosis discarded every image-load error and stopped before HSV/CV if saved diagnosis media could not be decoded. The foliage analyzer used the same unreadable file without a fallback. Separately, every snapshot status callback reset the timeline, even when an error/status-only response did not include timeline data.
