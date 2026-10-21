@@ -53,6 +53,7 @@ node "$ROOT/tools/tests/account-registration-regression.js" || fail "Account reg
 node "$ROOT/tools/tests/data-feed-ui-regression.js" || fail "Data-feed UI regression check failed"
 node "$ROOT/tools/tests/plant-hsv-regression.js" || fail "Plant HSV regression check failed"
 node "$ROOT/tools/tests/yolo-regression.js" || fail "YOLO integration regression check failed"
+node "$ROOT/tools/tests/timeline-persistence-regression.js" || fail "Timeline persistence regression check failed"
 
 cd "$ROOT"
 APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"

@@ -1,3 +1,14 @@
+## BUG-087 — Interval photo snapshots disappear after switching or reopening
+
+**Reported:** 2026-10-21
+**Status:** Fixed in v0.7.00 Build 25 (versionCode 229); tablet verification pending.
+
+**Cause:** The four-period photo timeline lived only in JavaScript memory. Changing intervals replaced it with empty slots, and reopening the app recreated all slots as empty. A status-only scan could not restore the previous timeline.
+
+**Fix:** Save the timeline separately for each plot and interval in device-local WebView storage. Restore it immediately on app load, plot switch, and interval switch. Successful scans refresh only the active interval; status-only scans keep the saved cards.
+
+**Verification:** Focused timeline persistence and existing feed-history regressions plus inline/asset JavaScript syntax checks passed. ARM64 build and Android tablet verification pending.
+
 ## BUG-086 — Diagnosis stopped on unreadable selected photo and interval cards were cleared
 
 **Reported:** 2026-10-21

@@ -123,6 +123,11 @@
 
 # GrowPlot enhancement batch
 
+## Prepared for v0.7.00 Build 25
+
+- BUG-087: Keep separate daily, weekly, monthly, and yearly camera photo timelines in device-local storage, scoped to each plot. Restore the saved timeline immediately on app load, plot selection, or interval selection; refresh it after a successful scan.
+- Added `tools/tests/timeline-persistence-regression.js`; timeline restore, feed-history, and inline/asset JavaScript checks pass. ARM64 APK and tablet verification pending.
+
 - Verified GitHub source baseline: v0.6.01 Build 7 (versionCode 134), commit a803ae919bf8db1acbe6217a87d151fd794e997e.
 - Current source/build: v0.6.01 Build 8 (versionCode 135), ARM64 only; based on the verified GitHub Build 7 baseline.
 - Batch: connects crop.health diagnosis to the encrypted Kindwise Settings key for photo and video-frame analysis; stores and shows Kindwise results alongside Pl@ntNet; adds a build-time regression gate.

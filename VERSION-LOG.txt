@@ -1,3 +1,7 @@
+2026-10-21 | v0.7.00 Build 25 | versionCode 229 | com.growplot.farm
+Changes: Persist each plot's daily, weekly, monthly, and yearly four-period photo timeline on the device. Restore the selected plot and interval when reopening the app or changing intervals; successful scans replace that interval's saved timeline, while status-only scans leave it intact.
+Validation: Interval/plot persistence regression, feed-history regression, inline/asset JavaScript syntax, and ARM64 build checks passed. Android tablet verification pending.
+
 2026-10-21 | v0.7.00 Build 24 | versionCode 228 | com.growplot.farm
 Changes: Run Diagnosis and foliage CV now fall back to the latest cached Image_Feed photo when a saved diagnosis image cannot be decoded. Status-only scan updates preserve the last successful four-period photo timeline; a regression check covers this behavior.
 Validation: GitHub Actions ARM64 run #395 succeeded. APK size 68,321,969 bytes; stable certificate matched. APK SHA-256: e9a628f5658f8e9438240fe9590a09ca93b8adcf1588e92e4d390aad65564d91. Source commit: 96d998797d99495becfbc06db5c9ea8a4842fa06. Android tablet verification remains pending. YOLO inference and Pl@ntNet are unavailable in this APK because the diagnosis proxy and Pl@ntNet key are not configured.
