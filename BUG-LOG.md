@@ -1,3 +1,14 @@
+## BUG-088 — User plot timeline showed Demo baseline images and reused plot-only feed paths
+
+**Reported:** 2026-10-21
+**Status:** Fix prepared for v0.7.00 Build 29 (versionCode 233); GitHub ARM64 build pending.
+
+**Cause:** When a plot had no matching feed photos, the timeline injected bundled Demo photos. The health overview and care advice also described those sample images for every plot. Android saved Drive folder grants and local snapshot/history files by plot ID alone, so two signed-in accounts with the same plot ID could share the saved location or cached image.
+
+**Fix:** Scan only the active user’s selected plot folder at `/Projects/GrowPlot/Image_Feed/<signed-in-email>/<selected-plot>`. Scope Drive-folder grants, cached snapshots, archived timeline images, feed summaries, and interval timeline storage to Firebase user ID plus plot ID. Remove Demo photo fallback for user plots; show the supplied sample report only when the actual Demo plot is selected. Remove the global photo-selection/root-folder scan fallback.
+
+**QC:** Added regression coverage for user/plot isolation and empty timelines. All JavaScript regression suites and inline script syntax checks pass. Tablet rendering and account-switch behavior remain to be verified after install.
+
 Warning: truncated output (original token count: 25522)
 Total output lines: 989
 
@@ -162,7 +173,7 @@ Total output lines: 989
 
 ## BUG-072 — Build 27 login branch regressed Build 26 authentication handling
 
-**Reported:** 2026-10-15  
+**Reported:** 2026-10-15
 **Status:** Fixed in Build 28 source; GitHub build and Android verification pending.
 
 **Cause:** The Build 27 branch was based on Build 25, so it restored an older accountResponse() that waited for a Firestore profile read before reporting success. If Firestore access failed after Firebase accepted the email/password credentials, the app could report login as failed. This source-path regression is separate from Firebase rejecting an incorrect password.
@@ -173,7 +184,7 @@ Total output lines: 989
 
 ## BUG-073 — Build 27 Google sign-in artifact used a different signer
 
-**Reported:** 2026-10-15  
+**Reported:** 2026-10-15
 **Status:** Build 28 carries the stable-key workflow; signer and OAuth fingerprint check pending.
 
 **Cause:** Build 27's workflow did not restore the project's stable signing key. Its uploaded manifest records signing certificate SHA-256 ce42ea38117a12adf320b0601b5a5262eadee5e337e05d243df243052dcdff1a and marks the APK development-only, different from the saved Build 30 certificate. The build therefore did not establish that the Google OAuth fingerprint in Firebase matched the APK.
@@ -184,7 +195,7 @@ Total output lines: 989
 
 ## BUG-071 — Rotating CI signer invalidates Android Google OAuth fingerprint
 
-**Reported:** 2026-10-15  
+**Reported:** 2026-10-15
 **Status:** Stable signing-key restoration added to the Build 26 GitHub workflow; verification pending.
 
 **Cause:** The routine GitHub workflow used a runner-generated debug key. Build 26's APK signer SHA-1 was `4b926d6ebd5efd65c9926de51dbb2a45bba6d4ad`, while the Firebase Android OAuth configuration is for SHA-1 `90abc505a3aabd5760c09dc5f8d2da0fdf9244a7`. The Build 26 artifact also cannot update an app signed with the saved Build 30 key.
@@ -195,7 +206,7 @@ Total output lines: 989
 
 ## BUG-070 — GitHub ARM64 build runs out of heap during D8 merge
 
-**Reported:** 2026-10-15  
+**Reported:** 2026-10-15
 **Status:** Resolved for GitHub Actions run #86; ARM64 artifact uploaded. Stable-signer retry pending.
 
 **Cause:** The first Build 26 GitHub Actions attempt passed the account, farm, and Kindwise regression checks and compiled Java, then D8 failed in `:app:mergeExtDexDebug` with `OutOfMemoryError: Java heap space`. APK verification and artifact upload did not run.
@@ -206,7 +217,7 @@ Total output lines: 989
 
 ## BUG-069 — Authentication reported as failed when Firestore profile access failed
 
-**Reported:** 2026-10-15  
+**Reported:** 2026-10-15
 **Status:** Fixed in v0.6.01 Build 26 source; GitHub ARM64 build and Android device verification pending.
 
 **Cause:** Email/password and Google Firebase Authentication were followed by Firestore profile reads/writes before the app reported sign-in success. A Firestore permission, network, or service failure therefore surfaced as a failed login even when Firebase Authentication had accepted the credentials. Profile-load errors also cleared the authenticated session in the WebView.
@@ -259,7 +270,7 @@ Total output lines: 989
 
 ## BUG-049 — CCTV01 WebView feed stutters or stops
 
-**Reported:** 2026-10-10 18:59 MYT  
+**Reported:** 2026-10-10 18:59 MYT
 **Status:** Compiled in v0.5.08 Build 19 (versionCode 100); Android playback verification pending.
 
 **Change:** Removed the native WebView stream proxy. CCTV01 now loads `http://192.168.1.241:8080/videofeed` directly in the existing Home image card, with a reconnect attempt after a dropped connection. The periodic 15-second frame capture was removed so this path is streaming only. Existing manual camera/file selection and snapshot saving remain available.
@@ -268,14 +279,14 @@ Total output lines: 989
 
 ## BUG-048 — CCTV01 needs timed snapshot uploads to Google Drive
 
-**Reported:** 2026-10-10 12:49 UTC  
+**Reported:** 2026-10-10 12:49 UTC
 **Status:** Deferred; the 15-second automatic capture introduced in Build 17 was removed in Build 19 at the user's direction.
 
 **History:** Earlier builds requested a JPEG every 15 seconds and wrote it into the configured Drive image-feed folder. The feature is no longer active; manual capture remains available.
 
 ## BUG-047 — Home CCTV01 should display the user's IP Webcam stream
 
-**Reported:** 2026-10-10 12:39 UTC  
+**Reported:** 2026-10-10 12:39 UTC
 **Status:** Compiled in v0.5.08 Build 19 (versionCode 100); same-network Android verification pending.
 
 **Fix:** Embedded `http://192.168.1.241:8080/videofeed` over the CCTV01 Home image with an Image_Feed fallback and a reconnect attempt. The app's network security configuration permits cleartext traffic only to the supplied local IP.
@@ -284,7 +295,7 @@ Total output lines: 989
 
 ## BUG-046 — User data is not consistently shared across devices through Google Drive
 
-**Reported:** 2026-10-10 17:36 MYT  
+**Reported:** 2026-10-10 17:36 MYT
 **Status:** Open; not included in Build 16.
 
 **Observed scope:** Crop plantings and the irrigation/maintenance planners have Drive sync code, currently under the shared `default-user` folder because Account sign-in is only a preview. Plot profiles/settings and diagnosis history remain device-local; diagnosis history does not sync between devices. The Android Storage Access Framework grant is also device-local.
@@ -295,7 +306,7 @@ Total output lines: 989
 
 ## BUG-045 — Maintenance needs scheduled tasks and equipment lists
 
-**Reported:** 2026-10-10 16:09 MYT  
+**Reported:** 2026-10-10 16:09 MYT
 **Status:** Compiled in v0.5.08 Build 16 (versionCode 97); JavaScript and Gradle checks passed; Android UI/Drive verification pending.
 
 **Fix:** Replaced the Maintenance placeholder with editable task plans for polybag installation, piping/irrigation setup, weeding, pruning, fertigation-line flushing, bed preparation, transplanting, pest/disease scouting, and other work. Tasks include plot/greenhouse/section scope, due date, recurrence, status, equipment required, and notes. Common equipment is suggested for each task and remains editable. Records sync through the saved GrowPlot Drive grant to `db/userdata/<user>/farm-management.json` and retain their scope fields.
@@ -304,7 +315,7 @@ Total output lines: 989
 
 ## BUG-044 — Irrigation and fertiliser planning is only a placeholder
 
-**Reported:** 2026-10-10 16:09 MYT  
+**Reported:** 2026-10-10 16:09 MYT
 **Status:** Compiled in v0.5.08 Build 16 (versionCode 97); JavaScript and Gradle checks passed; Android UI/Drive verification pending.
 
 **Fix:** Replaced the placeholder with editable schedules by plot, greenhouse, and section. Records include irrigation method, frequency, start date/time, duration, fertiliser type (including A+B fertigation mix), optional user-entered mix rate, status, and notes. Rates are entered by the user from their crop plan or product guidance. Records persist locally and sync to `db/userdata/<user>/farm-management.json` through the saved Drive grant.
@@ -313,7 +324,7 @@ Total output lines: 989
 
 ## BUG-043 — Crop photo selection should come first and support all greenhouse sections
 
-**Reported:** 2026-10-10 16:03 MYT  
+**Reported:** 2026-10-10 16:03 MYT
 **Status:** Compiled in v0.5.08 Build 16 (versionCode 97); JavaScript and data-scope checks passed; Android UI/Drive verification pending.
 
 **Fix:** Moved the crop catalogue with crop photos to the top of Crop Planning, before planting details, and show the selected crop photo and harvest window in the form. Added “All sections in this greenhouse” alongside Sections 01–06. An all-section planting is saved once in the app and written into each of the greenhouse’s six Drive section files while retaining its shared record ID; single-section assignment remains available.
@@ -322,7 +333,7 @@ Total output lines: 989
 
 ## BUG-042 — Diagnosis scrolling reaches the Home screen; secondary modules need a Home action
 
-**Reported:** 2026-10-10 15:50 MYT  
+**Reported:** 2026-10-10 15:50 MYT
 **Status:** Compiled in v0.5.08 Build 15 (versionCode 96); JavaScript syntax and UI structure checks passed; device verification pending.
 
 **Fix:** Background page scrolling is locked at its current position while any modal is open, and overscroll is contained within the dialog. Added a Home button to the bottom of the Health panel, Diagnosis, and shared secondary-module dialog used by Harvest, Market Place, Manage Farm, My Account, and Settings. Home closes active overlays and restores the dashboard. Renamed the A.I Yield menu label and module heading to “Harvest.”
@@ -331,7 +342,7 @@ Total output lines: 989
 
 ## BUG-041 — Diagnosis history should be inline and show the latest result by default
 
-**Reported:** 2026-10-10 15:45 MYT  
+**Reported:** 2026-10-10 15:45 MYT
 **Status:** Compiled in v0.5.08 Build 15 (versionCode 96); JavaScript syntax and UI structure checks passed; device verification pending.
 
 **Fix:** Moved diagnosis history into the diagnosis screen between “2. Review saved photos and video” and “3. Diagnosis description.” The newest saved result now loads into the description when the section opens. Selecting an older history entry replaces the description inline; the history action on the A.I. Health card now opens the same screen and scrolls to the history list instead of opening a separate history window.
@@ -340,7 +351,7 @@ Total output lines: 989
 
 ## BUG-034 — Opening a section automatically shows a pixel-screen result
 
-**Reported:** 2026-10-10 14:42 MYT  
+**Reported:** 2026-10-10 14:42 MYT
 **Status:** Compiled in v0.5.08 Build 12 (versionCode 93); device verification pending.
 
 **Fix:** The Home Diagnosis shortcut now preloads the section’s latest Image_Feed photo but waits for the user to tap Run diagnosis before starting CV or Pl@ntNet. On opening a section, saved pixel-only or failed-attempt results are hidden; the description says “No historical diagnosis performed” unless a successful deep diagnosis exists for that section. A successful Pl@ntNet response marks and saves its matching pixel report as a completed deep diagnosis.
@@ -349,7 +360,7 @@ Total output lines: 989
 
 ## BUG-033 — Diagnosis history and results leak across sections
 
-**Reported:** 2026-10-10 14:13 MYT  
+**Reported:** 2026-10-10 14:13 MYT
 **Status:** Implemented in v0.5.08 Build 11 (versionCode 92); Gradle, JavaScript syntax, and focused history/callback checks passed. Android device verification pending.
 
 **Fix:** Diagnosis history now counts only successful Pl@ntNet deep-diagnosis responses. Pixel-only legacy events are removed from the displayed history, so untouched sections show “No historical diagnosis performed.” Delayed Pl@ntNet and video results are saved to the original plot and CCTV section and only update the open diagnosis panel when that same section is still active.
@@ -367,7 +378,7 @@ Total output lines: 989
 
 ## BUG-031 — A.I. Health needs per-quadrant diagnosis history
 
-**Reported:** 2026-10-10 13:53 MYT  
+**Reported:** 2026-10-10 13:53 MYT
 **Status:** Initial history feature shipped in v0.5.08 Build 10 (versionCode 91); its pixel-screen event behavior is corrected in source under BUG-033 and queued for the next APK.
 
 **Change:** Added a Diagnosis history button and occurrence count to each A.I. Health card. The initial version logged local pixel screening and migrated prior saved screening results; BUG-033 removes those entries and counts only successful Pl@ntNet deep-diagnosis results.
@@ -376,14 +387,14 @@ Total output lines: 989
 
 ## BUG-030 — Main menu label should read “Market Place”
 
-**Reported:** 2026-10-10 11:54 MYT  
+**Reported:** 2026-10-10 11:54 MYT
 **Status:** Implemented in v0.5.08 Build 10 (versionCode 91); build checks passed, Android device verification pending.
 
 **Change:** Renamed the visible main-menu label and its accessibility label from “Market” to “Market Place.” The Market screen heading and content are unchanged.
 
 ## BUG-029 — Home quadrant Diagnose control is too large and overlays the image
 
-**Reported:** 2026-10-10 11:39 MYT  
+**Reported:** 2026-10-10 11:39 MYT
 **Status:** Implemented in v0.5.08 Build 9 (versionCode 90); build checks passed, device verification pending.
 
 **Fix:** Moved the Diagnosis action below each quadrant image and aligned it to the right. The compact green button shows the stethoscope icon and “Diagnosis” on one line. A more specific CSS selector keeps the general full-width diagnosis-button rule from stretching it across the card or pushing the label out of place.
@@ -392,7 +403,7 @@ Total output lines: 989
 
 ## BUG-028 — Pl@ntNet remaining quota is not visible in Diagnosis
 
-**Reported:** 2026-10-10 11:26 MYT  
+**Reported:** 2026-10-10 11:26 MYT
 **Status:** Implemented in v0.5.08 Build 6 (versionCode 87); build checks passed, device/API verification pending.
 
 **Fix:** Added a top-right quota badge in the Diagnosis description section. It uses `remainingIdentificationRequests` from the Pl@ntNet disease response, with the `RateLimit` response header as fallback; a quota-exceeded HTTP 429 response is represented as zero remaining. The label uses requests rather than photos because the provider counts one credit per disease request, which can contain up to five images.
@@ -401,7 +412,7 @@ Total output lines: 989
 
 ## BUG-027 — Pl@ntNet response should appear with the photo diagnosis description
 
-**Reported:** 2026-10-10 11:22 MYT  
+**Reported:** 2026-10-10 11:22 MYT
 **Status:** Implemented in v0.5.08 Build 6 (versionCode 87); device/API verification pending.
 
 **Change:** After photo color analysis completes, the existing flow requests Pl@ntNet automatically. Its pending message, ranked disease results, and precautionary care notes now render inside the same Diagnosis description area, directly after the pixel analysis.
@@ -410,7 +421,7 @@ Total output lines: 989
 
 ## BUG-026 — Quadrant diagnosis action and photo analysis cues need clearer presentation
 
-**Reported:** 2026-10-10 11:19 MYT  
+**Reported:** 2026-10-10 11:19 MYT
 **Status:** Implemented in v0.5.08 Build 6 (versionCode 87); device verification pending.
 
 **Change:** Replaced the large quadrant Diagnose control with a compact stethoscope button at the bottom-right of the image. Renamed “Run photo CV screen” to “Run diagnosis”. Photo results now display approximate Yellow, Green, and Brown pixel percentages with matching colors and bars. The note clarifies these percentages describe sampled pixels, not plant health.
@@ -419,7 +430,7 @@ Total output lines: 989
 
 ## BUG-025 — Home quadrant snapshots require manual transfer into Diagnosis
 
-**Reported:** 2026-10-10 11:10 MYT  
+**Reported:** 2026-10-10 11:10 MYT
 **Status:** Implemented in v0.5.08 Build 5 (versionCode 86); build checks passed, device verification pending.
 
 **Fix:** Added a Diagnose button within each Home quadrant image. It opens the matching quadrant in Diagnosis, adds that quadrant’s latest cached Image_Feed snapshot as evidence, and starts the photo screen. Pl@ntNet candidate selection also considers that same snapshot with saved Diagnosis photos. If the quadrant has no current feed snapshot, the Diagnosis module opens and asks the user to add a photo.
@@ -428,7 +439,7 @@ Total output lines: 989
 
 ## BUG-024 — Home camera capture may stall or omit the image
 
-**Reported:** 2026-10-10 10:30 MYT  
+**Reported:** 2026-10-10 10:30 MYT
 **Status:** Fixed in v0.5.08 Build 3 (versionCode 84); device verification pending.
 
 **Fix:** Kept capture in the quadrant source dropdown. Removed the pending MediaStore flag from the camera output and explicitly shares the output URI with the camera app. If the camera returns a usable thumbnail instead of the full-size output, GrowPlot saves that image. Imported and captured photos use `CCTVXX_yyyyMMdd_HHmmss_SSS.jpg` and are saved in the selected plot’s existing image-feed folder.
@@ -437,7 +448,7 @@ Total output lines: 989
 
 ## BUG-023 — Home source choices placed outside the quadrant cards
 
-**Reported:** 2026-10-10 10:26 MYT  
+**Reported:** 2026-10-10 10:26 MYT
 **Status:** Corrected in v0.5.08 Build 2 (versionCode 83); device camera/Drive verification pending.
 
 **Fix:** Removed the extra Home photo panel. Each quadrant card now offers a compact source dropdown with CCTV · Image Feed (default), Camera, and File selection. Camera and file choices apply to that card’s CCTV number and save the JPEG to the selected plot’s configured image-feed folder.
@@ -446,7 +457,7 @@ Total output lines: 989
 
 ## BUG-022 — Saved Drive paths can be missing from the shared config after startup
 
-**Reported:** 2026-10-10  
+**Reported:** 2026-10-10
 **Status:** Source fix compiled in v0.5.08 Build 1 (versionCode 82); Android Google Drive provider test pending.
 
 **Cause:** Startup restored configured folder IDs from `storage-paths.json`, but if the file did not exist it returned an empty config and never created it. The app also did not bundle its four default image-feed paths for a fresh install. Grant recovery searched persisted Android grants only for the shared GrowPlot root; a retained Diagnosis grant could be missed if its local URI preference was absent.
@@ -457,7 +468,7 @@ Total output lines: 989
 
 ## BUG-021 — Diagnosis media picker blocked by Drive permission gate; saved Drive grant rechecked each time
 
-**Reported:** 2026-10-09 23:55 MYT  
+**Reported:** 2026-10-09 23:55 MYT
 **Status:** Fixed in v0.5.07 Build 30 (versionCode 80). Gradle build, APK metadata, signing, alignment, and JavaScript syntax checks passed; Android device flow remains pending.
 
 **Cause:** Build 28/29 required a Drive connection before launching the camera or media picker. A missing or stale Drive grant therefore prevented the user from selecting any photo or video. The permission helper also re-read Android's persisted URI grants and re-resolved the folder path during normal media operations.
@@ -468,7 +479,7 @@ Total output lines: 989
 
 ## BUG-020 — Diagnosis media storage reports Google Drive access error
 
-**Reported:** 2026-10-09 23:42 MYT  
+**Reported:** 2026-10-09 23:42 MYT
 **Status:** Fixed in v0.5.07 Build 28 (versionCode 78). Gradle build, package metadata, signature, and alignment checks passed; Android Drive-provider test remains pending.
 
 **Cause:** If GrowPlot had no persisted read/write Storage Access Framework grant for Google Drive, or the saved grant had become unusable, the diagnosis storage flow only displayed a warning and did not reopen Android's folder authorization screen. Diagnosis media therefore could not be read from or written to Drive.
@@ -481,7 +492,7 @@ Total output lines: 989
 
 ## BUG-047 — Connect IP Webcam to Home CCTV 01
 
-**Reported:** 2026-10-10 18:39 MYT  
+**Reported:** 2026-10-10 18:39 MYT
 **Status:** Implemented in source after Build 16; inline JavaScript and Gradle resource/Java compile checks passed. APK and Android network test pending.
 
 **Change:** For Plot 1, overlays the IP Webcam MJPEG stream at `http://192.168.1.241:8080/videofeed` on the existing CCTV 01 image frame. The existing Image_Feed snapshot remains underneath and appears if the stream is unreachable. The app's network security configuration permits cleartext traffic only to the camera's displayed IP; the stream stays inside the existing Home card.
@@ -490,7 +501,7 @@ Total output lines: 989
 
 ## BUG-019 — Pl@ntNet diagnosis was not visible after video pixel analysis
 
-**Reported:** 2026-10-09 23:28 MYT  
+**Reported:** 2026-10-09 23:28 MYT
 **Status:** Corrected in v0.5.07 Build 27 (versionCode 77). Inline JavaScript syntax, offline Gradle build, APK package metadata, and signature checks passed. Android device playback and UI/network flow remain to be confirmed on tablet.
 
 **Cause:** The video-analysis worker called a WebView status update directly from its background thread before queuing the Pl@ntNet request. Android requires WebView interaction on its UI thread; this could throw and divert execution into the video-analysis error handler before the provider request was queued. The diagnosis pane also did not scroll to the provider result when it arrived.
@@ -502,7 +513,7 @@ Total output lines: 989
 
 ## BUG-018 — Pl@ntNet check misses Drive quadrant photos and requires a manual action
 
-**Reported:** 2026-10-09 23:20 MYT  
+**Reported:** 2026-10-09 23:20 MYT
 **Status:** Corrected in v0.5.07 Build 26 (versionCode 76). JavaScript checks, offline Gradle build, APK metadata, and signature checks passed; tablet runtime validation remains pending.
 
 **Cause:** Build 25 read only the app's private photo cache for photo checks and used video frames alone for video checks. It did not reliably read saved photos from the corresponding Google Drive quadrant folder, and it still exposed a manual provider button.
@@ -514,7 +525,7 @@ Total output lines: 989
 
 ## BUG-017 — Pl@ntNet response is not wired into the in-app diagnosis result
 
-**Reported:** 2026-10-09 23:10 MYT  
+**Reported:** 2026-10-09 23:10 MYT
 **Status:** Implemented in v0.5.07 Build 25 (versionCode 75). Static/build validation passed; tablet runtime validation remains pending.
 
 **Cause:** Build 24 only called an optional, undeployed proxy. The Android diagnosis …522 tokens truncated… Adds a visible × close button and closes the native player after video sampling completes. The full result is retained and shown in the diagnosis results section; the result area scrolls into view. Adds cautious care suggestions: remove only fully dead leaves, check soil moisture/drainage and water retention, and verify soil pH/EC before applying crop-appropriate NPK. The capture status now stays brief. Pixel analysis is explicitly preliminary and includes a human-expert disclaimer.
@@ -523,7 +534,7 @@ Total output lines: 989
 
 ## BUG-014 — Match video player to thumbnail and show result below
 
-**Reported:** 2026-10-09  
+**Reported:** 2026-10-09
 **Status:** Implemented in v0.5.07 Build 21 (versionCode 71); on-device verification pending.
 
 **Fix:** Keeps native VideoView playback. Centers and caps its dimensions to the diagnosis-card thumbnail bounds while respecting portrait or landscape aspect ratio. Live pixel color status remains on the player. Completed video analysis is saved and displayed under the diagnosis screen results section with limitations and an A.I. disclaimer.
@@ -532,7 +543,7 @@ Total output lines: 989
 
 ## BUG-013 — Center and shrink the diagnosis video window
 
-**Reported:** 2026-10-09  
+**Reported:** 2026-10-09
 **Status:** Implemented in v0.5.07 Build 20 (versionCode 70); device layout verification pending.
 
 **Fix:** Keeps the existing native Android VideoView playback path and its pixel-color analysis. The dialog is centered, initially opens at a reduced size, then uses decoded video dimensions to fit the window to portrait or landscape clips, capped at 72% of the display width and height.
@@ -541,7 +552,7 @@ Total output lines: 989
 
 ## BUG-012 — Fit native video player to diagnosis area and show color percentages
 
-**Reported:** 2026-10-09  
+**Reported:** 2026-10-09
 **Status:** Implemented in v0.5.07 Build 19 (versionCode 69); Android playback and overlay timing need device verification.
 
 **Fix:** Retains the native VideoView code path confirmed working in Build 13. The playback window is sized to a compact landscape video area rather than full screen, with the diagnosis pane visible behind it. A sampled-frame overlay shows actual colored labels and percentages for green, yellow, brown, and other pixels during playback; the final summary gives cautious follow-up and a human-expert disclaimer.
@@ -550,7 +561,7 @@ Total output lines: 989
 
 ## BUG-011 — Restore confirmed video playback path
 
-**Reported:** 2026-10-09  
+**Reported:** 2026-10-09
 **Status:** Reverted in v0.5.07 Build 18 (versionCode 68); device playback verification remains required.
 
 **Cause:** The experimental inline HTML5 video player introduced in Build 17 did not play the user's video.
@@ -561,7 +572,7 @@ Total output lines: 989
 
 ## BUG-010 — Diagnosis remove control, inline video, color labels, and stale build label
 
-**Reported:** 2026-10-09  
+**Reported:** 2026-10-09
 **Status:** Implemented in v0.5.07 Build 17 (versionCode 67); Android WebView playback still needs device verification.
 
 **Fix:** Replaces the native video dialog with an inline HTML5 player inside the diagnosis media card. It uses 0.5× playback and shows sampled pixel percentages with green/yellow/brown/other color chips and descriptive labels; detailed follow-up and disclaimer appear directly under the player while the diagnosis pane remains visible. The × now immediately removes the clip from this device's diagnosis list without the WebView confirmation prompt that was preventing the earlier action; the Drive original is retained. Corrects the header/footer version labels and WebView user agent to Build 17.
@@ -570,7 +581,7 @@ Total output lines: 989
 
 ## BUG-009 — Video remove control and black playback surface
 
-**Reported:** 2026-10-09  
+**Reported:** 2026-10-09
 **Status:** Implemented in v0.5.07 Build 16 (versionCode 66); device verification is still required.
 
 **Fix:** Added a simple × over each video thumbnail. It hides the selected video from this device's diagnosis list and leaves the Google Drive original untouched, avoiding provider delete failures. Simplified the player back to the direct VideoView inside a FrameLayout, matching the previously confirmed playback structure, while retaining a compact window, 0.5× slow motion, and live pixel flags. Completed CV findings are shown in the diagnosis status after analysis.
@@ -579,7 +590,7 @@ Total output lines: 989
 
 ## BUG-008 — Slow-motion video playback with live pixel flags
 
-**Reported:** 2026-10-09  
+**Reported:** 2026-10-09
 **Status:** Implemented in v0.5.07 Build 15 (versionCode 65); Android playback speed and in-video overlay timing require device verification.
 
 **Fix:** The media control now reads “Play & diagnose.” Android playback is set to 0.5× speed. A colored overlay on the video shows sampled green/yellow/brown percentages, rough green leaf-like region count, and flags for elevated yellow/brown or very low green pixels. Frame analysis is paced across the video timeline so the overlay changes during playback. The report still labels outputs as approximate local pixel screening and includes the human-expert disclaimer.
@@ -588,7 +599,7 @@ Total output lines: 989
 
 ## BUG-007 — Diagnosis media cleanup, oversized playback, and missing video screening
 
-**Reported:** 2026-10-09  
+**Reported:** 2026-10-09
 **Status:** Implemented in v0.5.07 Build 14 (versionCode 64). Source, JavaScript syntax, Gradle compilation, APK metadata, and signature checks pass; Android Drive deletion, playback layout, and video analysis runtime tests remain pending.
 
 **Observed:** The diagnosis pane had no way to remove duplicate media; video opened full screen; video playback did not show sampled visual analysis or expert follow-up guidance.
@@ -599,7 +610,7 @@ Total output lines: 989
 
 ## BUG-001 — Serious — per-quadrant image statistics missing
 
-**Reported:** 2026-10-09  
+**Reported:** 2026-10-09
 **Status:** Resolved and confirmed on the user's device in v0.5.05 Build 13 (versionCode 41). Correcting the `data_feed` path restored the quadrant image statistics. APK SHA-256: `2ba03d206193dd9362c6ca535d70778e260a10fcbb6e886617ad7844e8428701`.
 
 **Observed:** The Home dashboard did not show the latest snapshot timestamp, latest image, image-history count, earliest/latest photo times, or elapsed span for CCTV/quadrant cards. The same failure could affect every quadrant.
@@ -618,7 +629,7 @@ Total output lines: 989
 
 ## BUG-002 — High — diagnosis video capture does not complete reliably
 
-**Reported:** 2026-10-09  
+**Reported:** 2026-10-09
 **Status:** Code fix compiled in v0.5.07 Build 9 (versionCode 59); external camera runtime and Drive write tests pending. The candidate APK uses a different debug certificate from Build 8 and is not an in-place update.
 
 **Observed:** User reports that the video action in A.I Health does not execute.
@@ -636,7 +647,7 @@ Total output lines: 989
 
 ## BUG-003 — High — diagnosis files can be written under a duplicated folder path
 
-**Reported:** 2026-10-09 21:00 MYT  
+**Reported:** 2026-10-09 21:00 MYT
 **Status:** Folder-root correction implemented in v0.5.07 Build 12 (versionCode 62); Drive path checks completed. Video decode and on-device playback remain unverified, so this is not a release.
 
 **Observed:** Drive contained the expected video under `Projects/GrowPlot/Diagnosis/Plot_1/Quadrant_01`, plus a second copy under `.../Quadrant_01/Diagnosis/Plot_1/Quadrant_01`. The second copy was moved intact into the canonical quadrant folder; the nested branch is now empty.
@@ -650,7 +661,7 @@ Total output lines: 989
 
 ## BUG-004 — High — diagnosis video is not visible/playable in the WebView player
 
-**Reported:** 2026-10-09 21:14 MYT  
+**Reported:** 2026-10-09 21:14 MYT
 **Status:** Native in-app player implemented in v0.5.07 Build 13 (versionCode 63); Gradle compilation and inline-JavaScript syntax checks pass. On-device playback remains unverified.
 
 **Observed:** The Drive MP4 opens in Chrome and reports a duration of about 9.5 seconds with no browser media error. The browser reports a 0×0 video frame size, so a decodable visual stream is not confirmed. GrowPlot WebView playback still fails.
@@ -663,7 +674,7 @@ Total output lines: 989
 
 ## BUG-035 — Manage Farm has no crop planting records
 
-**Reported:** 2026-10-10  
+**Reported:** 2026-10-10
 **Status:** Compiled in v0.5.08 Build 12 (versionCode 93); device verification pending.
 
 **Observed:** Manage Farm was a placeholder and did not let the user choose crops, assign a crop to a plot section, record planting milestones, or estimate harvest timing.
@@ -674,7 +685,7 @@ Total output lines: 989
 
 ## BUG-036 — Manage Farm needs navigation for upcoming farm modules
 
-**Reported:** 2026-10-10  
+**Reported:** 2026-10-10
 **Status:** Compiled in v0.5.08 Build 12 (versionCode 93); device verification pending.
 
 **Observed:** Manage Farm had crop planning but no place to navigate to irrigation/fertiliser or maintenance workflows.
@@ -686,7 +697,7 @@ Total output lines: 989
 
 ## BUG-037 — Diagnosis history disappears for previously diagnosed sections
 
-**Reported:** 2026-10-10  
+**Reported:** 2026-10-10
 **Status:** Fix prepared for v0.5.08 Build 13 (versionCode 94); device verification pending.
 
 **Cause:** History loading removed every stored entry without the exact `diagnosisDepth: "deep"` flag. Completed on-device photo screenings and video analyses were not recorded as history unless Pl@ntNet returned a successful deep result.
@@ -697,7 +708,7 @@ Total output lines: 989
 
 ## BUG-038 — Crop planting records do not store plant/tree count
 
-**Reported:** 2026-10-10  
+**Reported:** 2026-10-10
 **Status:** Fix prepared for v0.5.08 Build 13 (versionCode 94); device verification pending.
 
 **Fix:** Added an optional integer number-of-plants/trees input to crop planting and editing. The value is saved in each planting record and displayed in the assigned-crops list; existing records without a count continue to load.
@@ -706,7 +717,7 @@ Total output lines: 989
 
 ## BUG-039 — Older diagnosis runs are not recovered or visible at the top of diagnosis
 
-**Reported:** 2026-10-10  
+**Reported:** 2026-10-10
 **Status:** Compiled in v0.5.08 Build 14 (versionCode 95); device verification pending.
 
 **Cause:** Build 10 stored a legacy diagnosis result using `capturedAt` when `completedAt` was unavailable. Build 13's recovery check did not recognize that timestamp field. Also, diagnosis history existed only behind a separate history button, so the diagnosis screen did not show the count and occurrence timestamps immediately.
@@ -718,7 +729,7 @@ Total output lines: 989
 
 ## BUG-040 — Farm management records are only stored on the device
 
-**Reported:** 2026-10-10  
+**Reported:** 2026-10-10
 **Status:** Compiled in v0.5.08 Build 14 (versionCode 95); Google Drive provider verification pending.
 
 **Fix:** Crop planting records now sync through the existing persisted Google Drive GrowPlot folder grant. GrowPlot creates `db/userdata/<user>/<plot>/greenhouse_<n>/section_<nn>/crop-plantings.json` and a per-user index under `GrowPlot/db/userdata`. Each section file includes crop type, variety, sowing/seedling/field planting dates, number of plants/trees, area, crop stage, notes, and estimate. Startup merges Drive and device records by record ID and update time; deletes are carried as tombstones so they sync across launches. The device copy remains available if Drive sync fails. The app's account sign-in is currently a preview, so records use a stable `default-user` folder until real authentication is connected.
@@ -726,7 +737,7 @@ Total output lines: 989
 **Verification / limits:** JavaScript syntax checks pass. Android source compilation and a real Google Drive provider read/write test are pending. The Drive operation reuses the saved GrowPlot folder grant and does not launch the folder picker.
 ## BUG-050 — CCTV01 still shows a Google Drive or bundled photo instead of the stream
 
-**Reported:** 2026-10-10 19:15 MYT  
+**Reported:** 2026-10-10 19:15 MYT
 **Status:** Compiled in v0.5.08 Build 22 (versionCode 103); Android playback verification pending.
 
 **Cause:** The CCTV01 card still rendered a Google Drive image underneath the stream, and Drive refreshes could replace the card image. A stream error could also fall back to a bundled still photo.
@@ -737,7 +748,7 @@ Total output lines: 989
 
 ## BUG-051 — CCTV01 stream loads in the browser but not in GrowPlot
 
-**Reported:** 2026-10-10 20:22 MYT  
+**Reported:** 2026-10-10 20:22 MYT
 **Status:** Compiled in v0.5.08 Build 23 (versionCode 104); Android stream verification pending.
 
 **Finding:** The app's WebView loaded GrowPlot from its HTTPS app-assets origin while CCTV01 used the local HTTP MJPEG endpoint. The WebView was in mixed-content compatibility mode, which may still block an image stream. The user confirms the IP Webcam works in their browser; the build workspace cannot reach their private Wi-Fi address and no Android device is attached for direct verification.
@@ -748,7 +759,7 @@ Total output lines: 989
 
 ## BUG-052 — Add a direct IP Webcam viewer button
 
-**Reported:** 2026-10-10 20:30 MYT  
+**Reported:** 2026-10-10 20:30 MYT
 **Status:** Compiled in v0.5.08 Build 24 (versionCode 105); Android viewer connectivity test pending.
 
 **Change:** Added an **IP webcam** button to the camera dashboard. It opens the camera's own page at `http://192.168.1.241:8080/` in a full-screen in-app WebView with a Close control. The camera page is loaded directly rather than as an HTTP image inside GrowPlot's HTTPS page. The viewer does not receive GrowPlot's JavaScript bridge.
@@ -757,7 +768,7 @@ Total output lines: 989
 
 ## BUG-053 — Add CCTV07 live stream tile to the home screen
 
-**Reported:** 2026-10-10 20:45 MYT  
+**Reported:** 2026-10-10 20:45 MYT
 **Status:** Initial version in Build 25 was corrected in v0.5.08 Build 26 (versionCode 107); Android playback verification pending.
 
 **Change:** Added a compact, right-aligned CCTV07 card below the six existing camera cards. It loads `http://192.168.1.241:8080/videofeed`, reports when the stream loads or reconnects, and retries after an image error. The existing CCTV01–CCTV06 and Drive snapshot history/diagnosis paths remain unchanged.
@@ -768,7 +779,7 @@ Total output lines: 989
 
 ## BUG-054 — Start CCTV07 only when its adjacent button is pressed
 
-**Reported:** 2026-10-10 20:53 MYT  
+**Reported:** 2026-10-10 20:53 MYT
 **Status:** Implemented in v0.5.08 Build 26 (versionCode 107); Android playback verification pending.
 
 **Change:** CCTV07 remains visible as a blank compact stream frame beside the **IP webcam** button. The button starts the `/videofeed` request inside that frame; pressing it again restarts the stream. The image request is not made during home-screen initialization. Loading/error status and automatic retry are shown in the frame.
@@ -777,7 +788,7 @@ Total output lines: 989
 
 ## BUG-055 — Remove IP webcam button and CCTV07 frame
 
-**Reported:** 2026-10-10 20:57 MYT  
+**Reported:** 2026-10-10 20:57 MYT
 **Status:** Implemented in v0.5.08 Build 27 (versionCode 108); JavaScript, build, package, signature, and alignment checks passed.
 
 **Change:** Removed the IP webcam button and CCTV07 frame from the home screen, including CCTV07-specific startup and retry logic. The existing six camera cards and CCTV01 stream behavior remain unchanged.
@@ -890,7 +901,7 @@ Build 7 validation: Gradle ARM64 build, package version, signature, alignment, S
 
 ## BUG-063 — Connect the saved Kindwise key to crop.health diagnosis
 
-**Reported:** 2026-10-12  
+**Reported:** 2026-10-12
 **Status:** Implemented in source and built for v0.6.01 Build 8 (versionCode 135); Android and live-provider verification pending.
 
 **Change:** After pixel/photo or video-frame analysis, GrowPlot sends up to five clearest selected images to Kindwise crop.health and Pl@ntNet independently. Kindwise uses the encrypted API key already stored in Settings; the key remains in the native Android layer and is sent in the provider Api-Key header. Kindwise crop and health issue candidates, confidence scores, and available symptom/treatment details appear in a separate result card. Kindwise results are saved with the section's diagnosis history. A build regression check covers the key use, endpoint, image limit, photo/video fan-out, and result display.
