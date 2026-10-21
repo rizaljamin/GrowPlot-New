@@ -15,5 +15,6 @@ if(typeof window.feedLocationText==='function')window.feedLocationText=function(
 const originalScan=window.onSnapshotScan;
 if(typeof originalScan==='function')window.onSnapshotScan=function(data){originalScan(data);update();if(data&&data.plotId===((byId('plotManagerSelect')||{}).value)&&!data.connected){const status=byId('folderCheckStatus');if(status&&data.statusText)status.textContent=data.statusText}};
 ['plot','plotManagerSelect'].forEach(id=>{const e=byId(id);if(e)e.addEventListener('change',update)});
+['growplot-plot-profile-updated','growplot-power-user-change'].forEach(name=>window.addEventListener(name,update));
 update();
 })();
