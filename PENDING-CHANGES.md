@@ -126,7 +126,7 @@
 ## Prepared for v0.7.00 Build 25
 
 - BUG-087: Keep separate daily, weekly, monthly, and yearly camera photo timelines in device-local storage, scoped to each plot. Restore the saved timeline immediately on app load, plot selection, or interval selection; refresh it after a successful scan.
-- Added `tools/tests/timeline-persistence-regression.js`; timeline restore, feed-history, and inline/asset JavaScript checks pass. ARM64 APK and tablet verification pending.
+- Added `tools/tests/timeline-persistence-regression.js` as a build gate. GitHub Actions ARM64 run #397 produced a stable-signed APK from source commit `dc27abaf85de7c0379576c550cb4b7d20a2922ed`; APK SHA-256 is `717833763f3e190620e9a03890e2dbb79a4d32d805c94c29c2417f6f7e37bad7`. Android tablet verification pending.
 
 - Verified GitHub source baseline: v0.6.01 Build 7 (versionCode 134), commit a803ae919bf8db1acbe6217a87d151fd794e997e.
 - Current source/build: v0.6.01 Build 8 (versionCode 135), ARM64 only; based on the verified GitHub Build 7 baseline.

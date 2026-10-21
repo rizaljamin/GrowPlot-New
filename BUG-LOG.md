@@ -1,13 +1,16 @@
+Warning: truncated output (original token count: 25498)
+Total output lines: 989
+
 ## BUG-087 — Interval photo snapshots disappear after switching or reopening
 
 **Reported:** 2026-10-21
-**Status:** Fixed in v0.7.00 Build 25 (versionCode 229); tablet verification pending.
+**Status:** Fixed in v0.7.00 Build 25 (versionCode 229); GitHub ARM64 run #397 succeeded and stable signing verified. Tablet verification pending.
 
 **Cause:** The four-period photo timeline lived only in JavaScript memory. Changing intervals replaced it with empty slots, and reopening the app recreated all slots as empty. A status-only scan could not restore the previous timeline.
 
 **Fix:** Save the timeline separately for each plot and interval in device-local WebView storage. Restore it immediately on app load, plot switch, and interval switch. Successful scans refresh only the active interval; status-only scans keep the saved cards.
 
-**Verification:** Focused timeline persistence and existing feed-history regressions plus inline/asset JavaScript syntax checks passed. ARM64 build and Android tablet verification pending.
+**Verification:** Timeline persistence, feed-history, and the build's diagnosis, farm, account, data-feed, HSV, and YOLO regressions passed. ARM64 APK built with the current stable signer. APK SHA-256: `717833763f3e190620e9a03890e2dbb79a4d32d805c94c29c2417f6f7e37bad7`. Android tablet verification pending.
 
 ## BUG-086 — Diagnosis stopped on unreadable selected photo and interval cards were cleared
 
@@ -435,194 +438,7 @@
 ## BUG-023 — Home source choices placed outside the quadrant cards
 
 **Reported:** 2026-10-10 10:26 MYT  
-**Status:** Corrected in v0.5.08 Build 2 (versionCode 83); device camera/Drive verification pending.
-
-**Fix:** Removed the extra Home photo panel. Each quadrant card now offers a compact source dropdown with CCTV · Image Feed (default), Camera, and File selection. Camera and file choices apply to that card’s CCTV number and save the JPEG to the selected plot’s configured image-feed folder.
-
-**Limit:** The plot feed must already be connected and its saved Android read/write grant valid. Verify camera capture and Drive provider writes on the device.
-
-## BUG-022 — Saved Drive paths can be missing from the shared config after startup
-
-**Reported:** 2026-10-10  
-**Status:** Source fix compiled in v0.5.08 Build 1 (versionCode 82); Android Google Drive provider test pending.
-
-**Cause:** Startup restored configured folder IDs from `storage-paths.json`, but if the file did not exist it returned an empty config and never created it. The app also did not bundle its four default image-feed paths for a fresh install. Grant recovery searched persisted Android grants only for the shared GrowPlot root; a retained Diagnosis grant could be missed if its local URI preference was absent.
-
-**Fix:** Bundled the canonical image-feed and Diagnosis defaults in `app/src/main/assets/config/storage-paths.json`. After the one-time Android grant, startup restores/creates those image-feed directories and creates `Projects/GrowPlot/config/storage-paths.json` if it is missing. It also searches Android's retained Google Drive grants when local URI preferences are absent. Existing non-empty Drive config is not rewritten on every launch.
-
-**Verification / limits:** Clean Gradle compile and APK package/signature/alignment/version checks passed. No Android device is connected, so normal relaunch, retained-grant recovery, remote config creation, and folder-picker behavior still need tablet verification. Android requires OS authorization after reinstall, cleared app data, or permission revocation.
-
-## BUG-021 — Diagnosis media picker blocked by Drive permission gate; saved Drive grant rechecked each time
-
-**Reported:** 2026-10-09 23:55 MYT  
-**Status:** Fixed in v0.5.07 Build 30 (versionCode 80). Gradle build, APK metadata, signing, alignment, and JavaScript syntax checks passed; Android device flow remains pending.
-
-**Cause:** Build 28/29 required a Drive connection before launching the camera or media picker. A missing or stale Drive grant therefore prevented the user from selecting any photo or video. The permission helper also re-read Android's persisted URI grants and re-resolved the folder path during normal media operations.
-
-**Fix:** Media selection and camera capture are now independent of Drive connection. GrowPlot saves the selected photo/video to private device storage immediately, queues an upload, and requests the one-time Drive folder grant afterward. The grant and canonical Diagnosis, Plot, and Quadrant folder IDs are retained. Normal capture and diagnosis flows trust these saved values; they do not poll permission state or walk the directory tree again on every use. If an actual Drive operation fails, the local copy is kept and a manual “Reconnect Google Drive” control is available. Once permission is re-granted, pending media uploads are retried.
-
-**Verification / limits:** The app compiled as versionCode 80 / `0.5.07 Build 30`, is aligned, and uses the same Android debug signing certificate as Build 27/28. Static JavaScript syntax check passed. No Android phone/tablet is connected for end-to-end media selection, camera, Drive provider, upload, or playback testing.
-
-## BUG-020 — Diagnosis media storage reports Google Drive access error
-
-**Reported:** 2026-10-09 23:42 MYT  
-**Status:** Fixed in v0.5.07 Build 28 (versionCode 78). Gradle build, package metadata, signature, and alignment checks passed; Android Drive-provider test remains pending.
-
-**Cause:** If GrowPlot had no persisted read/write Storage Access Framework grant for Google Drive, or the saved grant had become unusable, the diagnosis storage flow only displayed a warning and did not reopen Android's folder authorization screen. Diagnosis media therefore could not be read from or written to Drive.
-
-**Fix:** GrowPlot reuses a valid saved grant; otherwise it opens Android's one-time folder authorization screen. The app now checks that the saved grant is still persisted and has both read/write access before allowing capture. The user selects the existing `Projects` or `GrowPlot` parent once, then GrowPlot resolves/creates `Projects/GrowPlot/Diagnosis` and keeps using that canonical destination. Folder connection failures now include the provider's reported reason and explain the supported parent folders.
-
-**Verification / limits:** The modified Java source compiled into Build 28. APK metadata reports versionCode 78 and `0.5.07 Build 28`; the APK is aligned and signed with the same certificate as Build 27. No Android tablet is attached, so the system picker and actual Google Drive provider read/write flow still need device verification. Android requires this one-time OS permission for private Drive files; the diagnosis subfolder is resolved automatically after it is granted.
-
-# GrowPlot bug log
-
-## BUG-047 — Connect IP Webcam to Home CCTV 01
-
-**Reported:** 2026-10-10 18:39 MYT  
-**Status:** Implemented in source after Build 16; inline JavaScript and Gradle resource/Java compile checks passed. APK and Android network test pending.
-
-**Change:** For Plot 1, overlays the IP Webcam MJPEG stream at `http://192.168.1.241:8080/videofeed` on the existing CCTV 01 image frame. The existing Image_Feed snapshot remains underneath and appears if the stream is unreachable. The app's network security configuration permits cleartext traffic only to the camera's displayed IP; the stream stays inside the existing Home card.
-
-**Limit:** The GrowPlot device must be able to reach `192.168.1.241` on the same local network. If the router changes the camera phone's address, this configured URL must be updated. The stream uses HTTP on the local network and has no credentials in the URL. Android live stream display still needs device verification; Build 16 does not include this source change.
-
-## BUG-019 — Pl@ntNet diagnosis was not visible after video pixel analysis
-
-**Reported:** 2026-10-09 23:28 MYT  
-**Status:** Corrected in v0.5.07 Build 27 (versionCode 77). Inline JavaScript syntax, offline Gradle build, APK package metadata, and signature checks passed. Android device playback and UI/network flow remain to be confirmed on tablet.
-
-**Cause:** The video-analysis worker called a WebView status update directly from its background thread before queuing the Pl@ntNet request. Android requires WebView interaction on its UI thread; this could throw and divert execution into the video-analysis error handler before the provider request was queued. The diagnosis pane also did not scroll to the provider result when it arrived.
-
-**Fix:** The WebView update now runs on Android's UI thread, and the automatic provider request is queued after video pixel sampling. GrowPlot displays a visible pending state, renders the full ranked Pl@ntNet output and care guidance, and scrolls the result into view. Results are stored against the original plot/quadrant even if the selected plot changes while the call is in progress. The Pl@ntNet manual button remains removed.
-
-**Live API verification:** Sent a plant close-up image shared in this chat to Pl@ntNet's disease endpoint. Model `2026-03-20 (7.5)` returned: Fusarium sp. (FUSASP) 66.278%; Barley yellow dwarf virus (BYDV00) 8.467%; unknown parasitic pathogen (ZZXXZZ) 3.463%; Phytophthora cinnamomi (PHYTCN) 0.846%; Diuraphis noxia / barley aphid (BRAYNO) 0.462%. This confirms the API key/endpoint return a ranked diagnosis. This was an external request, not an Android device test. The endpoint may return candidates that do not fit the confirmed host species; treat the response as a model suggestion and obtain expert confirmation before treatment.
-
-
-## BUG-018 — Pl@ntNet check misses Drive quadrant photos and requires a manual action
-
-**Reported:** 2026-10-09 23:20 MYT  
-**Status:** Corrected in v0.5.07 Build 26 (versionCode 76). JavaScript checks, offline Gradle build, APK metadata, and signature checks passed; tablet runtime validation remains pending.
-
-**Cause:** Build 25 read only the app's private photo cache for photo checks and used video frames alone for video checks. It did not reliably read saved photos from the corresponding Google Drive quadrant folder, and it still exposed a manual provider button.
-
-**Fix:** While the video is playing, GrowPlot continues its pixel sampling. After the scan completes, it reads the matching `Projects/GrowPlot/Diagnosis/Plot_<n>/Quadrant_<nn>` Drive folder, combines those photos with sampled frames from the playing video, and ranks candidates by approximate sharpness, exposure, and visible plant area. It automatically submits the clearest five to Pl@ntNet and reports which images it selected. If Drive photos are unavailable, readable video frames can still be submitted. Photo CV scans also automatically cross-reference the best photos in that same Drive folder. The manual Pl@ntNet button has been removed.
-
-**Limitations:** The image-quality ranking is a heuristic, not plant segmentation or clinical image validation. The disease endpoint accepts images; species, symptom, and pixel data remain context only. No Android device was connected for end-to-end playback, Drive-provider, or live UI verification. The private APK contains the user's API key; the source ZIP does not.
-
-
-## BUG-017 — Pl@ntNet response is not wired into the in-app diagnosis result
-
-**Reported:** 2026-10-09 23:10 MYT  
-**Status:** Implemented in v0.5.07 Build 25 (versionCode 75). Static/build validation passed; tablet runtime validation remains pending.
-
-**Cause:** Build 24 only called an optional, undeployed proxy. The Android diagnosis screen therefore had no live Pl@ntNet result after its on-device color screen.
-
-**Fix:** The native Android bridge posts up to five saved JPEGs, or up to five sampled video frames, to Pl@ntNet's disease-identification endpoint. The response is kept separate from GrowPlot's pixel screen, stored per plot/quadrant, and rendered beneath it with ranked model scores, precautionary care steps, and the AI/human-expert disclaimer. The existing video player and its scan path remain in use.
-
-**Limitations:** Pl@ntNet's disease endpoint accepts images and does not accept species, symptom, or pixel metrics as model input; those fields are displayed as context only. Candidate scores are not confirmed probabilities, and the endpoint covers a limited species/pathology set. The personal APK contains the API key because the native client calls Pl@ntNet directly; keep it private. A server proxy is required for safer distribution. No connected Android device was available for runtime UI/network verification.
-
-
-## BUG-016 — Remove duplicate diagnosis results and disclaimers
-
-**Reported:** 2026-10-09  
-**Status:** Implemented in v0.5.07 Build 23 (versionCode 73); on-device verification pending.
-
-**Fix:** Uses one diagnosis result card for both photo and video screens. The latest scan replaces the prior report. Photo screening no longer re-screens video thumbnails, removing duplicate pixel summaries. Removes the second result panel and repeated section disclaimer; the single card retains care suggestions, limitations, and the expert-confirmation disclaimer.
-
-**Verification:** Inline JavaScript syntax passes. Gradle compilation succeeds; APK metadata reports `com.growplot.farm`, versionCode 73, versionName `0.5.07 Build 23`. APK signature verification passes and matches Build 22. No Android device is connected here, so verify that one result card updates after each scan.
-
-## BUG-015 — Close floating player and show retained diagnosis result
-
-**Reported:** 2026-10-09  
-**Status:** Implemented in v0.5.07 Build 22 (versionCode 72); on-device verification pending.
-
-**Fix:** Adds a visible × close button and closes the native player after video sampling completes. The full result is retained and shown in the diagnosis results section; the result area scrolls into view. Adds cautious care suggestions: remove only fully dead leaves, check soil moisture/drainage and water retention, and verify soil pH/EC before applying crop-appropriate NPK. The capture status now stays brief. Pixel analysis is explicitly preliminary and includes a human-expert disclaimer.
-
-**Verification:** Inline JavaScript syntax passes. Gradle compilation succeeds; APK metadata reports `com.growplot.farm`, versionCode 72, versionName `0.5.07 Build 22`. APK signature verification passes and matches Build 21. No Android device is connected here, so verify the × control, auto-close, and visible retained result on-device.
-
-## BUG-014 — Match video player to thumbnail and show result below
-
-**Reported:** 2026-10-09  
-**Status:** Implemented in v0.5.07 Build 21 (versionCode 71); on-device verification pending.
-
-**Fix:** Keeps native VideoView playback. Centers and caps its dimensions to the diagnosis-card thumbnail bounds while respecting portrait or landscape aspect ratio. Live pixel color status remains on the player. Completed video analysis is saved and displayed under the diagnosis screen results section with limitations and an A.I. disclaimer.
-
-**Verification:** Inline JavaScript syntax passes. Gradle compilation succeeds; APK metadata reports `com.growplot.farm`, versionCode 71, versionName `0.5.07 Build 21`. APK signature verification passes and matches Build 20. No Android device is connected here, so verify playback, thumbnail-sized layout, and result rendering on-device.
-
-## BUG-013 — Center and shrink the diagnosis video window
-
-**Reported:** 2026-10-09  
-**Status:** Implemented in v0.5.07 Build 20 (versionCode 70); device layout verification pending.
-
-**Fix:** Keeps the existing native Android VideoView playback path and its pixel-color analysis. The dialog is centered, initially opens at a reduced size, then uses decoded video dimensions to fit the window to portrait or landscape clips, capped at 72% of the display width and height.
-
-**Verification:** Inline JavaScript syntax passes. Gradle compilation succeeds; APK metadata reports `com.growplot.farm`, versionCode 70, versionName `0.5.07 Build 20`. APK signature verification passes and matches Build 19. No Android device or sample video is available here, so playback and the resized layout need on-device verification.
-
-## BUG-012 — Fit native video player to diagnosis area and show color percentages
-
-**Reported:** 2026-10-09  
-**Status:** Implemented in v0.5.07 Build 19 (versionCode 69); Android playback and overlay timing need device verification.
-
-**Fix:** Retains the native VideoView code path confirmed working in Build 13. The playback window is sized to a compact landscape video area rather than full screen, with the diagnosis pane visible behind it. A sampled-frame overlay shows actual colored labels and percentages for green, yellow, brown, and other pixels during playback; the final summary gives cautious follow-up and a human-expert disclaimer.
-
-**Verification:** HTML JavaScript syntax passes. Gradle compilation succeeds; APK metadata reports `com.growplot.farm`, versionCode 69, versionName `0.5.07 Build 19`. APK signature verification passes and matches Build 18. No Android device or sample video is available here, so runtime playback and overlay updates remain unverified.
-
-## BUG-011 — Restore confirmed video playback path
-
-**Reported:** 2026-10-09  
-**Status:** Reverted in v0.5.07 Build 18 (versionCode 68); device playback verification remains required.
-
-**Cause:** The experimental inline HTML5 video player introduced in Build 17 did not play the user's video.
-
-**Fix:** Restores the earlier native Android VideoView implementation from Build 13, which the user had confirmed played video. Removes the experimental inline playback and its associated analyzer bridge. Retains the simple local × hide control and updates all visible version labels to Build 18.
-
-**Verification:** JavaScript syntax passes. Gradle compilation succeeds; APK metadata reports `com.growplot.farm`, versionCode 68, versionName `0.5.07 Build 18`. APK signature verification passes and matches Build 17. Both visible version labels show Build 18. No Android device is connected here, so playback must be confirmed on the device.
-
-## BUG-010 — Diagnosis remove control, inline video, color labels, and stale build label
-
-**Reported:** 2026-10-09  
-**Status:** Implemented in v0.5.07 Build 17 (versionCode 67); Android WebView playback still needs device verification.
-
-**Fix:** Replaces the native video dialog with an inline HTML5 player inside the diagnosis media card. It uses 0.5× playback and shows sampled pixel percentages with green/yellow/brown/other color chips and descriptive labels; detailed follow-up and disclaimer appear directly under the player while the diagnosis pane remains visible. The × now immediately removes the clip from this device's diagnosis list without the WebView confirmation prompt that was preventing the earlier action; the Drive original is retained. Corrects the header/footer version labels and WebView user agent to Build 17.
-
-**Verification:** Inline JavaScript syntax passes. Gradle compilation succeeds; APK metadata reports `com.growplot.farm`, versionCode 67, versionName `0.5.07 Build 17`. APK signature verification passes and matches Build 16. The HTML header and footer both show Build 17. No Android device or test video is available here, so HTML5 video rendering and live CV timing still require on-device verification.
-
-## BUG-009 — Video remove control and black playback surface
-
-**Reported:** 2026-10-09  
-**Status:** Implemented in v0.5.07 Build 16 (versionCode 66); device verification is still required.
-
-**Fix:** Added a simple × over each video thumbnail. It hides the selected video from this device's diagnosis list and leaves the Google Drive original untouched, avoiding provider delete failures. Simplified the player back to the direct VideoView inside a FrameLayout, matching the previously confirmed playback structure, while retaining a compact window, 0.5× slow motion, and live pixel flags. Completed CV findings are shown in the diagnosis status after analysis.
-
-**Verification:** HTML JavaScript syntax passes. Gradle compilation succeeds; APK metadata reports `com.growplot.farm`, versionCode 66, versionName `0.5.07 Build 16`. APK signature verification passes and matches Build 15. No Android device or test MP4 is available here; actual video rendering still needs confirmation on the device.
-
-## BUG-008 — Slow-motion video playback with live pixel flags
-
-**Reported:** 2026-10-09  
-**Status:** Implemented in v0.5.07 Build 15 (versionCode 65); Android playback speed and in-video overlay timing require device verification.
-
-**Fix:** The media control now reads “Play & diagnose.” Android playback is set to 0.5× speed. A colored overlay on the video shows sampled green/yellow/brown percentages, rough green leaf-like region count, and flags for elevated yellow/brown or very low green pixels. Frame analysis is paced across the video timeline so the overlay changes during playback. The report still labels outputs as approximate local pixel screening and includes the human-expert disclaimer.
-
-**Verification:** HTML inline JavaScript syntax passes. Gradle compilation succeeds; APK metadata reports `com.growplot.farm`, versionCode 65, versionName `0.5.07 Build 15`. APK signature verification passes and uses the same debug certificate as Build 14. No Android device is connected in this workspace, so speed/overlay runtime behavior is not yet confirmed.
-
-## BUG-007 — Diagnosis media cleanup, oversized playback, and missing video screening
-
-**Reported:** 2026-10-09  
-**Status:** Implemented in v0.5.07 Build 14 (versionCode 64). Source, JavaScript syntax, Gradle compilation, APK metadata, and signature checks pass; Android Drive deletion, playback layout, and video analysis runtime tests remain pending.
-
-**Observed:** The diagnosis pane had no way to remove duplicate media; video opened full screen; video playback did not show sampled visual analysis or expert follow-up guidance.
-
-**Fix:** Added a confirmed remove action per photo/video. For Drive items, the app verifies that the document is a direct child of the selected Plot/Quadrant folder before deleting it, then removes the corresponding local media/index/cache entries. It keeps same-name files distinct using Drive document IDs. The player now opens as a compact panel inside the diagnosis experience. While video plays, a background task samples up to 12 downscaled frames and updates progress, then reports approximate pixel colour proportions and green leaf-like connected regions, followed by cautious next checks. Clear limitations and a human expert disclaimer appear in the video report and diagnosis analysis.
-
-**Verification:** HTML inline JavaScript syntax passes. Gradle compilation, APK package metadata, and APK signature checks pass. No Android device/ADB is available in this environment, so actual video rendering, the on-screen layout, CV results, and Google Drive provider delete support remain unverified.
-
-## BUG-001 — Serious — per-quadrant image statistics missing
-
-**Reported:** 2026-10-09  
-**Status:** Resolved and confirmed on the user's device in v0.5.05 Build 13 (versionCode 41). Correcting the `data_feed` path restored the quadrant image statistics. APK SHA-256: `2ba03d206193dd9362c6ca535d70778e260a10fcbb6e886617ad7844e8428701`.
-
-**Observed:** The Home dashboard did not show the latest snapshot timestamp, latest image, image-history count, earliest/latest photo times, or elapsed span for CCTV/quadrant cards. The same failure could affect every quadrant.
-
-**Cause:** Confirmed by the user: the configured `data_feed` path pointed to the wrong location, so the app was not reading the expected per-camera images. Source inspection also found limited filename matching and a latest-snapshot display dependency; these were hardened in Build 13, but the path correction was the confirmed trigger.
+**Status:** Corrected in v0.5.08 Build 2 (versionCode 83); device camera/Drive verifica…5498 tokens truncated… was not reading the expected per-camera images. Source inspection also found limited filename matching and a latest-snapshot display dependency; these were hardened in Build 13, but the path correction was the confirmed trigger.
 
 **Fix:** The user selected the correct `data_feed` path, restoring the image set. Build 13 additionally recognizes CCTV, Camera, Cam, Quadrant, Quad, and Q identifiers in filenames and folder names; publishes earliest/latest timestamps with each camera's calculated statistics; and updates the visible latest-snapshot line from that result. Files without an identifiable camera are reported as unmatched.
 
