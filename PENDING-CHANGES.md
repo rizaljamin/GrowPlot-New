@@ -1,3 +1,10 @@
+## Completed — Build 23 diagnosis HSV/CV stages and plant confirmation (2026-10-21)
+
+- Run Diagnosis now runs shared HSV pixel analysis, waits for foliage/basic CV and YOLO request status, and displays an hourglass plus photo → HSV → foliage CV → YOLO → provider → final stages.
+- Final state waits for Pl@ntNet and Kindwise callbacks, or ends after a 150-second timeout with the local results retained. User-confirmed plant identity stays fixed for its plot/CCTV and shows the confirmation timestamp.
+- GitHub ARM64 build #393 succeeded from source commit `fdd03705447b4b366a44e273a8b0ce0274a4c47e`; stable signature verified. APK is 68,321,469 bytes; `index.html` is 245,948 bytes. APK SHA-256: `c03ad2ec562cbf41eaab4b021cdfb666699ffb341ea2b987d1a64c3feb47ad53`.
+- YOLO remains unavailable: the manifest confirms the diagnosis proxy URL/token are not configured. The Pl@ntNet key is also absent, so provider-backed plant ID/disease checks are disabled in this APK. Android tablet verification remains pending.
+
 ## Pending — Build 22 remove stale packaged HTML (2026-10-21)
 
 - APK inspection found unreferenced assets/index_old.html (4,945,337 bytes) still bundled beside the active 238,785-byte assets/index.html.
