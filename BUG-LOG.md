@@ -981,3 +981,15 @@ Build 7 validation: Gradle ARM64 build, package version, signature, alignment, S
 **Fix:** Put cached images into a four-period timeline anchored to their capture date when no saved history exists. When no plot-feed timeline or cached photo is available, show the bundled baseline photo in its actual day/week/month/year period and label it clearly as a supplied sample, not saved plot history. This keeps sample photos from being mistaken for real plot records.
 
 **Verification / limits:** Regression coverage checks date placement for daily, weekly, monthly, yearly intervals and sample-photo fallback for all six cameras. Android folder selection, feed scanning, actual history rendering and tablet behavior require device verification.
+
+
+## BUG-071 — Timeline sample photos have broken image URLs
+
+**Reported:** 2026-10-21
+**Status:** Fixed in v0.7.00 Build 28 (versionCode 232); GitHub ARM64 build and tablet verification pending.
+
+**Finding:** The timeline used relative `images/cctv_NN.jpg` URLs, but the WebView loads `index.html` with base URL `https://appassets.androidplatform.net/`. Those URLs resolved outside the APK asset tree, so interval dates rendered while the image requests failed.
+
+**Fix:** Serve bundled photos through the same-origin `/assets/baseline/cctv_NN.jpg` route in `MainActivity.localImageResponse`, and use that URL for all bundled-photo fallbacks. Regression checks confirm the route maps to all six packaged JPEGs.
+
+**Verification / limits:** Path regression, interval regression, and the project build gates must pass. Android WebView image loading still requires tablet verification.

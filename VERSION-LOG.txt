@@ -832,3 +832,6 @@ Signing / provider keys: This APK's certificate does not match the saved Build 3
 
 
 2026-10-21 | v0.7.00 Build 27 (versionCode 231) | Fix interval photo timeline gaps: anchor cached photos to capture-date periods, and show supplied baseline photos in all four interval modes when no saved plot-feed photos exist. Sample photos are explicitly labeled. Regression checks passed. GitHub Actions ARM64 run #399 passed with stable signing; tablet verification pending.
+
+
+2026-10-21 | v0.7.00 Build 28 (versionCode 232) | Fix broken supplied-photo timeline URLs. Serve bundled camera photos through an explicit same-origin Android WebView asset route and verify the route plus all six bundled JPEGs in regression coverage. GitHub ARM64 build and tablet verification pending.

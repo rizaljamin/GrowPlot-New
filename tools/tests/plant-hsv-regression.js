@@ -32,7 +32,9 @@ const java=fs.readFileSync('app/src/main/java/com/growplot/farm/MainActivity.jav
 assert.doesNotMatch(html,/data:image\/jpeg;base64,/,'sample JPEGs must not be duplicated as base64 inside index.html');
 assert.ok(Buffer.byteLength(html,'utf8')<300_000,'index.html should remain below 300 KB so sample photos stay external');
 for(let camera=1;camera<=6;camera++)assert.ok(fs.existsSync(`app/src/main/assets/images/cctv_${String(camera).padStart(2,'0')}.jpg`),`bundled fallback photo for CCTV ${camera} must exist`);
-assert.match(html,/const imageData=\['images\/cctv_01\.jpg'/,'sample-photo fallback should use relative bundled JPEG assets');
+assert.match(html,/assets\/baseline\/cctv_\'/,'sample-photo fallback should use the Android baseline-photo route');
+assert.match(java,/APP_BASELINE_PREFIX = "\/assets\/baseline\/"/,'Android should explicitly intercept the baseline-photo route');
+assert.match(java,/getAssets\(\)\.open\("images\/" \+ name\)/,'baseline-photo route should serve the bundled JPEG from assets');
 assert.match(cv,/window\.screenDiagnosisImage=\(url\)=>ensureHSV\(\)\.then\(\(\)=>screenUrl\(url\)\)/,'Run Diagnosis image sampling must use HSV');
 assert.match(html,/screenDiagnosisImage\(sources\[i\]\.url\)/,'Run Diagnosis must sample each selected photo');
 assert.match(html,/await engine\.analyze\(camera\)/,'Run Diagnosis must await the local image screen before continuing');

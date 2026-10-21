@@ -140,6 +140,7 @@ public class MainActivity extends Activity {
     private LocationListener locationListener;
     private static final int MAX_FEED_FILES = 1500;
     private static final String APP_ASSET_PREFIX = "/assets/images/";
+    private static final String APP_BASELINE_PREFIX = "/assets/baseline/";
     private static final String APP_HISTORY_PREFIX = "/assets/history/";
     private static final String APP_DIAGNOSIS_PREFIX = "/assets/diagnosis/";
     private static final Pattern CAMERA_FILE = Pattern.compile("(?i)^cctv[_ -]?0?([1-6])(?:[_ -].*)?\\.(jpe?g|png)$");
@@ -251,6 +252,13 @@ public class MainActivity extends Activity {
         Uri uri = Uri.parse(url);
         String path = uri.getPath();
         if (path == null) return null;
+        if (path.startsWith(APP_BASELINE_PREFIX)) {
+            String name = path.substring(APP_BASELINE_PREFIX.length());
+            if (!name.matches("cctv_0[1-6]\\.jpg")) return null;
+            try {
+                return new WebResourceResponse("image/jpeg", null, getAssets().open("images/" + name));
+            } catch (Exception ignored) { return null; }
+        }
         if (path.startsWith(APP_HISTORY_PREFIX)) {
             String relative = path.substring(APP_HISTORY_PREFIX.length());
             if (!relative.matches("[A-Za-z0-9_-]{1,64}/cctv_0[1-6]_\\d+_[0-9a-f]+\\.jpg")) return null;

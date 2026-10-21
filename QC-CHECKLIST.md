@@ -6,7 +6,7 @@ Use this checklist before publishing any app change. A fix in one area must not 
 
 - Home: all six CCTV cards, live feeds where configured, and current snapshots.
 - A.I Health: camera selection, diagnosis, diagnosis history, plant identity choices, and confirmation.
-- Photo history: daily, weekly, monthly, and yearly intervals; photos remain scoped to the selected plot.
+- Photo history: daily, weekly, monthly, and yearly intervals; photos remain scoped to the selected plot. Verify every rendered photo URL resolves through the Android WebView asset handler, including bundled fallbacks.
 - Data Feed: connect or reconnect to the selected plot folder, scan photos, and report connection or scan errors clearly.
 - Manage Farm: Plot, Crop Planning, Irrigation & Fertiliser, and Maintenance sections.
 - Plot settings: plot selection and management, camera settings, map location, and save behavior.
