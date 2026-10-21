@@ -1,3 +1,10 @@
+## Pending — Data Feed settings state and connection guidance (2026-10-21)
+
+- Correct the Photo snapshot interval status to read the device's saved timer value at screen load, so it agrees with the input and active camera snapshot timer.
+- When no Drive folder grant is connected for the selected plot, show the expected account/plot path as before and direct the user to the visible Connect to folder button instead of navigating back to Plot Management.
+- Build target: v0.7.00 Build 11 / versionCode 215, ARM64 only.
+- Added a focused regression check for saved interval display, expected path display with no folder connection, and actionable connection status. ARM64 workflow/device verification pending.
+
 ## Pending — Data feed plot targeting and cloud path display (2026-10-20)
 
 - Home plot synchronization now refreshes the Plot Management selection even when the visible dropdown value was already current.

@@ -431,7 +431,7 @@ public class MainActivity extends Activity {
                     pendingPageUpdate = null;
                     sendToPage(update);
                 } else {
-                    JSONObject initial = makeStatus("Set this plot’s data feed location in Settings → Plot Management.");
+                    JSONObject initial = makeStatus("Checking this plot’s Google Drive data feed connection.");
                     try { initial.put("plotId", safePlotId(getPrefs().getString(PREF_ACTIVE_PLOT_ID, DEFAULT_PLOT_ID))); } catch (Exception ignored) { }
                     publishStatus(initial);
                 }
@@ -2311,7 +2311,7 @@ public class MainActivity extends Activity {
 
     private void launchFeedPhotoCapture(int camera, String plotId) {
         if (!isFeedFolderReady(plotId)) {
-            notifyFeedCaptureStatus("Connect this plot’s image folder first in Settings → Plot Management → Data Feed.");
+            notifyFeedCaptureStatus("Connect this plot’s image folder first using Connect to folder in this panel.");
             return;
         }
         pendingFeedCamera = camera;
@@ -2350,7 +2350,7 @@ public class MainActivity extends Activity {
 
     private void launchFeedPhotoPicker(int camera, String plotId) {
         if (!isFeedFolderReady(plotId)) {
-            notifyFeedCaptureStatus("Connect this plot’s image folder first in Settings → Plot Management → Data Feed.");
+            notifyFeedCaptureStatus("Connect this plot’s image folder first using Connect to folder in this panel.");
             return;
         }
         pendingFeedCamera = camera;
@@ -4281,7 +4281,7 @@ public class MainActivity extends Activity {
             } catch (Exception ignored) { }
         }
         if (treeUri == null && selected.isEmpty()) {
-            JSONObject status = makeStatus("No data feed folder is connected for this plot. Set it in Settings → Plot Management.");
+            JSONObject status = makeStatus("No Google Drive folder is connected for this plot on this device. Tap Connect to folder above to grant access.");
             try { status.put("plotId", plotId); } catch (Exception ignored) { }
             publishStatus(status);
             return;
@@ -4300,8 +4300,8 @@ public class MainActivity extends Activity {
                 scanSelectedImages(images, folderSource, plotId);
             } catch (Exception error) {
                 String message = treeUri != null
-                        ? "Could not scan this plot's data feed. Re-select it in Settings → Plot Management to restore access."
-                        : "Could not read the previously selected photos. Choose a data feed folder in Settings → Plot Management.";
+                        ? "Could not scan this plot's data feed. Tap Connect to folder above and grant access again."
+                        : "Could not read the previously selected photos. Tap Connect to folder above and choose the data feed folder.";
                 JSONObject status = makeStatus(message);
                 try { status.put("error", error.getClass().getSimpleName()); status.put("plotId", plotId); } catch (Exception ignored) { }
                 publishStatus(status);
@@ -4779,7 +4779,7 @@ public class MainActivity extends Activity {
                     + " and updated " + updatedCameraCount + " quadrant feed(s) for this plot.";
             if (unmatchedCount > 0) statusText += " Ignored " + unmatchedCount
                     + " JPG photo(s) without a camera mapping. Add CCTV01–CCTV06, CAM1–CAM6, Q1–Q6, or Quadrant 1–6 to the filename or folder.";
-            if (!folderSource) statusText += " Choose a folder in Settings → Plot Management to discover new uploads.";
+            if (!folderSource) statusText += " Tap Connect to folder above to discover new uploads.";
         }
         status.put("statusText", statusText);
         JSONArray currentPhotos = new JSONArray();

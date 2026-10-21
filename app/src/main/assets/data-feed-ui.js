@@ -1,6 +1,15 @@
 (function(){
 'use strict';
 const byId=id=>document.getElementById(id);
+const intervalInput=byId('cctvSnapshotInterval');
+const intervalStatus=byId('liveFeedConfigurationStatus');
+try{
+ const savedInterval=Number(window.GrowPlotBridge.getCctvSnapshotIntervalMinutes());
+ if(Number.isFinite(savedInterval)&&savedInterval>=0.5){
+  if(intervalInput)intervalInput.value=String(savedInterval);
+  if(intervalStatus)intervalStatus.textContent='Current interval: '+savedInterval+' minutes.';
+ }
+}catch(e){}
 const connect=byId('createDefaultFeedBtn');
 if(connect)connect.textContent='Connect to folder';
 const custom=byId('chooseCustomFeedBtn');

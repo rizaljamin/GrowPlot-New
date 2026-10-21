@@ -1,3 +1,14 @@
+## BUG-078 — Data Feed shows a stale interval and redundant connection instructions
+
+**Reported:** 2026-10-21
+**Status:** Fixed in v0.7.00 Build 11 source (versionCode 215); ARM64 workflow and tablet verification pending.
+
+**Cause:** The interval input loaded the saved device value from Android, but its adjacent status stayed at the HTML default of 0.5 minutes. The folder scan status also directed users to Settings → Plot Management while they were already on that panel.
+
+**Fix:** The Data Feed UI now initializes both the interval field and its status from the saved Android timer. Disconnected-folder and scan messages point to the visible Connect to folder button. The expected path remains calculated from the signed-in account and selected plot even without a Drive folder grant.
+
+**Verification:** Added tools/tests/data-feed-ui-regression.js to check saved interval display, expected path display without folder connection, and the visible connection action. ARM64 workflow/device verification pending.
+
 ## BUG-077 — First-plot sign-in prompt appears over Settings
 
 **Reported:** 2026-10-15

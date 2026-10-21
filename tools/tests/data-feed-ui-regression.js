@@ -1,0 +1,17 @@
+'use strict';
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const ids = ['createDefaultFeedBtn','chooseCustomFeedBtn','plotManagerSelect','feedLocationLabel','folderCheckStatus','cctvSnapshotInterval','liveFeedConfigurationStatus'];
+const elements = Object.fromEntries(ids.map(id => [id, {id,value:id==='plotManagerSelect'?'plot02':'',textContent:id==='folderCheckStatus'?'No feed scan yet.':'',addEventListener(){},remove(){this.removed=true;}}]));
+const window = {GrowPlotBridge:{getExpectedFeedPath(plotId,folder){assert.equal(plotId,'plot02');assert.equal(folder,'plot02_pp5');return '/Projects/GrowPlot/Image_Feed/growplot2026@gmail.com/plot02_pp5';},getFeedLocation(){return '';},getCctvSnapshotIntervalMinutes(){return 15;}},feedLocationText(){return 'legacy path';},onSnapshotScan(data){elements.folderCheckStatus.textContent=data.statusText;},addEventListener(){}};
+const context={window,document:{getElementById:id=>elements[id]||null,querySelectorAll:()=>[]},plots:[{id:'plot02',name:'Plot 2'}],selectedPlotId:'plot02',defaultFeedFolder:()=> 'plot02_pp5',Array,String,Number};
+vm.runInNewContext(fs.readFileSync('app/src/main/assets/data-feed-ui.js','utf8'),context);
+assert.equal(elements.feedLocationLabel.textContent,'/Projects/GrowPlot/Image_Feed/growplot2026@gmail.com/plot02_pp5','show the expected account/plot path when no Drive folder is connected');
+assert.equal(elements.cctvSnapshotInterval.value,'15','initialize the field from the saved device timer');
+assert.equal(elements.liveFeedConfigurationStatus.textContent,'Current interval: 15 minutes.','show the saved timer beside the field');
+assert.match(elements.folderCheckStatus.textContent,/Connect to folder/,'explain the available connection action');
+const java=fs.readFileSync('app/src/main/java/com/growplot/farm/MainActivity.java','utf8');
+assert(!java.includes('Set it in Settings → Plot Management'),'do not direct users back to the panel they are viewing');
+assert(java.includes('Tap Connect to folder above to grant access'),'point to the visible folder action');
+console.log('Data-feed display regression checks passed.');
