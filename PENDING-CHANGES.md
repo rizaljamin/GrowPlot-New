@@ -1,9 +1,9 @@
-## Pending — Data Feed settings state and connection guidance (2026-10-21)
+## Pending — Selected plot Drive feed folder creation (2026-10-21)
 
-- Correct the Photo snapshot interval status to read the device's saved timer value at screen load, so it agrees with the input and active camera snapshot timer.
-- When no Drive folder grant is connected for the selected plot, show the expected account/plot path as before and direct the user to the visible Connect to folder button instead of navigating back to Plot Management.
-- Build target: v0.7.00 Build 11 / versionCode 215, ARM64 only.
-- Added a focused regression check for saved interval display, expected path display with no folder connection, and actionable connection status. ARM64 workflow/device verification pending.
+- First-use picker guidance now identifies the selected plot instead of the demo folder.
+- Connect creates or reuses `Projects/GrowPlot/Image_Feed/<signed-in email>/<selected plot folder>` after the GrowPlot parent is authorized.
+- Target: v0.7.00 Build 12 / versionCode 216, ARM64 only.
+- Static regression and GitHub Actions ARM64 verification pending; Google Drive folder creation must still be confirmed on the Android tablet.
 
 ## Pending — Data feed plot targeting and cloud path display (2026-10-20)
 
