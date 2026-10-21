@@ -2204,7 +2204,7 @@ public class MainActivity extends Activity {
         if (folderUri == null) return;
         String plotId = safePlotId(pickerPlotId);
         if (pickerCreatesDefaultFeed && !"GrowPlot".equalsIgnoreCase(getDocumentName(folderUri))) {
-            publishStatus(makeStatus("Choose Google Drive → GrowPlot once. GrowPlot will use Image_Feed/Plot01_demo and the shared config folder inside it."));
+            publishStatus(makeStatus("Choose Google Drive → Projects → GrowPlot. GrowPlot will create or reuse Image_Feed/" + signedInEmailFolderName() + "/" + safeFolderName(pickerDefaultFolderName) + " inside it."));
             return;
         }
         int grantFlags = data.getFlags() & (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
@@ -4218,7 +4218,7 @@ public class MainActivity extends Activity {
         }
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
         intent.putExtra(Intent.EXTRA_TITLE, pickerCreatesDefaultFeed
-                ? "Choose GrowPlot once to connect Image_Feed/Plot01_demo" : "Choose this plot's image feed folder");
+                ? "Choose the GrowPlot parent folder for " + pickerDefaultFolderName : "Choose this plot's image feed folder");
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
                 | Intent.FLAG_GRANT_WRITE_URI_PERMISSION
                 | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
