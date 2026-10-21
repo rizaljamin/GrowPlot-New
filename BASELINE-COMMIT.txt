@@ -1,4 +1,4 @@
 Repository: https://github.com/rizaljamin/GrowPlot-New
 Branch: main
-Baseline commit: dd0f5e3434b6c943936f10f7f1cccad098f31d74
-Baseline release: v0.7.00 Build 16 (versionCode 220), ARM64 only
+Baseline commit: 9218cfbaedad37c51edfa3ece80b8632cbdac590
+Baseline release: v0.7.00 Build 17 (versionCode 221), ARM64 only

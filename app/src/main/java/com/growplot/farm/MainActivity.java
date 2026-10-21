@@ -712,7 +712,7 @@ public class MainActivity extends Activity {
     private boolean savePluginApiKeys(String payload) {
         try {
             JSONObject updates = new JSONObject(payload), keys = new JSONObject();
-            for (String provider : new String[]{"plantnet", "kindwise"}) {
+            for (String provider : new String[]{"plantnet", "plantid", "kindwise"}) {
                 String entered = updates.optString(provider, "").trim();
                 keys.put(provider, entered.isEmpty() ? pluginApiKey(provider) : entered);
             }
@@ -1570,6 +1570,9 @@ public class MainActivity extends Activity {
     }
     private long nextSnapshotCheckDelay(int camera) {
         String plotId=safePlotId(getPrefs().getString(PREF_ACTIVE_PLOT_ID,DEFAULT_PLOT_ID));
+        // A missing plot folder is a configuration problem, not a frame-timing problem.
+        // Back off to the configured interval rather than retrying PixelCopy every 5 seconds.
+        if (!isFeedFolderReady(plotId)) return cctvSnapshotIntervalMillis;
         long last=getPrefs().getLong(snapshotLastSuccessKey(camera,plotId),0L);
         if (snapshotInFlight.contains(snapshotFlightKey(camera,plotId))) return 5000L;
         if (last<=0) return 5000L;
@@ -1585,6 +1588,16 @@ public class MainActivity extends Activity {
         org.videolan.libvlc.MediaPlayer player = camera == 1 ? ipWebcamVlcPlayer
                 : camera == 2 ? ipWebcam2VlcPlayer : ipWebcam3VlcPlayer;
         if (!activityResumed || !ready || !cctvVlcFeedsAllowedOnActiveScreen || !player.isPlaying() || !snapshotDue(camera)) return;
+        String activePlot = safePlotId(getPrefs().getString(PREF_ACTIVE_PLOT_ID, DEFAULT_PLOT_ID));
+        if (!isFeedFolderReady(activePlot)) {
+            String warningKey = "feed_folder_not_ready_" + activePlot + "_" + camera;
+            if (!getPrefs().getBoolean(warningKey, false)) {
+                getPrefs().edit().putBoolean(warningKey, true).apply();
+                notifyFeedCaptureStatus("CCTV" + String.format(Locale.US, "%02d", camera)
+                        + " is live, but this plot has no connected image-feed folder. Connect the plot folder in Settings to save snapshots.");
+            }
+            return;
+        }
         // RTSP is already decoded by VLC. Do not probe it as an HTTP MJPEG feed.
         String streamUrl = cctvStreamUrl(camera);
         boolean rtsp = streamUrl.regionMatches(true, 0, "rtsp://", 0, 7)
@@ -3219,6 +3232,7 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface public String getPluginApiKeyStatus() {
             try { return new JSONObject().put("plantnet", !pluginApiKey("plantnet").isEmpty() || !BuildConfig.PLANTNET_API_KEY.isEmpty())
+                    .put("plantid", !pluginApiKey("plantid").isEmpty())
                     .put("kindwise", !pluginApiKey("kindwise").isEmpty()).toString(); }
             catch (Exception error) { return "{}"; }
         }
@@ -3227,6 +3241,7 @@ public class MainActivity extends Activity {
         }
         @JavascriptInterface public void openPluginKeyPortal(String provider) {
             final String url = "plantnet".equals(provider) ? "https://my.plantnet.org/settings/api-key"
+                    : "plantid".equals(provider) ? "https://admin.kindwise.com/login"
                     : "kindwise".equals(provider) ? "https://admin.kindwise.com/login" : "";
             if (!url.isEmpty()) runOnUiThread(() -> { try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); } catch (Exception ignored) { } });
         }
@@ -3556,10 +3571,24 @@ public class MainActivity extends Activity {
                         if (candidates.isEmpty()) throw driveError;
                     }
                     List<PlantNetImageCandidate> selected = selectBestPlantNetImages(candidates);
-                    response = identifyPlantSpeciesWithPlantNet(candidateBytes(selected));
+                    List<byte[]> images = candidateBytes(selected);
+                    JSONArray providerResults = new JSONArray();
+                    providerResults.put(identifyPlantSpeciesWithPlantNet(images));
+                    providerResults.put(identifyPlantSpeciesWithPlantId(images));
+                    response = new JSONObject();
+                    boolean anyOk = false, allNotConfigured = providerResults.length() > 0;
+                    for (int i = 0; i < providerResults.length(); i++) {
+                        String status = providerResults.getJSONObject(i).optString("status");
+                        anyOk |= "ok".equals(status);
+                        allNotConfigured &= "not_configured".equals(status);
+                    }
+                    response.put("status", anyOk ? "ok" : "error");
+                    if (!anyOk && allNotConfigured) response.put("status", "not_configured");
+                    response.put("providers", providerResults);
                     response.put("candidateImageCount", candidates.size());
+                    response.put("imageCountSubmitted", images.size());
                     response.put("selectedSources", candidateSources(selected));
-                    response.put("selectionNote", "Species candidates are based on the clearest saved photos for this quadrant.");
+                    response.put("selectionNote", "Both services received the same clearest saved photos. Their scores are separate model rankings, not proof of identity.");
                 } catch (Exception error) {
                     response = plantNetError(error);
                     try { response.put("provider", "Pl@ntNet species identification"); }
@@ -3971,6 +4000,58 @@ public class MainActivity extends Activity {
         } finally { if (connection != null) connection.disconnect(); }
     }
 
+    private JSONObject identifyPlantSpeciesWithPlantId(List<byte[]> images) {
+        String key = pluginApiKey("plantid");
+        if (key == null || key.trim().isEmpty())
+            return plantIdentityStatus("Kindwise plant.id", "not_configured", "Add a separate Kindwise plant.id API key in Settings → Plugins · API Keys.");
+        if (images == null || images.isEmpty())
+            return plantIdentityStatus("Kindwise plant.id", "error", "No readable photos were available for plant.id identification.");
+        HttpURLConnection connection = null;
+        try {
+            JSONArray encodedImages = new JSONArray();
+            for (int i = 0; i < Math.min(5, images.size()); i++)
+                encodedImages.put(Base64.encodeToString(images.get(i), Base64.NO_WRAP));
+            JSONObject request = new JSONObject().put("images", encodedImages);
+            URL url = new URL("https://api.plant.id/v3/identification?details=common_names,url");
+            connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("POST"); connection.setConnectTimeout(15000); connection.setReadTimeout(45000);
+            connection.setDoOutput(true);
+            connection.setRequestProperty("Api-Key", key);
+            connection.setRequestProperty("Content-Type", "application/json");
+            try (OutputStream out = connection.getOutputStream()) {
+                out.write(request.toString().getBytes(StandardCharsets.UTF_8));
+            }
+            int status = connection.getResponseCode();
+            InputStream stream = status >= 200 && status < 300 ? connection.getInputStream() : connection.getErrorStream();
+            StringBuilder body = new StringBuilder();
+            if (stream != null) try (InputStream input = stream) {
+                byte[] buffer = new byte[8192]; int count;
+                while ((count = input.read(buffer)) != -1) body.append(new String(buffer, 0, count, StandardCharsets.UTF_8));
+            }
+            if (status < 200 || status >= 300)
+                return plantIdentityStatus("Kindwise plant.id", "error", "plant.id returned HTTP " + status
+                        + (body.length() > 0 ? ": " + body.substring(0, Math.min(body.length(), 300)) : ""));
+            JSONObject result = new JSONObject(body.toString());
+            result.put("provider", "Kindwise plant.id");
+            result.put("status", "ok");
+            result.put("imageCountSubmitted", Math.min(5, images.size()));
+            return result;
+        } catch (Exception error) {
+            return plantIdentityStatus("Kindwise plant.id", "error", error.getMessage() == null ? "plant.id request failed." : error.getMessage());
+        } finally { if (connection != null) connection.disconnect(); }
+    }
+
+    private JSONObject plantIdentityStatus(String provider, String status, String message) {
+        JSONObject result = new JSONObject();
+        try {
+            result.put("provider", provider);
+            result.put("status", status);
+            result.put("message", message);
+            result.put("results", new JSONArray());
+        } catch (Exception ignored) { }
+        return result;
+    }
+
     private void requestKindwiseDiagnosis(int camera, String plotId, List<byte[]> images, int candidateCount,
                                           List<PlantNetImageCandidate> selected, String species, String symptom,
                                           String pixelMetrics, String mediaType, String sourceFolder, String selectionNote) {
@@ -4329,6 +4410,21 @@ public class MainActivity extends Activity {
         if (pickerCreatesDefaultFeed) {
             String savedTree = getPrefs().getString(feedTreeKey(pickerPlotId), null);
             String savedFolder = getPrefs().getString(feedFolderDocumentKey(pickerPlotId), null);
+            // Reuse any previously granted GrowPlot/Projects tree even when this plot
+            // has no per-plot folder mapping yet; connectDefaultFeed creates that path.
+            if (savedTree == null || savedFolder == null) {
+                Uri scopedTree = findGrowPlotScopedTreeUri();
+                if (scopedTree != null) {
+                    try {
+                        connectDefaultFeedInSavedTree(pickerPlotId, scopedTree);
+                    } catch (Exception error) {
+                        String reason = error.getMessage() == null ? "Drive folder could not be created" : error.getMessage();
+                        publishStatus(makeStatus("Expected Google Drive path: " + expectedFeedPathLabel(pickerPlotId)
+                                + " | Folder status: unavailable — " + reason));
+                    }
+                    return;
+                }
+            }
             if (savedTree != null && savedFolder != null) {
                 Uri savedTreeUri = Uri.parse(savedTree);
                 if (hasPersistedReadWriteGrant(savedTreeUri)) {

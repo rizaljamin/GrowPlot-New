@@ -39,4 +39,14 @@ assert.match(cv,/plantSpeciesMarkup\(report,Number\(camera\)\|\|0,String\(plotId
 assert.match(cv,/no Pl@ntNet API key is configured on this device/,'missing species API key must be explicit');
 assert.match(cv,/openPlantNetSettings/,'species recognition must provide a direct path to API-key settings');
 assert.match(html,/Pl@ntNet key needed for species ID/,'show missing species key before diagnosis is submitted');
-console.log('HSV screening, Pl@ntNet image species identification, result context, and setup wiring checks passed.');
+assert.match(java,/identifyPlantSpeciesWithPlantNet\(images\)[\s\S]*?identifyPlantSpeciesWithPlantId\(images\)/,'plant identity validation must compare the same saved photos with both image providers');
+assert.match(java,/plantIdentityStatus\("Kindwise plant\.id", "not_configured"/,'plant.id key status must not be mislabeled as Pl@ntNet');
+assert.match(html,/provider\?\.result\?\.classification\?\.suggestions/,'ranked suggestions from Plant.id must be displayed with Pl@ntNet candidates');
+assert.match(html,/if\(!chosen\?\.confirmedAt\|\|chosen\?\.source==='plantnet_image'\)chosen=null/,'legacy Pl@ntNet-only confirmations must not remain marked as verified');
+assert.match(html,/Plant identity unverified · <i>Species not confirmed<\/i>/,'identity must remain explicitly unverified until a new candidate is selected');
+assert.match(html,/source:choice\.provider/,'manual identity selection must retain its provider as provenance');
+assert.match(html,/Kindwise plant\.id API key/,'Plant.id must have a separate API key setting');
+const identityUi=html.slice(html.indexOf('function diagnosisSpeciesCandidates'),html.indexOf('function diagnosisAnalysisKey'));
+assert.doesNotMatch(identityUi,/camera\s*===?\s*2|camera\s*!==?\s*2/,'the same plant identity flow must apply to every CCTV camera');
+assert.match(html,/diagnosisSpeciesKey\(camera,plotId=selectedPlotId\)/,'identity candidates must remain scoped to the active camera and plot');
+console.log('Plant image identification, dual-provider results, and explicit identity validation checks passed.');

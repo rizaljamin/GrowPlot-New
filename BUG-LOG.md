@@ -899,11 +899,11 @@ Build 7 validation: Gradle ARM64 build, package version, signature, alignment, S
 - 2026-10-18 | v0.7.00 Build 02 | CCTV02 VIGI snapshot cadence: fixed overlapping saves and scheduler drift; checks derive remaining delay from last successful saved frame. Default 15 minutes; stored user preference overrides it. Verify JPEG timestamps and Google Drive history on PP5 tablet; compilation/signature and live test pending.
 
 
-## BUG-069 — CCTV02 plant identity incorrectly shown as confirmed Citrus
+## BUG-069 — CCTV plant identity incorrectly shown as confirmed Citrus
 
 **Reported:** 2026-10-21
-**Status:** Fixed in v0.7.00 Build 17 (versionCode 221); GitHub ARM64 build and target-device verification pending.
+**Status:** Fixed in v0.7.00 Build 18 (versionCode 222); ARM64 build and target-device verification pending. Applies to CCTV01–CCTV06.
 
-**Fix:** Removed the prefilled Pokok limau/Citrus identity and species-specific summary from CCTV02. Identity now stays unverified until saved photos produce Pl@ntNet candidates and the user selects a candidate.
+**Fix:** Removed unverified default identities from the diagnosis identity card for every CCTV. Saved photos can be compared with Pl@ntNet and Kindwise plant.id, and the user must select a candidate before it becomes the section identity. Older Pl@ntNet-only selections are no longer treated as verified.
 
-**Verification / limits:** Inline JavaScript syntax and plant identity confirmation regressions pass. Recognition requires a configured Pl@ntNet API key and readable saved photos; no species is asserted when either is unavailable. GitHub ARM64 build and target-device validation remain pending.
+**Verification / limits:** JavaScript syntax and regression checks cover provider candidate rendering, plot/camera scoping, and explicit selection. Each provider needs its own configured key. The screenshot itself remains insufficient for exact species confirmation; no automatic species is asserted. ARM64 build and target-device validation remain pending.
