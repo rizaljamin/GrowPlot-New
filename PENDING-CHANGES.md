@@ -1,9 +1,9 @@
-## Build 29 candidate — user/plot feed isolation
+## Completed — Build 29 user/plot feed isolation
 
 - Stop injecting bundled Demo photos into non-Demo plot timelines and stop showing Demo health findings for user plots.
 - Key Drive feed access, latest photo caches, archived snapshots, and interval histories by signed-in Firebase user and selected plot.
 - Scan only the folder configured for the selected user and plot; remove the global saved-photo and root-folder fallback.
-- All JS regression suites pass. GitHub ARM64 compilation and APK checks pending.
+- All nine JavaScript regression suites and inline script syntax checks passed. GitHub Actions ARM64 run #401 succeeded. The 68,323,133-byte APK has version 0.7.00 Build 29 / versionCode 233, stable signing verified, and SHA-256 `8aaf3fd20dc5f9091268fcd61f27826ded3dca1148e31c64cf3ad13209f3c823`. Tablet install and camera feed verification pending.
 
 ## Completed — Build 28 broken bundled-photo URL fix
 
