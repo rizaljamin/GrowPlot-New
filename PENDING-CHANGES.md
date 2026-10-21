@@ -1,3 +1,14 @@
+## Completed — Build 26 interval photo restoration (2026-10-21)
+
+- Separate per-plot timelines persist for daily, weekly, monthly, and yearly intervals and restore on app launch, plot selection, and interval selection.
+- When a scan omits history but the selected plot has a cached Image_Feed photo whose timestamp is in the current period, the timeline displays that local cached image. Older periods still require matching saved history.
+- Timeline persistence and current-cache fallback plus feed-history regressions are build gates. GitHub Actions ARM64 run #398 succeeded from source commit `b368b55962b1da48fd39978044d1ce999ed22e8a`; stable signing verified. APK SHA-256: `d77ac5afca3112508bf4bd604fb1db0dcab0a8562d5b4c7f1bd16631e3e48beb`. Tablet verification pending.
+
+## Completed — Build 25 interval timeline persistence (2026-10-21)
+
+- Added per-plot, per-interval timeline storage and immediate restoration across app reloads and interval changes. This intermediate build did not yet add the current cached-photo fallback.
+- GitHub Actions ARM64 run #397 succeeded from source commit `dc27abaf85de7c0379576c550cb4b7d20a2922ed`; stable signing verified. APK SHA-256: `717833763f3e190620e9a03890e2dbb79a4d32d805c94c29c2417f6f7e37bad7`.
+
 ## Completed — Build 24 diagnosis fallback and interval timeline retention (2026-10-21)
 
 - Run Diagnosis and foliage CV now try the latest cached CCTV Image_Feed snapshot when a saved diagnosis photo cannot be read.
@@ -122,11 +133,6 @@
 - Build 24 batch: Firebase Google OAuth config now targets project `growplot` / package `com.growplot.farm` and contains Android plus web OAuth client entries. The project owner reports Email/Password and Google providers are enabled. Google Services Gradle plugin updated to 4.5.0 and Firebase BoM to 35.0.0. Build identity: v0.6.01 Build 24 / versionCode 151. Build 24 APK and source ZIP generated successfully in GitHub Actions run #74. Email/password and Firestore connectivity still need device verification. The Build 24 APK's Android OAuth fingerprint initially mismatched its signer. GitHub source now contains the corrected Build 24 SHA-1 (commit 57f3100071dbf72b0d64ec44ac357051af4ef186); the next APK signer must still be checked.
 
 # GrowPlot enhancement batch
-
-## Prepared for v0.7.00 Build 26
-
-- BUG-087: Keep separate daily, weekly, monthly, and yearly camera photo timelines in device-local storage, scoped to each plot. Restore saved history immediately on app load, plot selection, or interval selection. When no history payload is returned, fill the matching current period from the latest cached Image_Feed photo.
-- Added timeline persistence and feed-history regressions as build gates. ARM64 build and Android tablet verification pending.
 
 - Verified GitHub source baseline: v0.6.01 Build 7 (versionCode 134), commit a803ae919bf8db1acbe6217a87d151fd794e997e.
 - Current source/build: v0.6.01 Build 8 (versionCode 135), ARM64 only; based on the verified GitHub Build 7 baseline.

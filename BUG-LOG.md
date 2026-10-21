@@ -1,13 +1,16 @@
+Warning: truncated output (original token count: 25522)
+Total output lines: 989
+
 ## BUG-087 — Interval photo snapshots disappear after switching or reopening
 
 **Reported:** 2026-10-21
-**Status:** Fixed in v0.7.00 Build 26 (versionCode 230); ARM64 build and tablet verification pending.
+**Status:** Fixed in v0.7.00 Build 26 (versionCode 230); GitHub ARM64 run #398 succeeded and stable signing verified. Tablet verification pending.
 
 **Cause:** The four-period photo timeline lived only in JavaScript memory. Changing intervals replaced it with empty slots, and reopening the app recreated all slots as empty. A status-only scan could not restore the previous timeline.
 
 **Fix:** Save the timeline separately for each plot and interval in device-local WebView storage. Restore it immediately on app load, plot switch, and interval switch. Successful scans refresh the active interval; status-only scans keep saved cards. When the history list is missing but a cached Image_Feed photo exists, show it in its matching current period for each interval.
 
-**Verification:** Focused timeline persistence/current-cache, feed-history, and inline/asset JavaScript checks pass. ARM64 build and Android tablet verification pending.
+**Verification:** Timeline persistence/current-cache, feed-history, diagnosis, farm, account, data-feed, HSV, and YOLO regressions passed. APK SHA-256: `d77ac5afca3112508bf4bd604fb1db0dcab0a8562d5b4c7f1bd16631e3e48beb`; stable signing verified. Android tablet verification pending.
 
 ## BUG-086 — Diagnosis stopped on unreadable selected photo and interval cards were cleared
 
@@ -514,28 +517,7 @@
 **Reported:** 2026-10-09 23:10 MYT  
 **Status:** Implemented in v0.5.07 Build 25 (versionCode 75). Static/build validation passed; tablet runtime validation remains pending.
 
-**Cause:** Build 24 only called an optional, undeployed proxy. The Android diagnosis screen therefore had no live Pl@ntNet result after its on-device color screen.
-
-**Fix:** The native Android bridge posts up to five saved JPEGs, or up to five sampled video frames, to Pl@ntNet's disease-identification endpoint. The response is kept separate from GrowPlot's pixel screen, stored per plot/quadrant, and rendered beneath it with ranked model scores, precautionary care steps, and the AI/human-expert disclaimer. The existing video player and its scan path remain in use.
-
-**Limitations:** Pl@ntNet's disease endpoint accepts images and does not accept species, symptom, or pixel metrics as model input; those fields are displayed as context only. Candidate scores are not confirmed probabilities, and the endpoint covers a limited species/pathology set. The personal APK contains the API key because the native client calls Pl@ntNet directly; keep it private. A server proxy is required for safer distribution. No connected Android device was available for runtime UI/network verification.
-
-
-## BUG-016 — Remove duplicate diagnosis results and disclaimers
-
-**Reported:** 2026-10-09  
-**Status:** Implemented in v0.5.07 Build 23 (versionCode 73); on-device verification pending.
-
-**Fix:** Uses one diagnosis result card for both photo and video screens. The latest scan replaces the prior report. Photo screening no longer re-screens video thumbnails, removing duplicate pixel summaries. Removes the second result panel and repeated section disclaimer; the single card retains care suggestions, limitations, and the expert-confirmation disclaimer.
-
-**Verification:** Inline JavaScript syntax passes. Gradle compilation succeeds; APK metadata reports `com.growplot.farm`, versionCode 73, versionName `0.5.07 Build 23`. APK signature verification passes and matches Build 22. No Android device is connected here, so verify that one result card updates after each scan.
-
-## BUG-015 — Close floating player and show retained diagnosis result
-
-**Reported:** 2026-10-09  
-**Status:** Implemented in v0.5.07 Build 22 (versionCode 72); on-device verification pending.
-
-**Fix:** Adds a visible × close button and closes the native player after video sampling completes. The full result is retained and shown in the diagnosis results section; the result area scrolls into view. Adds cautious care suggestions: remove only fully dead leaves, check soil moisture/drainage and water retention, and verify soil pH/EC before applying crop-appropriate NPK. The capture status now stays brief. Pixel analysis is explicitly preliminary and includes a human-expert disclaimer.
+**Cause:** Build 24 only called an optional, undeployed proxy. The Android diagnosis …522 tokens truncated… Adds a visible × close button and closes the native player after video sampling completes. The full result is retained and shown in the diagnosis results section; the result area scrolls into view. Adds cautious care suggestions: remove only fully dead leaves, check soil moisture/drainage and water retention, and verify soil pH/EC before applying crop-appropriate NPK. The capture status now stays brief. Pixel analysis is explicitly preliminary and includes a human-expert disclaimer.
 
 **Verification:** Inline JavaScript syntax passes. Gradle compilation succeeds; APK metadata reports `com.growplot.farm`, versionCode 72, versionName `0.5.07 Build 22`. APK signature verification passes and matches Build 21. No Android device is connected here, so verify the × control, auto-close, and visible retained result on-device.
 
