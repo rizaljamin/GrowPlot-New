@@ -1,0 +1,34 @@
+'use strict';
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const hsv=require('../../app/src/main/assets/plant-hsv.js');
+assert.equal(hsv.classifyRgb(40,160,50),1,'leaf-green pixels should fall in the green hue range');
+assert.equal(hsv.classifyRgb(220,210,40),2,'yellow pixels should fall in the yellow hue range');
+assert.equal(hsv.classifyRgb(110,70,40),3,'brown pixels should fall in the low-value brown hue range');
+assert.equal(hsv.classifyRgb(120,120,120),0,'neutral pixels should remain unclassified');
+const rgba=new Uint8ClampedArray([
+  40,160,50,255, 220,210,40,255, 110,70,40,255, 120,120,120,255
+]);
+const result=hsv.analyzeRgba(rgba);
+assert.equal(result.totalPixels,4);
+assert.equal(result.greenPercent,25);
+assert.equal(result.yellowPercent,25);
+assert.equal(result.brownPercent,25);
+assert.equal(result.otherPercent,25);
+assert.equal(result.method,'HSV threshold screening');
+const html=fs.readFileSync('app/src/main/assets/index.html','utf8');
+const cv=fs.readFileSync('app/src/main/assets/leaf-cv.js','utf8');
+const java=fs.readFileSync('app/src/main/java/com/growplot/farm/MainActivity.java','utf8');
+assert.match(cv,/window\.screenDiagnosisImage=\(url\)=>ensureHSV\(\)\.then\(\(\)=>screenUrl\(url\)\)/,'Run Diagnosis image sampling must use HSV');
+assert.match(html,/screenDiagnosisImage\(sources\[i\]\.url\)/,'Run Diagnosis must sample each selected photo');
+assert.match(html,/GrowPlotCV\.analyze\(camera\)/,'Run Diagnosis must trigger the local image screen');
+assert.match(cv,/No YOLO model is packaged in this build/,'do not claim YOLO inference without a packaged model');
+assert.match(cv,/window\.GrowPlotCV=\{analyze:localAnalyze/,'Run Diagnosis must always execute the local HSV stage first');
+assert.match(cv,/openCVAnalysisButton.*remove\(\)/,'remove the redundant manual CV action from diagnosis');
+assert.match(java,/v2\/identify\/all\?api-key=/,'Run Diagnosis must call Pl@ntNet image-based species identification');
+assert.match(java,/speciesIdentification", identifyPlantSpeciesWithPlantNet\(selectedImages\)/,'include the species identification response with the diagnosis result');
+assert.match(cv,/Plant species · Pl@ntNet image identification/,'show ranked species candidates separately from disease results');
+assert.match(cv,/confirmSpecies\(camera,plotId,index\)/,'allow the user to select a returned species candidate');
+assert.match(cv,/Preset estimate for this CCTV section only; it is not based on this photo\./,'replace the preset estimate with an explicit label when the diagnosis flow starts');
+assert.match(cv,/confirmDiagnosisEstimate.*remove\(\)/,'remove the action that falsely confirms a preset camera estimate');
+console.log('HSV screening, image-based Pl@ntNet species identification, and Run Diagnosis wiring checks passed.');

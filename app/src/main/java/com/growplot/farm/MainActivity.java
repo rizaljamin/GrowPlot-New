@@ -3521,6 +3521,9 @@ public class MainActivity extends Activity {
                             "Diagnosis/" + diagnosisPlotFolder(id) + "/Quadrant_" + String.format(Locale.US, "%02d", camera),
                             "Selected the clearest available quadrant photos using approximate sharpness, exposure, and visible-plant-area checks.");
                     response = identifyWithPlantNet(selectedImages);
+                    // Species identification is a distinct Pl@ntNet endpoint and quota from disease identification.
+                    // Keep its failure independent so a species-service issue does not hide the disease response.
+                    response.put("speciesIdentification", identifyPlantSpeciesWithPlantNet(selectedImages));
                     response.put("speciesContext", species == null ? "" : species);
                     response.put("symptomContext", symptom == null ? "" : symptom);
                     response.put("pixelContext", pixelMetrics == null ? "" : pixelMetrics);
@@ -3868,6 +3871,52 @@ public class MainActivity extends Activity {
             return result;
         } catch (Exception error) { return plantNetStatus("error", error.getMessage() == null ? "Network request failed." : error.getMessage()); }
         finally { if (connection != null) connection.disconnect(); }
+    }
+
+    private JSONObject identifyPlantSpeciesWithPlantNet(List<byte[]> images) {
+        String key = pluginApiKey("plantnet");
+        if (key.isEmpty()) key = BuildConfig.PLANTNET_API_KEY;
+        if (key == null || key.trim().isEmpty()) return plantNetStatus("not_configured", "Add the Pl@ntNet API key in Settings → Plugins · API Keys.");
+        if (images == null || images.isEmpty()) return plantNetStatus("error", "No readable photos were available for species identification.");
+        HttpURLConnection connection = null;
+        try {
+            String boundary = "GrowPlotSpecies" + System.currentTimeMillis();
+            URL url = new URL("https://my-api.plantnet.org/v2/identify/all?api-key="
+                    + URLEncoder.encode(key, "UTF-8") + "&lang=en&nb-results=5");
+            connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("POST"); connection.setConnectTimeout(15000); connection.setReadTimeout(30000);
+            connection.setDoOutput(true); connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
+            try (OutputStream out = connection.getOutputStream()) {
+                for (int i = 0; i < Math.min(5, images.size()); i++) {
+                    out.write(("--" + boundary + "\r\nContent-Disposition: form-data; name=\"images\"; filename=\"growplot-species-" + (i + 1) + ".jpg\"\r\nContent-Type: image/jpeg\r\n\r\n").getBytes(StandardCharsets.UTF_8));
+                    out.write(images.get(i)); out.write("\r\n".getBytes(StandardCharsets.UTF_8));
+                    out.write(("--" + boundary + "\r\nContent-Disposition: form-data; name=\"organs\"\r\n\r\nauto\r\n").getBytes(StandardCharsets.UTF_8));
+                }
+                out.write(("--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8));
+            }
+            int status = connection.getResponseCode();
+            InputStream stream = status >= 200 && status < 300 ? connection.getInputStream() : connection.getErrorStream();
+            StringBuilder body = new StringBuilder();
+            if (stream != null) try (InputStream input = stream) { byte[] buffer = new byte[8192]; int count; while ((count = input.read(buffer)) != -1) body.append(new String(buffer, 0, count, StandardCharsets.UTF_8)); }
+            if (status < 200 || status >= 300) {
+                JSONObject error = plantNetStatus("error", "Pl@ntNet species identification returned HTTP " + status
+                        + (body.length() > 0 ? ": " + body.substring(0, Math.min(body.length(), 300)) : ""));
+                int remaining = remainingPlantNetQuota(connection.getHeaderField("RateLimit"));
+                if (status == 429 && remaining < 0) remaining = 0;
+                if (remaining >= 0) error.put("remainingIdentificationRequests", remaining);
+                return error;
+            }
+            JSONObject result = new JSONObject(body.toString());
+            if (!result.has("remainingIdentificationRequests")) {
+                int remaining = remainingPlantNetQuota(connection.getHeaderField("RateLimit"));
+                if (remaining >= 0) result.put("remainingIdentificationRequests", remaining);
+            }
+            result.put("provider", "Pl@ntNet species identification"); result.put("status", "ok");
+            result.put("imageCountSubmitted", Math.min(5, images.size()));
+            return result;
+        } catch (Exception error) {
+            return plantNetStatus("error", error.getMessage() == null ? "Species identification request failed." : error.getMessage());
+        } finally { if (connection != null) connection.disconnect(); }
     }
 
     private void requestKindwiseDiagnosis(int camera, String plotId, List<byte[]> images, int candidateCount,

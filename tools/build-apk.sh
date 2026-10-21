@@ -45,6 +45,7 @@ node "$ROOT/tools/tests/kindwise-regression.js" || fail "Kindwise integration re
 node "$ROOT/tools/tests/manage-farm-regression.js" || fail "Manage Farm regression check failed"
 node "$ROOT/tools/tests/account-registration-regression.js" || fail "Account registration regression check failed"
 node "$ROOT/tools/tests/data-feed-ui-regression.js" || fail "Data-feed UI regression check failed"
+node "$ROOT/tools/tests/plant-hsv-regression.js" || fail "Plant HSV regression check failed"
 
 cd "$ROOT"
 APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"

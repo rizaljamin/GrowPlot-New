@@ -1,8 +1,8 @@
-# GrowPlot — v0.7.00 Build 13
+# GrowPlot — v0.7.00 Build 14
 
 GrowPlot is an Android farm-management application with CCTV monitoring, Google Drive image feeds, A.I Plant Health, diagnosis workflows and plot management.
 
-**Current source version:** v0.7.00 Build 13 (`versionCode=217`, Android package `com.growplot.farm`). This identity is recorded in `version.properties`. A version number in source does not by itself confirm that a matching APK has been built; check the GitHub Actions run and its build manifest before distributing an APK.
+**Current source version:** v0.7.00 Build 14 (`versionCode=218`, Android package `com.growplot.farm`). This identity is recorded in `version.properties`. A version number in source does not by itself confirm that a matching APK has been built; check the GitHub Actions run and its build manifest before distributing an APK.
 
 ## Verified app baseline
 
@@ -11,8 +11,14 @@ The following behavior was documented as device-verified for v0.7.00 Build 02:
 - All six CCTV streaming slots display on the user's Android device.
 - The Google Drive image scan reports per-camera image counts.
 - A.I Plant Health displays the expected diagnosis images.
-- **Outstanding:** daily image analysis is not functioning as intended. Plant identification, visible leaf counting and maturity/growth-stage estimates remain development goals. Plant age inferred from images is approximate unless a planting date is available.
+- The Build 14 source adds on-demand photo-based Pl@ntNet species candidates when Run Diagnosis is tapped. The pre-run species shown for a CCTV section is only a preset visual estimate. HSV colour cues remain preliminary; YOLO, validated leaf counts and image-based maturity estimates are not included. Plant age needs a planting date.
 - A dedicated per-CCTV count summary in A.I Health remains an enhancement; the existing Java image counting works. Do not claim the summary UI is complete without Android verification.
+
+## Diagnosis species identification (Build 14 source)
+
+When the user taps **Run diagnosis**, GrowPlot first runs its local HSV pixel screen, then sends up to five selected photos of the same plant to Pl@ntNet single-species identification. It separately submits those images to Pl@ntNet disease identification and Kindwise crop.health where configured. Pl@ntNet species matches are ranked candidates with confidence scores; the user chooses a match. The API key stays in Android native storage. Species identification is a separate Pl@ntNet request and consumes its own quota. A trained YOLO model is not packaged.
+
+The APK and live provider behavior still require verification before these source changes can be called device-tested.
 
 ## Source and release workflow
 

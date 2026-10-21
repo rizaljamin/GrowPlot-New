@@ -1,3 +1,12 @@
+## Pending — HSV screening and photo-based species ID (2026-10-21)
+
+- Run Diagnosis runs local HSV colour screening, then calls Pl@ntNet single-species identification and disease identification with the selected photos. Ranked species matches are displayed separately for user review.
+- The species shown before the API response is a preset estimate based on CCTV section, not photo recognition. The user selects one of Pl@ntNet’s ranked candidates; the app records its source and score. HSV outputs are preliminary pixel cues, not a health score or disease diagnosis.
+- No YOLO model is present in the repository. A crop-specific model and representative labelled field images are required before YOLO inference can be added and validated.
+- No YOLO model is present; crop-specific weights and labelled field data are still required.
+- Target: v0.7.00 Build 14 / versionCode 218, ARM64 only.
+- HSV/species wiring and app regressions pass; ARM64 build, live API and Android tablet checks pending.
+
 ## Pending — Google Drive picker and compact Data Feed help (2026-10-21)
 
 - First-use setup accepts the Projects or GrowPlot folder in My Drive; GrowPlot creates missing folders through the selected parent permission.

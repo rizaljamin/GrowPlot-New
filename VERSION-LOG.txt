@@ -1,3 +1,7 @@
+2026-10-21 | v0.7.00 Build 14 | versionCode 218 | com.growplot.farm
+Changes: Run Diagnosis performs local HSV colour screening automatically, reports green/yellow/brown/other pixel shares, and highlights connected candidate regions. It now sends the selected photos to Pl@ntNet single-species identification and disease-identification endpoints; ranked species matches are shown separately for the user to review. The initial CCTV species remains labelled as a preset estimate. The redundant separate CV button is removed. A trained YOLO model is not bundled.
+Validation: HSV fixtures, species API/candidate UI wiring, and existing diagnosis/settings/farm regressions passed. ARM64 build and live API/device verification pending. The separate species-identification request uses Pl@ntNet quota; confirm from real service responses.
+
 2026-10-21 | v0.7.00 Build 13 | versionCode 217 | com.growplot.farm
 Changes: First-use Drive selection accepts Projects or GrowPlot and creates missing GrowPlot/Image_Feed/<email>/<plot> folders. Picker state survives Android activity recreation; cancellation and provider errors return a visible status. Long Data Feed explanations are behind tap/hover info icons.
 Validation: Focused data-feed regression and JavaScript checks passed. ARM64 workflow pending; Drive provider behavior awaits tablet verification.

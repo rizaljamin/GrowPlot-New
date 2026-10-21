@@ -1,3 +1,14 @@
+## BUG-081 — Run Diagnosis species label is only a preset estimate
+
+**Reported:** 2026-10-21
+**Status:** Corrected in v0.7.00 Build 14 source (versionCode 218); ARM64 build pending. Run Diagnosis now sends photos to Pl@ntNet single-species identification and displays ranked candidates for user review. HSV screening remains preliminary. YOLO is not implemented because the repository contains no crop-specific model weights or validation set.
+
+**Cause:** The first on-device screen used RGB threshold rules, and a separate CV button opened a placeholder view.
+
+**Fix:** Run Diagnosis loads the shared HSV screen and sends the selected photos to Pl@ntNet species identification and disease identification. The app displays ranked species candidates separately; selecting a match saves it as a Pl@ntNet image-based candidate. The initial CCTV label is explicitly called a preset estimate and cannot be falsely confirmed. The extra CV button is removed. YOLO remains unavailable without packaged weights and labelled validation images.
+
+**Verification:** HSV fixtures, species endpoint/candidate wiring checks, and existing diagnosis/settings/farm regressions pass. ARM64 build, live provider call, and tablet confirmation remain pending; no field-image accuracy claim is made.
+
 ## BUG-080 — Drive folder selection fails to connect and help text overwhelms Data Feed
 
 **Reported:** 2026-10-21
