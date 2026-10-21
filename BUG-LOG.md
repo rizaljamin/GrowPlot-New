@@ -1,3 +1,14 @@
+## BUG-086 — Diagnosis stopped on unreadable selected photo and interval cards were cleared
+
+**Reported:** 2026-10-21
+**Status:** Source fix prepared for v0.7.00 Build 24 (versionCode 228); ARM64 build and tablet verification pending.
+
+**Cause:** Run Diagnosis discarded every image-load error and stopped before HSV/CV if saved diagnosis media could not be decoded. The foliage analyzer used the same unreadable file without a fallback. Separately, every snapshot status callback reset the timeline, even when an error/status-only response did not include timeline data.
+
+**Fix:** Try saved diagnosis photos first, then the current cached CCTV Image_Feed snapshot for HSV and foliage CV. Preserve the last successful interval cards when a status-only scan callback omits timeline data; a new complete scan still replaces them.
+
+**Verification:** Regression and ARM64 build pending. YOLO still requires a configured diagnosis service and deployed model; it is surfaced as unavailable when not configured.
+
 ## BUG-085 — Run Diagnosis skipped HSV/CV or stayed in a preparation state
 
 **Reported:** 2026-10-21
