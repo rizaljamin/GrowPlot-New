@@ -1,5432 +1,2694 @@
-package com.growplot.farm;
-
-import android.app.Activity;
-import android.app.Dialog;
-import android.Manifest;
-import android.content.pm.PackageManager;
-import android.location.Address;
-import android.location.Geocoder;
-import android.location.Location;
-import android.location.LocationListener;
-import android.location.LocationManager;
-import android.content.Intent;
-import android.content.ClipData;
-import android.content.SharedPreferences;
-import android.content.res.Configuration;
-import android.database.Cursor;
-import android.media.ExifInterface;
-import android.media.MediaPlayer;
-import android.media.MediaMetadataRetriever;
-import android.net.Uri;
-import android.os.Bundle;
-import android.os.Build;
-import android.os.Handler;
-import android.os.Looper;
-import android.os.Environment;
-import android.view.WindowInsets;
-import android.view.Window;
-import android.view.View;
-import android.view.Gravity;
-import android.view.PixelCopy;
-import android.view.SurfaceView;
-import android.widget.FrameLayout;
-import android.widget.LinearLayout;
-import android.widget.EditText;
-import android.widget.ScrollView;
-import android.widget.TextView;
-import android.widget.MediaController;
-import android.widget.VideoView;
-import android.widget.Toast;
-import android.graphics.Bitmap;
-import android.graphics.Color;
-import android.graphics.drawable.GradientDrawable;
-import android.graphics.BitmapFactory;
-import android.graphics.Matrix;
-import android.provider.OpenableColumns;
-import android.provider.DocumentsContract;
-import android.provider.MediaStore;
-import android.webkit.JavascriptInterface;
-import android.webkit.WebResourceRequest;
-import android.webkit.WebResourceResponse;
-import android.webkit.WebSettings;
-import android.webkit.WebView;
-import android.webkit.WebViewClient;
-import android.util.Base64;
-import android.text.Html;
-import android.text.InputType;
-
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
-import org.videolan.libvlc.LibVLC;
-import org.videolan.libvlc.Media;
-import org.videolan.libvlc.util.VLCVideoLayout;
-
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.ByteArrayInputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
-import java.util.TimeZone;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.security.KeyStore;
-import javax.crypto.Cipher;
-import javax.crypto.KeyGenerator;
-import javax.crypto.SecretKey;
-import javax.crypto.spec.GCMParameterSpec;
-import android.security.keystore.KeyGenParameterSpec;
-import android.security.keystore.KeyProperties;
-
-public class MainActivity extends Activity {
-    private static final int REQUEST_IMAGE_FOLDER = 410;
-    private static final int REQUEST_DEVICE_LOCATION = 411;
-    private static final int REQUEST_DIAGNOSIS_PHOTO = 412;
-    private static final int REQUEST_DIAGNOSIS_VIDEO = 413;
-    private static final int REQUEST_DIAGNOSIS_PICKER = 414;
-    private static final int REQUEST_DIAGNOSIS_FOLDER = 415;
-    private static final int REQUEST_FEED_CAMERA = 416;
-    private static final int REQUEST_FEED_PICKER = 417;
-    private static final String PREFS = "growplot_snapshot_settings";
-    private static final String PREF_IMAGE_FEED_TREE_URI = "image_feed_tree_uri";
-    private static final String PREF_INTERVAL = "refresh_interval_minutes";
-    private static final String PREF_CCTV_SNAPSHOT_INTERVAL_MILLIS = "cctv_snapshot_interval_millis";
-    private static final String PREF_CCTV_IP_PREFIX = "cctv_ip_plot-1_";
-    private static final String PREF_VIGI_CCTV03_CREDENTIALS = "vigi_cctv03_credentials_encrypted";
-    private static final String VIGI_CCTV03_KEY_ALIAS = "GrowPlotVigiCctv03";
-    private static final String PREF_TIMELINE_INTERVAL = "photo_timeline_interval";
-    private static final String PREF_ACTIVE_PLOT_ID = "active_plot_id";
-    private static final String PREF_WEB_STORAGE_MIGRATED = "web_storage_migrated_to_appassets";
-    private static final String PREF_DIAGNOSIS_TREE_URI = "diagnosis_tree_uri";
-    private static final String PREF_DIAGNOSIS_ROOT_DOCUMENT_ID = "diagnosis_root_document_id";
-    private static final String PREF_DIAGNOSIS_FOLDER_LABEL = "diagnosis_folder_label";
-    private static final String PREF_GROWPLOT_TREE_URI = "growplot_root_tree_uri";
-    private static final String DEFAULT_CCTV01_IP = "192.168.1.241";
-    private static final String DEFAULT_CCTV02_IP = "192.168.1.227";
-    private static final String DEFAULT_CCTV03_IP = "192.168.1.228";
-    private static final String PREF_FARM_DATA_USER_ID = "farm_data_user_id";
-    private static final String PREF_PENDING_DIAGNOSIS_UPLOADS = "pending_diagnosis_uploads";
-    private static final String GROWPLOT_STORAGE_CONFIG_FILE = "storage-paths.json";
-    private static final String DEFAULT_PLOT_ID = "plot-1";
-    private volatile String pickerPlotId = DEFAULT_PLOT_ID;
-    private volatile boolean pickerCreatesDefaultFeed;
-    private volatile String pickerDefaultFolderName = "Demo_plot";
-    private volatile String locationPermissionPlotId = DEFAULT_PLOT_ID;
-    private volatile String locationLookupPlotId = DEFAULT_PLOT_ID;
-    private volatile boolean locationRequestInFlight;
-    private volatile boolean locationPermissionRequestInFlight;
-    private LocationListener locationListener;
-    private static final int MAX_FEED_FILES = 1500;
-    private static final String APP_ASSET_PREFIX = "/assets/images/";
-    private static final String APP_BASELINE_PREFIX = "/assets/baseline/";
-    private static final String APP_HISTORY_PREFIX = "/assets/history/";
-    private static final String APP_DIAGNOSIS_PREFIX = "/assets/diagnosis/";
-    private static final Pattern CAMERA_FILE = Pattern.compile("(?i)^cctv[_ -]?0?([1-6])(?:[_ -].*)?\\.(jpe?g|png)$");
-    private static final Pattern CAMERA_LABEL = Pattern.compile("(?i)(?:^|[^A-Z0-9])(?:CCTV|CAMERA|CAM|QUADRANT|QUAD|Q)[ _-]*0?([1-6])(?:[^0-9]|$)");
-    private final Handler mainHandler = new Handler(Looper.getMainLooper());
-    private final ExecutorService scanWorker = Executors.newSingleThreadExecutor();
-    private final ExecutorService geocodeWorker = Executors.newSingleThreadExecutor();
-    private final ExecutorService diagnosisWorker = Executors.newSingleThreadExecutor();
-    private final ExecutorService diagnosisCvWorker = Executors.newSingleThreadExecutor();
-    private final ExecutorService kindwiseWorker = Executors.newSingleThreadExecutor();
-    private final ExecutorService farmDataWorker = Executors.newSingleThreadExecutor();
-    private final ExecutorService cctvSnapshotWorker = Executors.newSingleThreadExecutor();
-    private Uri pendingDiagnosisOutput;
-    private volatile Uri pendingFeedPhotoOutput;
-    private volatile int pendingFeedCamera = 1;
-    private volatile String pendingFeedPlotId = DEFAULT_PLOT_ID;
-    private String pendingDiagnosisKind = "";
-    private String pendingDiagnosisPlotId = DEFAULT_PLOT_ID;
-    private String pendingDiagnosisPlotName = "Plot_1";
-    private int pendingDiagnosisCamera;
-    private WebView web;
-    private AccountApiBridge accountApiBridge;
-    private FrameLayout appRoot;
-    private FrameLayout ipWebcamVlcFrame;
-    private VLCVideoLayout ipWebcamVlcLayout;
-    private TextView ipWebcamRefreshButton;
-    private boolean cctv01OverlayShown;
-    private FrameLayout ipWebcam2VlcFrame;
-    private VLCVideoLayout ipWebcam2VlcLayout;
-    private TextView ipWebcam2RefreshButton;
-    private boolean cctv02OverlayShown;
-    private FrameLayout ipWebcam3VlcFrame;
-    private VLCVideoLayout ipWebcam3VlcLayout;
-    private TextView ipWebcam3RefreshButton;
-    private boolean cctv03OverlayShown;
-    private boolean cctvVlcFeedsAllowedOnActiveScreen;
-    private boolean cctv03CredentialsPromptShowing;
-    private boolean cctv03CredentialCheckInProgress;
-    private boolean cctv03CredentialsRejected;
-    private boolean activityResumed;
-    private volatile long cctvSnapshotIntervalMillis = 900_000L;
-    private final Runnable cctv01SnapshotTicker = new Runnable() {
-        @Override public void run() {
-            if (!activityResumed || ipWebcamVlcPlayer == null || ipWebcamVlcLayout == null) return;
-            checkIpWebcamBeforeSnapshot(1);
-            mainHandler.postDelayed(this, cctvSnapshotIntervalMillis);
-        }
-    };
-    private final Runnable cctv02SnapshotTicker = new Runnable() {
-        @Override public void run() {
-            if (!activityResumed || ipWebcam2VlcPlayer == null || ipWebcam2VlcLayout == null) return;
-            checkIpWebcamBeforeSnapshot(2);
-            mainHandler.postDelayed(this, nextSnapshotCheckDelay(2));
-        }
-    };
-    private LibVLC ipWebcamVlc;
-    private org.videolan.libvlc.MediaPlayer ipWebcamVlcPlayer;
-    private LibVLC ipWebcam2Vlc;
-    private org.videolan.libvlc.MediaPlayer ipWebcam2VlcPlayer;
-    private LibVLC ipWebcam3Vlc;
-    private org.videolan.libvlc.MediaPlayer ipWebcam3VlcPlayer;
-    private final Runnable cctv03SnapshotTicker = new Runnable() {
-        @Override public void run() {
-            if (!activityResumed || ipWebcam3VlcPlayer == null || ipWebcam3VlcLayout == null) return;
-            checkIpWebcamBeforeSnapshot(3);
-            mainHandler.postDelayed(this, cctvSnapshotIntervalMillis);
-        }
-    };
-    private boolean pageReady;
-    private volatile boolean scanInProgress;
-    private volatile boolean drivePathRestorePending;
-    private volatile boolean rescanRequested;
-    private String pendingPageUpdate;
-    private volatile int refreshIntervalMinutes = 5;
-    private volatile String timelineInterval = "daily";
-
-    private final Runnable scheduledScan = new Runnable() {
-        @Override public void run() {
-            scanSnapshotFolder();
-            mainHandler.postDelayed(this, refreshIntervalMinutes * 60_000L);
-        }
-    };
-
-    private static final class Photo {
-        String name;
-        String sourceKey;
-        Uri uri;
-        int camera;
-        long capturedAt;
-        long modifiedAt;
-        String displayTime;
-        String historyFile;
-        String plotId;
-    }
-
-    private static final class FrameFeatures {
-        double greenPercent;
-        double brightness;
-    }
-
-    private static final class FeedDocument {
-        Uri uri;
-        String name;
-        int cameraHint;
-        FeedDocument(Uri uri, String name, int cameraHint) { this.uri = uri; this.name = name; this.cameraHint = cameraHint; }
-    }
-
-    private WebResourceResponse localImageResponse(String url) {
-        Uri uri = Uri.parse(url);
-        String path = uri.getPath();
-        if (path == null) return null;
-        if (path.startsWith(APP_BASELINE_PREFIX)) {
-            String name = path.substring(APP_BASELINE_PREFIX.length());
-            if (!name.matches("cctv_0[1-6]\\.jpg")) return null;
-            try {
-                return new WebResourceResponse("image/jpeg", null, getAssets().open("images/" + name));
-            } catch (Exception ignored) { return null; }
-        }
-        if (path.startsWith(APP_HISTORY_PREFIX)) {
-            String relative = path.substring(APP_HISTORY_PREFIX.length());
-            if (!relative.matches("[A-Za-z0-9_-]{1,128}/[A-Za-z0-9_-]{1,64}/cctv_0[1-6]_\\d+_[0-9a-f]+\\.jpg")) return null;
-            String[] pieces = relative.split("/", 3);
-            if (!pieces[0].equals(currentFeedUserKey())) return null;
-            try {
-                File archived = new File(new File(new File(new File(getFilesDir(), "photo_history"), pieces[0]), pieces[1]), pieces[2]);
-                if (!archived.isFile()) return null;
-                return new WebResourceResponse("image/jpeg", null, new FileInputStream(archived));
-            } catch (Exception ignored) { return null; }
-        }
-        if (!path.startsWith(APP_ASSET_PREFIX)) return null;
-        String relative = path.substring(APP_ASSET_PREFIX.length());
-        if (!relative.matches("[A-Za-z0-9_-]{1,64}/cctv_0[1-6]\\.jpg")) return null;
-        String[] pieces = relative.split("/", 2);
-        try {
-            File latest = new File(userPlotDirectory("latest_images", pieces[0]), pieces[1]);
-            if (!latest.isFile() && !DEFAULT_PLOT_ID.equals(pieces[0])) return null;
-            InputStream input = latest.isFile() ? new FileInputStream(latest) : getAssets().open("images/" + pieces[1]);
-            return new WebResourceResponse("image/jpeg", null, input);
-        } catch (Exception ignored) { return null; }
-    }
-
-    private WebResourceResponse localDiagnosisMediaResponse(String url, Map<String, String> headers) {
-        String path = Uri.parse(url).getPath();
-        if (path == null || !path.startsWith(APP_DIAGNOSIS_PREFIX)) return null;
-        String relative = path.substring(APP_DIAGNOSIS_PREFIX.length());
-        if (!relative.matches("[A-Za-z0-9_-]{1,64}/cctv_0[1-6]/[A-Za-z0-9_-]{1,64}\\.(jpg|mp4)")) return null;
-        String[] parts = relative.split("/");
-        File media = new File(new File(new File(getFilesDir(), "diagnosis_media"), parts[0]), parts[1] + "/" + parts[2]);
-        if (!media.isFile()) {
-            media = new File(new File(new File(getCacheDir(), "diagnosis_drive_cache"), parts[0]), parts[1] + "/" + parts[2]);
-        }
-        if (!media.isFile()) return null;
-        try {
-            boolean video = parts[2].endsWith(".mp4");
-            long start = 0;
-            long end = Math.max(0, media.length() - 1);
-            String range = null;
-            if (headers != null) for (Map.Entry<String, String> entry : headers.entrySet()) {
-                if ("range".equalsIgnoreCase(entry.getKey())) { range = entry.getValue(); break; }
-            }
-            if (video && range != null && range.toLowerCase(Locale.ROOT).startsWith("bytes=")) {
-                String[] bounds = range.substring(6).split("-", 2);
-                if (bounds.length != 2 || media.length() == 0) throw new IllegalArgumentException("Invalid video byte range");
-                if (bounds[0].isEmpty()) {
-                    long suffixLength = Long.parseLong(bounds[1]);
-                    start = Math.max(0, media.length() - suffixLength);
-                } else {
-                    start = Long.parseLong(bounds[0]);
-                    if (!bounds[1].isEmpty()) end = Long.parseLong(bounds[1]);
-                }
-                end = Math.min(end, media.length() - 1);
-                if (start < 0 || start >= media.length() || end < start) {
-                    Map<String, String> invalidRangeHeaders = new HashMap<>();
-                    invalidRangeHeaders.put("Content-Range", "bytes */" + media.length());
-                    invalidRangeHeaders.put("Content-Length", "0");
-                    return new WebResourceResponse("video/mp4", null, 416, "Range Not Satisfiable",
-                            invalidRangeHeaders, new ByteArrayInputStream(new byte[0]));
-                }
-            }
-            FileInputStream stream = new FileInputStream(media);
-            long skipped = stream.skip(start);
-            while (skipped < start) {
-                long more = stream.skip(start - skipped);
-                if (more <= 0) break;
-                skipped += more;
-            }
-            Map<String, String> responseHeaders = new HashMap<>();
-            responseHeaders.put("Accept-Ranges", "bytes");
-            responseHeaders.put("Content-Length", String.valueOf(Math.max(0, end - start + 1)));
-            responseHeaders.put("Cache-Control", "no-store");
-            if (video && range != null) responseHeaders.put("Content-Range", "bytes " + start + "-" + end + "/" + media.length());
-            return new WebResourceResponse(video ? "video/mp4" : "image/jpeg", null,
-                    video && range != null ? 206 : 200, video && range != null ? "Partial Content" : "OK",
-                    responseHeaders, stream);
-        } catch (Exception ignored) { return null; }
-    }
-
-    @Override protected void onNewIntent(Intent intent) {
-        super.onNewIntent(intent);
-        setIntent(intent);
-        if (intent != null) AdminActivationDemo.handleLink(this, intent.getData());
-    }
-
-    @Override public void onCreate(Bundle state) {
-        super.onCreate(state);
-        if (getIntent() != null && getIntent().getData() != null) {
-            new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(
-                    () -> AdminActivationDemo.handleLink(this, getIntent().getData()), 900);
-        }
-        if (state != null) {
-            pendingDiagnosisKind = state.getString("diagnosis_kind", "");
-            pendingDiagnosisPlotId = safePlotId(state.getString("diagnosis_plot", DEFAULT_PLOT_ID));
-            pendingDiagnosisPlotName = safeFolderName(state.getString("diagnosis_plot_name", "Plot_1"));
-            pendingDiagnosisCamera = state.getInt("diagnosis_camera", 0);
-            pendingDiagnosisOutput = state.getParcelable("diagnosis_output");
-            pickerPlotId = safePlotId(state.getString("feed_picker_plot", DEFAULT_PLOT_ID));
-            pickerDefaultFolderName = safeFolderName(state.getString("feed_picker_folder", "Demo_plot"));
-            pickerCreatesDefaultFeed = state.getBoolean("feed_picker_creates_default", false);
-        }
-        refreshIntervalMinutes = getPrefs().getInt(PREF_INTERVAL, 5);
-        cctvSnapshotIntervalMillis = getPrefs().getLong(PREF_CCTV_SNAPSHOT_INTERVAL_MILLIS, 900_000L);
-        if (cctvSnapshotIntervalMillis < 30_000L || cctvSnapshotIntervalMillis > 86_400_000L) {
-            cctvSnapshotIntervalMillis = 900_000L;
-        }
-        timelineInterval = getPrefs().getString(PREF_TIMELINE_INTERVAL, "daily");
-        if (!"daily".equals(timelineInterval) && !"weekly".equals(timelineInterval) && !"monthly".equals(timelineInterval)
-                && !"yearly".equals(timelineInterval)) timelineInterval = "daily";
-        web = new WebView(this);
-        WebSettings settings = web.getSettings();
-        settings.setJavaScriptEnabled(true);
-        settings.setDomStorageEnabled(true);
-        settings.setAllowFileAccess(true);
-        settings.setAllowContentAccess(false);
-        settings.setLoadsImagesAutomatically(true);
-        // CCTV01 embeds the local IP Webcam HTTP MJPEG stream in the app's HTTPS asset page.
-        // Allow that mixed resource; network_security_config still permits cleartext only to
-        // 192.168.1.241 and 192.168.1.227, so this does not enable HTTP to arbitrary hosts.
-        settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
-        settings.setBlockNetworkLoads(false);
-        settings.setBlockNetworkImage(false);
-        settings.setUserAgentString(settings.getUserAgentString() + " GrowPlot/" + BuildConfig.VERSION_NAME.replace(' ', '-'));
-        web.addJavascriptInterface(new SnapshotBridge(), "GrowPlotBridge");
-        accountApiBridge = new AccountApiBridge(this, web);
-        web.addJavascriptInterface(accountApiBridge, "GrowPlotAccount");
-        web.setWebViewClient(new WebViewClient() {
-            @Override public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
-      String requestedUrl = request.getUrl().toString();
-      if ("https://appassets.androidplatform.net/leaf-cv.js".equals(requestedUrl)) {
-          try {
-              return new WebResourceResponse("application/javascript", "UTF-8", getAssets().open("leaf-cv.js"));
-          } catch (Exception error) {
-              android.util.Log.e("GrowPlotCV", "Failed to serve bundled leaf-cv.js", error);
-          }
-      }
-
-                WebResourceResponse diagnosis = localDiagnosisMediaResponse(request.getUrl().toString(), request.getRequestHeaders());
-                if (diagnosis != null) return diagnosis;
-                WebResourceResponse image = localImageResponse(request.getUrl().toString());
-                return image != null ? image : super.shouldInterceptRequest(view, request);
-            }
-
-            @Override public WebResourceResponse shouldInterceptRequest(WebView view, String url) {
-                WebResourceResponse diagnosis = localDiagnosisMediaResponse(url, null);
-                if (diagnosis != null) return diagnosis;
-                WebResourceResponse image = localImageResponse(url);
-                return image != null ? image : super.shouldInterceptRequest(view, url);
-            }
-
-            @Override public void onPageFinished(WebView view, String url) {
-                super.onPageFinished(view, url);
-                if (url != null && url.startsWith("file:///android_asset/migrate.html")) return;
-                pageReady = true;
-                try (InputStream onboardingInput = getAssets().open("new-user-onboarding.js");
-                     ByteArrayOutputStream onboardingBytes = new ByteArrayOutputStream()) {
-                    byte[] onboardingBuffer = new byte[8192];
-                    int onboardingRead;
-                    while ((onboardingRead = onboardingInput.read(onboardingBuffer)) != -1)
-                        onboardingBytes.write(onboardingBuffer, 0, onboardingRead);
-                    view.evaluateJavascript(onboardingBytes.toString(StandardCharsets.UTF_8.name()), null);
-                } catch (Exception onboardingError) {
-                    android.util.Log.w("GrowPlot", "New-user onboarding preview could not load", onboardingError);
-                }
-                try (InputStream accountInput = getAssets().open("account-login.js"); ByteArrayOutputStream accountBytes = new ByteArrayOutputStream()) {
-                    byte[] accountBuffer = new byte[8192]; int accountRead;
-                    while ((accountRead = accountInput.read(accountBuffer)) != -1) accountBytes.write(accountBuffer, 0, accountRead);
-                    view.evaluateJavascript(accountBytes.toString(StandardCharsets.UTF_8.name()), null);
-                } catch (Exception accountError) { android.util.Log.e("GrowPlot", "Account login UI could not load", accountError); }
-                try (InputStream dataFeedUiInput = getAssets().open("data-feed-ui.js");
-                     ByteArrayOutputStream dataFeedUiBytes = new ByteArrayOutputStream()) {
-                    byte[] dataFeedUiBuffer = new byte[4096];
-                    int dataFeedUiRead;
-                    while ((dataFeedUiRead = dataFeedUiInput.read(dataFeedUiBuffer)) != -1)
-                        dataFeedUiBytes.write(dataFeedUiBuffer, 0, dataFeedUiRead);
-                    view.evaluateJavascript(dataFeedUiBytes.toString(StandardCharsets.UTF_8.name()), null);
-                } catch (Exception dataFeedUiError) {
-                    android.util.Log.e("GrowPlot", "Data feed UI could not load", dataFeedUiError);
-                }
-                if (pendingPageUpdate != null) {
-                    String update = pendingPageUpdate;
-                    pendingPageUpdate = null;
-                    sendToPage(update);
-                } else {
-                    JSONObject initial = makeStatus("Checking this plotâ€™s Google Drive data feed connection.");
-                    try { initial.put("plotId", safePlotId(getPrefs().getString(PREF_ACTIVE_PLOT_ID, DEFAULT_PLOT_ID))); } catch (Exception ignored) { }
-                    publishStatus(initial);
-                }
-                if (url != null && url.startsWith("https://appassets.androidplatform.net/")) {
-                    view.post(MainActivity.this::installCctv01VlcPositionListener);
-                }
-            }
-        });
-        web.setBackgroundColor(0xFFF4F7F1);
-        appRoot = new FrameLayout(this);
-        appRoot.setBackgroundColor(0xFFF4F7F1);
-        appRoot.addView(web, new FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            getWindow().setDecorFitsSystemWindows(false);
-            appRoot.setOnApplyWindowInsetsListener((view, insets) -> {
-                int topInset = insets.getInsets(
-                        WindowInsets.Type.statusBars() | WindowInsets.Type.displayCutout()).top;
-                view.setPadding(0, topInset, 0, 0);
-                return insets.inset(0, topInset, 0, 0);
-            });
-        }
-        getWindow().setStatusBarColor(0xFFF4F7F1);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            View decor = getWindow().getDecorView();
-            decor.setSystemUiVisibility(decor.getSystemUiVisibility() | View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
-        }
-        setContentView(appRoot);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) appRoot.requestApplyInsets();
-        if (getPrefs().getBoolean(PREF_WEB_STORAGE_MIGRATED, false)) loadMainPage();
-        else web.loadUrl("file:///android_asset/migrate.html");
-        drivePathRestorePending = true;
-        diagnosisWorker.execute(() -> {
-            try {
-                restoreDrivePathsFromConfig();
-                if (!isDiagnosisDriveReady()) adoptExistingGrowPlotDriveGrant();
-            } finally {
-                runOnUiThread(() -> {
-                    drivePathRestorePending = false;
-                    if (isFinishing()) return;
-                    scanSnapshotFolder();
-                    refreshDiagnosisMediaForActivePlot();
-                });
-            }
-        });
-    }
-
-    @Override protected void onSaveInstanceState(Bundle outState) {
-        outState.putString("diagnosis_kind", pendingDiagnosisKind);
-        outState.putString("diagnosis_plot", pendingDiagnosisPlotId);
-        outState.putString("diagnosis_plot_name", pendingDiagnosisPlotName);
-        outState.putInt("diagnosis_camera", pendingDiagnosisCamera);
-        if (pendingDiagnosisOutput != null) outState.putParcelable("diagnosis_output", pendingDiagnosisOutput);
-        outState.putString("feed_picker_plot", pickerPlotId);
-        outState.putString("feed_picker_folder", pickerDefaultFolderName);
-        outState.putBoolean("feed_picker_creates_default", pickerCreatesDefaultFeed);
-        super.onSaveInstanceState(outState);
-    }
-
-    private SharedPreferences getPrefs() {
-        return getSharedPreferences(PREFS, MODE_PRIVATE);
-    }
-
-    private String defaultCctvIp(int camera) {
-        if (camera == 1) return DEFAULT_CCTV01_IP;
-        if (camera == 2) return DEFAULT_CCTV02_IP;
-        if (camera == 3) return DEFAULT_CCTV03_IP;
-        return "";
-    }
-
-    private String cctvIp(int camera) {
-        return getPrefs().getString(PREF_CCTV_IP_PREFIX + String.format(Locale.US, "%02d", camera), defaultCctvIp(camera));
-    }
-
-    // Owner-scoped camera routes. Demo plot deliberately keeps legacy local IP settings.
-    private final String[] assignedStreamUrls = new String[4];
-    private volatile boolean userStreamMode = false;
-    private int assignedStreamGeneration = 0;
-    private String activeStreamScope = "";
-    private boolean assignedStreamsLoading = false;
-
-    private void refreshAssignedPlayers() {
-        if (ipWebcamVlcLayout != null) startIpWebcamVlc(ipWebcamVlcLayout);
-        if (ipWebcam2VlcLayout != null) startCctv02Vlc(ipWebcam2VlcLayout);
-        if (ipWebcam3VlcLayout != null) startVigiCctv03Vlc(ipWebcam3VlcLayout);
-    }
-
-    private void refreshAssignedPlayer(int slot) {
-        // An assignment may be removed or disabled: clear the old frame instead of retaining it.
-        if (userStreamMode && (slot < 1 || slot > 3 || assignedStreamUrls[slot] == null || assignedStreamUrls[slot].isEmpty())) {
-            resetCctvSurfaces();
-            for (int camera = 1; camera <= 3; camera++) {
-                if (assignedStreamUrls[camera] != null && !assignedStreamUrls[camera].isEmpty()) {
-                    if (camera == 1 && ipWebcamVlcLayout != null) startIpWebcamVlc(ipWebcamVlcLayout);
-                    if (camera == 2 && ipWebcam2VlcLayout != null) startCctv02Vlc(ipWebcam2VlcLayout);
-                    if (camera == 3 && ipWebcam3VlcLayout != null) startVigiCctv03Vlc(ipWebcam3VlcLayout);
-                }
-            }
-            return;
-        }
-        if (slot == 1 && ipWebcamVlcLayout != null) startIpWebcamVlc(ipWebcamVlcLayout);
-        else if (slot == 2 && ipWebcam2VlcLayout != null) startCctv02Vlc(ipWebcam2VlcLayout);
-        else if (slot == 3 && ipWebcam3VlcLayout != null) startVigiCctv03Vlc(ipWebcam3VlcLayout);
-    }
-
-    // Reset every video surface whenever the selected camera scope changes.
-    // Merely stopping VLC leaves its final decoded frame visible in TextureView.
-    private void resetCctvSurfaces() {
-        stopIpWebcamVlc();
-        stopCctv02Vlc();
-        stopCctv03Vlc();
-        // VLC detach/stop may leave a previously decoded frame in TextureView.
-        // Destroy each old video surface, then install a fresh black surface BELOW status controls.
-        if (ipWebcamVlcFrame != null && ipWebcamVlcLayout != null) {
-            ipWebcamVlcFrame.removeView(ipWebcamVlcLayout);
-            ipWebcamVlcLayout = new VLCVideoLayout(this);
-            ipWebcamVlcLayout.setBackgroundColor(Color.BLACK);
-            ipWebcamVlcFrame.addView(ipWebcamVlcLayout, 0, new FrameLayout.LayoutParams(-1, -1));
-        }
-        if (ipWebcam2VlcFrame != null && ipWebcam2VlcLayout != null) {
-            ipWebcam2VlcFrame.removeView(ipWebcam2VlcLayout);
-            ipWebcam2VlcLayout = new VLCVideoLayout(this);
-            ipWebcam2VlcLayout.setBackgroundColor(Color.BLACK);
-            ipWebcam2VlcFrame.addView(ipWebcam2VlcLayout, 0, new FrameLayout.LayoutParams(-1, -1));
-        }
-        if (ipWebcam3VlcFrame != null && ipWebcam3VlcLayout != null) {
-            ipWebcam3VlcFrame.removeView(ipWebcam3VlcLayout);
-            ipWebcam3VlcLayout = new VLCVideoLayout(this);
-            ipWebcam3VlcLayout.setBackgroundColor(Color.BLACK);
-            ipWebcam3VlcFrame.addView(ipWebcam3VlcLayout, 0, new FrameLayout.LayoutParams(-1, -1));
-        }
-        if (ipWebcamVlcFrame != null) ipWebcamVlcFrame.setBackgroundColor(Color.BLACK);
-        if (ipWebcam2VlcFrame != null) ipWebcam2VlcFrame.setBackgroundColor(Color.BLACK);
-        if (ipWebcam3VlcFrame != null) ipWebcam3VlcFrame.setBackgroundColor(Color.BLACK);
-    }
-
-    private void returnToDemoStreams() {
-        ++assignedStreamGeneration;
-        activeStreamScope = "";
-        java.util.Arrays.fill(assignedStreamUrls, null);
-        // Demo is independent of Firebase and uses the three Settings camera URLs.
-        userStreamMode = false;
-        assignedStreamsLoading = false;
-        resetCctvSurfaces();
-        refreshAssignedPlayers();
-    }
-
-    private void loadAssignedStreams(String plotId, String greenhouseId, boolean force) {
-        final String uidNow = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser() == null ? "" : com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser().getUid();
-        String scope = uidNow+"|"+plotId+"|"+greenhouseId;
-        if (!force && scope.equals(activeStreamScope)) return;
-        activeStreamScope = scope;
-        final int generation = ++assignedStreamGeneration;
-        userStreamMode = !"plot-1".equals(plotId);
-        java.util.Arrays.fill(assignedStreamUrls, null);
-        assignedStreamsLoading = userStreamMode;
-        resetCctvSurfaces(); // Always reset all old frames before starting the newly selected scope.
-        if (!userStreamMode) refreshAssignedPlayers(); // Demo uses saved Settings IPs.
-        if (!userStreamMode) { return; }
-        com.google.firebase.auth.FirebaseUser user = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
-        if (user == null || !plotId.matches("[A-Za-z0-9_-]{1,100}") || !greenhouseId.matches("greenhouse-[1-9][0-9]*")) {
-            return;
-        }
-        final String uid = user.getUid();
-        com.google.firebase.firestore.FirebaseFirestore store = com.google.firebase.firestore.FirebaseFirestore.getInstance();
-        // Administrator scope is granted only by a verified Firebase custom claim.
-        user.getIdToken(false).addOnSuccessListener(token -> {
-            boolean admin = Boolean.TRUE.equals(token.getClaims().get("admin"))
-                    || Boolean.TRUE.equals(token.getClaims().get("powerUser"));
-            com.google.firebase.firestore.Query assignments = admin
-                    ? store.collection("feed_assignments")
-                    : store.collection("feed_assignments").whereEqualTo("ownerUserId",uid);
-            assignments.get().addOnSuccessListener(rows -> {
-                if (generation != assignedStreamGeneration) return;
-                assignedStreamsLoading = false;
-                for (com.google.firebase.firestore.QueryDocumentSnapshot assignment : rows) {
-                    if (!plotId.equals(assignment.getString("plotId")) || !greenhouseId.equals(assignment.getString("greenhouseId"))) continue;
-                    String section = assignment.getString("sectionId"), deviceId = assignment.getString("deviceId");
-                    if (section == null || deviceId == null || !section.matches("section-[1-3]") || !deviceId.matches("[A-Za-z0-9_-]{1,100}")) continue;
-                    int slot = Integer.parseInt(section.substring(8));
-                    String ownerUid=assignment.getString("ownerUserId");
-                    if(ownerUid==null||(!admin&&!uid.equals(ownerUid)))continue;
-                    store.collection("data_feeds").document(ownerUid+"_"+deviceId).get().addOnSuccessListener(device -> {
-                        if (generation != assignedStreamGeneration || !device.exists() || !ownerUid.equals(device.getString("ownerUserId")) || !("AV".equalsIgnoreCase(device.getString("deviceType")) || "Camera".equalsIgnoreCase(device.getString("deviceType")))) return;
-                        String host = device.getString("ipAddress"),protocol=device.getString("protocol"),path=device.getString("streamPath");
-                        Number port = device.getDouble("port");
-                        if (host == null || !host.matches("[A-Za-z0-9.-]{1,253}")) return;
-                        String scheme = "RTSP".equalsIgnoreCase(protocol) ? "rtsp" : "HTTPS".equalsIgnoreCase(protocol) ? "https" : "http";
-                        int actualPort = port == null ? ("rtsp".equals(scheme)?554:8080) : port.intValue();
-                        if (actualPort < 1 || actualPort > 65535) return;
-                        if (path == null || path.isEmpty()) path = "rtsp".equals(scheme) ? "/stream1" : "/videofeed";
-                        if (!path.startsWith("/") || path.contains("..") || path.contains("@") || path.contains("?")) return;
-                        assignedStreamUrls[slot] = scheme+"://"+host+":"+actualPort+path;
-                        refreshAssignedPlayer(slot);
-                    });
-                }
-            }).addOnFailureListener(e -> { assignedStreamsLoading = false; android.util.Log.w("GrowPlotStreams", "Assignment retrieval failed", e); });
-        }).addOnFailureListener(e -> { assignedStreamsLoading=false; android.util.Log.w("GrowPlotStreams","Privilege verification failed",e); });
-    }
-
-    private String cctvStreamUrl(int camera) {
-        if (userStreamMode) return assignedStreamUrls[camera] == null ? "" : assignedStreamUrls[camera];
-        String ip = cctvIp(camera);
-        return ip.isEmpty() ? "" : "http://" + ip + ":8080/videofeed";
-    }
-
-    private String[] vigiCctv03Credentials() {
-        try {
-            String encoded = getPrefs().getString(PREF_VIGI_CCTV03_CREDENTIALS, "");
-            if (encoded.isEmpty()) return new String[]{"", ""};
-            byte[] combined = Base64.decode(encoded, Base64.NO_WRAP);
-            byte[] iv = java.util.Arrays.copyOfRange(combined, 0, 12);
-            byte[] ciphertext = java.util.Arrays.copyOfRange(combined, 12, combined.length);
-            KeyStore store = KeyStore.getInstance("AndroidKeyStore");
-            store.load(null);
-            SecretKey key = (SecretKey) store.getKey(VIGI_CCTV03_KEY_ALIAS, null);
-            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-            cipher.init(Cipher.DECRYPT_MODE, key, new GCMParameterSpec(128, iv));
-            JSONObject credentials = new JSONObject(new String(cipher.doFinal(ciphertext), StandardCharsets.UTF_8));
-            return new String[]{credentials.optString("username", ""), credentials.optString("password", "")};
-        } catch (Exception ignored) { return new String[]{"", ""}; }
-    }
-
-    boolean saveVigiCctv03Credentials(String username, String password) {
-        try {
-            if ((username == null || username.isEmpty()) && (password == null || password.isEmpty())) {
-                return true; // Empty Settings fields must not erase a saved camera login.
-            }
-            if (password == null || password.isEmpty()) {
-                String[] previous = vigiCctv03Credentials();
-                if (!previous[1].isEmpty()) password = previous[1];
-            }
-            KeyStore store = KeyStore.getInstance("AndroidKeyStore");
-            store.load(null);
-            if (!store.containsAlias(VIGI_CCTV03_KEY_ALIAS)) {
-                KeyGenerator generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore");
-                generator.init(new KeyGenParameterSpec.Builder(VIGI_CCTV03_KEY_ALIAS,
-                        KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
-                        .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
-                        .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
-                        .setRandomizedEncryptionRequired(true).build());
-                generator.generateKey();
-                store.load(null);
-            }
-            SecretKey key = (SecretKey) store.getKey(VIGI_CCTV03_KEY_ALIAS, null);
-            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-            cipher.init(Cipher.ENCRYPT_MODE, key);
-            JSONObject credentials = new JSONObject();
-            credentials.put("username", username == null ? "" : username);
-            credentials.put("password", password == null ? "" : password);
-            byte[] ciphertext = cipher.doFinal(credentials.toString().getBytes(StandardCharsets.UTF_8));
-            byte[] combined = new byte[cipher.getIV().length + ciphertext.length];
-            System.arraycopy(cipher.getIV(), 0, combined, 0, cipher.getIV().length);
-            System.arraycopy(ciphertext, 0, combined, cipher.getIV().length, ciphertext.length);
-            if (!getPrefs().edit().putString(PREF_VIGI_CCTV03_CREDENTIALS, Base64.encodeToString(combined, Base64.NO_WRAP)).commit()) return false;
-            cctv03CredentialsRejected = false;
-            return true;
-        } catch (Exception ignored) { return false; }
-    }
-
-    private String pluginApiKey(String provider) {
-        try {
-            String encoded = getPrefs().getString("plugin_api_keys_encrypted", "");
-            if (encoded.isEmpty()) return "";
-            byte[] bytes = Base64.decode(encoded, Base64.NO_WRAP);
-            KeyStore store = KeyStore.getInstance("AndroidKeyStore"); store.load(null);
-            SecretKey key = (SecretKey) store.getKey(VIGI_CCTV03_KEY_ALIAS, null);
-            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-            cipher.init(Cipher.DECRYPT_MODE, key, new GCMParameterSpec(128, java.util.Arrays.copyOfRange(bytes, 0, 12)));
-            JSONObject keys = new JSONObject(new String(cipher.doFinal(java.util.Arrays.copyOfRange(bytes, 12, bytes.length)), StandardCharsets.UTF_8));
-            return keys.optString(provider, "");
-        } catch (Exception unavailable) { return ""; }
-    }
-
-    private boolean savePluginApiKeys(String payload) {
-        try {
-            JSONObject updates = new JSONObject(payload), keys = new JSONObject();
-            for (String provider : new String[]{"plantnet", "plantid", "kindwise"}) {
-                String entered = updates.optString(provider, "").trim();
-                keys.put(provider, entered.isEmpty() ? pluginApiKey(provider) : entered);
-            }
-            KeyStore store = KeyStore.getInstance("AndroidKeyStore"); store.load(null);
-            if (!store.containsAlias(VIGI_CCTV03_KEY_ALIAS)) {
-                KeyGenerator generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore");
-                generator.init(new KeyGenParameterSpec.Builder(VIGI_CCTV03_KEY_ALIAS, KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
-                        .setBlockModes(KeyProperties.BLOCK_MODE_GCM).setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
-                        .setRandomizedEncryptionRequired(true).build()); generator.generateKey(); store.load(null);
-            }
-            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-            cipher.init(Cipher.ENCRYPT_MODE, (SecretKey) store.getKey(VIGI_CCTV03_KEY_ALIAS, null));
-            byte[] encrypted = cipher.doFinal(keys.toString().getBytes(StandardCharsets.UTF_8));
-            byte[] bytes = new byte[cipher.getIV().length + encrypted.length];
-            System.arraycopy(cipher.getIV(), 0, bytes, 0, cipher.getIV().length);
-            System.arraycopy(encrypted, 0, bytes, cipher.getIV().length, encrypted.length);
-            return getPrefs().edit().putString("plugin_api_keys_encrypted", Base64.encodeToString(bytes, Base64.NO_WRAP)).commit();
-        } catch (Exception error) { return false; }
-    }
-
-    private boolean isPrivateIpv4OrBlank(String address) {
-        if (address == null || address.trim().isEmpty()) return true;
-        String[] octets = address.trim().split("\\.", -1);
-        if (octets.length != 4) return false;
-        int[] values = new int[4];
-        for (int i = 0; i < 4; i++) {
-            if (!octets[i].matches("\\d{1,3}")) return false;
-            try { values[i] = Integer.parseInt(octets[i]); }
-            catch (NumberFormatException ignored) { return false; }
-            if (values[i] < 0 || values[i] > 255) return false;
-        }
-        // Tailscale assigns IPv4 node addresses from 100.64.0.0/10.
-        // Permit these VPN addresses without allowing arbitrary public endpoints.
-        boolean privateAddress = values[0] == 10
-                || (values[0] == 172 && values[1] >= 16 && values[1] <= 31)
-                || (values[0] == 192 && values[1] == 168);
-        boolean tailscaleAddress = values[0] == 100 && values[1] >= 64 && values[1] <= 127;
-        return (privateAddress || tailscaleAddress) && values[3] > 0 && values[3] < 255;
-    }
-
-    private boolean hasPersistedReadWriteGrant(Uri treeUri) {
-        if (treeUri == null) return false;
-        for (android.content.UriPermission grant : getContentResolver().getPersistedUriPermissions()) {
-            if (grant.getUri().equals(treeUri) && grant.isReadPermission() && grant.isWritePermission()) return true;
-        }
-        return false;
-    }
-
-    private Uri findGrowPlotScopedTreeUri() {
-        SharedPreferences preferences = getPrefs();
-        Set<String> candidates = new java.util.LinkedHashSet<>();
-        for (String key : new String[]{PREF_GROWPLOT_TREE_URI, PREF_DIAGNOSIS_TREE_URI,
-                PREF_IMAGE_FEED_TREE_URI, feedTreeKey(DEFAULT_PLOT_ID)}) {
-            String value = preferences.getString(key, null);
-            if (value != null) candidates.add(value);
-        }
-        for (String key : preferences.getAll().keySet()) {
-            if (key.startsWith("data_feed_tree_uri_")) {
-                String value = preferences.getString(key, null);
-                if (value != null) candidates.add(value);
-            }
-        }
-        for (android.content.UriPermission grant : getContentResolver().getPersistedUriPermissions()) {
-            Uri uri = grant.getUri();
-            if (uri.getAuthority() != null && uri.getAuthority().toLowerCase(Locale.ROOT)
-                    .contains("google.android.apps.docs")) candidates.add(uri.toString());
-        }
-        for (String value : candidates) {
-            try {
-                Uri candidate = Uri.parse(value);
-                String authority = candidate.getAuthority();
-                if (authority == null || !authority.toLowerCase(Locale.ROOT).contains("google.android.apps.docs")
-                        || !hasPersistedReadWriteGrant(candidate)) continue;
-                String name = getDocumentName(candidate);
-                if ("GrowPlot".equalsIgnoreCase(name) || "Projects".equalsIgnoreCase(name)
-                        || "My Drive".equalsIgnoreCase(name) || "Drive".equalsIgnoreCase(name)) return candidate;
-            } catch (Exception ignored) { }
-        }
-        return null;
-    }
-
-    private String resolveGrowPlotDocumentId(Uri treeUri) throws Exception {
-        String id = DocumentsContract.getTreeDocumentId(treeUri);
-        String selectedName = getDocumentName(treeUri);
-        if ("GrowPlot".equalsIgnoreCase(selectedName)) return id;
-        if ("Projects".equalsIgnoreCase(selectedName)) return findOrCreateChildFolder(treeUri, id, "GrowPlot");
-        if ("My Drive".equalsIgnoreCase(selectedName) || "Drive".equalsIgnoreCase(selectedName)) {
-            String projectsId = findOrCreateChildFolder(treeUri, id, "Projects");
-            return findOrCreateChildFolder(treeUri, projectsId, "GrowPlot");
-        }
-        return null;
-    }
-
-    private void rememberGrowPlotTreeIfScoped(Uri treeUri) {
-        try {
-            if (resolveGrowPlotDocumentId(treeUri) != null) {
-                getPrefs().edit().putString(PREF_GROWPLOT_TREE_URI, treeUri.toString()).apply();
-            }
-        } catch (Exception ignored) { }
-    }
-
-    private String relativePathFromGrowPlot(String displayPath) {
-        if (displayPath == null) return null;
-        for (String marker : new String[]{"/Projects/GrowPlot/", "/My Drive/GrowPlot/", "/GrowPlot/"}) {
-            int index = displayPath.indexOf(marker);
-            if (index >= 0) {
-                String path = displayPath.substring(index + marker.length()).replace('\\', '/');
-                if (path.matches("[A-Za-z0-9 _./-]{1,240}") && !path.contains("../") && !path.startsWith("../")) return path;
-            }
-        }
-        return null;
-    }
-
-    private void installCctv01VlcPositionListener() {
-        if (web == null || isFinishing()) return;
-        web.evaluateJavascript("(()=>{const host=document.querySelector('#cameras');if(!host)return false;let css=document.getElementById('growplot-vlc-cctv-style');if(!css){css=document.createElement('style');css.id='growplot-vlc-cctv-style';css.textContent='#cameras .camera:nth-child(-n+3) .feedimg,#cameras .camera:nth-child(-n+3) .mocktag,#cameras .camera:nth-child(-n+3) .stamp{display:none!important}';document.head.appendChild(css)}let scheduled=false,last=['','',''];const send=()=>{if(scheduled)return true;scheduled=true;requestAnimationFrame(()=>{scheduled=false;const dashboard=document.getElementById('mainDashboard'),health=document.getElementById('healthPanel'),auth=document.getElementById('authScreen'),blockingOverlayActive=[...document.querySelectorAll('.modal.open,dialog[open],[role=\"dialog\"][aria-modal=\"true\"],#growplotUserManagementPage')].some(el=>{if(el.hidden)return false;const style=getComputedStyle(el);return style.display!=='none'&&style.visibility!=='hidden'&&style.visibility!=='collapse'&&el.getClientRects().length>0}),homeActive=!!dashboard&&!dashboard.hidden&&(!health||health.hidden)&&!blockingOverlayActive&&(!auth||auth.hidden);if(window.GrowPlotBridge)GrowPlotBridge.setCctvVlcFeedsAllowedOnActiveScreen(homeActive);for(let i=0;i<3;i++){const e=document.querySelector('#cameras .camera:nth-child('+(i+1)+') .feed');if(!e)continue;const im=e.querySelector('.feedimg');if(im&&im.hasAttribute('src'))im.removeAttribute('src');const r=e.getBoundingClientRect(),offscreen=r.bottom<=0||r.top>=window.innerHeight,coords=[r.left,r.top,r.width,r.height,offscreen?1:0,homeActive?1:0].join(',');if(coords!==last[i]){last[i]=coords;if(i===0)GrowPlotBridge.updateCctv01VlcPosition(coords);else if(i===1)GrowPlotBridge.updateCctv02VlcPosition(coords);else GrowPlotBridge.updateCctv03VlcPosition(coords)}}});return true};if(!window.__growplotVlcPositionInstalled){window.addEventListener('scroll',send,{passive:true});window.addEventListener('resize',send,{passive:true});new MutationObserver(send).observe(host,{childList:true,subtree:true});new MutationObserver(send).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['hidden','class','open','style','role','aria-modal']});window.__growplotVlcPositionInstalled=true}send();setTimeout(send,400);setTimeout(send,1200);return true})()", null);
-    }
-
-    /** Keep native VLC children out of the way unless the dashboard is active. */
-    private void setCctvVlcFeedsAllowedOnActiveScreen(boolean allowed) {
-        cctvVlcFeedsAllowedOnActiveScreen = allowed;
-        if (allowed) return; // Position callbacks reveal feeds after valid dashboard bounds arrive.
-        hideVlcFrame(ipWebcamVlcFrame);
-        hideVlcFrame(ipWebcam2VlcFrame);
-        hideVlcFrame(ipWebcam3VlcFrame);
-        cctv01OverlayShown = false;
-        cctv02OverlayShown = false;
-        cctv03OverlayShown = false;
-    }
-
-    private void hideVlcFrame(FrameLayout frame) {
-        if (frame == null) return;
-        frame.animate().cancel();
-        frame.setAlpha(0f);
-        frame.setVisibility(View.INVISIBLE);
-    }
-
-    private void positionCctv01Vlc(String coordinates) {
-        if (appRoot == null || coordinates == null || isFinishing()) return;
-        try {
-            String[] values = coordinates.split(",");
-            if (values.length < 6) return;
-            float density = getResources().getDisplayMetrics().density;
-            int left = Math.round(Float.parseFloat(values[0]) * density);
-            int top = Math.round(Float.parseFloat(values[1]) * density);
-            int width = Math.round(Float.parseFloat(values[2]) * density);
-            int height = Math.round(Float.parseFloat(values[3]) * density);
-            boolean offscreen = "1".equals(values[4]);
-            boolean homeActive = "1".equals(values[5]);
-            boolean shouldShow = !offscreen && homeActive && cctvVlcFeedsAllowedOnActiveScreen;
-            if (width <= 0 || height <= 0) return;
-
-            if (ipWebcamVlcFrame == null) {
-                ipWebcamVlcFrame = new FrameLayout(this);
-                ipWebcamVlcFrame.setBackgroundColor(Color.BLACK);
-                ipWebcamVlcFrame.setAlpha(0f);
-                ipWebcamVlcFrame.setVisibility(View.INVISIBLE);
-                ipWebcamVlcFrame.setClipChildren(true);
-                ipWebcamVlcFrame.setClipToPadding(true);
-                ipWebcamVlcFrame.setElevation(dp(8));
-                ipWebcamVlcLayout = new VLCVideoLayout(this);
-                ipWebcamVlcLayout.setBackgroundColor(Color.BLACK);
-                ipWebcamVlcFrame.addView(ipWebcamVlcLayout, new FrameLayout.LayoutParams(-1, -1));
-                installCctvStatusDot(ipWebcamVlcFrame, 1);
-                ipWebcamRefreshButton = new TextView(this);
-                ipWebcamRefreshButton.setText("â†» Refresh");
-                ipWebcamRefreshButton.setTextColor(Color.WHITE);
-                ipWebcamRefreshButton.setTextSize(12);
-                ipWebcamRefreshButton.setTypeface(null, android.graphics.Typeface.BOLD);
-                ipWebcamRefreshButton.setGravity(Gravity.CENTER);
-                ipWebcamRefreshButton.setPadding(dp(10), 0, dp(10), 0);
-                ipWebcamRefreshButton.setContentDescription("Reconnect to IP Webcam");
-                GradientDrawable buttonBackground = new GradientDrawable();
-                buttonBackground.setColor(0xE6174A35);
-                buttonBackground.setCornerRadius(dp(8));
-                buttonBackground.setStroke(dp(1), 0xFFEAF4EC);
-                ipWebcamRefreshButton.setBackground(buttonBackground);
-                ipWebcamRefreshButton.setElevation(dp(6));
-                ipWebcamRefreshButton.setOnClickListener(view -> reconnectIpWebcamVlc());
-                FrameLayout.LayoutParams buttonParams = new FrameLayout.LayoutParams(-2, dp(36), Gravity.TOP | Gravity.RIGHT);
-                buttonParams.setMargins(0, dp(8), dp(8), 0);
-                ipWebcamVlcFrame.addView(ipWebcamRefreshButton, buttonParams);
-                FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(width, height, Gravity.TOP | Gravity.LEFT);
-                params.leftMargin = left;
-                params.topMargin = top;
-                appRoot.addView(ipWebcamVlcFrame, params);
-                if (activityResumed) startIpWebcamVlc(ipWebcamVlcLayout);
-            } else {
-                FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) ipWebcamVlcFrame.getLayoutParams();
-                if (params.width != width || params.height != height || params.leftMargin != left || params.topMargin != top) {
-                    params.width = width;
-                    params.height = height;
-                    params.leftMargin = left;
-                    params.topMargin = top;
-                    ipWebcamVlcFrame.setLayoutParams(params);
-                }
-            }
-            if (shouldShow != cctv01OverlayShown) {
-                cctv01OverlayShown = shouldShow;
-                ipWebcamVlcFrame.animate().cancel();
-                if (shouldShow) {
-                    ipWebcamVlcFrame.setAlpha(0f);
-                    ipWebcamVlcFrame.setVisibility(View.VISIBLE);
-                    ipWebcamVlcFrame.animate().alpha(1f).setDuration(180L).start();
-                } else if (!homeActive) {
-                    ipWebcamVlcFrame.animate().alpha(0f).setDuration(180L)
-                            .withEndAction(() -> {
-                                if (!cctv01OverlayShown && ipWebcamVlcFrame != null) {
-                                    ipWebcamVlcFrame.setVisibility(View.INVISIBLE);
-                                }
-                            }).start();
-                } else {
-                    ipWebcamVlcFrame.animate().cancel();
-                    ipWebcamVlcFrame.setAlpha(0f);
-                    ipWebcamVlcFrame.setVisibility(View.INVISIBLE);
-                }
-            }
-        } catch (Exception ignored) { }
-    }
-
-    // Blink red when inactive and green only while the VLC player reports playback.
-    private final TextView[] cctvStatusDots = new TextView[3];
-    private final Runnable cctvStatusRefresh = new Runnable() {
-        @Override public void run() {
-            org.videolan.libvlc.MediaPlayer[] players = {ipWebcamVlcPlayer, ipWebcam2VlcPlayer, ipWebcam3VlcPlayer};
-            for (int i = 0; i < players.length; i++) {
-                TextView dot = cctvStatusDots[i];
-                if (dot == null) continue;
-                boolean playing = false;
-                try { playing = players[i] != null && players[i].isPlaying(); }
-                catch (Exception ignored) { }
-                dot.setTextColor(playing ? Color.GREEN : ((System.currentTimeMillis() / 500L) % 2 == 0 ? Color.RED : Color.TRANSPARENT));
-                dot.setContentDescription("CCTV " + (i + 1) + (playing ? " active" : " inactive"));
-            }
-            mainHandler.postDelayed(this, 1000);
-        }
-    };
-
-    private void installCctvStatusDot(FrameLayout frame, int camera) {
-        TextView dot = new TextView(this);
-        dot.setText("â—");
-        dot.setTextSize(19);
-        dot.setTextColor(Color.RED);
-        dot.setContentDescription("CCTV " + camera + " inactive");
-        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(dp(30), dp(30), Gravity.TOP | Gravity.LEFT);
-        params.leftMargin = dp(7);
-        params.topMargin = dp(5);
-        frame.addView(dot, params);
-        dot.bringToFront();
-        android.view.animation.AlphaAnimation blink = new android.view.animation.AlphaAnimation(1f, 0.25f);
-        blink.setDuration(650);
-        blink.setRepeatMode(android.view.animation.Animation.REVERSE);
-        blink.setRepeatCount(android.view.animation.Animation.INFINITE);
-        dot.startAnimation(blink);
-        cctvStatusDots[camera - 1] = dot;
-        mainHandler.removeCallbacks(cctvStatusRefresh);
-        mainHandler.post(cctvStatusRefresh);
-    }
-
-    private void startIpWebcamVlc(VLCVideoLayout videoLayout) {
-        stopIpWebcamVlc();
-        ipWebcamVlcLayout = videoLayout;
-        try {
-            ArrayList<String> options = new ArrayList<>();
-            options.add("--no-audio");
-            options.add("--network-caching=250");
-            options.add("--live-caching=250");
-            ipWebcamVlc = new LibVLC(this, options);
-            ipWebcamVlcPlayer = new org.videolan.libvlc.MediaPlayer(ipWebcamVlc);
-            // Use TextureView composition so Android modal dialogs can cover and hide
-            // the VLC surface instead of a SurfaceView layer staying on top.
-            ipWebcamVlcPlayer.attachViews(videoLayout, null, true, false);
-            // IP Webcam MJPEG: reconnect on VLC playback failure rather than leaving a black frame.
-            final org.videolan.libvlc.MediaPlayer sessionPlayer = ipWebcamVlcPlayer;
-            sessionPlayer.setEventListener(event -> {
-                if (event.type == org.videolan.libvlc.MediaPlayer.Event.EncounteredError) {
-                    mainHandler.postDelayed(() -> {
-                        if (!isFinishing() && activityResumed && ipWebcamVlcPlayer == sessionPlayer
-                                && ipWebcamVlcLayout == videoLayout) {
-                            startIpWebcamVlc(videoLayout);
-                        }
-                    }, 5000L);
-                }
-            });
-            if (cctvStreamUrl(1).isEmpty()) { stopIpWebcamVlc(); return; }
-            Media media = new Media(ipWebcamVlc, Uri.parse(cctvStreamUrl(1)));
-            media.addOption(":network-caching=250");
-            media.addOption(":live-caching=250");
-            ipWebcamVlcPlayer.setMedia(media);
-            media.release();
-            ipWebcamVlcPlayer.play();
-            mainHandler.removeCallbacks(cctv01SnapshotTicker);
-            mainHandler.postDelayed(cctv01SnapshotTicker, cctvSnapshotIntervalMillis);
-        } catch (Exception error) {
-            stopIpWebcamVlc();
-            TextView message = new TextView(this);
-            message.setText("VLC could not start this stream");
-            message.setTextColor(Color.WHITE);
-            message.setGravity(Gravity.CENTER);
-            if (videoLayout.getChildCount() == 0) videoLayout.addView(message,
-                    new FrameLayout.LayoutParams(-1, -1));
-        }
-    }
-
-    private void positionCctv02Vlc(String coordinates) {
-        if (appRoot == null || coordinates == null || isFinishing()) return;
-        try {
-            String[] values = coordinates.split(",");
-            if (values.length < 6) return;
-            float density = getResources().getDisplayMetrics().density;
-            int left = Math.round(Float.parseFloat(values[0]) * density);
-            int top = Math.round(Float.parseFloat(values[1]) * density);
-            int width = Math.round(Float.parseFloat(values[2]) * density);
-            int height = Math.round(Float.parseFloat(values[3]) * density);
-            boolean offscreen = "1".equals(values[4]);
-            boolean homeActive = "1".equals(values[5]);
-            boolean shouldShow = !offscreen && homeActive && cctvVlcFeedsAllowedOnActiveScreen;
-            if (width <= 0 || height <= 0) return;
-
-            if (ipWebcam2VlcFrame == null) {
-                ipWebcam2VlcFrame = new FrameLayout(this);
-                ipWebcam2VlcFrame.setBackgroundColor(Color.BLACK);
-                ipWebcam2VlcFrame.setAlpha(0f);
-                ipWebcam2VlcFrame.setVisibility(View.INVISIBLE);
-                ipWebcam2VlcFrame.setClipChildren(true);
-                ipWebcam2VlcFrame.setClipToPadding(true);
-                ipWebcam2VlcFrame.setElevation(dp(8));
-                ipWebcam2VlcLayout = new VLCVideoLayout(this);
-                ipWebcam2VlcLayout.setBackgroundColor(Color.BLACK);
-                ipWebcam2VlcFrame.addView(ipWebcam2VlcLayout, new FrameLayout.LayoutParams(-1, -1));
-                installCctvStatusDot(ipWebcam2VlcFrame, 2);
-                ipWebcam2RefreshButton = new TextView(this);
-                ipWebcam2RefreshButton.setText("â†» Refresh");
-                ipWebcam2RefreshButton.setTextColor(Color.WHITE);
-                ipWebcam2RefreshButton.setTextSize(12);
-                ipWebcam2RefreshButton.setTypeface(null, android.graphics.Typeface.BOLD);
-                ipWebcam2RefreshButton.setGravity(Gravity.CENTER);
-                ipWebcam2RefreshButton.setPadding(dp(10), 0, dp(10), 0);
-                ipWebcam2RefreshButton.setContentDescription("Reconnect to CCTV02 IP Webcam");
-                GradientDrawable buttonBackground = new GradientDrawable();
-                buttonBackground.setColor(0xE6174A35);
-                buttonBackground.setCornerRadius(dp(8));
-                buttonBackground.setStroke(dp(1), 0xFFEAF4EC);
-                ipWebcam2RefreshButton.setBackground(buttonBackground);
-                ipWebcam2RefreshButton.setElevation(dp(6));
-                ipWebcam2RefreshButton.setOnClickListener(view -> reconnectCctv02Vlc());
-                FrameLayout.LayoutParams buttonParams = new FrameLayout.LayoutParams(-2, dp(36), Gravity.TOP | Gravity.RIGHT);
-                buttonParams.setMargins(0, dp(8), dp(8), 0);
-                ipWebcam2VlcFrame.addView(ipWebcam2RefreshButton, buttonParams);
-                FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(width, height, Gravity.TOP | Gravity.LEFT);
-                params.leftMargin = left;
-                params.topMargin = top;
-                appRoot.addView(ipWebcam2VlcFrame, params);
-                if (activityResumed) startCctv02Vlc(ipWebcam2VlcLayout);
-            } else {
-                FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) ipWebcam2VlcFrame.getLayoutParams();
-                if (params.width != width || params.height != height || params.leftMargin != left || params.topMargin != top) {
-                    params.width = width;
-                    params.height = height;
-                    params.leftMargin = left;
-                    params.topMargin = top;
-                    ipWebcam2VlcFrame.setLayoutParams(params);
-                }
-            }
-            if (shouldShow != cctv02OverlayShown) {
-                cctv02OverlayShown = shouldShow;
-                ipWebcam2VlcFrame.animate().cancel();
-                if (shouldShow) {
-                    ipWebcam2VlcFrame.setAlpha(0f);
-                    ipWebcam2VlcFrame.setVisibility(View.VISIBLE);
-                    ipWebcam2VlcFrame.animate().alpha(1f).setDuration(180L).start();
-                } else if (!homeActive) {
-                    ipWebcam2VlcFrame.animate().alpha(0f).setDuration(180L)
-                            .withEndAction(() -> {
-                                if (!cctv02OverlayShown && ipWebcam2VlcFrame != null) {
-                                    ipWebcam2VlcFrame.setVisibility(View.INVISIBLE);
-                                }
-                            }).start();
-                } else {
-                    ipWebcam2VlcFrame.animate().cancel();
-                    ipWebcam2VlcFrame.setAlpha(0f);
-                    ipWebcam2VlcFrame.setVisibility(View.INVISIBLE);
-                }
-            }
-        } catch (Exception ignored) { }
-    }
-
-    private void positionCctv03Vlc(String coordinates) {
-        if (appRoot == null || coordinates == null || isFinishing()) return;
-        try {
-            String[] values = coordinates.split(",");
-            if (values.length < 6) return;
-            float density = getResources().getDisplayMetrics().density;
-            int left = Math.round(Float.parseFloat(values[0]) * density);
-            int top = Math.round(Float.parseFloat(values[1]) * density);
-            int width = Math.round(Float.parseFloat(values[2]) * density);
-            int height = Math.round(Float.parseFloat(values[3]) * density);
-            boolean offscreen = "1".equals(values[4]);
-            boolean homeActive = "1".equals(values[5]);
-            boolean shouldShow = !offscreen && homeActive && cctvVlcFeedsAllowedOnActiveScreen;
-            if (width <= 0 || height <= 0) return;
-
-            if (ipWebcam3VlcFrame == null) {
-                ipWebcam3VlcFrame = new FrameLayout(this);
-                ipWebcam3VlcFrame.setBackgroundColor(Color.BLACK);
-                ipWebcam3VlcFrame.setAlpha(0f);
-                ipWebcam3VlcFrame.setVisibility(View.INVISIBLE);
-                ipWebcam3VlcFrame.setClipChildren(true);
-                ipWebcam3VlcFrame.setClipToPadding(true);
-                ipWebcam3VlcFrame.setElevation(dp(8));
-                ipWebcam3VlcLayout = new VLCVideoLayout(this);
-                ipWebcam3VlcLayout.setBackgroundColor(Color.BLACK);
-                ipWebcam3VlcFrame.addView(ipWebcam3VlcLayout, new FrameLayout.LayoutParams(-1, -1));
-                installCctvStatusDot(ipWebcam3VlcFrame, 3);
-                ipWebcam3RefreshButton = new TextView(this);
-                ipWebcam3RefreshButton.setText("â†» Refresh");
-                ipWebcam3RefreshButton.setTextColor(Color.WHITE);
-                ipWebcam3RefreshButton.setTextSize(12);
-                ipWebcam3RefreshButton.setTypeface(null, android.graphics.Typeface.BOLD);
-                ipWebcam3RefreshButton.setGravity(Gravity.CENTER);
-                ipWebcam3RefreshButton.setPadding(dp(10), 0, dp(10), 0);
-                ipWebcam3RefreshButton.setContentDescription("Reconnect to VIGI CCTV03");
-                GradientDrawable buttonBackground = new GradientDrawable();
-                buttonBackground.setColor(0xE6174A35);
-                buttonBackground.setCornerRadius(dp(8));
-                buttonBackground.setStroke(dp(1), 0xFFEAF4EC);
-                ipWebcam3RefreshButton.setBackground(buttonBackground);
-                ipWebcam3RefreshButton.setElevation(dp(6));
-                ipWebcam3RefreshButton.setOnClickListener(view -> reconnectCctv03Vlc());
-                FrameLayout.LayoutParams buttonParams = new FrameLayout.LayoutParams(-2, dp(36), Gravity.TOP | Gravity.RIGHT);
-                buttonParams.setMargins(0, dp(8), dp(8), 0);
-                ipWebcam3VlcFrame.addView(ipWebcam3RefreshButton, buttonParams);
-                FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(width, height, Gravity.TOP | Gravity.LEFT);
-                params.leftMargin = left;
-                params.topMargin = top;
-                appRoot.addView(ipWebcam3VlcFrame, params);
-                if (activityResumed) startVigiCctv03Vlc(ipWebcam3VlcLayout);
-            } else {
-                FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) ipWebcam3VlcFrame.getLayoutParams();
-                if (params.width != width || params.height != height || params.leftMargin != left || params.topMargin != top) {
-                    params.width = width;
-                    params.height = height;
-                    params.leftMargin = left;
-                    params.topMargin = top;
-                    ipWebcam3VlcFrame.setLayoutParams(params);
-                }
-            }
-            if (shouldShow != cctv03OverlayShown) {
-                cctv03OverlayShown = shouldShow;
-                ipWebcam3VlcFrame.animate().cancel();
-                if (shouldShow) {
-                    ipWebcam3VlcFrame.setAlpha(0f);
-                    ipWebcam3VlcFrame.setVisibility(View.VISIBLE);
-                    ipWebcam3VlcFrame.animate().alpha(1f).setDuration(180L).start();
-                } else if (!homeActive) {
-                    ipWebcam3VlcFrame.animate().alpha(0f).setDuration(180L)
-                            .withEndAction(() -> {
-                                if (!cctv03OverlayShown && ipWebcam3VlcFrame != null) {
-                                    ipWebcam3VlcFrame.setVisibility(View.INVISIBLE);
-                                }
-                            }).start();
-                } else {
-                    ipWebcam3VlcFrame.animate().cancel();
-                    ipWebcam3VlcFrame.setAlpha(0f);
-                    ipWebcam3VlcFrame.setVisibility(View.INVISIBLE);
-                }
-            }
-        } catch (Exception ignored) { }
-    }
-
-    private void startCctv02Vlc(VLCVideoLayout videoLayout) {
-        stopCctv02Vlc();
-        ipWebcam2VlcLayout = videoLayout;
-        try {
-            ArrayList<String> options = new ArrayList<>();
-            options.add("--no-audio");
-            options.add("--network-caching=250");
-            options.add("--live-caching=250");
-            ipWebcam2Vlc = new LibVLC(this, options);
-            ipWebcam2VlcPlayer = new org.videolan.libvlc.MediaPlayer(ipWebcam2Vlc);
-            // Match CCTV01 so this feed respects the same app/window layering.
-            ipWebcam2VlcPlayer.attachViews(videoLayout, null, true, false);
-            // IP Webcam MJPEG: reconnect on VLC playback failure rather than leaving a black frame.
-            final org.videolan.libvlc.MediaPlayer sessionPlayer = ipWebcam2VlcPlayer;
-            sessionPlayer.setEventListener(event -> {
-                if (event.type == org.videolan.libvlc.MediaPlayer.Event.EncounteredError) {
-                    mainHandler.postDelayed(() -> {
-                        if (!isFinishing() && activityResumed && ipWebcam2VlcPlayer == sessionPlayer
-                                && ipWebcam2VlcLayout == videoLayout) {
-                            startCctv02Vlc(videoLayout);
-                        }
-                    }, 5000L);
-                }
-            });
-            String route = cctvStreamUrl(2);
-            if (route.isEmpty()) { stopCctv02Vlc(); return; }
-            if (userStreamMode && (route.startsWith("rtsp://") || route.startsWith("rtsps://"))) {
-                String[] credentials = vigiCctv03Credentials();
-                if (credentials[0].isEmpty() || credentials[1].isEmpty()) {
-                    stopCctv02Vlc();
-                    promptForAssignedVigiCctv02Credentials();
-                    return;
-                }
-                int schemeEnd = route.indexOf("://") + 3;
-                if (!route.substring(schemeEnd).split("/",2)[0].contains("@")) {
-                    route = route.substring(0,schemeEnd)+Uri.encode(credentials[0])+":"+Uri.encode(credentials[1])+"@"+route.substring(schemeEnd);
-                }
-            }
-            Media media = new Media(ipWebcam2Vlc, Uri.parse(route));
-            media.addOption(":network-caching=250");
-            media.addOption(":live-caching=250");
-            ipWebcam2VlcPlayer.setMedia(media);
-            media.release();
-            ipWebcam2VlcPlayer.play();
-            mainHandler.removeCallbacks(cctv02SnapshotTicker);
-            mainHandler.postDelayed(cctv02SnapshotTicker, nextSnapshotCheckDelay(2));
-        } catch (Exception error) {
-            stopCctv02Vlc();
-            TextView message = new TextView(this);
-            message.setText("VLC could not start the CCTV02 stream");
-            message.setTextColor(Color.WHITE);
-            message.setGravity(Gravity.CENTER);
-            if (videoLayout.getChildCount() == 0) videoLayout.addView(message,
-                    new FrameLayout.LayoutParams(-1, -1));
-        }
-    }
-
-    private void reconnectCctv02Vlc() {
-        if (isFinishing() || !activityResumed) return;
-        VLCVideoLayout videoLayout = ipWebcam2VlcLayout;
-        if (videoLayout == null) {
-            installCctv01VlcPositionListener();
-            return;
-        }
-        stopCctv02Vlc();
-        if (ipWebcam2RefreshButton != null) {
-            ipWebcam2RefreshButton.setEnabled(false);
-            ipWebcam2RefreshButton.setAlpha(0.65f);
-        }
-        Toast.makeText(this, "Reconnecting to CCTV02 IP Webcamâ€¦", Toast.LENGTH_SHORT).show();
-        mainHandler.postDelayed(() -> {
-            if (isFinishing() || !activityResumed || ipWebcam2VlcLayout != videoLayout) return;
-            startCctv02Vlc(videoLayout);
-            if (ipWebcam2RefreshButton != null) {
-                ipWebcam2RefreshButton.setEnabled(true);
-                ipWebcam2RefreshButton.setAlpha(1f);
-            }
-        }, 500);
-    }
-
-    private void stopCctv02Vlc() {
-        mainHandler.removeCallbacks(cctv02SnapshotTicker);
-        if (ipWebcam2VlcPlayer != null) {
-            try { ipWebcam2VlcPlayer.stop(); } catch (Exception ignored) { }
-            try { ipWebcam2VlcPlayer.detachViews(); } catch (Exception ignored) { }
-            ipWebcam2VlcPlayer.release();
-            ipWebcam2VlcPlayer = null;
-        }
-        if (ipWebcam2Vlc != null) {
-            ipWebcam2Vlc.release();
-            ipWebcam2Vlc = null;
-        }
-    }
-
-    private void startVigiCctv03Vlc(VLCVideoLayout videoLayout) {
-        stopCctv03Vlc();
-        ipWebcam3VlcLayout = videoLayout;
-        if (userStreamMode) {
-            String route = cctvStreamUrl(3);
-            if (route == null || route.isEmpty()) { stopCctv03Vlc(); return; }
-            // Assigned RTSP feeds must request camera credentials at connection time.
-            // Never persist the camera password in Firebase or embed it in a log.
-            if (route.startsWith("rtsp://") || route.startsWith("rtsps://")) {
-                String[] credentials = vigiCctv03Credentials();
-                if (credentials[0].isEmpty() || credentials[1].isEmpty() || cctv03CredentialsRejected) {
-                    showCctv03VigiMessage(videoLayout, "Enter VIGI credentials to connect");
-                    promptForCctv03VigiCredentials();
-                    return;
-                }
-                if (!route.substring(route.indexOf("://") + 3).split("/", 2)[0].contains("@")) {
-                    int schemeEnd = route.indexOf("://") + 3;
-                    route = route.substring(0, schemeEnd)
-                            + Uri.encode(credentials[0]) + ":" + Uri.encode(credentials[1]) + "@"
-                            + route.substring(schemeEnd);
-                }
-            }
-            try {
-                ArrayList<String> options = new ArrayList<>();
-                options.add("--no-audio"); options.add("--network-caching=350");
-                ipWebcam3Vlc = new LibVLC(this, options);
-                ipWebcam3VlcPlayer = new org.videolan.libvlc.MediaPlayer(ipWebcam3Vlc);
-                ipWebcam3VlcPlayer.attachViews(videoLayout, null, true, false);
-                Media media = new Media(ipWebcam3Vlc, Uri.parse(route));
-                media.addOption(":network-caching=350");
-                ipWebcam3VlcPlayer.setMedia(media); media.release(); ipWebcam3VlcPlayer.play();
-            } catch (Exception error) { stopCctv03Vlc(); }
-            return;
-        }
-        String ip = cctvIp(3);
-        String[] credentials = vigiCctv03Credentials();
-        for (int i = videoLayout.getChildCount() - 1; i >= 0; i--) {
-            View child = videoLayout.getChildAt(i);
-            if (child instanceof TextView) videoLayout.removeViewAt(i);
-        }
-        if (ip.isEmpty()) {
-            showCctv03VigiMessage(videoLayout, "Set the CCTV03 VIGI IP address in Settings");
-            return;
-        }
-        if (credentials[0].isEmpty() || credentials[1].isEmpty() || cctv03CredentialsRejected) {
-            showCctv03VigiMessage(videoLayout, "Enter the VIGI camera account to connect");
-            promptForCctv03VigiCredentials();
-            return;
-        }
-        try {
-            ArrayList<String> options = new ArrayList<>();
-            options.add("--no-audio");
-            options.add("--network-caching=500");
-            options.add("--live-caching=500");
-            ipWebcam3Vlc = new LibVLC(this, options);
-            ipWebcam3VlcPlayer = new org.videolan.libvlc.MediaPlayer(ipWebcam3Vlc);
-            ipWebcam3VlcPlayer.attachViews(videoLayout, null, true, false);
-            final org.videolan.libvlc.MediaPlayer sessionPlayer = ipWebcam3VlcPlayer;
-            sessionPlayer.setEventListener(event -> {
-                if (event.type == org.videolan.libvlc.MediaPlayer.Event.EncounteredError) {
-                    mainHandler.post(() -> checkCctv03RejectedCredentials(sessionPlayer, ip, credentials));
-                }
-            });
-            String rtspUrl = "rtsp://" + Uri.encode(credentials[0]) + ":" + Uri.encode(credentials[1])
-                    + "@" + ip + ":554/stream1";
-            Media media = new Media(ipWebcam3Vlc, Uri.parse(rtspUrl));
-            media.addOption(":rtsp-user=" + credentials[0]);
-            media.addOption(":rtsp-pwd=" + credentials[1]);
-            media.addOption(":network-caching=500");
-            media.addOption(":live-caching=500");
-            ipWebcam3VlcPlayer.setMedia(media);
-            media.release();
-            ipWebcam3VlcPlayer.play();
-            mainHandler.removeCallbacks(cctv03SnapshotTicker);
-            mainHandler.postDelayed(cctv03SnapshotTicker, snapshotDue(3) ? 5000L : cctvSnapshotIntervalMillis);
-        } catch (Exception error) {
-            stopCctv03Vlc();
-            TextView message = new TextView(this);
-            message.setText("VLC could not start the VIGI stream");
-            message.setTextColor(Color.WHITE);
-            message.setGravity(Gravity.CENTER);
-            if (videoLayout.getChildCount() == 0) videoLayout.addView(message, new FrameLayout.LayoutParams(-1, -1));
-        }
-    }
-
-    private void showCctv03VigiMessage(VLCVideoLayout layout, String messageText) {
-        for (int i = layout.getChildCount() - 1; i >= 0; i--) {
-            View child = layout.getChildAt(i);
-            if (child instanceof TextView) layout.removeViewAt(i);
-        }
-        TextView message = new TextView(this);
-        message.setText(messageText);
-        message.setTextColor(Color.WHITE);
-        message.setGravity(Gravity.CENTER);
-        message.setPadding(dp(12), dp(8), dp(12), dp(8));
-        layout.addView(message, new FrameLayout.LayoutParams(-1, -1));
-    }
-
-    private void checkCctv03RejectedCredentials(org.videolan.libvlc.MediaPlayer player, String ip, String[] credentials) {
-        if (player != ipWebcam3VlcPlayer || cctv03CredentialCheckInProgress) return;
-        cctv03CredentialCheckInProgress = true;
-        cctvSnapshotWorker.execute(() -> {
-            RtspCredentialVerifier.Result result = RtspCredentialVerifier.verify(ip, 554, credentials[0], credentials[1]);
-            mainHandler.post(() -> {
-                cctv03CredentialCheckInProgress = false;
-                if (player != ipWebcam3VlcPlayer || !ip.equals(cctvIp(3))) return;
-                if (result == RtspCredentialVerifier.Result.REJECTED) {
-                    cctv03CredentialsRejected = true;
-                    if (ipWebcam3VlcLayout != null) showCctv03VigiMessage(ipWebcam3VlcLayout, "VIGI rejected the saved login. Update the camera username or password.");
-                    if (cctvVlcFeedsAllowedOnActiveScreen) promptForCctv03VigiCredentials();
-                } else if (ipWebcam3VlcLayout != null) {
-                    showCctv03VigiMessage(ipWebcam3VlcLayout, "VIGI RTSP stream unavailable. Retrying connectionâ€¦");
-                    final VLCVideoLayout retryLayout = ipWebcam3VlcLayout;
-                    mainHandler.postDelayed(() -> {
-                        if (!isFinishing() && activityResumed && cctvVlcFeedsAllowedOnActiveScreen
-                                && !userStreamMode && !cctv03CredentialsRejected
-                                && player == ipWebcam3VlcPlayer && ipWebcam3VlcLayout == retryLayout) {
-                            startVigiCctv03Vlc(retryLayout);
-                        }
-                    }, 5000L);
-                }
-            });
-        });
-    }
-
-    private void promptForCctv03VigiCredentials() {
-        if (!activityResumed || isFinishing() || cctv03CredentialsPromptShowing) return;
-        cctv03CredentialsPromptShowing = true;
-        LinearLayout form = new LinearLayout(this);
-        form.setOrientation(LinearLayout.VERTICAL);
-        form.setPadding(dp(24), dp(8), dp(24), dp(4));
-        TextView note = new TextView(this);
-        note.setText("Enter the camera account created in the VIGI app. GrowPlot will save it encrypted on this device.");
-        form.addView(note, new LinearLayout.LayoutParams(-1, -2));
-        EditText username = new EditText(this);
-        username.setSingleLine(true);
-        username.setHint("VIGI username");
-        String[] savedCredentials = vigiCctv03Credentials();
-        username.setText(savedCredentials[0]);
-        username.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD);
-        form.addView(username, new LinearLayout.LayoutParams(-1, -2));
-        EditText password = new EditText(this);
-        password.setSingleLine(true);
-        password.setHint("VIGI password");
-        if (!cctv03CredentialsRejected) password.setText(savedCredentials[1]);
-        password.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
-        form.addView(password, new LinearLayout.LayoutParams(-1, -2));
-
-        android.app.AlertDialog dialog = new android.app.AlertDialog.Builder(this)
-                .setTitle("Connect CCTV03 Â· VIGI")
-                .setView(form)
-                .setNegativeButton("Cancel", (d, which) -> { })
-                .setPositiveButton("Connect", null)
-                .create();
-        dialog.setOnDismissListener(d -> cctv03CredentialsPromptShowing = false);
-        dialog.setOnShowListener(ignored -> dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener(view -> {
-            String user = username.getText().toString().trim();
-            String secret = password.getText().toString();
-            if (user.isEmpty()) {
-                username.setError("Enter the VIGI username");
-                return;
-            }
-            if (secret.isEmpty()) {
-                password.setError("Enter the VIGI password");
-                return;
-            }
-            if (!saveVigiCctv03Credentials(user, secret)) {
-                password.setError("Could not protect these credentials on this device");
-                return;
-            }
-            username.setText("");
-            password.setText("");
-            dialog.dismiss();
-            reconnectCctv03Vlc();
-        }));
-        dialog.show();
-    }
-
-    // CCTV02 can host an assigned VIGI RTSP feed (e.g. PP5 Section 2).
-    // Keep the camera login local to Android Keystore, not Firestore.
-    private void promptForAssignedVigiCctv02Credentials() {
-        if (!activityResumed || isFinishing() || cctv03CredentialsPromptShowing) return;
-        cctv03CredentialsPromptShowing = true;
-        LinearLayout form = new LinearLayout(this);
-        form.setOrientation(LinearLayout.VERTICAL);
-        form.setPadding(dp(24),dp(8),dp(24),dp(4));
-        EditText username = new EditText(this);
-        username.setSingleLine(true);
-        username.setHint("VIGI username");
-        username.setText(vigiCctv03Credentials()[0]);
-        form.addView(username);
-        EditText password = new EditText(this);
-        password.setSingleLine(true);
-        password.setHint("VIGI password");
-        password.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
-        form.addView(password);
-        android.app.AlertDialog dialog = new android.app.AlertDialog.Builder(this)
-            .setTitle("Connect assigned CCTV02 Â· VIGI")
-            .setView(form).setNegativeButton("Cancel",(d,w)->{})
-            .setPositiveButton("Connect",null).create();
-        dialog.setOnDismissListener(d->cctv03CredentialsPromptShowing=false);
-        dialog.setOnShowListener(d->dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{
-            String user=username.getText().toString().trim(),secret=password.getText().toString();
-            if(user.isEmpty()){username.setError("Enter VIGI username");return;}
-            if(secret.isEmpty()){password.setError("Enter VIGI password");return;}
-            if(!saveVigiCctv03Credentials(user,secret)){password.setError("Could not encrypt camera login on this device");return;}
-            password.setText("");dialog.dismiss();reconnectCctv02Vlc();
-        }));
-        dialog.show();
-    }
-
-    private void reconnectCctv03Vlc() {
-        if (isFinishing() || !activityResumed) return;
-        VLCVideoLayout videoLayout = ipWebcam3VlcLayout;
-        if (videoLayout == null) {
-            installCctv01VlcPositionListener();
-            return;
-        }
-        stopCctv03Vlc();
-        mainHandler.postDelayed(() -> {
-            if (!isFinishing() && activityResumed && ipWebcam3VlcLayout == videoLayout) startVigiCctv03Vlc(videoLayout);
-        }, 500);
-    }
-
-    private void stopCctv03Vlc() {
-        mainHandler.removeCallbacks(cctv03SnapshotTicker);
-        if (ipWebcam3VlcPlayer != null) {
-            try { ipWebcam3VlcPlayer.stop(); } catch (Exception ignored) { }
-            try { ipWebcam3VlcPlayer.detachViews(); } catch (Exception ignored) { }
-            ipWebcam3VlcPlayer.release();
-            ipWebcam3VlcPlayer = null;
-        }
-        if (ipWebcam3Vlc != null) {
-            ipWebcam3Vlc.release();
-            ipWebcam3Vlc = null;
-        }
-    }
-
-    private void reconnectIpWebcamVlc() {
-        if (isFinishing() || !activityResumed) return;
-        VLCVideoLayout videoLayout = ipWebcamVlcLayout;
-        if (videoLayout == null) {
-            installCctv01VlcPositionListener();
-            return;
-        }
-        stopIpWebcamVlc();
-        if (ipWebcamRefreshButton != null) {
-            ipWebcamRefreshButton.setEnabled(false);
-            ipWebcamRefreshButton.setAlpha(0.65f);
-        }
-        Toast.makeText(this, "Reconnecting to IP Webcamâ€¦", Toast.LENGTH_SHORT).show();
-        mainHandler.postDelayed(() -> {
-            if (isFinishing() || !activityResumed || ipWebcamVlcLayout != videoLayout) return;
-            startIpWebcamVlc(videoLayout);
-            if (ipWebcamRefreshButton != null) {
-                ipWebcamRefreshButton.setEnabled(true);
-                ipWebcamRefreshButton.setAlpha(1f);
-            }
-        }, 500);
-    }
-
-    private void stopIpWebcamVlc() {
-        mainHandler.removeCallbacks(cctv01SnapshotTicker);
-        if (ipWebcamVlcPlayer != null) {
-            try { ipWebcamVlcPlayer.stop(); } catch (Exception ignored) { }
-            try { ipWebcamVlcPlayer.detachViews(); } catch (Exception ignored) { }
-            ipWebcamVlcPlayer.release();
-            ipWebcamVlcPlayer = null;
-        }
-        if (ipWebcamVlc != null) {
-            ipWebcamVlc.release();
-            ipWebcamVlc = null;
-        }
-    }
-
-    private final java.util.Set<String> snapshotInFlight = java.util.Collections.synchronizedSet(new java.util.HashSet<>());
-
-    private String snapshotFlightKey(int camera,String plotId) {
-        return safePlotId(plotId)+"|"+camera;
-    }
-
-    private String snapshotLastSuccessKey(int camera,String plotId) {
-        return "last_successful_snapshot_"+plotId+"_"+camera;
-    }
-
-    private boolean snapshotDue(int camera) {
-        String plotId=safePlotId(getPrefs().getString(PREF_ACTIVE_PLOT_ID,DEFAULT_PLOT_ID));
-        long last=getPrefs().getLong(snapshotLastSuccessKey(camera,plotId),0L);
-        return !snapshotInFlight.contains(snapshotFlightKey(camera,plotId))
-                && (last<=0 || System.currentTimeMillis()-last>=cctvSnapshotIntervalMillis);
-    }
-    private long nextSnapshotCheckDelay(int camera) {
-        String plotId=safePlotId(getPrefs().getString(PREF_ACTIVE_PLOT_ID,DEFAULT_PLOT_ID));
-        // A missing plot folder is a configuration problem, not a frame-timing problem.
-        // Back off to the configured interval rather than retrying PixelCopy every 5 seconds.
-        if (!isFeedFolderReady(plotId)) return cctvSnapshotIntervalMillis;
-        long last=getPrefs().getLong(snapshotLastSuccessKey(camera,plotId),0L);
-        if (snapshotInFlight.contains(snapshotFlightKey(camera,plotId))) return 5000L;
-        if (last<=0) return 5000L;
-        long remaining=cctvSnapshotIntervalMillis-(System.currentTimeMillis()-last);
-        return remaining<=0 ? 5000L : remaining;
-    }
-
-    private void checkIpWebcamBeforeSnapshot(int camera) {
-        boolean ready = camera == 1
-                ? ipWebcamVlcPlayer != null && ipWebcamVlcLayout != null && ipWebcamVlcFrame != null && ipWebcamVlcFrame.getVisibility() == View.VISIBLE
-                : camera == 2 ? ipWebcam2VlcPlayer != null && ipWebcam2VlcLayout != null && ipWebcam2VlcFrame != null && ipWebcam2VlcFrame.getVisibility() == View.VISIBLE
-                : ipWebcam3VlcPlayer != null && ipWebcam3VlcLayout != null && ipWebcam3VlcFrame != null && ipWebcam3VlcFrame.getVisibility() == View.VISIBLE;
-        org.videolan.libvlc.MediaPlayer player = camera == 1 ? ipWebcamVlcPlayer
-                : camera == 2 ? ipWebcam2VlcPlayer : ipWebcam3VlcPlayer;
-        if (!activityResumed || !ready || !cctvVlcFeedsAllowedOnActiveScreen || !player.isPlaying() || !snapshotDue(camera)) return;
-        String activePlot = safePlotId(getPrefs().getString(PREF_ACTIVE_PLOT_ID, DEFAULT_PLOT_ID));
-        if (!isFeedFolderReady(activePlot)) {
-            String warningKey = "feed_folder_not_ready_" + activePlot + "_" + camera;
-            if (!getPrefs().getBoolean(warningKey, false)) {
-                getPrefs().edit().putBoolean(warningKey, true).apply();
-                notifyFeedCaptureStatus("CCTV" + String.format(Locale.US, "%02d", camera)
-                        + " is live, but this plot has no connected image-feed folder. Connect the plot folder in Settings to save snapshots.");
-            }
-            return;
-        }
-        // RTSP is already decoded by VLC. Do not probe it as an HTTP MJPEG feed.
-        String streamUrl = cctvStreamUrl(camera);
-        boolean rtsp = streamUrl.regionMatches(true, 0, "rtsp://", 0, 7)
-                || streamUrl.regionMatches(true, 0, "rtsps://", 0, 8);
-        if (rtsp || camera == 3) {
-            captureCctvVlcFrame(camera);
-            return;
-        }
-        try {
-            cctvSnapshotWorker.execute(() -> {
-                boolean available = isIpWebcamFrameAvailable(camera);
-                runOnUiThread(() -> {
-                    if (!activityResumed || isFinishing()) return;
-                    if (available) {
-                        captureCctvVlcFrame(camera);
-                    } else {
-                        notifyFeedCaptureStatus("IP Webcam for CCTV" + String.format(Locale.US, "%02d", camera) + " is unavailable; snapshot skipped.");
-                    }
-                });
-            });
-        } catch (Exception ignored) { }
-    }
-
-    private boolean isIpWebcamFrameAvailable(int camera) {
-        HttpURLConnection connection = null;
-        try {
-            String streamUrl = cctvStreamUrl(camera);
-            if (streamUrl.isEmpty()) return false;
-            connection = (HttpURLConnection) new URL(streamUrl).openConnection();
-            connection.setRequestMethod("GET");
-            connection.setRequestProperty("Accept", "multipart/x-mixed-replace, image/jpeg");
-            connection.setConnectTimeout(2500);
-            connection.setReadTimeout(2500);
-            connection.setUseCaches(false);
-            connection.setInstanceFollowRedirects(false);
-            if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) return false;
-
-            // A live MJPEG response can return HTTP 200 while the camera has stopped
-            // producing frames. Require the start of a JPEG frame before capturing VLC.
-            try (InputStream stream = connection.getInputStream()) {
-                int previous = -1;
-                int scanned = 0;
-                byte[] buffer = new byte[2048];
-                while (scanned < 16 * 1024) {
-                    int count = stream.read(buffer, 0, Math.min(buffer.length, 16 * 1024 - scanned));
-                    if (count <= 0) return false;
-                    for (int i = 0; i < count; i++) {
-                        int current = buffer[i] & 0xFF;
-                        if (previous == 0xFF && current == 0xD8) return true;
-                        previous = current;
-                    }
-                    scanned += count;
-                }
-            }
-        } catch (Exception ignored) {
-            return false;
-        } finally {
-            if (connection != null) connection.disconnect();
-        }
-        return false;
-    }
-
-
-    private void captureCctvVlcFrame(int camera) {
-        boolean ready = camera == 1
-                ? ipWebcamVlcPlayer != null && ipWebcamVlcLayout != null && ipWebcamVlcFrame != null && ipWebcamVlcFrame.getVisibility() == View.VISIBLE
-                : camera == 2 ? ipWebcam2VlcPlayer != null && ipWebcam2VlcLayout != null && ipWebcam2VlcFrame != null && ipWebcam2VlcFrame.getVisibility() == View.VISIBLE
-                : ipWebcam3VlcPlayer != null && ipWebcam3VlcLayout != null && ipWebcam3VlcFrame != null && ipWebcam3VlcFrame.getVisibility() == View.VISIBLE;
-        org.videolan.libvlc.MediaPlayer player = camera == 1 ? ipWebcamVlcPlayer
-                : camera == 2 ? ipWebcam2VlcPlayer : ipWebcam3VlcPlayer;
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N || !activityResumed || !ready
-                || !cctvVlcFeedsAllowedOnActiveScreen || !player.isPlaying()) return;
-        final String capturePlotId = safePlotId(getPrefs().getString(PREF_ACTIVE_PLOT_ID, DEFAULT_PLOT_ID));
-        VLCVideoLayout layout = camera == 1 ? ipWebcamVlcLayout : camera == 2 ? ipWebcam2VlcLayout : ipWebcam3VlcLayout;
-        SurfaceView surface = findVlcSurfaceView(layout);
-        if (surface != null && surface.getWidth() > 0 && surface.getHeight() > 0
-                && surface.getHolder().getSurface().isValid()) {
-            Bitmap frame = Bitmap.createBitmap(surface.getWidth(), surface.getHeight(), Bitmap.Config.ARGB_8888);
-            PixelCopy.request(surface, frame, result -> {
-                if (result != PixelCopy.SUCCESS) {
-                    if (!frame.isRecycled()) frame.recycle();
-                    notifyFeedCaptureStatus("CCTV"+String.format(Locale.US,"%02d",camera)+" snapshot: video frame unavailable (PixelCopy " + result + "); will retry.");
-                    return;
-                }
-                saveCctvVlcFrameToDrive(camera, frame, capturePlotId);
-            }, mainHandler);
-            return;
-        }
-        android.view.TextureView texture = findVlcTextureView(layout);
-        if (texture != null && texture.getWidth() > 0 && texture.getHeight() > 0 && texture.isAvailable()) {
-            Bitmap frame = texture.getBitmap();
-            if (frame != null) { saveCctvVlcFrameToDrive(camera, frame, capturePlotId); return; }
-        }
-        notifyFeedCaptureStatus("CCTV"+String.format(Locale.US,"%02d",camera)+" snapshot: video surface not ready; will retry.");
-    }
-
-    private void saveCctvVlcFrameToDrive(int camera, Bitmap frame, String plotId) {
-        String key=snapshotFlightKey(camera,plotId);
-        if (!snapshotInFlight.add(key)) {
-            if (!frame.isRecycled()) frame.recycle();
-            return;
-        }
-        cctvSnapshotWorker.execute(() -> {
-            try {
-                saveFeedPhotoToDrive(null, frame, plotId, camera, false);
-                getPrefs().edit().putLong(snapshotLastSuccessKey(camera,plotId),System.currentTimeMillis()).apply();
-                mainHandler.post(() -> {
-                    notifyFeedCaptureStatus("CCTV"+String.format(Locale.US,"%02d",camera)+" snapshot saved successfully to the configured plot folder.");
-                    scanSnapshotFolder(plotId);
-                });
-            } catch (Exception error) {
-                runOnUiThread(() -> notifyFeedCaptureStatus("CCTV" + String.format(Locale.US, "%02d", camera) + " frame could not be saved to the selected plot Google Drive image feed: "
-                        + (error.getMessage() == null ? "check the saved folder permission" : error.getMessage())));
-            } finally {
-                snapshotInFlight.remove(key);
-                if (!frame.isRecycled()) frame.recycle();
-            }
-        });
-    }
-
-    private SurfaceView findVlcSurfaceView(View view) {
-        if (view instanceof SurfaceView) return (SurfaceView) view;
-        if (!(view instanceof android.view.ViewGroup)) return null;
-        android.view.ViewGroup group = (android.view.ViewGroup) view;
-        for (int i = 0; i < group.getChildCount(); i++) {
-            SurfaceView surface = findVlcSurfaceView(group.getChildAt(i));
-            if (surface != null) return surface;
-        }
-        return null;
-    }
-
-    private android.view.TextureView findVlcTextureView(View view) {
-        if (view instanceof android.view.TextureView) return (android.view.TextureView) view;
-        if (!(view instanceof android.view.ViewGroup)) return null;
-        android.view.ViewGroup group = (android.view.ViewGroup) view;
-        for (int i = 0; i < group.getChildCount(); i++) {
-            android.view.TextureView texture = findVlcTextureView(group.getChildAt(i));
-            if (texture != null) return texture;
-        }
-        return null;
-    }
-
-    private String childFileDocumentId(Uri treeUri, String parentDocumentId, String fileName) throws Exception {
-        Uri childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, parentDocumentId);
-        String[] columns = {DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME};
-        try (Cursor cursor = getContentResolver().query(childrenUri, columns, null, null, null)) {
-            if (cursor == null) throw new IllegalStateException("Google Drive could not list the GrowPlot config folder");
-            int idColumn = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DOCUMENT_ID);
-            int nameColumn = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME);
-            while (cursor.moveToNext()) {
-                if (idColumn >= 0 && nameColumn >= 0 && fileName.equalsIgnoreCase(cursor.getString(nameColumn))) return cursor.getString(idColumn);
-            }
-        }
-        return null;
-    }
-
-    private String farmDataUserId(String requested) {
-        String configured = requested == null ? "" : requested.trim();
-        if (!configured.matches("[A-Za-z0-9_-]{1,48}")) configured = "default-user";
-        getPrefs().edit().putString(PREF_FARM_DATA_USER_ID, configured).apply();
-        return configured;
-    }
-
-    private Uri farmDataTreeUri() throws Exception {
-        Uri treeUri = null;
-        String saved = getPrefs().getString(PREF_GROWPLOT_TREE_URI, null);
-        if (saved != null) {
-            Uri candidate = Uri.parse(saved);
-            if (hasPersistedReadWriteGrant(candidate)) treeUri = candidate;
-        }
-        if (treeUri == null) treeUri = findGrowPlotScopedTreeUri();
-        if (treeUri == null) throw new IllegalStateException("Saved Google Drive access to the GrowPlot folder is unavailable");
-        String rootId = resolveGrowPlotDocumentId(treeUri);
-        if (rootId == null) throw new IllegalStateException("The saved Drive permission does not include the GrowPlot folder");
-        getPrefs().edit().putString(PREF_GROWPLOT_TREE_URI, treeUri.toString()).apply();
-        return treeUri;
-    }
-
-    private String farmScopeKey(String plotId, String greenhouse, int section) {
-        return safePlotId(plotId) + "|" + safeFolderName(greenhouse) + "|" + section;
-    }
-
-    private JSONObject readFarmDriveJson(Uri treeUri, String parentId, String fileName) throws Exception {
-        String fileId = childFileDocumentId(treeUri, parentId, fileName);
-        if (fileId == null) return null;
-        Uri fileUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, fileId);
-        try (InputStream input = getContentResolver().openInputStream(fileUri);
-             ByteArrayOutputStream output = new ByteArrayOutputStream()) {
-            if (input == null) return null;
-            byte[] buffer = new byte[8192];
-            int read, total = 0;
-            while ((read = input.read(buffer)) != -1) {
-                total += read;
-                if (total > 4 * 1024 * 1024) throw new IllegalStateException("Farm data file exceeds 4 MB");
-                output.write(buffer, 0, read);
-            }
-            return new JSONObject(output.toString(StandardCharsets.UTF_8.name()));
-        }
-    }
-
-    private void writeFarmDriveJson(Uri treeUri, String parentId, String fileName, JSONObject data) throws Exception {
-        String fileId = childFileDocumentId(treeUri, parentId, fileName);
-        Uri fileUri;
-        if (fileId == null) {
-            fileUri = DocumentsContract.createDocument(getContentResolver(),
-                    DocumentsContract.buildDocumentUriUsingTree(treeUri, parentId), "application/json", fileName);
-            if (fileUri == null) throw new IllegalStateException("Google Drive refused to create " + fileName);
-        } else fileUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, fileId);
-        try (OutputStream output = getContentResolver().openOutputStream(fileUri, "wt")) {
-            if (output == null) throw new IllegalStateException("Google Drive could not open " + fileName + " for writing");
-            output.write((data.toString(2) + "\n").getBytes(StandardCharsets.UTF_8));
-            output.flush();
-        }
-    }
-
-    private String farmUserFolder(Uri treeUri, String rootId, String userId, boolean create) throws Exception {
-        String dbId = create ? findOrCreateChildFolder(treeUri, rootId, "db") : findExistingChildFolder(treeUri, rootId, "db");
-        if (dbId == null) return null;
-        String userdataId = create ? findOrCreateChildFolder(treeUri, dbId, "userdata") : findExistingChildFolder(treeUri, dbId, "userdata");
-        if (userdataId == null) return null;
-        return create ? findOrCreateChildFolder(treeUri, userdataId, userId) : findExistingChildFolder(treeUri, userdataId, userId);
-    }
-
-    private JSONObject loadFarmPlantingsFromDrive(String requestedUserId) throws Exception {
-        String userId = farmDataUserId(requestedUserId);
-        Uri treeUri = farmDataTreeUri();
-        String rootId = resolveGrowPlotDocumentId(treeUri);
-        String userFolderId = farmUserFolder(treeUri, rootId, userId, true);
-        JSONObject response = new JSONObject();
-        response.put("userId", userId);
-        JSONArray records = new JSONArray(), deletedIds = new JSONArray();
-        if (userFolderId != null) {
-            JSONObject index = readFarmDriveJson(treeUri, userFolderId, "crop-plantings-index.json");
-            if (index != null) {
-                JSONArray scopes = index.optJSONArray("scopes");
-                if (scopes != null) {
-                    Set<String> visited = new HashSet<>();
-                    for (int i = 0; i < scopes.length(); i++) {
-                        JSONObject scope = scopes.optJSONObject(i);
-                        if (scope == null) continue;
-                        String plotId = safePlotId(scope.optString("plotId", DEFAULT_PLOT_ID));
-                        String greenhouse = safeFolderName(scope.optString("greenhouse", "1"));
-                        int section = scope.optInt("section", 0);
-                        if (section < 1 || section > 6 || !visited.add(farmScopeKey(plotId, greenhouse, section))) continue;
-                        String plotFolder = findExistingChildFolder(treeUri, userFolderId, plotId);
-                        if (plotFolder == null) continue;
-                        String greenhouseFolder = findExistingChildFolder(treeUri, plotFolder, "greenhouse_" + greenhouse);
-                        if (greenhouseFolder == null) continue;
-                        String sectionFolder = findExistingChildFolder(treeUri, greenhouseFolder,
-                                String.format(Locale.US, "section_%02d", section));
-                        if (sectionFolder == null) continue;
-                        JSONObject sectionData = readFarmDriveJson(treeUri, sectionFolder, "crop-plantings.json");
-                        JSONArray sectionRecords = sectionData == null ? null : sectionData.optJSONArray("records");
-                        if (sectionRecords != null) for (int j = 0; j < sectionRecords.length(); j++) {
-                            JSONObject record = sectionRecords.optJSONObject(j);
-                            if (record != null) records.put(record);
-                        }
-                    }
-                }
-                JSONArray removed = index.optJSONArray("deletedIds");
-                if (removed != null) for (int i = 0; i < removed.length(); i++) {
-                    String id = removed.optString(i, "");
-                    if (!id.isEmpty()) deletedIds.put(id);
-                }
-            }
-        }
-        JSONObject management = userFolderId == null ? null : readFarmDriveJson(treeUri, userFolderId, "farm-management.json");
-        response.put("records", records);
-        response.put("deletedIds", deletedIds);
-        response.put("irrigationSchedules", management == null ? new JSONArray() : management.optJSONArray("irrigationSchedules") == null ? new JSONArray() : management.optJSONArray("irrigationSchedules"));
-        response.put("maintenanceTasks", management == null ? new JSONArray() : management.optJSONArray("maintenanceTasks") == null ? new JSONArray() : management.optJSONArray("maintenanceTasks"));
-        response.put("managementDeletedIds", management == null ? new JSONArray() : management.optJSONArray("deletedIds") == null ? new JSONArray() : management.optJSONArray("deletedIds"));
-        response.put("ok", true);
-        response.put("path", "/db/userdata/" + userId);
-        return response;
-    }
-
-    private JSONObject saveFarmPlantingsToDrive(String payload) throws Exception {
-        JSONObject request = new JSONObject(payload == null ? "{}" : payload);
-        String userId = farmDataUserId(request.optString("userId", "default-user"));
-        JSONArray records = request.optJSONArray("records");
-        if (records == null) records = new JSONArray();
-        JSONArray requestedDeleted = request.optJSONArray("deletedIds");
-        Uri treeUri = farmDataTreeUri();
-        String rootId = resolveGrowPlotDocumentId(treeUri);
-        String userFolderId = farmUserFolder(treeUri, rootId, userId, true);
-        if (userFolderId == null) throw new IllegalStateException("Could not create the GrowPlot/db/userdata folder");
-
-        JSONObject oldIndex = readFarmDriveJson(treeUri, userFolderId, "crop-plantings-index.json");
-        Map<String, JSONObject> scopes = new java.util.LinkedHashMap<>();
-        JSONArray oldScopes = oldIndex == null ? null : oldIndex.optJSONArray("scopes");
-        if (oldScopes != null) for (int i = 0; i < oldScopes.length(); i++) {
-            JSONObject scope = oldScopes.optJSONObject(i);
-            if (scope == null) continue;
-            String plotId = safePlotId(scope.optString("plotId", DEFAULT_PLOT_ID));
-            String greenhouse = safeFolderName(scope.optString("greenhouse", "1"));
-            int section = scope.optInt("section", 0);
-            if (section < 1 || section > 6) continue;
-            JSONObject safeScope = new JSONObject();
-            safeScope.put("plotId", plotId); safeScope.put("greenhouse", greenhouse); safeScope.put("section", section);
-            scopes.put(farmScopeKey(plotId, greenhouse, section), safeScope);
-        }
-        Map<String, JSONArray> grouped = new java.util.LinkedHashMap<>();
-        for (int i = 0; i < records.length(); i++) {
-            JSONObject record = records.optJSONObject(i);
-            if (record == null) continue;
-            String plotId = safePlotId(record.optString("plotId", DEFAULT_PLOT_ID));
-            String greenhouse = safeFolderName(record.optString("greenhouse", "1"));
-            String sectionValue = record.optString("section", "1");
-            boolean allSections = "all".equalsIgnoreCase(sectionValue);
-            int section = allSections ? 0 : record.optInt("section", 1);
-            if (!allSections && (section < 1 || section > 6)) {
-                throw new IllegalArgumentException("Section must be between 1 and 6, or all");
-            }
-            int firstSection = allSections ? 1 : section;
-            int lastSection = allSections ? 6 : section;
-            for (int targetSection = firstSection; targetSection <= lastSection; targetSection++) {
-                String scopeKey = farmScopeKey(plotId, greenhouse, targetSection);
-                JSONObject scope = new JSONObject();
-                scope.put("plotId", plotId); scope.put("greenhouse", greenhouse); scope.put("section", targetSection);
-                scopes.put(scopeKey, scope);
-                JSONArray group = grouped.get(scopeKey);
-                if (group == null) { group = new JSONArray(); grouped.put(scopeKey, group); }
-                JSONObject copy = new JSONObject(record.toString());
-                copy.put("plotId", plotId); copy.put("greenhouse", greenhouse);
-                copy.put("section", allSections ? "all" : targetSection);
-                copy.put("userId", userId);
-                group.put(copy);
-            }
-        }
-
-        Set<String> deleted = new java.util.LinkedHashSet<>();
-        JSONArray oldDeleted = oldIndex == null ? null : oldIndex.optJSONArray("deletedIds");
-        if (oldDeleted != null) for (int i = 0; i < oldDeleted.length(); i++) {
-            String id = oldDeleted.optString(i, ""); if (!id.isEmpty()) deleted.add(id);
-        }
-        if (requestedDeleted != null) for (int i = 0; i < requestedDeleted.length(); i++) {
-            String id = requestedDeleted.optString(i, ""); if (id.matches("[A-Za-z0-9_-]{1,100}")) deleted.add(id);
-        }
-        for (String scopeKey : scopes.keySet()) {
-            JSONObject scope = scopes.get(scopeKey);
-            String plotId = scope.getString("plotId"), greenhouse = scope.getString("greenhouse");
-            int section = scope.getInt("section");
-            String plotFolder = findOrCreateChildFolder(treeUri, userFolderId, plotId);
-            String greenhouseFolder = findOrCreateChildFolder(treeUri, plotFolder, "greenhouse_" + greenhouse);
-            String sectionFolder = findOrCreateChildFolder(treeUri, greenhouseFolder,
-                    String.format(Locale.US, "section_%02d", section));
-            JSONObject sectionData = new JSONObject();
-            sectionData.put("schemaVersion", 1); sectionData.put("userId", userId);
-            sectionData.put("plotId", plotId); sectionData.put("greenhouse", greenhouse); sectionData.put("section", section);
-            sectionData.put("updatedAt", new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US).format(new Date()));
-            sectionData.put("records", grouped.containsKey(scopeKey) ? grouped.get(scopeKey) : new JSONArray());
-            writeFarmDriveJson(treeUri, sectionFolder, "crop-plantings.json", sectionData);
-        }
-        JSONArray scopeArray = new JSONArray(); for (JSONObject scope : scopes.values()) scopeArray.put(scope);
-        JSONArray deletedArray = new JSONArray(); for (String id : deleted) deletedArray.put(id);
-        JSONObject index = new JSONObject();
-        index.put("schemaVersion", 1); index.put("userId", userId);
-        index.put("updatedAt", new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US).format(new Date()));
-        index.put("scopes", scopeArray); index.put("deletedIds", deletedArray);
-        writeFarmDriveJson(treeUri, userFolderId, "crop-plantings-index.json", index);
-        JSONArray irrigationSchedules = request.optJSONArray("irrigationSchedules");
-        if (irrigationSchedules == null) irrigationSchedules = new JSONArray();
-        JSONArray maintenanceTasks = request.optJSONArray("maintenanceTasks");
-        if (maintenanceTasks == null) maintenanceTasks = new JSONArray();
-        JSONArray managementDeletedIds = request.optJSONArray("managementDeletedIds");
-        if (managementDeletedIds == null) managementDeletedIds = new JSONArray();
-        JSONObject management = new JSONObject();
-        management.put("schemaVersion", 1); management.put("userId", userId);
-        management.put("updatedAt", new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US).format(new Date()));
-        management.put("irrigationSchedules", irrigationSchedules);
-        management.put("maintenanceTasks", maintenanceTasks);
-        management.put("deletedIds", managementDeletedIds);
-        writeFarmDriveJson(treeUri, userFolderId, "farm-management.json", management);
-        JSONObject response = new JSONObject(); response.put("ok", true); response.put("userId", userId);
-        response.put("path", "/db/userdata/" + userId); response.put("scopeCount", scopes.size());
-        return response;
-    }
-
-    private void notifyFarmPlantingsLoaded(JSONObject result) {
-        if (web == null) return;
-        String argument = JSONObject.quote(result == null ? "{}" : result.toString());
-        runOnUiThread(() -> { if (web != null) web.evaluateJavascript("window.onFarmPlantingsLoaded&&window.onFarmPlantingsLoaded(" + argument + ")", null); });
-    }
-
-    private void notifyFarmPlantingsSaved(JSONObject result) {
-        if (web == null) return;
-        String argument = JSONObject.quote(result == null ? "{}" : result.toString());
-        runOnUiThread(() -> { if (web != null) web.evaluateJavascript("window.onFarmPlantingsSaved&&window.onFarmPlantingsSaved(" + argument + ")", null); });
-    }
-
-    private JSONObject readDriveStorageConfig(Uri treeUri, String growPlotDocumentId) throws Exception {
-        String configId = findExistingChildFolder(treeUri, growPlotDocumentId, "config");
-        if (configId == null) return new JSONObject();
-        String fileId = childFileDocumentId(treeUri, configId, GROWPLOT_STORAGE_CONFIG_FILE);
-        if (fileId == null) return new JSONObject();
-        Uri fileUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, fileId);
-        try (InputStream input = getContentResolver().openInputStream(fileUri);
-             ByteArrayOutputStream output = new ByteArrayOutputStream()) {
-            if (input == null) return new JSONObject();
-            byte[] buffer = new byte[4096];
-            int read, total = 0;
-            while ((read = input.read(buffer)) != -1) {
-                total += read;
-                if (total > 128 * 1024) throw new IllegalStateException("GrowPlot storage config is too large");
-                output.write(buffer, 0, read);
-            }
-            return new JSONObject(output.toString(StandardCharsets.UTF_8.name()));
-        }
-    }
-
-    private JSONObject readBundledStorageConfig() throws Exception {
-        try (InputStream input = getAssets().open("config/storage-paths.json");
-             ByteArrayOutputStream output = new ByteArrayOutputStream()) {
-            byte[] buffer = new byte[4096];
-            int read, total = 0;
-            while ((read = input.read(buffer)) != -1) {
-                total += read;
-                if (total > 128 * 1024) throw new IllegalStateException("Bundled GrowPlot storage config is too large");
-                output.write(buffer, 0, read);
-            }
-            return new JSONObject(output.toString(StandardCharsets.UTF_8.name()));
-        }
-    }
-
-    private void restoreDrivePathsFromConfig() {
-        Uri treeUri = findGrowPlotScopedTreeUri();
-        if (treeUri == null) return;
-        try {
-            String growPlotId = resolveGrowPlotDocumentId(treeUri);
-            if (growPlotId == null) return;
-            getPrefs().edit().putString(PREF_GROWPLOT_TREE_URI, treeUri.toString()).apply();
-            JSONObject config = readDriveStorageConfig(treeUri, growPlotId);
-            boolean createDriveConfig = config.length() == 0;
-            if (createDriveConfig) config = readBundledStorageConfig();
-            String diagnosisId = findOrCreateChildFolder(treeUri, growPlotId, "Diagnosis");
-            getPrefs().edit().putString(PREF_DIAGNOSIS_TREE_URI, treeUri.toString())
-                    .putString(PREF_DIAGNOSIS_ROOT_DOCUMENT_ID, diagnosisId)
-                    .putString(PREF_DIAGNOSIS_FOLDER_LABEL, getDocumentPathLabel(treeUri, diagnosisId)).apply();
-            JSONObject feeds = config.optJSONObject("imageFeeds");
-            if (feeds != null) {
-                java.util.Iterator<String> plotIds = feeds.keys();
-                while (plotIds.hasNext()) {
-                    String plotId = plotIds.next();
-                    if (!plotId.matches("[A-Za-z0-9_-]{1,64}")) continue;
-                    JSONObject entry = feeds.optJSONObject(plotId);
-                    String path = entry == null ? null : entry.optString("relativePath", null);
-                    if (path == null || !path.regionMatches(true, 0, "Image_Feed/", 0, "Image_Feed/".length())) continue;
-                    String documentId = growPlotId;
-                    boolean found = true;
-                    for (String segment : path.split("/")) {
-                        if (segment.isEmpty() || ".".equals(segment) || "..".equals(segment)) { found = false; break; }
-                        documentId = findOrCreateChildFolder(treeUri, documentId, segment);
-                    }
-                    if (!found) continue;
-                    String safeId = safePlotId(plotId);
-                    // Drive config is authoritative for the default plot paths. Refresh local
-                    // document IDs from it on launch so a stale but still-valid folder selection
-                    // cannot keep pointing at yesterday's image_feed location.
-                    getPrefs().edit().putString(feedTreeKey(safeId), treeUri.toString())
-                            .putString(feedFolderDocumentKey(safeId), documentId)
-                            .putString(feedLocationKey(safeId), getDocumentPathLabel(treeUri, documentId)).apply();
-                }
-            }
-            // Create the shared config on the first launch that can see the saved GrowPlot grant.
-            // This writes already-saved image-feed labels plus the canonical Diagnosis path without
-            // asking the user to reconnect or rewriting an existing config on every launch.
-            if (createDriveConfig) saveDriveStorageConfig(treeUri);
-        } catch (Exception ignored) { }
-    }
-
-    private boolean saveDriveStorageConfig(Uri preferredTreeUri) {
-        try {
-            Uri treeUri = preferredTreeUri;
-            String growPlotId = treeUri == null ? null : resolveGrowPlotDocumentId(treeUri);
-            if (growPlotId == null) {
-                String saved = getPrefs().getString(PREF_GROWPLOT_TREE_URI, null);
-                treeUri = saved == null ? findGrowPlotScopedTreeUri() : Uri.parse(saved);
-                if (treeUri == null) return false;
-                growPlotId = resolveGrowPlotDocumentId(treeUri);
-            }
-            if (growPlotId == null) return false;
-            getPrefs().edit().putString(PREF_GROWPLOT_TREE_URI, treeUri.toString()).apply();
-            String configId = findOrCreateChildFolder(treeUri, growPlotId, "config");
-            JSONObject config = readDriveStorageConfig(treeUri, growPlotId);
-            if (config.length() == 0) config = readBundledStorageConfig();
-            JSONObject feeds = config.optJSONObject("imageFeeds");
-            if (feeds == null) feeds = new JSONObject();
-            String labelPrefix = "data_feed_location_label_";
-            for (Map.Entry<String, ?> pref : getPrefs().getAll().entrySet()) {
-                String key = pref.getKey();
-                if (!key.startsWith(labelPrefix) || !(pref.getValue() instanceof String)) continue;
-                String plotId = safePlotId(key.substring(labelPrefix.length()));
-                String displayPath = (String) pref.getValue();
-                String relativePath = relativePathFromGrowPlot(displayPath);
-                JSONObject entry = feeds.optJSONObject(plotId);
-                if (entry == null) entry = new JSONObject();
-                entry.put("displayPath", displayPath);
-                if (relativePath != null) entry.put("relativePath", relativePath);
-                else entry.remove("relativePath");
-                feeds.put(plotId, entry);
-            }
-            config.put("schemaVersion", 1);
-            config.put("updatedAt", new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US).format(new Date()));
-            config.put("rootPath", "GrowPlot");
-            config.put("imageFeedPattern", "Image_Feed/<plot-folder>");
-            config.put("imageFeeds", feeds);
-            JSONObject diagnosis = config.optJSONObject("diagnosis");
-            if (diagnosis == null) diagnosis = new JSONObject();
-            diagnosis.put("rootPath", "Diagnosis");
-            diagnosis.put("mediaPattern", "Diagnosis/Plot_<n>/Quadrant_<01-06>");
-            diagnosis.put("displayPath", getDocumentPathLabel(treeUri, findOrCreateChildFolder(treeUri, growPlotId, "Diagnosis")));
-            config.put("diagnosis", diagnosis);
-            String fileId = childFileDocumentId(treeUri, configId, GROWPLOT_STORAGE_CONFIG_FILE);
-            Uri fileUri;
-            if (fileId == null) {
-                fileUri = DocumentsContract.createDocument(getContentResolver(),
-                        DocumentsContract.buildDocumentUriUsingTree(treeUri, configId), "application/json", GROWPLOT_STORAGE_CONFIG_FILE);
-                if (fileUri == null) throw new IllegalStateException("Google Drive refused to create the storage config file");
-            } else fileUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, fileId);
-            try (OutputStream output = getContentResolver().openOutputStream(fileUri, "wt")) {
-                if (output == null) throw new IllegalStateException("Google Drive could not open the storage config for writing");
-                output.write((config.toString(2) + "\n").getBytes(StandardCharsets.UTF_8));
-                output.flush();
-            }
-            return true;
-        } catch (Exception ignored) {
-            return false;
-        }
-    }
-
-    @Override protected void onResume() {
-        super.onResume();
-        if (userStreamMode && !activeStreamScope.isEmpty()) {
-            String[] parts = activeStreamScope.split("\\|", -1);
-            if (parts.length == 3) mainHandler.postDelayed(() -> loadAssignedStreams(parts[1], parts[2], true), 500);
-        }
-        activityResumed = true;
-        mainHandler.removeCallbacks(scheduledScan);
-        scanSnapshotFolder();
-        mainHandler.postDelayed(scheduledScan, refreshIntervalMinutes * 60_000L);
-        if (!"[]".equals(getPrefs().getString(PREF_PENDING_DIAGNOSIS_UPLOADS, "[]"))) flushPendingDiagnosisUploads();
-        if (ipWebcamVlcLayout != null && ipWebcamVlcPlayer == null) {
-            mainHandler.postDelayed(this::reconnectIpWebcamVlc, 800);
-        }
-        if (ipWebcam2VlcLayout != null && ipWebcam2VlcPlayer == null) {
-            mainHandler.postDelayed(this::reconnectCctv02Vlc, 800);
-        }
-        if (ipWebcam3VlcLayout != null && ipWebcam3VlcPlayer == null) {
-            mainHandler.postDelayed(this::reconnectCctv03Vlc, 800);
-        }
-    }
-
-    @Override protected void onPause() {
-        // Release the live stream while GrowPlot is backgrounded. Reconnect on return.
-        activityResumed = false;
-        stopIpWebcamVlc();
-        stopCctv02Vlc();
-        stopCctv03Vlc();
-        super.onPause();
-    }
-
-    @Override protected void onDestroy() {
-        mainHandler.removeCallbacks(scheduledScan);
-        if (locationListener != null) {
-            try { ((LocationManager) getSystemService(LOCATION_SERVICE)).removeUpdates(locationListener); }
-            catch (Exception ignored) { }
-            locationListener = null;
-            locationRequestInFlight = false;
-        }
-        locationPermissionRequestInFlight = false;
-        stopIpWebcamVlc();
-        stopCctv02Vlc();
-        stopCctv03Vlc();
-        if (ipWebcamVlcFrame != null && ipWebcamVlcFrame.getParent() instanceof FrameLayout) {
-            ((FrameLayout) ipWebcamVlcFrame.getParent()).removeView(ipWebcamVlcFrame);
-            ipWebcamVlcFrame = null;
-        }
-        ipWebcamVlcLayout = null;
-        ipWebcamRefreshButton = null;
-        if (ipWebcam2VlcFrame != null && ipWebcam2VlcFrame.getParent() instanceof FrameLayout) {
-            ((FrameLayout) ipWebcam2VlcFrame.getParent()).removeView(ipWebcam2VlcFrame);
-            ipWebcam2VlcFrame = null;
-        }
-        ipWebcam2VlcLayout = null;
-        ipWebcam2RefreshButton = null;
-        if (ipWebcam3VlcFrame != null && ipWebcam3VlcFrame.getParent() instanceof FrameLayout) {
-            ((FrameLayout) ipWebcam3VlcFrame.getParent()).removeView(ipWebcam3VlcFrame);
-            ipWebcam3VlcFrame = null;
-        }
-        ipWebcam3VlcLayout = null;
-        ipWebcam3RefreshButton = null;
-        scanWorker.shutdownNow();
-        geocodeWorker.shutdownNow();
-        diagnosisWorker.shutdownNow();
-        kindwiseWorker.shutdownNow();
-        diagnosisCvWorker.shutdownNow();
-        if (web != null) {
-            web.removeJavascriptInterface("GrowPlotBridge");
-            web.destroy();
-            web = null;
-        }
-        super.onDestroy();
-    }
-
-    @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == REQUEST_FEED_CAMERA || requestCode == REQUEST_FEED_PICKER) {
-            handleFeedPhotoResult(requestCode, resultCode, data);
-            return;
-        }
-        if (requestCode == REQUEST_DIAGNOSIS_PHOTO || requestCode == REQUEST_DIAGNOSIS_VIDEO
-                || requestCode == REQUEST_DIAGNOSIS_PICKER) {
-            handleDiagnosisActivityResult(requestCode, resultCode, data);
-            return;
-        }
-        if (requestCode == REQUEST_DIAGNOSIS_FOLDER) {
-            handleDiagnosisFolderResult(resultCode, data);
-            return;
-        }
-        if (requestCode != REQUEST_IMAGE_FOLDER) return;
-        if (resultCode != RESULT_OK || data == null) {
-            if (pickerCreatesDefaultFeed) {
-                pickerCreatesDefaultFeed = false;
-                publishStatus(makeStatus("Google Drive selection was cancelled. Tap Connect to folder to try again."));
-            }
-            return;
-        }
-        Uri folderUri = data.getData();
-        if (folderUri == null) return;
-        String plotId = safePlotId(pickerPlotId);
-        String selectedFolderName = getDocumentName(folderUri);
-        if (pickerCreatesDefaultFeed && !("Projects".equalsIgnoreCase(selectedFolderName)
-                || "GrowPlot".equalsIgnoreCase(selectedFolderName))) {
-            publishStatus(makeStatus("Select Projects or GrowPlot, then tap Use this folder. GrowPlot creates the missing folders for " + safeFolderName(pickerDefaultFolderName) + "."));
-            return;
-        }
-        int grantFlags = data.getFlags() & (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-        if ((grantFlags & Intent.FLAG_GRANT_READ_URI_PERMISSION) == 0
-                || (grantFlags & Intent.FLAG_GRANT_WRITE_URI_PERMISSION) == 0) {
-            publishStatus(makeStatus("Google Drive needs lasting read and write access. Choose the GrowPlot folder again and keep access enabled."));
-            return;
-        }
-        try {
-            getContentResolver().takePersistableUriPermission(folderUri, grantFlags);
-        } catch (SecurityException error) {
-            publishStatus(makeStatus("Android did not grant lasting access to that folder. Choose the data feed folder again."));
-            return;
-        }
-        String locationLabel;
-        boolean storageConfigSaved = false;
-        try {
-            String targetDocumentId = DocumentsContract.getTreeDocumentId(folderUri);
-            String defaultRelativePath = null;
-            if (pickerCreatesDefaultFeed) {
-                targetDocumentId = resolveGrowPlotDocumentId(folderUri);
-                if (targetDocumentId == null) throw new IllegalStateException("Select the Projects or GrowPlot folder in Google Drive");
-                String emailFolder = signedInEmailFolderName();
-                String imageFeedId = findOrCreateChildFolder(folderUri, targetDocumentId, "Image_Feed");
-                String userFolderId = findOrCreateChildFolder(folderUri, imageFeedId, emailFolder);
-                String plotFolder = safeFolderName(pickerDefaultFolderName);
-                targetDocumentId = findOrCreateChildFolder(folderUri, userFolderId, plotFolder);
-                defaultRelativePath = "Image_Feed/" + emailFolder + "/" + plotFolder;
-            }
-            locationLabel = defaultRelativePath == null
-                    ? getDocumentPathLabel(folderUri, targetDocumentId)
-                    : "Google Drive: /Projects/GrowPlot/" + defaultRelativePath;
-            JSONObject config = new JSONObject(getPrefs().getString("data_feed_config_" + plotId, "{}"));
-            config.put("plotId", plotId);
-            config.put("enabled", true);
-            config.put("folderUri", folderUri.toString());
-            getPrefs().edit()
-                    .putString(feedTreeKey(plotId), folderUri.toString())
-                    .putString(feedFolderDocumentKey(plotId), targetDocumentId)
-                    .putString(feedLocationKey(plotId), locationLabel)
-                    .putString("data_feed_config_" + plotId, config.toString())
-                    .putString(PREF_ACTIVE_PLOT_ID, plotId)
-                    .apply();
-            rememberGrowPlotTreeIfScoped(folderUri);
-            storageConfigSaved = saveDriveStorageConfig(folderUri);
-            if (accountApiBridge != null) {
-                accountApiBridge.saveImageFeedPath(plotId, locationLabel, relativePathFromGrowPlot(locationLabel));
-            }
-        } catch (Exception error) {
-            String reason = error.getMessage() == null ? "Drive could not create or open the folder." : error.getMessage();
-            publishStatus(makeStatus(pickerCreatesDefaultFeed
-                    ? "Could not create the selected plot's Google Drive folder: " + reason
-                    : "Could not save this plot's data feed: " + reason));
-            return;
-        }
-        pickerCreatesDefaultFeed = false;
-        notifyFeedSettingsSaved(plotId, locationLabel);
-        if (!storageConfigSaved) {
-            JSONObject status = makeStatus("Image feed location is saved on this device. To sync its path into Drive config, choose GrowPlot as the shared folder scope.");
-            try { status.put("plotId", plotId); } catch (Exception ignored) { }
-            publishStatus(status);
-        }
-        scanSnapshotFolder();
-    }
-
-    private void handleFeedPhotoResult(int requestCode, int resultCode, Intent data) {
-        Uri output = pendingFeedPhotoOutput;
-        pendingFeedPhotoOutput = null;
-        if (resultCode != RESULT_OK) {
-            deletePendingFeedPhoto(output);
-            notifyFeedCaptureStatus("Photo cancelled.");
-            return;
-        }
-        Uri source = requestCode == REQUEST_FEED_PICKER
-                ? (data == null ? null : data.getData())
-                : (data != null && data.getData() != null ? data.getData() : output);
-        Bitmap thumbnail = data != null && data.getExtras() != null
-                && data.getExtras().get("data") instanceof Bitmap
-                ? (Bitmap) data.getExtras().get("data") : null;
-        final int camera = pendingFeedCamera;
-        final String plotId = safePlotId(pendingFeedPlotId);
-        if (source == null && thumbnail == null) {
-            deletePendingFeedPhoto(output);
-            notifyFeedCaptureStatus("No photo was returned. Try the camera again or choose an image file.");
-            return;
-        }
-        notifyFeedCaptureStatus("Saving photo to this plotâ€™s Google Drive image folderâ€¦");
-        scanWorker.execute(() -> {
-            try {
-                saveFeedPhotoToDrive(source, thumbnail, plotId, camera,
-                        requestCode == REQUEST_FEED_CAMERA);
-                runOnUiThread(() -> {
-                    deletePendingFeedPhoto(output);
-                    notifyFeedCaptureStatus("Photo saved to " + feedLocationLabel(plotId)
-                            + " as CCTV" + String.format(Locale.US, "%02d", camera) + ".");
-                    scanSnapshotFolder(plotId);
-                });
-            } catch (Exception error) {
-                deletePendingFeedPhoto(output);
-                String reason = error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage();
-                runOnUiThread(() -> notifyFeedCaptureStatus("Could not save photo to this plotâ€™s image folder: " + reason));
-            } finally {
-                if (thumbnail != null && !thumbnail.isRecycled()) thumbnail.recycle();
-            }
-        });
-    }
-
-    private void launchFeedPhotoCapture(int camera, String plotId) {
-        if (!isFeedFolderReady(plotId)) {
-            notifyFeedCaptureStatus("Connect this plotâ€™s image folder first using Connect to folder in this panel.");
-            return;
-        }
-        pendingFeedCamera = camera;
-        pendingFeedPlotId = safePlotId(plotId);
-        Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-        if (Build.VERSION.SDK_INT >= 29) {
-            try {
-                android.content.ContentValues values = new android.content.ContentValues();
-                values.put(MediaStore.Images.Media.DISPLAY_NAME, "GrowPlot_capture_" + System.currentTimeMillis() + ".jpg");
-                values.put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg");
-                values.put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/GrowPlot");
-                // Do not mark the output pending: several camera apps stall when an
-                // ACTION_IMAGE_CAPTURE output points at a pending MediaStore row.
-                pendingFeedPhotoOutput = getContentResolver().insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
-                if (pendingFeedPhotoOutput != null) {
-                    intent.putExtra(MediaStore.EXTRA_OUTPUT, pendingFeedPhotoOutput);
-                    intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-                    intent.setClipData(ClipData.newUri(getContentResolver(), "GrowPlot camera output", pendingFeedPhotoOutput));
-                }
-            } catch (Exception ignored) { pendingFeedPhotoOutput = null; }
-        }
-        if (intent.resolveActivity(getPackageManager()) == null) {
-            deletePendingFeedPhoto(pendingFeedPhotoOutput);
-            pendingFeedPhotoOutput = null;
-            notifyFeedCaptureStatus("No compatible camera app was found. Choose an image file instead.");
-            return;
-        }
-        notifyFeedCaptureStatus("Taking a photo for CCTV " + String.format(Locale.US, "%02d", camera) + "â€¦");
-        try { startActivityForResult(Intent.createChooser(intent, "Take photo for CCTV " + camera), REQUEST_FEED_CAMERA); }
-        catch (Exception error) {
-            deletePendingFeedPhoto(pendingFeedPhotoOutput);
-            pendingFeedPhotoOutput = null;
-            notifyFeedCaptureStatus("Could not open the camera. Choose an image file instead.");
-        }
-    }
-
-    private void launchFeedPhotoPicker(int camera, String plotId) {
-        if (!isFeedFolderReady(plotId)) {
-            notifyFeedCaptureStatus("Connect this plotâ€™s image folder first using Connect to folder in this panel.");
-            return;
-        }
-        pendingFeedCamera = camera;
-        pendingFeedPlotId = safePlotId(plotId);
-        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-        intent.setType("image/*");
-        intent.addCategory(Intent.CATEGORY_OPENABLE);
-        notifyFeedCaptureStatus("Choose a photo for CCTV " + String.format(Locale.US, "%02d", camera) + ". It will be copied into this plotâ€™s image folder.");
-        try { startActivityForResult(intent, REQUEST_FEED_PICKER); }
-        catch (Exception error) { notifyFeedCaptureStatus("No image file picker is available on this device."); }
-    }
-
-    private boolean isFeedFolderReady(String plotId) {
-        String id = safePlotId(plotId);
-        String tree = getPrefs().getString(feedTreeKey(id), null);
-        String folder = getPrefs().getString(feedFolderDocumentKey(id), null);
-        return tree != null && folder != null && hasPersistedReadWriteGrant(Uri.parse(tree));
-    }
-
-    private void saveFeedPhotoToDrive(Uri source, Bitmap thumbnail, String plotId, int camera,
-                                      boolean portraitCapture) throws Exception {
-        String id = safePlotId(plotId);
-        String treeText = getPrefs().getString(feedTreeKey(id), null);
-        String folderId = getPrefs().getString(feedFolderDocumentKey(id), null);
-        if (treeText == null || folderId == null) throw new IllegalStateException("The image-feed folder is not configured for this plot");
-        Uri treeUri = Uri.parse(treeText);
-        if (!hasPersistedReadWriteGrant(treeUri)) throw new IllegalStateException("Saved Google Drive folder access is unavailable; reconnect the feed in Settings");
-        Bitmap bitmap = thumbnail;
-        Bitmap decodedBitmap = null;
-        Bitmap orientedBitmap = null;
-        int exifOrientation = ExifInterface.ORIENTATION_NORMAL;
-        if (source != null) {
-            try (InputStream input = getContentResolver().openInputStream(source)) {
-                if (input != null) exifOrientation = new ExifInterface(input).getAttributeInt(
-                        ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL);
-            } catch (Exception ignored) { exifOrientation = ExifInterface.ORIENTATION_NORMAL; }
-            try (InputStream input = getContentResolver().openInputStream(source)) {
-                if (input != null) decodedBitmap = BitmapFactory.decodeStream(input);
-            }
-            if (decodedBitmap != null) bitmap = decodedBitmap;
-        }
-        if (bitmap == null && thumbnail != null) bitmap = thumbnail;
-        if (bitmap == null) throw new IllegalStateException("The selected image could not be decoded");
-        float rotation = exifOrientation == ExifInterface.ORIENTATION_ROTATE_90
-                || exifOrientation == ExifInterface.ORIENTATION_TRANSPOSE ? 90f
-                : exifOrientation == ExifInterface.ORIENTATION_ROTATE_180 ? 180f
-                : exifOrientation == ExifInterface.ORIENTATION_ROTATE_270
-                || exifOrientation == ExifInterface.ORIENTATION_TRANSVERSE ? 270f : 0f;
-        if (rotation != 0f) {
-            Matrix matrix = new Matrix();
-            matrix.postRotate(rotation);
-            orientedBitmap = Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), matrix, true);
-            bitmap = orientedBitmap;
-        }
-        if (portraitCapture && bitmap.getWidth() > bitmap.getHeight()) {
-            Matrix matrix = new Matrix();
-            matrix.postRotate(90f);
-            Bitmap portraitBitmap = Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), matrix, true);
-            if (orientedBitmap != null && orientedBitmap != decodedBitmap && orientedBitmap != thumbnail) {
-                orientedBitmap.recycle();
-            }
-            orientedBitmap = portraitBitmap;
-            bitmap = portraitBitmap;
-        }
-        SimpleDateFormat snapshotClock = new SimpleDateFormat("yyyyMMdd_HHmmss_SSS", Locale.US);
-        snapshotClock.setTimeZone(TimeZone.getTimeZone("Asia/Kuala_Lumpur"));
-        String fileName = "CCTV" + String.format(Locale.US, "%02d", camera) + "_"
-                + snapshotClock.format(new Date()) + ".jpg";
-        Uri folderUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, folderId);
-        Uri destination = DocumentsContract.createDocument(getContentResolver(), folderUri, "image/jpeg", fileName);
-        if (destination == null) throw new IllegalStateException("Google Drive could not create the photo in the image-feed folder");
-        try (OutputStream output = getContentResolver().openOutputStream(destination, "w")) {
-            if (output == null) throw new IllegalStateException("Google Drive could not open the new photo");
-            if (!bitmap.compress(Bitmap.CompressFormat.JPEG, 92, output)) throw new IllegalStateException("Could not convert the selected image to JPEG");
-            output.flush();
-        } catch (Exception error) {
-            try { DocumentsContract.deleteDocument(getContentResolver(), destination); } catch (Exception ignored) { }
-            throw error;
-        } finally {
-            if (orientedBitmap != null && orientedBitmap != decodedBitmap
-                    && orientedBitmap != thumbnail && !orientedBitmap.isRecycled()) orientedBitmap.recycle();
-            if (decodedBitmap != null && decodedBitmap != thumbnail && !decodedBitmap.isRecycled()) decodedBitmap.recycle();
-        }
-    }
-
-    private void deletePendingFeedPhoto(Uri uri) {
-        if (uri == null) return;
-        try { getContentResolver().delete(uri, null, null); } catch (Exception ignored) { }
-    }
-
-    private void notifyFeedCaptureStatus(String message) {
-        if (web != null) web.evaluateJavascript("window.onFeedCaptureStatus&&window.onFeedCaptureStatus(" + JSONObject.quote(message) + ")", null);
-    }
-
-    private void handleDiagnosisActivityResult(int requestCode, int resultCode, Intent data) {
-        final Uri output = pendingDiagnosisOutput;
-        final int camera = pendingDiagnosisCamera;
-        final String plotId = safePlotId(pendingDiagnosisPlotId);
-        final String plotName = safeFolderName(pendingDiagnosisPlotName);
-        final String kind = requestCode == REQUEST_DIAGNOSIS_PICKER
-                ? mediaKind(data == null ? null : data.getData()) : pendingDiagnosisKind;
-        pendingDiagnosisOutput = null;
-        if (resultCode != RESULT_OK) {
-            deletePendingDiagnosisOutput(output);
-            notifyDiagnosisStatus("Capture or media selection cancelled.");
-            return;
-        }
-        Uri returned = data == null ? null : data.getData();
-        Uri source = requestCode == REQUEST_DIAGNOSIS_PICKER ? returned : (returned != null ? returned : output);
-        if (camera < 1 || camera > 6) {
-            deletePendingDiagnosisOutput(output);
-            notifyDiagnosisStatus("The camera session expired. Reopen Diagnose and try again.");
-            return;
-        }
-        if ("photo".equals(kind) && diagnosisPhotoCount(camera, plotId) >= 5) {
-            deletePendingDiagnosisOutput(output);
-            notifyDiagnosisStatus("This quadrant already has 5 photos. Remove a photo before adding another.");
-            return;
-        }
-        if (source == null && requestCode == REQUEST_DIAGNOSIS_PHOTO && data != null
-                && data.getExtras() != null && data.getExtras().get("data") instanceof Bitmap) {
-            Bitmap thumbnail = (Bitmap) data.getExtras().get("data");
-            notifyDiagnosisStatus("Saving the captured photo and thumbnailâ€¦");
-            diagnosisWorker.execute(() -> {
-                try { persistAndPostDiagnosisMedia(camera, plotId, plotName, "photo", saveDiagnosisThumbnail(thumbnail, camera, plotId)); }
-                catch (Exception error) { runOnUiThread(() -> notifyDiagnosisStatus("Could not save the captured photo.")); }
-                finally { deletePendingDiagnosisOutput(output); }
-            });
-        } else if (source != null) {
-            Uri mediaUri = source;
-            notifyDiagnosisStatus("Saving the captured media and preparing its thumbnailâ€¦");
-            diagnosisWorker.execute(() -> {
-                try {
-                    File saved = copyDiagnosisMedia(mediaUri, kind, camera, plotId);
-                    deletePendingDiagnosisOutput(output);
-                    persistAndPostDiagnosisMedia(camera, plotId, plotName, kind, saved);
-                } catch (Exception error) {
-                    deletePendingDiagnosisOutput(output);
-                    runOnUiThread(() -> notifyDiagnosisStatus("Could not save that media to this diagnosis."));
-                }
-            });
-        } else {
-            deletePendingDiagnosisOutput(output);
-            if (requestCode == REQUEST_DIAGNOSIS_VIDEO) {
-                notifyDiagnosisStatus("The camera did not return the video file. Select the new recording from Google Photos or Files to save it.");
-                launchDiagnosisVideoPicker(camera, plotId, plotName);
-            } else {
-                notifyDiagnosisStatus("The camera returned no media. Try another camera app or choose an existing file.");
-            }
-        }
-    }
-
-    private void handleDiagnosisFolderResult(int resultCode, Intent data) {
-        if (resultCode != RESULT_OK || data == null || data.getData() == null) {
-            notifyDiagnosisStorageStatus("Google Drive folder selection cancelled. Media will stay on this device.");
-            return;
-        }
-        Uri treeUri = data.getData();
-        int grantFlags = data.getFlags() & (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-        if ((grantFlags & Intent.FLAG_GRANT_WRITE_URI_PERMISSION) == 0
-                || (grantFlags & Intent.FLAG_GRANT_READ_URI_PERMISSION) == 0) {
-            notifyDiagnosisStorageStatus("Google Drive needs read and write access. Choose a writable GrowPlot folder.");
-            return;
-        }
-        try {
-            getContentResolver().takePersistableUriPermission(treeUri, grantFlags);
-            String oldTree = getPrefs().getString(PREF_DIAGNOSIS_TREE_URI, null);
-            if (oldTree == null || !oldTree.equals(treeUri.toString())) clearDiagnosisFolderIdCache();
-            String rootDocumentId = resolveDiagnosisRoot(treeUri);
-            String label = getDocumentPathLabel(treeUri, rootDocumentId);
-            getPrefs().edit().putString(PREF_DIAGNOSIS_TREE_URI, treeUri.toString())
-                    .putString(PREF_DIAGNOSIS_ROOT_DOCUMENT_ID, rootDocumentId)
-                    .putString(PREF_DIAGNOSIS_FOLDER_LABEL, label)
-                    .apply();
-            rememberGrowPlotTreeIfScoped(treeUri);
-            boolean configSaved = saveDriveStorageConfig(treeUri);
-            notifyDiagnosisStorageStatus("Google Drive is ready as the default storage: " + label
-                    + (configSaved ? ". The path is saved in GrowPlot/config/storage-paths.json." : ". The device has saved access, but choose GrowPlot as the shared folder scope to save both paths in Drive config."));
-            flushPendingDiagnosisUploads();
-            refreshDiagnosisMediaForActivePlot();
-        } catch (Exception error) {
-            String reason = error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage();
-            notifyDiagnosisStorageStatus("Could not connect this Google Drive folder: " + reason
-                    + ". Select GrowPlot; GrowPlot will use GrowPlot/Diagnosis automatically.");
-        }
-    }
-
-    private void openDiagnosisFolderPicker() {
-        if (adoptExistingGrowPlotDriveGrant()) {
-            notifyDiagnosisStorageStatus("Using the default Google Drive folder: GrowPlot/Diagnosis");
-            refreshDiagnosisMediaForActivePlot();
-            return;
-        }
-        requestDiagnosisFolderAuthorization();
-    }
-
-    private void requestDiagnosisFolderAuthorization() {
-        if (isFinishing()) return;
-        // Android requires an explicit, persisted Storage Access Framework grant before an app
-        // can read or write a user's private Google Drive files. Ask once for the parent scope;
-        // resolveDiagnosisRoot creates/uses the canonical GrowPlot/Diagnosis path automatically.
-        notifyDiagnosisStorageStatus("One-time Android permission needed: choose GrowPlot in Google Drive. GrowPlot will use GrowPlot/Diagnosis automatically.");
-        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
-        intent.putExtra(Intent.EXTRA_TITLE, "Allow GrowPlot to access GrowPlot in Google Drive");
-        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
-                | Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-                | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
-        try {
-            startActivityForResult(intent, REQUEST_DIAGNOSIS_FOLDER);
-        } catch (Exception error) {
-            notifyDiagnosisStorageStatus("Android could not open the Drive permission screen. Open Settings â†’ Apps â†’ GrowPlot â†’ Permissions, then retry. "
-                    + (error.getMessage() == null ? "" : error.getMessage()));
-        }
-    }
-
-    private boolean adoptExistingGrowPlotDriveGrant() {
-        String activePlot = safePlotId(getPrefs().getString(PREF_ACTIVE_PLOT_ID, DEFAULT_PLOT_ID));
-        Set<String> candidates = new java.util.LinkedHashSet<>();
-        for (String saved : new String[]{getPrefs().getString(PREF_GROWPLOT_TREE_URI, null),
-                getPrefs().getString(PREF_DIAGNOSIS_TREE_URI, null),
-                getPrefs().getString(PREF_IMAGE_FEED_TREE_URI, null),
-                getPrefs().getString(feedTreeKey(activePlot), null)}) {
-            if (saved != null) candidates.add(saved);
-        }
-        List<android.content.UriPermission> grants = getContentResolver().getPersistedUriPermissions();
-        // If app preferences were cleared while Android still retained the SAF grant, recover the
-        // saved tree from the provider instead of reopening the folder picker on every launch.
-        for (android.content.UriPermission grant : grants) {
-            Uri uri = grant.getUri();
-            String authority = uri.getAuthority();
-            if (authority != null && authority.toLowerCase(Locale.ROOT).contains("google.android.apps.docs")
-                    && grant.isReadPermission() && grant.isWritePermission()) candidates.add(uri.toString());
-        }
-        for (String candidate : candidates) {
-            Uri treeUri = Uri.parse(candidate);
-            String authority = treeUri.getAuthority();
-            if (authority == null || !authority.toLowerCase(Locale.ROOT).contains("google.android.apps.docs")) continue;
-            boolean read = false, write = false;
-            for (android.content.UriPermission grant : grants) {
-                if (grant.getUri().equals(treeUri)) {
-                    read = grant.isReadPermission();
-                    write = grant.isWritePermission();
-                    break;
-                }
-            }
-            if (!read || !write) continue;
-            try {
-                String diagnosisId = resolveDiagnosisRoot(treeUri);
-                String label = getDocumentPathLabel(treeUri, diagnosisId);
-                getPrefs().edit().putString(PREF_DIAGNOSIS_TREE_URI, treeUri.toString())
-                        .putString(PREF_DIAGNOSIS_ROOT_DOCUMENT_ID, diagnosisId)
-                        .putString(PREF_DIAGNOSIS_FOLDER_LABEL, label)
-                        .apply();
-                rememberGrowPlotTreeIfScoped(treeUri);
-                return true;
-            } catch (Exception ignored) { }
-        }
-        return false;
-    }
-
-    /** Resolve one canonical path from the granted parent: GrowPlot/Diagnosis. */
-    private String resolveDiagnosisRoot(Uri treeUri) throws Exception {
-        String id = DocumentsContract.getTreeDocumentId(treeUri);
-        String selectedName = getDocumentName(treeUri);
-        if ("Diagnosis".equalsIgnoreCase(selectedName)) return id;
-        if ("GrowPlot".equalsIgnoreCase(selectedName)) {
-            return findOrCreateChildFolder(treeUri, id, "Diagnosis");
-        }
-        if ("Projects".equalsIgnoreCase(selectedName)) {
-            String growPlotId = findOrCreateChildFolder(treeUri, id, "GrowPlot");
-            return findOrCreateChildFolder(treeUri, growPlotId, "Diagnosis");
-        }
-        if ("My Drive".equalsIgnoreCase(selectedName) || "Drive".equalsIgnoreCase(selectedName)) {
-            String projectsId = findOrCreateChildFolder(treeUri, id, "Projects");
-            String growPlotId = findOrCreateChildFolder(treeUri, projectsId, "GrowPlot");
-            return findOrCreateChildFolder(treeUri, growPlotId, "Diagnosis");
-        }
-        throw new IllegalArgumentException("Choose the Projects, GrowPlot, or Diagnosis folder; refusing to create Diagnosis inside " + selectedName);
-    }
-
-    private void launchDiagnosisVideoPicker(int camera, String plotId, String plotName) {
-        pendingDiagnosisCamera = camera;
-        pendingDiagnosisPlotId = safePlotId(plotId);
-        pendingDiagnosisPlotName = safeFolderName(plotName);
-        pendingDiagnosisOutput = null;
-        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-        intent.setType("video/*");
-        intent.addCategory(Intent.CATEGORY_OPENABLE);
-        try { startActivityForResult(intent, REQUEST_DIAGNOSIS_PICKER); }
-        catch (Exception error) { notifyDiagnosisStatus("No video picker is available. The video was not imported."); }
-    }
-
-    private void deletePendingDiagnosisOutput(Uri output) {
-        if (output != null) try { getContentResolver().delete(output, null, null); } catch (Exception ignored) { }
-    }
-
-    private int diagnosisPhotoCount(int camera, String plotId) {
-        File directory = new File(new File(new File(getFilesDir(), "diagnosis_media"), safePlotId(plotId)),
-                String.format(Locale.US, "cctv_%02d", camera));
-        File[] photos = directory.listFiles((dir, name) -> name.toLowerCase(Locale.US).endsWith(".jpg")
-                && !name.toLowerCase(Locale.US).endsWith("_thumb.jpg"));
-        return photos == null ? 0 : photos.length;
-    }
-
-    private File copyDiagnosisMedia(Uri source, String kind, int camera, String plotId) throws Exception {
-        String extension = "video".equals(kind) ? ".mp4" : ".jpg";
-        File directory = new File(new File(new File(getFilesDir(), "diagnosis_media"), safePlotId(plotId)),
-                String.format(Locale.US, "cctv_%02d", camera));
-        if (!directory.isDirectory() && !directory.mkdirs()) throw new IllegalStateException("Cannot create diagnosis folder");
-        String stamp = new SimpleDateFormat("yyyyMMdd_HHmmss_SSS", Locale.US).format(new Date());
-        File target = new File(directory, stamp + extension);
-        try (InputStream input = getContentResolver().openInputStream(source);
-             FileOutputStream output = new FileOutputStream(target)) {
-            if (input == null) throw new IllegalStateException("Media could not be opened");
-            byte[] buffer = new byte[16384];
-            int count;
-            while ((count = input.read(buffer)) != -1) output.write(buffer, 0, count);
-        }
-        if (target.length() == 0) { target.delete(); throw new IllegalStateException("Empty media file"); }
-        return target;
-    }
-
-    private File saveDiagnosisThumbnail(Bitmap bitmap, int camera, String plotId) throws Exception {
-        File directory = new File(new File(new File(getFilesDir(), "diagnosis_media"), safePlotId(plotId)),
-                String.format(Locale.US, "cctv_%02d", camera));
-        if (!directory.isDirectory() && !directory.mkdirs()) throw new IllegalStateException("Cannot create diagnosis folder");
-        File target = new File(directory, new SimpleDateFormat("yyyyMMdd_HHmmss_SSS", Locale.US).format(new Date()) + ".jpg");
-        try (FileOutputStream output = new FileOutputStream(target)) {
-            if (!bitmap.compress(Bitmap.CompressFormat.JPEG, 92, output)) throw new IllegalStateException("Image encode failed");
-        }
-        return target;
-    }
-
-    private String mediaKind(Uri uri) {
-        if (uri == null) return "photo";
-        String mime = getContentResolver().getType(uri);
-        return mime != null && mime.startsWith("video/") ? "video" : "photo";
-    }
-
-    private void persistAndPostDiagnosisMedia(int camera, String plotId, String plotName, String kind, File saved) {
-        String drivePath = null;
-        String driveError = null;
-        boolean driveReady = isDiagnosisDriveReady() || adoptExistingGrowPlotDriveGrant();
-        if (driveReady) {
-            try { drivePath = saveDiagnosisMediaToDrive(saved, kind, camera, plotId); }
-            catch (Exception error) {
-                driveError = error.getMessage() == null ? "Google Drive could not save this file." : error.getMessage();
-                queuePendingDiagnosisUpload(camera, plotId, kind, saved);
-            }
-        } else {
-            driveError = "One-time Google Drive permission is needed to upload this media.";
-            queuePendingDiagnosisUpload(camera, plotId, kind, saved);
-        }
-        postDiagnosisMedia(camera, plotId, kind, saved, drivePath, driveError);
-        if (!driveReady) runOnUiThread(this::openDiagnosisFolderPicker);
-    }
-
-    private synchronized void queuePendingDiagnosisUpload(int camera, String plotId, String kind, File media) {
-        JSONArray queue;
-        try { queue = new JSONArray(getPrefs().getString(PREF_PENDING_DIAGNOSIS_UPLOADS, "[]")); }
-        catch (Exception ignored) { queue = new JSONArray(); }
-        JSONObject item = new JSONObject();
-        try {
-            item.put("camera", camera);
-            item.put("plotId", safePlotId(plotId));
-            item.put("kind", kind);
-            item.put("path", media.getAbsolutePath());
-            item.put("fileName", media.getName());
-            for (int i = queue.length() - 1; i >= 0; i--) {
-                JSONObject old = queue.optJSONObject(i);
-                if (old != null && media.getAbsolutePath().equals(old.optString("path"))) queue.remove(i);
-            }
-            queue.put(item);
-            getPrefs().edit().putString(PREF_PENDING_DIAGNOSIS_UPLOADS, queue.toString()).apply();
-        } catch (Exception ignored) { }
-    }
-
-    private void flushPendingDiagnosisUploads() {
-        diagnosisWorker.execute(() -> {
-            if (!isDiagnosisDriveReady() && !adoptExistingGrowPlotDriveGrant()) return;
-            JSONArray queue;
-            try { queue = new JSONArray(getPrefs().getString(PREF_PENDING_DIAGNOSIS_UPLOADS, "[]")); }
-            catch (Exception ignored) { queue = new JSONArray(); }
-            JSONArray remaining = new JSONArray();
-            for (int i = 0; i < queue.length(); i++) {
-                JSONObject pending = queue.optJSONObject(i);
-                if (pending == null) continue;
-                File file = new File(pending.optString("path", ""));
-                int camera = pending.optInt("camera", 0);
-                String plotId = safePlotId(pending.optString("plotId", DEFAULT_PLOT_ID));
-                String kind = pending.optString("kind", "photo");
-                try {
-                    if (!file.isFile() || camera < 1 || camera > 6) throw new IllegalStateException("Local media is no longer available");
-                    String drivePath = saveDiagnosisMediaToDrive(file, kind, camera, plotId);
-                    markDiagnosisMediaDriveSaved(camera, plotId, file.getName(), drivePath);
-                } catch (Exception error) {
-                    remaining.put(pending);
-                }
-            }
-            getPrefs().edit().putString(PREF_PENDING_DIAGNOSIS_UPLOADS, remaining.toString()).apply();
-        });
-    }
-
-    private void markDiagnosisMediaDriveSaved(int camera, String plotId, String fileName, String drivePath) {
-        String key = diagnosisMediaIndexKey(camera, plotId);
-        JSONArray old;
-        try { old = new JSONArray(getPrefs().getString(key, "[]")); }
-        catch (Exception ignored) { old = new JSONArray(); }
-        JSONArray updated = new JSONArray();
-        for (int i = 0; i < old.length(); i++) {
-            JSONObject item = old.optJSONObject(i);
-            if (item == null) continue;
-            if (fileName.equals(item.optString("fileName"))) {
-                try { item.put("driveSaved", true); item.put("drivePath", drivePath); item.remove("driveError"); }
-                catch (Exception ignored) { }
-            }
-            updated.put(item);
-        }
-        getPrefs().edit().putString(key, updated.toString()).apply();
-        runOnUiThread(() -> {
-            if (web != null) {
-                String script = "window.onDiagnosisMediaDriveSaved&&window.onDiagnosisMediaDriveSaved("
-                        + camera + "," + JSONObject.quote(safePlotId(plotId)) + ","
-                        + JSONObject.quote(fileName) + "," + JSONObject.quote(drivePath) + ")";
-                web.evaluateJavascript(script, null);
-            }
-            notifyDiagnosisStatus("Media uploaded to Google Drive: " + drivePath);
-        });
-    }
-
-    private void clearDiagnosisFolderIdCache() {
-        SharedPreferences preferences = getPrefs();
-        SharedPreferences.Editor editor = preferences.edit();
-        for (String key : preferences.getAll().keySet()) {
-            if (key.startsWith("diagnosis_plot_document_") || key.startsWith("diagnosis_quadrant_document_")) editor.remove(key);
-        }
-        editor.remove(PREF_DIAGNOSIS_ROOT_DOCUMENT_ID).apply();
-    }
-
-    private String saveDiagnosisMediaToDrive(File localFile, String kind, int camera, String plotId) throws Exception {
-        String treeText = getPrefs().getString(PREF_DIAGNOSIS_TREE_URI, null);
-        if (treeText == null) throw new IllegalStateException("Google Drive destination is not configured");
-        Uri treeUri = Uri.parse(treeText);
-        String rootId = getPrefs().getString(PREF_DIAGNOSIS_ROOT_DOCUMENT_ID, null);
-        if (rootId == null) {
-            rootId = resolveDiagnosisRoot(treeUri);
-            getPrefs().edit().putString(PREF_DIAGNOSIS_ROOT_DOCUMENT_ID, rootId)
-                    .putString(PREF_DIAGNOSIS_FOLDER_LABEL, getDocumentPathLabel(treeUri, rootId)).apply();
-        }
-        String plotFolder = diagnosisPlotFolder(plotId);
-        String plotKey = "diagnosis_plot_document_" + safePlotId(plotId);
-        String plotDocumentId = getPrefs().getString(plotKey, null);
-        if (plotDocumentId == null) {
-            plotDocumentId = findOrCreateChildFolder(treeUri, rootId, plotFolder);
-            getPrefs().edit().putString(plotKey, plotDocumentId).apply();
-        }
-        String quadrantName = "Quadrant_" + String.format(Locale.US, "%02d", camera);
-        String quadrantKey = "diagnosis_quadrant_document_" + safePlotId(plotId) + "_" + String.format(Locale.US, "%02d", camera);
-        String quadrantId = getPrefs().getString(quadrantKey, null);
-        if (quadrantId == null) {
-            quadrantId = findOrCreateChildFolder(treeUri, plotDocumentId, quadrantName);
-            getPrefs().edit().putString(quadrantKey, quadrantId).apply();
-        }
-        Uri quadrantUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, quadrantId);
-        String mime = "video".equals(kind) ? "video/mp4" : "image/jpeg";
-        Uri destination = DocumentsContract.createDocument(getContentResolver(), quadrantUri, mime, localFile.getName());
-        if (destination == null) throw new IllegalStateException("Drive did not create the media file");
-        try (InputStream input = new FileInputStream(localFile);
-             OutputStream output = getContentResolver().openOutputStream(destination, "w")) {
-            if (output == null) throw new IllegalStateException("Drive did not open the new file for writing");
-            byte[] buffer = new byte[65536];
-            int read;
-            while ((read = input.read(buffer)) != -1) output.write(buffer, 0, read);
-            output.flush();
-        } catch (Exception error) {
-            try { DocumentsContract.deleteDocument(getContentResolver(), destination); } catch (Exception ignored) { }
-            throw error;
-        }
-        return "Diagnosis/" + plotFolder + "/" + quadrantName + "/" + localFile.getName();
-    }
-
-    private void postDiagnosisMedia(int camera, String plotId, String kind, File saved, String drivePath, String driveError) {
-        JSONObject item = new JSONObject();
-        try {
-            item.put("camera", camera);
-            item.put("plotId", safePlotId(plotId));
-            item.put("kind", kind);
-            item.put("url", "https://appassets.androidplatform.net/assets/diagnosis/" + safePlotId(plotId)
-                    + "/" + String.format(Locale.US, "cctv_%02d", camera) + "/" + saved.getName());
-            item.put("fileName", saved.getName());
-            if (drivePath != null) item.put("drivePath", drivePath);
-            item.put("driveSaved", drivePath != null);
-            if (driveError != null) item.put("driveError", driveError);
-            if ("video".equals(kind)) {
-                File poster = createDiagnosisVideoPoster(saved, camera, plotId);
-                if (poster != null) item.put("thumbnailUrl", "https://appassets.androidplatform.net/assets/diagnosis/"
-                        + safePlotId(plotId) + "/" + String.format(Locale.US, "cctv_%02d", camera) + "/" + poster.getName());
-            }
-            item.put("capturedAt", new SimpleDateFormat("dd MMM yyyy HH:mm", Locale.US)
-                    .format(new Date(saved.lastModified())) + " MYT");
-        } catch (Exception ignored) { }
-        saveDiagnosisMediaIndex(camera, plotId, item);
-        runOnUiThread(() -> {
-            if (web != null) web.evaluateJavascript("window.onDiagnosisMediaAdded&&window.onDiagnosisMediaAdded(" + item + ")", null);
-            if (drivePath != null) notifyDiagnosisStatus("Saved on this device and to Google Drive: " + drivePath);
-            else if (driveError != null) notifyDiagnosisStatus("Saved on this device, but Google Drive upload failed: " + driveError);
-            else notifyDiagnosisStatus("Saved on this device. Choose a Google Drive Diagnosis folder to enable uploads.");
-        });
-    }
-
-    private String diagnosisStorageLabel() {
-        String label = getPrefs().getString(PREF_DIAGNOSIS_FOLDER_LABEL, null);
-        return label == null ? "Not connected Â· default: Google Drive / GrowPlot / Diagnosis" : label;
-    }
-
-    private boolean isDiagnosisDriveReady() {
-        // The user granted a persistent Android Storage Access Framework permission.
-        // Do not poll UriPermissions on every capture/read; trust the saved connection
-        // and let the actual Drive operation report revocation or provider failures.
-        return getPrefs().getString(PREF_DIAGNOSIS_TREE_URI, null) != null
-                && getPrefs().getString(PREF_DIAGNOSIS_ROOT_DOCUMENT_ID, null) != null;
-    }
-
-    private String diagnosisPlotFolder(String plotId) {
-        Matcher matcher = Pattern.compile("(?i)^plot[-_ ]*(\\d+)").matcher(safePlotId(plotId));
-        return matcher.find() ? "Plot_" + matcher.group(1) : safeFolderName(plotId);
-    }
-
-    private void notifyDiagnosisStorageStatus(String message) {
-        if (web != null) web.evaluateJavascript("window.onDiagnosisStorageStatus&&window.onDiagnosisStorageStatus(" + JSONObject.quote(message) + ")", null);
-    }
-
-    private String diagnosisMediaIndexKey(int camera, String plotId) {
-        return "diagnosis_media_index_" + safePlotId(plotId) + "_cctv_" + String.format(Locale.US, "%02d", camera);
-    }
-
-    private void saveDiagnosisMediaIndex(int camera, String plotId, JSONObject item) {
-        JSONArray list = new JSONArray();
-        try {
-            JSONArray old = new JSONArray(getPrefs().getString(diagnosisMediaIndexKey(camera, plotId), "[]"));
-            for (int i = 0; i < old.length(); i++) {
-                JSONObject existing = old.optJSONObject(i);
-                if (existing != null && !item.optString("fileName").equals(existing.optString("fileName"))) list.put(existing);
-            }
-        } catch (Exception ignored) { }
-        list.put(item);
-        getPrefs().edit().putString(diagnosisMediaIndexKey(camera, plotId), list.toString()).apply();
-    }
-
-    private String readDiagnosisMediaIndex(int camera, String plotId) {
-        return getPrefs().getString(diagnosisMediaIndexKey(camera, plotId), "[]");
-    }
-
-    private void refreshDiagnosisMediaForActivePlot() {
-        String plotId = safePlotId(getPrefs().getString(PREF_ACTIVE_PLOT_ID, DEFAULT_PLOT_ID));
-        for (int camera = 1; camera <= 6; camera++) refreshDiagnosisMediaFromDrive(camera, plotId);
-    }
-
-    private void refreshDiagnosisMediaFromDrive(int camera, String plotId) {
-        if (camera < 1 || camera > 6 || !isDiagnosisDriveReady()) return;
-        final String id = safePlotId(plotId);
-        diagnosisWorker.execute(() -> {
-            JSONArray result = new JSONArray();
-            String errorMessage = null;
-            try {
-                if (!isDiagnosisDriveReady()) throw new IllegalStateException("Google Drive Diagnosis folder is not connected");
-                result = listAndCacheDriveDiagnosisMedia(camera, id);
-            }
-            catch (Exception error) { errorMessage = error.getMessage() == null ? "Drive folder could not be read." : error.getMessage(); }
-            final String error = errorMessage;
-            final String json = result.toString();
-            runOnUiThread(() -> {
-                if (web == null) return;
-                String script = "window.onDiagnosisMediaSync&&window.onDiagnosisMediaSync(" + camera + ","
-                        + JSONObject.quote(id) + "," + JSONObject.quote(json) + "," + JSONObject.quote(error) + ")";
-                web.evaluateJavascript(script, null);
-            });
-        });
-    }
-
-    private static final class DriveDiagnosisMedia {
-        String documentId;
-        String displayName;
-        String mimeType;
-        long modified;
-        long size;
-    }
-
-    private static final class PlantNetImageCandidate {
-        byte[] jpeg;
-        String source;
-        double quality;
-        PlantNetImageCandidate(byte[] jpeg, String source, double quality) { this.jpeg = jpeg; this.source = source; this.quality = quality; }
-    }
-
-    private JSONArray listAndCacheDriveDiagnosisMedia(int camera, String plotId) throws Exception {
-        JSONArray result = new JSONArray();
-        String treeText = getPrefs().getString(PREF_DIAGNOSIS_TREE_URI, null);
-        String rootId = getPrefs().getString(PREF_DIAGNOSIS_ROOT_DOCUMENT_ID, null);
-        if (treeText == null || rootId == null) return result;
-        Uri treeUri = Uri.parse(treeText);
-        String plotFolder = diagnosisPlotFolder(plotId);
-        String plotDocumentId = findExistingChildFolder(treeUri, rootId, plotFolder);
-        if (plotDocumentId == null) return result;
-        String quadrantName = "Quadrant_" + String.format(Locale.US, "%02d", camera);
-        String quadrantId = findExistingChildFolder(treeUri, plotDocumentId, quadrantName);
-        if (quadrantId == null) return result;
-        Uri childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, quadrantId);
-        String[] columns = {DocumentsContract.Document.COLUMN_DOCUMENT_ID,
-                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
-                DocumentsContract.Document.COLUMN_MIME_TYPE,
-                DocumentsContract.Document.COLUMN_LAST_MODIFIED,
-                DocumentsContract.Document.COLUMN_SIZE};
-        List<DriveDiagnosisMedia> media = new ArrayList<>();
-        try (Cursor cursor = getContentResolver().query(childrenUri, columns, null, null, null)) {
-            if (cursor == null) throw new IllegalStateException("Google Drive could not list " + plotFolder + "/" + quadrantName);
-            int idColumn = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DOCUMENT_ID);
-            int nameColumn = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME);
-            int mimeColumn = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_MIME_TYPE);
-            int modifiedColumn = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_LAST_MODIFIED);
-            int sizeColumn = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_SIZE);
-            while (cursor.moveToNext()) {
-                if (idColumn < 0 || nameColumn < 0 || mimeColumn < 0) continue;
-                String mime = cursor.getString(mimeColumn);
-                String name = cursor.getString(nameColumn);
-                if (DocumentsContract.Document.MIME_TYPE_DIR.equals(mime) || name == null) continue;
-                boolean video = mime != null && mime.startsWith("video/");
-                boolean photo = mime != null && mime.startsWith("image/");
-                if (!video && !photo) continue;
-                DriveDiagnosisMedia item = new DriveDiagnosisMedia();
-                item.documentId = cursor.getString(idColumn);
-                item.displayName = name;
-                item.mimeType = mime;
-                item.modified = modifiedColumn >= 0 && !cursor.isNull(modifiedColumn) ? cursor.getLong(modifiedColumn) : 0;
-                item.size = sizeColumn >= 0 && !cursor.isNull(sizeColumn) ? cursor.getLong(sizeColumn) : -1;
-                media.add(item);
-            }
-        }
-        Collections.sort(media, (left, right) -> Long.compare(right.modified, left.modified));
-        int limit = Math.min(media.size(), 10);
-        File directory = new File(new File(new File(getCacheDir(), "diagnosis_drive_cache"), plotId),
-                String.format(Locale.US, "cctv_%02d", camera));
-        if (!directory.isDirectory() && !directory.mkdirs()) throw new IllegalStateException("Cannot create Drive playback cache");
-        Set<String> keepNames = new HashSet<>();
-        for (int index = 0; index < limit; index++) {
-            DriveDiagnosisMedia item = media.get(index);
-            boolean video = item.mimeType.startsWith("video/");
-            String extension = video ? ".mp4" : ".jpg";
-            long stamp = Math.max(0, item.modified);
-            String cacheName = "d" + Long.toHexString(stamp) + "_" + Integer.toHexString(item.documentId.hashCode()) + extension;
-            keepNames.add(cacheName);
-            File cached = new File(directory, cacheName);
-            if (!cached.isFile() || (item.size >= 0 && cached.length() != item.size)) {
-                Uri documentUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, item.documentId);
-                File temp = new File(directory, cacheName + ".part");
-                try (InputStream input = getContentResolver().openInputStream(documentUri);
-                     FileOutputStream output = new FileOutputStream(temp)) {
-                    if (input == null) throw new IllegalStateException("Drive could not open " + item.displayName);
-                    byte[] buffer = new byte[65536];
-                    int read;
-                    while ((read = input.read(buffer)) != -1) output.write(buffer, 0, read);
-                    output.flush();
-                } catch (Exception error) {
-                    temp.delete();
-                    throw error;
-                }
-                if (item.size >= 0 && temp.length() != item.size) {
-                    temp.delete();
-                    throw new IllegalStateException("Drive download was incomplete for " + item.displayName);
-                }
-                if (cached.exists()) cached.delete();
-                if (!temp.renameTo(cached)) throw new IllegalStateException("Could not finalize Drive playback cache");
-            }
-            String relativeUrl = "https://appassets.androidplatform.net/assets/diagnosis/" + plotId + "/"
-                    + String.format(Locale.US, "cctv_%02d", camera) + "/" + cacheName;
-            JSONObject row = new JSONObject();
-            row.put("camera", camera);
-            row.put("plotId", plotId);
-            row.put("kind", video ? "video" : "photo");
-            row.put("url", relativeUrl);
-            row.put("fileName", item.displayName);
-            row.put("driveSaved", true);
-            row.put("drivePath", "Diagnosis/" + plotFolder + "/" + quadrantName + "/" + item.displayName);
-            row.put("driveDocumentId", item.documentId);
-            long date = item.modified > 0 ? item.modified : cached.lastModified();
-            row.put("capturedAt", new SimpleDateFormat("dd MMM yyyy HH:mm", Locale.US).format(new Date(date)) + " MYT");
-            if (video) {
-                File poster = createDiagnosisVideoPoster(cached, camera, plotId);
-                if (poster != null) {
-                    keepNames.add(poster.getName());
-                    row.put("thumbnailUrl", relativeUrl.replace(cacheName, poster.getName()));
-                }
-            }
-            result.put(row);
-        }
-        File[] cachedFiles = directory.listFiles();
-        if (cachedFiles != null) for (File cachedFile : cachedFiles) {
-            if (!keepNames.contains(cachedFile.getName())) cachedFile.delete();
-        }
-        return result;
-    }
-
-    private String findExistingChildFolder(Uri treeUri, String parentDocumentId, String folderName) throws Exception {
-        Uri childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, parentDocumentId);
-        String[] columns = {DocumentsContract.Document.COLUMN_DOCUMENT_ID,
-                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
-                DocumentsContract.Document.COLUMN_MIME_TYPE};
-        try (Cursor cursor = getContentResolver().query(childrenUri, columns, null, null, null)) {
-            if (cursor == null) throw new IllegalStateException("Google Drive could not list folders");
-            int idColumn = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DOCUMENT_ID);
-            int nameColumn = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME);
-            int mimeColumn = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_MIME_TYPE);
-            while (cursor.moveToNext()) {
-                if (idColumn >= 0 && nameColumn >= 0 && mimeColumn >= 0
-                        && folderName.equals(cursor.getString(nameColumn))
-                        && DocumentsContract.Document.MIME_TYPE_DIR.equals(cursor.getString(mimeColumn))) {
-                    return cursor.getString(idColumn);
-                }
-            }
-        }
-        return null;
-    }
-
-    private File createDiagnosisVideoPoster(File video, int camera, String plotId) {
-        MediaMetadataRetriever retriever = new MediaMetadataRetriever();
-        Bitmap frame = null;
-        try {
-            retriever.setDataSource(video.getAbsolutePath());
-            frame = retriever.getFrameAtTime(0, MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
-            if (frame == null) return null;
-            File poster = new File(video.getParentFile(), video.getName().replaceFirst("\\.mp4$", "_thumb.jpg"));
-            try (FileOutputStream output = new FileOutputStream(poster)) {
-                if (!frame.compress(Bitmap.CompressFormat.JPEG, 86, output)) return null;
-            }
-            return poster;
-        } catch (Exception ignored) { return null; }
-        finally {
-            try { retriever.release(); } catch (Exception ignored) { }
-            if (frame != null && !frame.isRecycled()) frame.recycle();
-        }
-    }
-
-    private void notifyDiagnosisStatus(String message) {
-        if (web != null) web.evaluateJavascript("window.onDiagnosisStatus&&window.onDiagnosisStatus(" + JSONObject.quote(message) + ")", null);
-    }
-
-    private void launchDiagnosisCapture(String kind, int camera, String plotId, String plotName) {
-        if (camera < 1 || camera > 6) return;
-        if ("photo".equals(kind) && diagnosisPhotoCount(camera, plotId) >= 5) {
-            notifyDiagnosisStatus("This quadrant already has 5 photos. Remove a photo before adding another.");
-            return;
-        }
-        pendingDiagnosisKind = kind;
-        pendingDiagnosisCamera = camera;
-        pendingDiagnosisPlotId = safePlotId(plotId);
-        pendingDiagnosisPlotName = safeFolderName(plotName);
-        int requestCode = "video".equals(kind) ? REQUEST_DIAGNOSIS_VIDEO : REQUEST_DIAGNOSIS_PHOTO;
-        try {
-            Intent intent = new Intent("video".equals(kind) ? MediaStore.ACTION_VIDEO_CAPTURE : MediaStore.ACTION_IMAGE_CAPTURE);
-            if ("video".equals(kind)) {
-                intent.putExtra(MediaStore.EXTRA_DURATION_LIMIT, 30);
-                intent.putExtra(MediaStore.EXTRA_VIDEO_QUALITY, 1);
-            }
-            // Let the camera app manage its own output. Supplying a pending MediaStore URI
-            // caused some camera apps to stall while writing/finalizing the capture.
-            pendingDiagnosisOutput = null;
-            if (intent.resolveActivity(getPackageManager()) == null) {
-                if ("video".equals(kind)) {
-                    notifyDiagnosisStatus("No video camera app was found. Choose a recorded video from the picker instead.");
-                    launchDiagnosisVideoPicker(camera, plotId, plotName);
-                } else notifyDiagnosisStatus("No compatible camera app was found. Choose an existing photo instead.");
-                return;
-            }
-            Intent chooser = Intent.createChooser(intent, "Record plant " + kind);
-            startActivityForResult(chooser, requestCode);
-        } catch (Exception error) {
-            if (pendingDiagnosisOutput != null) try { getContentResolver().delete(pendingDiagnosisOutput, null, null); } catch (Exception ignored) { }
-            pendingDiagnosisOutput = null;
-            if ("video".equals(kind)) launchDiagnosisVideoPicker(camera, plotId, plotName);
-            else notifyDiagnosisStatus("No compatible camera app was found. Choose an existing photo instead.");
-        }
-    }
-
-    private void launchDiagnosisPicker(int camera, String plotId, String plotName) {
-        pendingDiagnosisCamera = camera;
-        pendingDiagnosisPlotId = safePlotId(plotId);
-        pendingDiagnosisPlotName = safeFolderName(plotName);
-        pendingDiagnosisOutput = null;
-        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-        intent.setType("*/*");
-        intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{"image/*", "video/*"});
-        intent.addCategory(Intent.CATEGORY_OPENABLE);
-        notifyDiagnosisStatus("Choose a photo or video. GrowPlot saves it on this device first, then uploads it to Google Drive.");
-        try { startActivityForResult(intent, REQUEST_DIAGNOSIS_PICKER); }
-        catch (Exception error) { notifyDiagnosisStatus("No media picker is available on this device. " + (error.getMessage() == null ? "" : error.getMessage())); }
-    }
-
-    @Override public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode != REQUEST_DEVICE_LOCATION) return;
-        String plotId = safePlotId(locationPermissionPlotId);
-        locationPermissionRequestInFlight = false;
-        if (hasLocationPermission()) requestDeviceLocationForPlot(plotId);
-        else sendDeviceLocation(plotId, null, "Location permission was not granted.");
-    }
-
-    @Override public void onConfigurationChanged(Configuration newConfig) {
-        super.onConfigurationChanged(newConfig);
-        if (web != null) web.requestLayout();
-    }
-
-    private final class SnapshotBridge {
-        @JavascriptInterface public void loginAdminOtpDemo(String password) {
-            runOnUiThread(() -> AdminOtpDemo.login(MainActivity.this, password, () -> web.evaluateJavascript("window.GrowPlotAdminVerified&&window.GrowPlotAdminVerified()", null)));
-        }
-        @JavascriptInterface public void requestAdminActivationDemo() {
-            runOnUiThread(() -> AdminActivationDemo.request(MainActivity.this));
-        }
-        @JavascriptInterface public String getCctvCameraIpAddresses() {
-            JSONArray addresses = new JSONArray();
-            for (int camera = 1; camera <= 6; camera++) addresses.put(cctvIp(camera));
-            return addresses.toString();
-        }
-
-        @JavascriptInterface public boolean saveCctvCameraIpAddresses(String json) {
-            try {
-                JSONArray addresses = new JSONArray(json);
-                if (addresses.length() != 6) return false;
-                String[] values = new String[6];
-                for (int i = 0; i < 6; i++) {
-                    values[i] = addresses.optString(i, "").trim();
-                    if (!isPrivateIpv4OrBlank(values[i])) return false;
-                }
-                if (values[0].isEmpty() || values[1].isEmpty()) return false;
-                SharedPreferences.Editor editor = getPrefs().edit();
-                for (int i = 0; i < 6; i++) {
-                    editor.putString(PREF_CCTV_IP_PREFIX + String.format(Locale.US, "%02d", i + 1), values[i]);
-                }
-                editor.apply();
-                runOnUiThread(() -> {
-                    reconnectIpWebcamVlc();
-                    reconnectCctv02Vlc();
-                    reconnectCctv03Vlc();
-                });
-                return true;
-            } catch (Exception ignored) { return false; }
-        }
-
-        @JavascriptInterface public String getPluginApiKeyStatus() {
-            try { return new JSONObject().put("plantnet", !pluginApiKey("plantnet").isEmpty() || !BuildConfig.PLANTNET_API_KEY.isEmpty())
-                    .put("plantid", !pluginApiKey("plantid").isEmpty())
-                    .put("kindwise", !pluginApiKey("kindwise").isEmpty()).toString(); }
-            catch (Exception error) { return "{}"; }
-        }
-        @JavascriptInterface public boolean savePluginApiKeys(String payload) {
-            return MainActivity.this.savePluginApiKeys(payload);
-        }
-        @JavascriptInterface public void openPluginKeyPortal(String provider) {
-            final String url = "plantnet".equals(provider) ? "https://my.plantnet.org/settings/api-key"
-                    : "plantid".equals(provider) ? "https://admin.kindwise.com/login"
-                    : "kindwise".equals(provider) ? "https://admin.kindwise.com/login" : "";
-            if (!url.isEmpty()) runOnUiThread(() -> { try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); } catch (Exception ignored) { } });
-        }
-
-        @JavascriptInterface public String getVigiCctv03Credentials() {
-            try {
-                String[] credentials = vigiCctv03Credentials();
-                return new JSONObject().put("username", credentials[0]).put("passwordConfigured", !credentials[1].isEmpty()).toString();
-            } catch (Exception ignored) { return "{}"; }
-        }
-
-        @JavascriptInterface public boolean saveVigiCctv03Credentials(String username, String password) {
-            if (!MainActivity.this.saveVigiCctv03Credentials(username == null ? "" : username.trim(), password == null ? "" : password)) return false;
-            runOnUiThread(MainActivity.this::reconnectCctv03Vlc);
-            return true;
-        }
-
-        @JavascriptInterface public void migrateLegacyWebStorage(String payload) {
-            if (getPrefs().getBoolean(PREF_WEB_STORAGE_MIGRATED, false)) return;
-            getPrefs().edit().putString("legacy_web_storage_payload", payload == null ? "{}" : payload)
-                    .putBoolean(PREF_WEB_STORAGE_MIGRATED, true).apply();
-            runOnUiThread(MainActivity.this::loadMainPage);
-        }
-
-        @JavascriptInterface public String getLegacyWebStorage() {
-            return getPrefs().getString("legacy_web_storage_payload", "{}");
-        }
-
-        @JavascriptInterface public String getFarmDataUserId() {
-            return farmDataUserId("default-user");
-        }
-
-        @JavascriptInterface public void loadFarmPlantings() {
-            farmDataWorker.execute(() -> {
-                try { notifyFarmPlantingsLoaded(loadFarmPlantingsFromDrive(farmDataUserId("default-user"))); }
-                catch (Exception error) {
-                    JSONObject response = new JSONObject();
-                    try { response.put("ok", false); response.put("userId", farmDataUserId("default-user"));
-                        response.put("records", new JSONArray()); response.put("deletedIds", new JSONArray());
-                        response.put("irrigationSchedules", new JSONArray()); response.put("maintenanceTasks", new JSONArray());
-                        response.put("managementDeletedIds", new JSONArray());
-                        response.put("message", error.getMessage() == null ? "Could not read the farm database from Google Drive" : error.getMessage()); }
-                    catch (Exception ignored) { }
-                    notifyFarmPlantingsLoaded(response);
-                }
-            });
-        }
-
-        @JavascriptInterface public void saveFarmPlantings(String payload) {
-            farmDataWorker.execute(() -> {
-                try { notifyFarmPlantingsSaved(saveFarmPlantingsToDrive(payload)); }
-                catch (Exception error) {
-                    JSONObject response = new JSONObject();
-                    try { response.put("ok", false); response.put("message", error.getMessage() == null
-                            ? "Google Drive could not save these farm records" : error.getMessage()); }
-                    catch (Exception ignored) { }
-                    notifyFarmPlantingsSaved(response);
-                }
-            });
-        }
-
-        @JavascriptInterface public void chooseImageFolder(String plotId) {
-            pickerPlotId = safePlotId(plotId);
-            pickerCreatesDefaultFeed = false;
-            getPrefs().edit().putString(PREF_ACTIVE_PLOT_ID, pickerPlotId).apply();
-            runOnUiThread(MainActivity.this::openImageFeedFolderPicker);
-        }
-
-        @JavascriptInterface public void createDefaultDataFeed(String plotId, String folderName) {
-            pickerPlotId = safePlotId(plotId);
-            pickerDefaultFolderName = safeFolderName(folderName);
-            pickerCreatesDefaultFeed = true;
-            getPrefs().edit().putString(PREF_ACTIVE_PLOT_ID, pickerPlotId).apply();
-            runOnUiThread(MainActivity.this::openImageFeedFolderPicker);
-        }
-
-        @JavascriptInterface public String getFeedLocation(String plotId) {
-            String id = safePlotId(plotId);
-            return feedLocationLabel(id);
-        }
-
-        @JavascriptInterface public String getFeedUserScope() {
-            com.google.firebase.auth.FirebaseUser user =
-                    com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
-            return user == null ? "signed-out" : user.getUid();
-        }
-
-        @JavascriptInterface public String getExpectedFeedPath(String plotId, String folderName) {
-            try {
-                return "Google Drive: /Projects/GrowPlot/Image_Feed/" + signedInEmailFolderName()
-                        + "/" + safeFolderName(folderName);
-            } catch (Exception error) {
-                return "";
-            }
-        }
-
-        @JavascriptInterface public void openIpWebcam() {
-            runOnUiThread(MainActivity.this::installCctv01VlcPositionListener);
-        }
-
-        @JavascriptInterface public void setCctvVlcFeedsAllowedOnActiveScreen(boolean allowed) {
-            runOnUiThread(() -> MainActivity.this.setCctvVlcFeedsAllowedOnActiveScreen(allowed));
-        }
-
-        @JavascriptInterface public void updateCctv01VlcPosition(String coordinates) {
-            runOnUiThread(() -> MainActivity.this.positionCctv01Vlc(coordinates));
-        }
-        @JavascriptInterface public void updateCctv02VlcPosition(String coordinates) {
-            runOnUiThread(() -> MainActivity.this.positionCctv02Vlc(coordinates));
-        }
-
-        @JavascriptInterface public void updateCctv03VlcPosition(String coordinates) {
-            runOnUiThread(() -> MainActivity.this.positionCctv03Vlc(coordinates));
-        }
-
-        @JavascriptInterface public void openGoogleMaps(String latitude, String longitude) {
-            try {
-                double lat = Double.parseDouble(latitude);
-                double lon = Double.parseDouble(longitude);
-                if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return;
-                Uri maps = Uri.parse("https://www.google.com/maps/search/?api=1&query=" + lat + "%2C" + lon);
-                openGoogleMapsUri(maps);
-            } catch (Exception ignored) { }
-        }
-
-        @JavascriptInterface public void openGoogleMapsAddress(String addressText) {
-            String query = addressText == null || addressText.trim().isEmpty() ? "Malaysia" : addressText.trim();
-            Uri maps = new Uri.Builder().scheme("https").authority("www.google.com")
-                    .path("/maps/search/").appendQueryParameter("api", "1")
-                    .appendQueryParameter("query", query).build();
-            openGoogleMapsUri(maps);
-        }
-
-        private void openGoogleMapsUri(Uri maps) {
-            runOnUiThread(() -> {
-                Intent googleMaps = new Intent(Intent.ACTION_VIEW, maps);
-                googleMaps.setPackage("com.google.android.apps.maps");
-                try {
-                    startActivity(googleMaps);
-                } catch (Exception mapsUnavailable) {
-                    try { startActivity(new Intent(Intent.ACTION_VIEW, maps)); } catch (Exception ignored) { }
-                }
-            });
-        }
-
-        @JavascriptInterface public void requestDeviceLocation(String plotId) {
-            requestDeviceLocationPermission(safePlotId(plotId));
-        }
-
-        @JavascriptInterface public void geocodePlotAddress(String addressText, String plotId) {
-            final String id = safePlotId(plotId);
-            String query = addressText == null ? "" : addressText.trim();
-            if (query.isEmpty()) return;
-            if (!query.toLowerCase(Locale.ROOT).contains("malaysia")) query += ", Malaysia";
-            final String searchText = query;
-            geocodeWorker.execute(() -> {
-                try {
-                    if (!Geocoder.isPresent()) throw new IllegalStateException("Address lookup is unavailable.");
-                    Geocoder geocoder = new Geocoder(MainActivity.this, Locale.getDefault());
-                    if (Build.VERSION.SDK_INT >= 33) {
-                        geocoder.getFromLocationName(searchText, 1, addresses -> {
-                            Address found = addresses == null || addresses.isEmpty() ? null : addresses.get(0);
-                            sendAddressGeocode(id, searchText, found);
-                        });
-                    } else {
-                        List<Address> addresses = geocoder.getFromLocationName(searchText, 1);
-                        sendAddressGeocode(id, searchText, addresses == null || addresses.isEmpty() ? null : addresses.get(0));
-                    }
-                } catch (Exception error) {
-                    sendAddressGeocode(id, searchText, null);
-                }
-            });
-        }
-
-        @JavascriptInterface public void ensurePlotFeed(String plotId) {
-            String id = safePlotId(plotId);
-            getPrefs().edit().putString("data_feed_config_" + id,
-                    getPrefs().getString("data_feed_config_" + id, "{\"plotId\":\"" + id + "\",\"enabled\":false}")).apply();
-        }
-
-        @JavascriptInterface public void returnToDemoStreams() {
-            runOnUiThread(() -> MainActivity.this.returnToDemoStreams());
-        }
-        @JavascriptInterface public void setActiveStreamingContext(String plotId, String greenhouseId) {
-            runOnUiThread(() -> MainActivity.this.loadAssignedStreams(safePlotId(plotId), greenhouseId, false));
-        }
-        @JavascriptInterface public void setActivePlot(String plotId) {
-            String id = safePlotId(plotId);
-            getPrefs().edit().putString(PREF_ACTIVE_PLOT_ID, id).apply();
-            // Home selector supplies the matching greenhouse; do not overwrite it with greenhouse-1.
-            scanSnapshotFolder();
-        }
-
-        @JavascriptInterface public void checkNow(String plotId) {
-            scanSnapshotFolder(safePlotId(plotId));
-        }
-
-        @JavascriptInterface public void captureFeedPhoto(int camera, String plotId) {
-            if (camera < 1 || camera > 6) return;
-            runOnUiThread(() -> launchFeedPhotoCapture(camera, safePlotId(plotId)));
-        }
-
-        @JavascriptInterface public void chooseFeedPhoto(int camera, String plotId) {
-            if (camera < 1 || camera > 6) return;
-            runOnUiThread(() -> launchFeedPhotoPicker(camera, safePlotId(plotId)));
-        }
-
-        @JavascriptInterface public int getRefreshInterval() {
-            return refreshIntervalMinutes;
-        }
-
-        @JavascriptInterface public void setRefreshInterval(int minutes) {
-            if (minutes != 1 && minutes != 5 && minutes != 15 && minutes != 30) minutes = 5;
-            final int interval = minutes;
-            runOnUiThread(() -> {
-                refreshIntervalMinutes = interval;
-                getPrefs().edit().putInt(PREF_INTERVAL, interval).apply();
-                mainHandler.removeCallbacks(scheduledScan);
-                scanSnapshotFolder();
-                mainHandler.postDelayed(scheduledScan, refreshIntervalMinutes * 60_000L);
-            });
-        }
-
-        @JavascriptInterface public double getCctvSnapshotIntervalMinutes() {
-            return cctvSnapshotIntervalMillis / 60_000.0;
-        }
-
-        @JavascriptInterface public void setCctvSnapshotIntervalMinutes(double minutes) {
-            if (Double.isNaN(minutes) || Double.isInfinite(minutes)) return;
-            final long intervalMillis = Math.round(Math.max(0.5, Math.min(1440.0, minutes)) * 60_000.0);
-            runOnUiThread(() -> {
-                cctvSnapshotIntervalMillis = intervalMillis;
-                getPrefs().edit().putLong(PREF_CCTV_SNAPSHOT_INTERVAL_MILLIS, intervalMillis).apply();
-                mainHandler.removeCallbacks(cctv01SnapshotTicker);
-                mainHandler.removeCallbacks(cctv02SnapshotTicker);
-                mainHandler.removeCallbacks(cctv03SnapshotTicker);
-                if (activityResumed && ipWebcamVlcPlayer != null && ipWebcamVlcLayout != null) {
-                    mainHandler.postDelayed(cctv01SnapshotTicker, cctvSnapshotIntervalMillis);
-                }
-                if (activityResumed && ipWebcam2VlcPlayer != null && ipWebcam2VlcLayout != null) {
-                    mainHandler.postDelayed(cctv02SnapshotTicker, nextSnapshotCheckDelay(2));
-                }
-                if (activityResumed && ipWebcam3VlcPlayer != null && ipWebcam3VlcLayout != null) {
-                    mainHandler.postDelayed(cctv03SnapshotTicker, cctvSnapshotIntervalMillis);
-                }
-            });
-        }
-
-        @JavascriptInterface public String getTimelineInterval() {
-            return timelineInterval;
-        }
-
-        @JavascriptInterface public void setTimelineInterval(String interval) {
-            if (!"daily".equals(interval) && !"weekly".equals(interval) && !"monthly".equals(interval)
-                    && !"yearly".equals(interval)) return;
-            runOnUiThread(() -> {
-                timelineInterval = interval;
-                getPrefs().edit().putString(PREF_TIMELINE_INTERVAL, interval).apply();
-                scanSnapshotFolder();
-            });
-        }
-
-        @JavascriptInterface public void captureDiagnosisPhoto(int camera, String plotId, String plotName) {
-            runOnUiThread(() -> launchDiagnosisCapture("photo", camera, plotId, plotName));
-        }
-
-        @JavascriptInterface public void recordDiagnosisVideo(int camera, String plotId, String plotName) {
-            runOnUiThread(() -> launchDiagnosisCapture("video", camera, plotId, plotName));
-        }
-
-        @JavascriptInterface public void chooseDiagnosisMedia(int camera, String plotId, String plotName) {
-            runOnUiThread(() -> launchDiagnosisPicker(camera, plotId, plotName));
-        }
-
-        @JavascriptInterface public void diagnosePhotosWithPlantNet(int camera, String plotId, String species, String symptom, String pixelMetrics) {
-            final String id = safePlotId(plotId);
-            diagnosisWorker.execute(() -> {
-                JSONObject response;
-                try {
-                    File feedImage = new File(userPlotDirectory("latest_images", id), cameraFileName(camera));
-                    List<PlantNetImageCandidate> candidates = new ArrayList<>();
-                    try { candidates.addAll(loadDiagnosisPhotosFromDrive(camera, id)); }
-                    catch (Exception driveError) { if (!feedImage.isFile()) throw driveError; }
-                    boolean feedImageIncluded = feedImage.isFile() && feedImage.length() > 0;
-                    if (feedImageIncluded) {
-                        try {
-                            byte[] jpeg = readPlantNetImage(Uri.fromFile(feedImage));
-                            if (jpeg != null && jpeg.length > 0) candidates.add(new PlantNetImageCandidate(jpeg,
-                                    "Current Home Image_Feed snapshot: CCTV" + String.format(Locale.US, "%02d", camera),
-                                    scorePlantNetImage(jpeg)));
-                        } catch (Exception feedError) { if (candidates.isEmpty()) throw feedError; }
-                    }
-                    if (candidates.isEmpty()) throw new IllegalStateException("No readable photos are available for this quadrant");
-                    List<PlantNetImageCandidate> selected = selectBestPlantNetImages(candidates);
-                    List<byte[]> selectedImages = candidateBytes(selected);
-                    requestKindwiseDiagnosis(camera, id, selectedImages, candidates.size(), selected,
-                            species, symptom, pixelMetrics, "quadrant_photos",
-                            "Diagnosis/" + diagnosisPlotFolder(id) + "/Quadrant_" + String.format(Locale.US, "%02d", camera),
-                            "Selected the clearest available quadrant photos using approximate sharpness, exposure, and visible-plant-area checks.");
-                    // Request species identification first so a slower disease check cannot delay the
-                    // crop identity the user needs before interpreting disease candidates.
-                    JSONObject speciesIdentification = identifyPlantSpeciesWithPlantNet(selectedImages);
-                    response = identifyWithPlantNet(selectedImages);
-                    // Keep species and disease outcomes separate so either provider can fail independently.
-                    response.put("speciesIdentification", speciesIdentification);
-                    response.put("speciesContext", species == null ? "" : species);
-                    response.put("symptomContext", symptom == null ? "" : symptom);
-                    response.put("pixelContext", pixelMetrics == null ? "" : pixelMetrics);
-                    response.put("mediaType", "quadrant_photos");
-                    response.put("sourceFolder", feedImageIncluded
-                            ? "Current Image_Feed snapshot plus saved Diagnosis photos when available"
-                            : "Diagnosis/" + diagnosisPlotFolder(id) + "/Quadrant_" + String.format(Locale.US, "%02d", camera));
-                    response.put("candidateImageCount", candidates.size());
-                    response.put("feedImageIncluded", feedImageIncluded);
-                    response.put("selectionNote", "Selected the clearest available quadrant photos using approximate sharpness, exposure, and visible-plant-area checks; the current Home Image_Feed snapshot is included when available.");
-                    response.put("selectedSources", candidateSources(selected));
-                } catch (Exception error) {
-                    response = plantNetError(error);
-                }
-                sendPlantNetResult(camera, id, response);
-            });
-        }
-
-        @JavascriptInterface public void identifyPlantSpeciesFromPhotos(int camera, String plotId) {
-            final String id = safePlotId(plotId);
-            diagnosisWorker.execute(() -> {
-                JSONObject response;
-                try {
-                    List<PlantNetImageCandidate> candidates;
-                    try { candidates = loadDiagnosisPhotosFromDrive(camera, id); }
-                    catch (Exception driveError) {
-                        candidates = loadDiagnosisPhotosFromDeviceIndex(camera, id);
-                        if (candidates.isEmpty()) throw driveError;
-                    }
-                    List<PlantNetImageCandidate> selected = selectBestPlantNetImages(candidates);
-                    List<byte[]> images = candidateBytes(selected);
-                    JSONArray providerResults = new JSONArray();
-                    providerResults.put(identifyPlantSpeciesWithPlantNet(images));
-                    providerResults.put(identifyPlantSpeciesWithPlantId(images));
-                    response = new JSONObject();
-                    boolean anyOk = false, allNotConfigured = providerResults.length() > 0;
-                    for (int i = 0; i < providerResults.length(); i++) {
-                        String status = providerResults.getJSONObject(i).optString("status");
-                        anyOk |= "ok".equals(status);
-                        allNotConfigured &= "not_configured".equals(status);
-                    }
-                    response.put("status", anyOk ? "ok" : "error");
-                    if (!anyOk && allNotConfigured) response.put("status", "not_configured");
-                    response.put("providers", providerResults);
-                    response.put("candidateImageCount", candidates.size());
-                    response.put("imageCountSubmitted", images.size());
-                    response.put("selectedSources", candidateSources(selected));
-                    response.put("selectionNote", "Both services received the same clearest saved photos. Their scores are separate model rankings, not proof of identity.");
-                } catch (Exception error) {
-                    response = plantNetError(error);
-                    try { response.put("provider", "Pl@ntNet species identification"); }
-                    catch (Exception ignored) { }
-                }
-                sendPlantSpeciesResult(camera, id, response);
-            });
-        }
-
-        @JavascriptInterface public void chooseDiagnosisDriveFolder() {
-            runOnUiThread(() -> requestDiagnosisFolderAuthorization());
-        }
-
-        @JavascriptInterface public String getDiagnosisStorageLabel() {
-            return diagnosisStorageLabel();
-        }
-
-
-        @JavascriptInterface public String getDiagnosisApiConfig() {
-            JSONObject config = new JSONObject();
-            try {
-                config.put("url", BuildConfig.DIAGNOSIS_API_URL);
-                config.put("proxyToken", BuildConfig.DIAGNOSIS_PROXY_TOKEN);
-            } catch (Exception ignored) { }
-            return config.toString();
-        }
-
-        @JavascriptInterface public String getDiagnosisMedia(int camera, String plotId) {
-            if (camera < 1 || camera > 6) return "[]";
-            return readDiagnosisMediaIndex(camera, plotId);
-        }
-
-        @JavascriptInterface public void refreshDiagnosisMedia(int camera, String plotId) {
-            refreshDiagnosisMediaFromDrive(camera, plotId);
-        }
-
-        @JavascriptInterface public void playDiagnosisVideo(int camera, String plotId, String mediaUrl) {
-            runOnUiThread(() -> playDiagnosisVideoInApp(camera, plotId, mediaUrl));
-        }
-
-        @JavascriptInterface public void removeDiagnosisMedia(int camera, String plotId, String documentId,
-                                                               String fileName, String mediaUrl) {
-            final String id = safePlotId(plotId);
-            if (camera < 1 || camera > 6) return;
-            diagnosisWorker.execute(() -> removeDiagnosisMediaFromStorage(camera, id,
-                    documentId == null ? "" : documentId, fileName == null ? "" : fileName,
-                    mediaUrl == null ? "" : mediaUrl));
-        }
-
-        @JavascriptInterface public void openDiagnosisDriveMedia(String documentId, String mimeType) {
-            runOnUiThread(() -> openDiagnosisDriveMediaInPlayer(documentId, mimeType));
-        }
-    }
-
-
-    private void playDiagnosisVideoInApp(int camera, String plotId, String mediaUrl) {
-        String id = safePlotId(plotId);
-        if (camera < 1 || camera > 6 || mediaUrl == null) {
-            notifyDiagnosisStatus("The video reference is invalid. Refresh the diagnosis list.");
-            return;
-        }
-        String quadrant = String.format(Locale.US, "cctv_%02d", camera);
-        String expectedPrefix = "https://appassets.androidplatform.net/assets/diagnosis/" + id + "/" + quadrant + "/";
-        if (!mediaUrl.startsWith(expectedPrefix)) {
-            notifyDiagnosisStatus("The video reference does not match this plot and quadrant.");
-            return;
-        }
-        String fileName = Uri.parse(mediaUrl).getLastPathSegment();
-        if (fileName == null || !fileName.matches("[A-Za-z0-9_-]{1,64}\\.mp4")) {
-            notifyDiagnosisStatus("The video file name is invalid.");
-            return;
-        }
-        try {
-            File local = new File(new File(new File(getFilesDir(), "diagnosis_media"), id), quadrant + "/" + fileName).getCanonicalFile();
-            File cached = new File(new File(new File(getCacheDir(), "diagnosis_drive_cache"), id), quadrant + "/" + fileName).getCanonicalFile();
-            File media = local.isFile() ? local : (cached.isFile() ? cached : null);
-            if (media == null) {
-                notifyDiagnosisStatus("The video is not in the device playback cache yet. Reopen this diagnosis and wait for Drive sync.");
-                return;
-            }
-            Dialog dialog = new Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen);
-            FrameLayout frame = new FrameLayout(this);
-            frame.setBackgroundColor(Color.BLACK);
-            VideoView player = new VideoView(this);
-            frame.addView(player, new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
-            TextView pixelOverlay = new TextView(this);
-            pixelOverlay.setTextColor(Color.WHITE);
-            pixelOverlay.setTextSize(10);
-            pixelOverlay.setPadding(dp(9), dp(7), dp(48), dp(7));
-            pixelOverlay.setBackgroundColor(0xCC172D20);
-            pixelOverlay.setText(Html.fromHtml("<font color='#3EAA5D'>â— Green â€”%</font>ã€€<font color='#F1D451'>â— Yellow â€”%</font><br><font color='#A46A45'>â— Brown â€”%</font>ã€€<font color='#C7CFCA'>â— Other â€”%</font>",Html.FROM_HTML_MODE_LEGACY));
-            FrameLayout.LayoutParams overlayParams = new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.TOP);
-            frame.addView(pixelOverlay, overlayParams);
-            TextView closeVideo = new TextView(this);
-            closeVideo.setText("Ã—");
-            closeVideo.setTextColor(Color.WHITE);
-            closeVideo.setTextSize(28);
-            closeVideo.setGravity(Gravity.CENTER);
-            closeVideo.setBackgroundColor(0xCC172D20);
-            closeVideo.setContentDescription("Close video player");
-            closeVideo.setOnClickListener(view -> dialog.dismiss());
-            FrameLayout.LayoutParams closeParams = new FrameLayout.LayoutParams(dp(42), dp(42), Gravity.TOP | Gravity.RIGHT);
-            frame.addView(closeVideo, closeParams);
-            dialog.setContentView(frame);
-            MediaController controls = new MediaController(this);
-            controls.setAnchorView(player);
-            player.setMediaController(controls);
-            player.setOnPreparedListener(mp -> {
-                if (mp.getVideoWidth() <= 0 || mp.getVideoHeight() <= 0) {
-                    notifyDiagnosisStatus("Android opened the MP4 but found no decodable video frames. The file may be audio-only or use an unsupported video codec.");
-                } else {
-                    notifyDiagnosisStatus("Video is playing. Color screen will appear in the diagnosis results when complete; tap Ã— to close at any time.");
-                }
-                if (mp.getVideoWidth() > 0 && mp.getVideoHeight() > 0) {
-                    resizeDiagnosisVideoDialog(dialog, mp.getVideoWidth(), mp.getVideoHeight());
-                    startDiagnosisVideoAnalysis(camera, id, media, pixelOverlay, dialog);
-                }
-                player.start();
-            });
-            player.setOnInfoListener((mp, what, extra) -> {
-                if (what == MediaPlayer.MEDIA_INFO_VIDEO_RENDERING_START) notifyDiagnosisStatus("Video frames are now playing in GrowPlot.");
-                return false;
-            });
-            player.setOnErrorListener((mp, what, extra) -> {
-                dialog.dismiss();
-                notifyDiagnosisStatus("Android could not decode this video (player error " + what + ", detail " + extra + ").");
-                return true;
-            });
-            dialog.setOnDismissListener(ignored -> player.stopPlayback());
-            dialog.show();
-            android.util.DisplayMetrics display = getResources().getDisplayMetrics();
-            int initialWidth = (int)(display.widthPixels * .48f);
-            int initialHeight = (int)(display.heightPixels * .38f);
-            if (dialog.getWindow() != null) {
-                dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
-                dialog.getWindow().setDimAmount(.22f);
-                dialog.getWindow().setGravity(Gravity.CENTER);
-                dialog.getWindow().setLayout(initialWidth, initialHeight);
-            }
-            player.setVideoPath(media.getAbsolutePath());
-        } catch (Exception error) {
-            notifyDiagnosisStatus("Could not open the cached video: " + (error.getMessage() == null ? "unknown player error" : error.getMessage()));
-        }
-    }
-
-
-    private void resizeDiagnosisVideoDialog(Dialog dialog, int videoWidth, int videoHeight) {
-        if (dialog == null || videoWidth <= 0 || videoHeight <= 0 || dialog.getWindow() == null) return;
-        android.util.DisplayMetrics display = getResources().getDisplayMetrics();
-        // Match the diagnosis card's media thumbnail bounds: half the screen width
-        // and roughly the 180dp preview height, scaled for the current display.
-        int maxWidth = (int)(display.widthPixels * .48f);
-        int maxHeight = Math.min(dp(180), (int)(display.heightPixels * .38f));
-        float aspect = videoWidth / (float) videoHeight;
-        int width = Math.min(maxWidth, (int)(maxHeight * aspect));
-        int height = Math.min(maxHeight, (int)(width / aspect));
-        Window window = dialog.getWindow();
-        window.setGravity(Gravity.CENTER);
-        window.setLayout(width, height);
-    }
-
-    private int dp(float value) { return (int)(value * getResources().getDisplayMetrics().density + .5f); }
-
-    private byte[] readPlantNetImage(Uri imageUri) throws Exception {
-        BitmapFactory.Options bounds = new BitmapFactory.Options(); bounds.inJustDecodeBounds = true;
-        try (InputStream input = getContentResolver().openInputStream(imageUri)) {
-            if (input == null) throw new IllegalStateException("Google Drive could not open a quadrant photo");
-            BitmapFactory.decodeStream(input, null, bounds);
-        }
-        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) throw new IllegalStateException("A quadrant photo could not be decoded");
-        int sample = 1, longest = Math.max(bounds.outWidth, bounds.outHeight);
-        while (longest / sample > 1600) sample *= 2;
-        Bitmap decoded;
-        BitmapFactory.Options options = new BitmapFactory.Options(); options.inSampleSize = sample;
-        try (InputStream input = getContentResolver().openInputStream(imageUri)) {
-            if (input == null) throw new IllegalStateException("Google Drive could not reopen a quadrant photo");
-            decoded = BitmapFactory.decodeStream(input, null, options);
-        }
-        if (decoded == null) throw new IllegalStateException("A quadrant photo could not be decoded");
-        try { return plantNetJpeg(decoded); }
-        finally { if (!decoded.isRecycled()) decoded.recycle(); }
-    }
-
-    private List<PlantNetImageCandidate> loadDiagnosisPhotosFromDrive(int camera, String plotId) throws Exception {
-        if (camera < 1 || camera > 6) throw new IllegalArgumentException("Invalid quadrant number");
-        if (!isDiagnosisDriveReady()) throw new IllegalStateException("Google Drive Diagnosis folder is not connected");
-        String treeText = getPrefs().getString(PREF_DIAGNOSIS_TREE_URI, null);
-        String rootId = getPrefs().getString(PREF_DIAGNOSIS_ROOT_DOCUMENT_ID, null);
-        if (treeText == null || rootId == null) throw new IllegalStateException("Google Drive Diagnosis folder is not connected");
-        Uri treeUri = Uri.parse(treeText);
-        String plotFolder = diagnosisPlotFolder(plotId);
-        String plotIdOnDrive = findExistingChildFolder(treeUri, rootId, plotFolder);
-        if (plotIdOnDrive == null) throw new IllegalStateException("No Google Drive folder found for " + plotFolder);
-        String quadrantName = "Quadrant_" + String.format(Locale.US, "%02d", camera);
-        String quadrantId = findExistingChildFolder(treeUri, plotIdOnDrive, quadrantName);
-        if (quadrantId == null) throw new IllegalStateException("No Google Drive folder found for " + plotFolder + "/" + quadrantName);
-        Uri childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, quadrantId);
-        String[] columns = {DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME,
-                DocumentsContract.Document.COLUMN_MIME_TYPE, DocumentsContract.Document.COLUMN_LAST_MODIFIED};
-        List<DriveDiagnosisMedia> photos = new ArrayList<>();
-        try (Cursor cursor = getContentResolver().query(childrenUri, columns, null, null, null)) {
-            if (cursor == null) throw new IllegalStateException("Google Drive could not list " + plotFolder + "/" + quadrantName);
-            int idColumn = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DOCUMENT_ID);
-            int nameColumn = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME);
-            int mimeColumn = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_MIME_TYPE);
-            int modifiedColumn = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_LAST_MODIFIED);
-            while (cursor.moveToNext()) {
-                if (idColumn < 0 || mimeColumn < 0) continue;
-                String mime = cursor.getString(mimeColumn);
-                if (mime == null || !mime.startsWith("image/")) continue;
-                DriveDiagnosisMedia photo = new DriveDiagnosisMedia();
-                photo.documentId = cursor.getString(idColumn);
-                photo.displayName = nameColumn >= 0 ? cursor.getString(nameColumn) : "Quadrant photo";
-                photo.modified = modifiedColumn >= 0 && !cursor.isNull(modifiedColumn) ? cursor.getLong(modifiedColumn) : 0;
-                photos.add(photo);
-            }
-        }
-        Collections.sort(photos, (left, right) -> Long.compare(right.modified, left.modified));
-        if (photos.isEmpty()) throw new IllegalStateException("No photos found in Google Drive " + plotFolder + "/" + quadrantName + ". Add a photo to that quadrant first.");
-        List<PlantNetImageCandidate> candidates = new ArrayList<>();
-        for (int i = 0; i < Math.min(20, photos.size()); i++) {
-            DriveDiagnosisMedia photo = photos.get(i);
-            Uri documentUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, photo.documentId);
-            byte[] jpeg = readPlantNetImage(documentUri);
-            if (jpeg != null && jpeg.length > 0) candidates.add(new PlantNetImageCandidate(jpeg, "Drive photo: " + photo.displayName, scorePlantNetImage(jpeg)));
-        }
-        if (candidates.isEmpty()) throw new IllegalStateException("Photos exist in the quadrant folder, but none could be read by GrowPlot");
-        return candidates;
-    }
-
-    private List<PlantNetImageCandidate> loadDiagnosisPhotosFromDeviceIndex(int camera, String plotId) throws Exception {
-        if (camera < 1 || camera > 6) throw new IllegalArgumentException("Invalid quadrant number");
-        String id = safePlotId(plotId);
-        String quadrant = String.format(Locale.US, "cctv_%02d", camera);
-        JSONArray index = new JSONArray(readDiagnosisMediaIndex(camera, id));
-        List<PlantNetImageCandidate> candidates = new ArrayList<>();
-        for (int i = 0; i < index.length(); i++) {
-            JSONObject item = index.optJSONObject(i);
-            if (item == null) continue;
-            String name = item.optString("fileName", "");
-            if (!name.matches("[A-Za-z0-9_-]{1,100}\\.(jpg|jpeg|png)")) continue;
-            File localDir = new File(new File(new File(getFilesDir(), "diagnosis_media"), id), quadrant).getCanonicalFile();
-            File cacheDir = new File(new File(new File(getCacheDir(), "diagnosis_drive_cache"), id), quadrant).getCanonicalFile();
-            File local = new File(localDir, name).getCanonicalFile();
-            File cached = new File(cacheDir, name).getCanonicalFile();
-            File photo = local.getParentFile().equals(localDir) && local.isFile() ? local
-                    : (cached.getParentFile().equals(cacheDir) && cached.isFile() ? cached : null);
-            if (photo == null) continue;
-            byte[] jpeg = readPlantNetImage(Uri.fromFile(photo));
-            if (jpeg != null && jpeg.length > 0) candidates.add(new PlantNetImageCandidate(jpeg,
-                    "Saved device photo: " + name, scorePlantNetImage(jpeg)));
-        }
-        return candidates;
-    }
-
-    private byte[] plantNetJpeg(Bitmap source) {
-        Bitmap scaled = source;
-        try {
-            int max = Math.max(source.getWidth(), source.getHeight());
-            if (max > 800) {
-                float ratio = 800f / max;
-                scaled = Bitmap.createScaledBitmap(source, Math.max(1, Math.round(source.getWidth() * ratio)), Math.max(1, Math.round(source.getHeight() * ratio)), true);
-            }
-            ByteArrayOutputStream output = new ByteArrayOutputStream();
-            scaled.compress(Bitmap.CompressFormat.JPEG, 82, output);
-            return output.toByteArray();
-        } catch (Exception ignored) { return null; }
-        finally { if (scaled != source && !scaled.isRecycled()) scaled.recycle(); }
-    }
-
-    private double scorePlantNetImage(byte[] jpeg) {
-        BitmapFactory.Options options = new BitmapFactory.Options(); options.inSampleSize = 4;
-        Bitmap bitmap = BitmapFactory.decodeByteArray(jpeg, 0, jpeg.length, options);
-        if (bitmap == null) return 0;
-        Bitmap small = bitmap;
-        try {
-            int edge = 96; float scale = Math.min(1f, edge / (float)Math.max(bitmap.getWidth(), bitmap.getHeight()));
-            if (scale < 1f) small = Bitmap.createScaledBitmap(bitmap, Math.max(1, Math.round(bitmap.getWidth() * scale)), Math.max(1, Math.round(bitmap.getHeight() * scale)), true);
-            int w = small.getWidth(), h = small.getHeight(), count = w * h; int[] px = new int[count]; small.getPixels(px, 0, w, 0, 0, w, h);
-            double brightness = 0, clipped = 0, plantPixels = 0, lapMean = 0, lapSq = 0; int edgeCount = 0;
-            for (int i = 0; i < count; i++) {
-                int r = Color.red(px[i]), g = Color.green(px[i]), b = Color.blue(px[i]);
-                int lum = (r * 30 + g * 59 + b * 11) / 100; brightness += lum;
-                if (lum < 12 || lum > 245) clipped++;
-                if ((g > r * 1.08 && g > b * 1.04 && g > 38) || (r > 75 && g > 65 && r > b * 1.15 && g > b * 1.12)) plantPixels++;
-            }
-            for (int y = 1; y < h - 1; y++) for (int x = 1; x < w - 1; x++) {
-                int i = y * w + x;
-                int c = luminance(px[i]), lap = luminance(px[i-1]) + luminance(px[i+1]) + luminance(px[i-w]) + luminance(px[i+w]) - 4 * c;
-                lapMean += lap; lapSq += (double)lap * lap; edgeCount++;
-            }
-            double meanLum = brightness / Math.max(1, count), clippedFrac = clipped / Math.max(1, count);
-            double lapVariance = edgeCount == 0 ? 0 : lapSq / edgeCount - Math.pow(lapMean / edgeCount, 2);
-            double sharp = Math.min(1d, Math.sqrt(Math.max(0, lapVariance)) / 28d);
-            double plant = Math.min(1d, (plantPixels / Math.max(1, count)) / .45d);
-            double exposure = Math.max(0d, 1d - Math.abs(meanLum - 128d) / 128d) * (1d - Math.min(.8d, clippedFrac * 2d));
-            return sharp * .45d + plant * .30d + exposure * .25d;
-        } finally { if (small != bitmap && !small.isRecycled()) small.recycle(); if (!bitmap.isRecycled()) bitmap.recycle(); }
-    }
-
-    private int luminance(int color) { return (Color.red(color) * 30 + Color.green(color) * 59 + Color.blue(color) * 11) / 100; }
-
-    private List<PlantNetImageCandidate> selectBestPlantNetImages(List<PlantNetImageCandidate> candidates) {
-        List<PlantNetImageCandidate> sorted = new ArrayList<>(candidates);
-        Collections.sort(sorted, (a, b) -> Double.compare(b.quality, a.quality));
-        return new ArrayList<>(sorted.subList(0, Math.min(5, sorted.size())));
-    }
-
-    private List<byte[]> candidateBytes(List<PlantNetImageCandidate> candidates) {
-        List<byte[]> images = new ArrayList<>(); for (PlantNetImageCandidate candidate : candidates) images.add(candidate.jpeg); return images;
-    }
-
-    private JSONArray candidateSources(List<PlantNetImageCandidate> candidates) {
-        JSONArray sources = new JSONArray(); for (PlantNetImageCandidate candidate : candidates) {
-            JSONObject item = new JSONObject();
-            try { item.put("source", candidate.source); item.put("qualityScore", Math.round(candidate.quality * 100)); sources.put(item); }
-            catch (Exception ignored) { }
-        }
-        return sources;
-    }
-
-    private JSONObject identifyWithPlantNet(List<byte[]> images) {
-        String key = pluginApiKey("plantnet");
-        if (key.isEmpty()) key = BuildConfig.PLANTNET_API_KEY;
-        if (key == null || key.trim().isEmpty()) return plantNetStatus("not_configured", "Add the Pl@ntNet API key in Settings â†’ Plugins Â· API Keys.");
-        if (images == null || images.isEmpty()) return plantNetStatus("error", "No readable photos or video frames were available for Pl@ntNet.");
-        HttpURLConnection connection = null;
-        try {
-            String boundary = "GrowPlot" + System.currentTimeMillis();
-            URL url = new URL("https://my-api.plantnet.org/v2/diseases/identify?api-key=" + URLEncoder.encode(key, "UTF-8") + "&lang=en&nb-results=5");
-            connection = (HttpURLConnection) url.openConnection();
-            connection.setRequestMethod("POST"); connection.setConnectTimeout(15000); connection.setReadTimeout(30000);
-            connection.setDoOutput(true); connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
-            try (OutputStream out = connection.getOutputStream()) {
-                for (int i = 0; i < Math.min(5, images.size()); i++) {
-                    out.write(("--" + boundary + "\r\nContent-Disposition: form-data; name=\"images\"; filename=\"growplot-" + (i + 1) + ".jpg\"\r\nContent-Type: image/jpeg\r\n\r\n").getBytes(StandardCharsets.UTF_8));
-                    out.write(images.get(i)); out.write("\r\n".getBytes(StandardCharsets.UTF_8));
-                }
-                out.write(("--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8));
-            }
-            int status = connection.getResponseCode();
-            InputStream stream = status >= 200 && status < 300 ? connection.getInputStream() : connection.getErrorStream();
-            StringBuilder body = new StringBuilder();
-            if (stream != null) try (InputStream input = stream) { byte[] buffer = new byte[8192]; int count; while ((count = input.read(buffer)) != -1) body.append(new String(buffer, 0, count, StandardCharsets.UTF_8)); }
-            if (status < 200 || status >= 300) {
-                JSONObject error = plantNetStatus("error", "Pl@ntNet returned HTTP " + status
-                        + (body.length() > 0 ? ": " + body.substring(0, Math.min(body.length(), 300)) : ""));
-                int remaining = remainingPlantNetQuota(connection.getHeaderField("RateLimit"));
-                if (status == 429 && remaining < 0) remaining = 0;
-                if (remaining >= 0) error.put("remainingIdentificationRequests", remaining);
-                String retryAfter = connection.getHeaderField("Retry-After");
-                if (retryAfter != null && !retryAfter.isEmpty()) error.put("quotaResetsAt", retryAfter);
-                return error;
-            }
-            JSONObject result = new JSONObject(body.toString());
-            if (!result.has("remainingIdentificationRequests")) {
-                int remaining = remainingPlantNetQuota(connection.getHeaderField("RateLimit"));
-                if (remaining >= 0) result.put("remainingIdentificationRequests", remaining);
-            }
-            result.put("provider", "Pl@ntNet"); result.put("status", "ok"); result.put("imageCountSubmitted", Math.min(5, images.size()));
-            return result;
-        } catch (Exception error) { return plantNetStatus("error", error.getMessage() == null ? "Network request failed." : error.getMessage()); }
-        finally { if (connection != null) connection.disconnect(); }
-    }
-
-    private JSONObject identifyPlantSpeciesWithPlantNet(List<byte[]> images) {
-        String key = pluginApiKey("plantnet");
-        if (key.isEmpty()) key = BuildConfig.PLANTNET_API_KEY;
-        if (key == null || key.trim().isEmpty()) return plantNetStatus("not_configured", "Add the Pl@ntNet API key in Settings â†’ Plugins Â· API Keys.");
-        if (images == null || images.isEmpty()) return plantNetStatus("error", "No readable photos were available for species identification.");
-        HttpURLConnection connection = null;
-        try {
-            String boundary = "GrowPlotSpecies" + System.currentTimeMillis();
-            URL url = new URL("https://my-api.plantnet.org/v2/identify/all?api-key="
-                    + URLEncoder.encode(key, "UTF-8") + "&lang=en&nb-results=5&type=kt");
-            connection = (HttpURLConnection) url.openConnection();
-            connection.setRequestMethod("POST"); connection.setConnectTimeout(15000); connection.setReadTimeout(30000);
-            connection.setDoOutput(true); connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
-            try (OutputStream out = connection.getOutputStream()) {
-                for (int i = 0; i < Math.min(5, images.size()); i++) {
-                    out.write(("--" + boundary + "\r\nContent-Disposition: form-data; name=\"images\"; filename=\"growplot-species-" + (i + 1) + ".jpg\"\r\nContent-Type: image/jpeg\r\n\r\n").getBytes(StandardCharsets.UTF_8));
-                    out.write(images.get(i)); out.write("\r\n".getBytes(StandardCharsets.UTF_8));
-                    out.write(("--" + boundary + "\r\nContent-Disposition: form-data; name=\"organs\"\r\n\r\nauto\r\n").getBytes(StandardCharsets.UTF_8));
-                }
-                out.write(("--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8));
-            }
-            int status = connection.getResponseCode();
-            InputStream stream = status >= 200 && status < 300 ? connection.getInputStream() : connection.getErrorStream();
-            StringBuilder body = new StringBuilder();
-            if (stream != null) try (InputStream input = stream) { byte[] buffer = new byte[8192]; int count; while ((count = input.read(buffer)) != -1) body.append(new String(buffer, 0, count, StandardCharsets.UTF_8)); }
-            if (status < 200 || status >= 300) {
-                JSONObject error = plantNetStatus("error", "Pl@ntNet species identification returned HTTP " + status
-                        + (body.length() > 0 ? ": " + body.substring(0, Math.min(body.length(), 300)) : ""));
-                int remaining = remainingPlantNetQuota(connection.getHeaderField("RateLimit"));
-                if (status == 429 && remaining < 0) remaining = 0;
-                if (remaining >= 0) error.put("remainingIdentificationRequests", remaining);
-                return error;
-            }
-            JSONObject result = new JSONObject(body.toString());
-            if (!result.has("remainingIdentificationRequests")) {
-                int remaining = remainingPlantNetQuota(connection.getHeaderField("RateLimit"));
-                if (remaining >= 0) result.put("remainingIdentificationRequests", remaining);
-            }
-            result.put("provider", "Pl@ntNet species identification"); result.put("status", "ok");
-            result.put("imageCountSubmitted", Math.min(5, images.size()));
-            return result;
-        } catch (Exception error) {
-            return plantNetStatus("error", error.getMessage() == null ? "Species identification request failed." : error.getMessage());
-        } finally { if (connection != null) connection.disconnect(); }
-    }
-
-    private JSONObject identifyPlantSpeciesWithPlantId(List<byte[]> images) {
-        String key = pluginApiKey("plantid");
-        if (key == null || key.trim().isEmpty())
-            return plantIdentityStatus("Kindwise plant.id", "not_configured", "Add a separate Kindwise plant.id API key in Settings â†’ Plugins Â· API Keys.");
-        if (images == null || images.isEmpty())
-            return plantIdentityStatus("Kindwise plant.id", "error", "No readable photos were available for plant.id identification.");
-        HttpURLConnection connection = null;
-        try {
-            JSONArray encodedImages = new JSONArray();
-            for (int i = 0; i < Math.min(5, images.size()); i++)
-                encodedImages.put(Base64.encodeToString(images.get(i), Base64.NO_WRAP));
-            JSONObject request = new JSONObject().put("images", encodedImages);
-            URL url = new URL("https://api.plant.id/v3/identification?details=common_names,url");
-            connection = (HttpURLConnection) url.openConnection();
-            connection.setRequestMethod("POST"); connection.setConnectTimeout(15000); connection.setReadTimeout(45000);
-            connection.setDoOutput(true);
-            connection.setRequestProperty("Api-Key", key);
-            connection.setRequestProperty("Content-Type", "application/json");
-            try (OutputStream out = connection.getOutputStream()) {
-                out.write(request.toString().getBytes(StandardCharsets.UTF_8));
-            }
-            int status = connection.getResponseCode();
-            InputStream stream = status >= 200 && status < 300 ? connection.getInputStream() : connection.getErrorStream();
-            StringBuilder body = new StringBuilder();
-            if (stream != null) try (InputStream input = stream) {
-                byte[] buffer = new byte[8192]; int count;
-                while ((count = input.read(buffer)) != -1) body.append(new String(buffer, 0, count, StandardCharsets.UTF_8));
-            }
-            if (status < 200 || status >= 300)
-                return plantIdentityStatus("Kindwise plant.id", "error", "plant.id returned HTTP " + status
-                        + (body.length() > 0 ? ": " + body.substring(0, Math.min(body.length(), 300)) : ""));
-            JSONObject result = new JSONObject(body.toString());
-            result.put("provider", "Kindwise plant.id");
-            result.put("status", "ok");
-            result.put("imageCountSubmitted", Math.min(5, images.size()));
-            return result;
-        } catch (Exception error) {
-            return plantIdentityStatus("Kindwise plant.id", "error", error.getMessage() == null ? "plant.id request failed." : error.getMessage());
-        } finally { if (connection != null) connection.disconnect(); }
-    }
-
-    private JSONObject plantIdentityStatus(String provider, String status, String message) {
-        JSONObject result = new JSONObject();
-        try {
-            result.put("provider", provider);
-            result.put("status", status);
-            result.put("message", message);
-            result.put("results", new JSONArray());
-        } catch (Exception ignored) { }
-        return result;
-    }
-
-    private void requestKindwiseDiagnosis(int camera, String plotId, List<byte[]> images, int candidateCount,
-                                          List<PlantNetImageCandidate> selected, String species, String symptom,
-                                          String pixelMetrics, String mediaType, String sourceFolder, String selectionNote) {
-        final List<byte[]> submitted = new ArrayList<>(images);
-        final JSONArray selectedSources = candidateSources(selected);
-        kindwiseWorker.execute(() -> {
-            JSONObject result = identifyWithKindwise(submitted);
-            try {
-                result.put("speciesContext", species == null ? "" : species);
-                result.put("symptomContext", symptom == null ? "" : symptom);
-                result.put("pixelContext", pixelMetrics == null ? "" : pixelMetrics);
-                result.put("mediaType", mediaType);
-                result.put("sourceFolder", sourceFolder);
-                result.put("candidateImageCount", candidateCount);
-                result.put("imageCountSubmitted", Math.min(5, submitted.size()));
-                result.put("selectionNote", selectionNote);
-                result.put("selectedSources", selectedSources);
-            } catch (Exception ignored) { }
-            sendKindwiseResult(camera, plotId, result);
-        });
-    }
-
-    private JSONObject identifyWithKindwise(List<byte[]> images) {
-        String key = pluginApiKey("kindwise");
-        if (key == null || key.trim().isEmpty()) {
-            return kindwiseStatus("not_configured", "Add the Kindwise crop.health API key in Settings â†’ Plugins Â· API Keys.");
-        }
-        if (images == null || images.isEmpty()) {
-            return kindwiseStatus("error", "No readable photos or video frames were available for Kindwise.");
-        }
-        HttpURLConnection connection = null;
-        try {
-            JSONArray encodedImages = new JSONArray();
-            for (int i = 0; i < Math.min(5, images.size()); i++) {
-                encodedImages.put(Base64.encodeToString(images.get(i), Base64.NO_WRAP));
-            }
-            JSONObject payload = new JSONObject().put("images", encodedImages);
-            URL url = new URL("https://crop.kindwise.com/api/v1/identification");
-            connection = (HttpURLConnection) url.openConnection();
-            connection.setRequestMethod("POST");
-            connection.setConnectTimeout(15000);
-            connection.setReadTimeout(45000);
-            connection.setDoOutput(true);
-            connection.setRequestProperty("Api-Key", key);
-            connection.setRequestProperty("Content-Type", "application/json; charset=utf-8");
-            try (OutputStream out = connection.getOutputStream()) {
-                out.write(payload.toString().getBytes(StandardCharsets.UTF_8));
-            }
-            int status = connection.getResponseCode();
-            InputStream stream = status >= 200 && status < 300 ? connection.getInputStream() : connection.getErrorStream();
-            StringBuilder body = new StringBuilder();
-            if (stream != null) try (InputStream input = stream) {
-                byte[] buffer = new byte[8192]; int count;
-                while ((count = input.read(buffer)) != -1) body.append(new String(buffer, 0, count, StandardCharsets.UTF_8));
-            }
-            if (status < 200 || status >= 300) {
-                String message = status == 401 || status == 403 ? "Kindwise rejected the saved API key. Check it in Settings."
-                        : status == 429 ? "Kindwise request quota is exhausted or rate-limited."
-                        : "Kindwise returned HTTP " + status + ".";
-                return kindwiseStatus("error", message);
-            }
-            JSONObject response = new JSONObject(body.toString());
-            JSONObject modelResult = response.optJSONObject("result");
-            if (modelResult == null) return kindwiseStatus("error", "Kindwise returned an unreadable diagnosis result.");
-            JSONArray candidates = new JSONArray();
-            appendKindwiseCandidates(candidates, modelResult.optJSONObject("crop"), "crop");
-            appendKindwiseCandidates(candidates, modelResult.optJSONObject("disease"), "health issue");
-            JSONObject result = kindwiseStatus("ok", "");
-            result.put("model", response.optString("model_version", ""));
-            result.put("candidates", candidates);
-            result.put("imageCountSubmitted", Math.min(5, images.size()));
-            return result;
-        } catch (Exception error) {
-            return kindwiseStatus("error", error.getMessage() == null ? "Kindwise network request failed." : error.getMessage());
-        } finally { if (connection != null) connection.disconnect(); }
-    }
-
-    private void appendKindwiseCandidates(JSONArray target, JSONObject group, String type) throws Exception {
-        if (group == null) return;
-        JSONArray suggestions = group.optJSONArray("suggestions");
-        if (suggestions == null) return;
-        for (int i = 0; i < suggestions.length() && i < 5; i++) {
-            JSONObject suggestion = suggestions.optJSONObject(i);
-            if (suggestion == null) continue;
-            JSONObject item = new JSONObject();
-            item.put("type", type);
-            item.put("name", suggestion.optString("name", "Unlabelled result"));
-            item.put("confidence", suggestion.optDouble("probability", 0));
-            JSONObject details = suggestion.optJSONObject("details");
-            if (details != null) item.put("details", details);
-            target.put(item);
-        }
-    }
-
-    private JSONObject kindwiseStatus(String status, String message) {
-        JSONObject result = new JSONObject();
-        try { result.put("provider", "Kindwise crop.health"); result.put("status", status); result.put("message", message); result.put("candidates", new JSONArray()); }
-        catch (Exception ignored) { }
-        return result;
-    }
-
-    private int remainingPlantNetQuota(String rateLimitHeader) {
-        if (rateLimitHeader == null) return -1;
-        Matcher matcher = Pattern.compile("(?:^|[;,])\\s*r=(\\d+)").matcher(rateLimitHeader);
-        if (!matcher.find()) return -1;
-        try { return Integer.parseInt(matcher.group(1)); }
-        catch (NumberFormatException ignored) { return -1; }
-    }
-
-    private JSONObject plantNetStatus(String status, String message) {
-        JSONObject result = new JSONObject();
-        try { result.put("provider", "Pl@ntNet"); result.put("status", status); result.put("message", message); result.put("results", new JSONArray()); }
-        catch (Exception ignored) { }
-        return result;
-    }
-
-    private JSONObject plantNetError(Exception error) {
-        return plantNetStatus("error", error.getMessage() == null ? "Pl@ntNet request failed." : error.getMessage());
-    }
-
-    private JSONObject identifyVideoAndDriveEvidence(int camera, String plotId, List<PlantNetImageCandidate> videoFrames, String species, String symptom, String pixelMetrics) {
-        JSONObject response;
-        try {
-            List<PlantNetImageCandidate> candidates = new ArrayList<>();
-            String photoNotice = "";
-            try { candidates.addAll(loadDiagnosisPhotosFromDrive(camera, plotId)); }
-            catch (Exception photoError) { photoNotice = "Quadrant photos were unavailable: " + (photoError.getMessage() == null ? "Drive could not read them" : photoError.getMessage()); }
-            if (videoFrames != null) candidates.addAll(videoFrames);
-            if (candidates.isEmpty()) throw new IllegalStateException(photoNotice.isEmpty() ? "No quadrant photos or readable video frames were available" : photoNotice);
-            List<PlantNetImageCandidate> selected = selectBestPlantNetImages(candidates);
-            List<byte[]> selectedImages = candidateBytes(selected);
-            requestKindwiseDiagnosis(camera, plotId, selectedImages, candidates.size(), selected,
-                    species, symptom, pixelMetrics, "quadrant_photos_and_video_frames",
-                    "Diagnosis/" + diagnosisPlotFolder(plotId) + "/Quadrant_" + String.format(Locale.US, "%02d", camera),
-                    "Compared saved quadrant photos and sampled video frames using approximate sharpness, exposure, and visible-plant-area checks; submitted the clearest five.");
-            response = identifyWithPlantNet(selectedImages);
-            response.put("speciesContext", species == null ? "" : species);
-            response.put("symptomContext", symptom == null ? "" : symptom);
-            response.put("pixelContext", pixelMetrics == null ? "" : pixelMetrics);
-            response.put("mediaType", "quadrant_photos_and_video_frames");
-            response.put("sourceFolder", "Diagnosis/" + diagnosisPlotFolder(plotId) + "/Quadrant_" + String.format(Locale.US, "%02d", camera));
-            response.put("candidateImageCount", candidates.size());
-            response.put("selectionNote", "Compared saved quadrant photos and sampled video frames using approximate sharpness, exposure, and visible-plant-area checks; submitted the clearest five.");
-            if (!photoNotice.isEmpty()) response.put("sourceNotice", photoNotice + ". The available video frames were still checked.");
-            response.put("selectedSources", candidateSources(selected));
-        } catch (Exception error) { response = plantNetError(error); }
-        return response;
-    }
-
-    private void sendPlantNetResult(int camera, String plotId, JSONObject result) {
-        runOnUiThread(() -> {
-            if (web == null) return;
-            web.evaluateJavascript("window.onPlantNetDiagnosis&&window.onPlantNetDiagnosis(" + camera + "," + JSONObject.quote(plotId) + "," + JSONObject.quote(result.toString()) + ")", null);
-        });
-    }
-
-    private void sendPlantSpeciesResult(int camera, String plotId, JSONObject result) {
-        runOnUiThread(() -> {
-            if (web == null) return;
-            web.evaluateJavascript("window.onPlantSpeciesIdentification&&window.onPlantSpeciesIdentification(" + camera + "," + JSONObject.quote(plotId) + "," + JSONObject.quote(result.toString()) + ")", null);
-        });
-    }
-
-    private void sendKindwiseResult(int camera, String plotId, JSONObject result) {
-        runOnUiThread(() -> {
-            if (web == null) return;
-            web.evaluateJavascript("window.onKindwiseDiagnosis&&window.onKindwiseDiagnosis(" + camera + "," + JSONObject.quote(plotId) + "," + JSONObject.quote(result.toString()) + ")", null);
-        });
-    }
-
-    private void startDiagnosisVideoAnalysis(int camera, String plotId, File video, TextView overlay, Dialog dialog) {
-        diagnosisCvWorker.execute(() -> {
-            MediaMetadataRetriever retriever = new MediaMetadataRetriever();
-            try {
-                retriever.setDataSource(video.getAbsolutePath());
-                String durationValue = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION);
-                long durationMs = durationValue == null ? 0 : Long.parseLong(durationValue);
-                if (durationMs <= 0) throw new IllegalStateException("Video duration is unavailable");
-                int samples = Math.min(10, Math.max(5, (int)(durationMs / 1200)));
-                double green=0,yellow=0,brown=0,other=0; int valid=0;
-                List<PlantNetImageCandidate> videoCandidates = new ArrayList<>();
-                for (int i=0;i<samples;i++) {
-                    if (i>0) { try { Thread.sleep(Math.max(300L,durationMs/samples)); } catch (InterruptedException ex) { Thread.currentThread().interrupt(); return; } }
-                    Bitmap frame = retriever.getFrameAtTime((long)((durationMs*1000d)*i/samples), MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
-                    if (frame == null) continue;
-                    byte[] modelImage = plantNetJpeg(frame);
-                    if (modelImage != null && modelImage.length > 0) videoCandidates.add(new PlantNetImageCandidate(modelImage, "Video frame " + (i + 1), scorePlantNetImage(modelImage)));
-                    Bitmap small=Bitmap.createScaledBitmap(frame,96,54,true); if(small!=frame)frame.recycle();
-                    double[] colors=measureDiagnosisPixels(small); small.recycle();
-                    green+=colors[0];yellow+=colors[1];brown+=colors[2];other+=colors[3];valid++;
-                    final String chips = pixelIntensityMarkup(colors[0],colors[1],colors[2],colors[3]);
-                    final int frameNo=i+1,total=samples;
-                    runOnUiThread(() -> overlay.setText(Html.fromHtml("<small>Frame "+frameNo+" of "+total+" Â· sampled pixel colors</small><br>"+chips,Html.FROM_HTML_MODE_LEGACY)));
-                }
-                if(valid==0)throw new IllegalStateException("No video frames could be decoded");
-                double g=green/valid,y=yellow/valid,b=brown/valid,o=other/valid;
-                String followup;
-                if(y>=.08&&y>=b)followup="Yellow-like pixels are elevated. Confirm they are on leaves, compare young and old growth, and check root-zone moisture, drainage, and soil pH/EC.";
-                else if(b>=.08)followup="Brown-like pixels are elevated. Check whether margins are fully dead or there are distinct spreading spots; inspect for heat, pests, and water stress.";
-                else if(g<.035)followup="Little green-like plant area was detected. Retake a closer, brighter video with the affected leaf filling the frame.";
-                else followup="No strong yellow or brown cue appeared in the sampled frames. This does not rule out disease, pests, or root problems; inspect leaf undersides, new growth, and roots.";
-                String report="Video color screen complete. The saved result and care suggestions are shown below.";
-                JSONObject result = new JSONObject();
-                result.put("summary", "Video screening completed for CCTV " + String.format(Locale.US, "%02d", camera) + ".");
-                result.put("metrics", "Across " + valid + " sampled video frames: green-like " + pct(g) + "%, yellow-like " + pct(y) + "%, brown-like " + pct(b) + "%, and other pixels " + pct(o) + "%.");
-                JSONArray findings = new JSONArray();
-                findings.put(followup);
-                findings.put("Remove only leaves that are fully dead or badly damaged, using clean shears. Keep leaves that still have healthy green tissue.");
-                findings.put("Check soil moisture about 5â€“8 cm below the surface and observe drainage after watering. Aim for evenly moist soil, not waterlogged or bone dry; check whether the root zone dries too quickly or stays saturated.");
-                findings.put("Do not add NPK from pixel colors alone. Check soil pH/EC or get a soil test and compare symptoms on young versus old leaves first. If a deficiency is supported, use a crop-appropriate NPK at the label rate and avoid over-fertilising.");
-                result.put("findings", findings);
-                result.put("limitations", "This is a basic sampled pixel-color screen, not a trained disease model. Color can be affected by lighting, background, age, and camera settings; it cannot confirm a disease or identify a pathogen.");
-                result.put("capturedAt", new SimpleDateFormat("d MMM yyyy, h:mm a", Locale.getDefault()).format(new Date()));
-                result.put("imageCount", valid); result.put("mediaType", "video");
-                String resultJson = result.toString();
-                final List<PlantNetImageCandidate> analyzedVideoFrames = videoCandidates;
-                runOnUiThread(()->{
-                    notifyDiagnosisStatus(report);
-                    String script = "window.onDiagnosisVideoAnalysis&&window.onDiagnosisVideoAnalysis(" + camera + "," + JSONObject.quote(plotId) + "," + JSONObject.quote(resultJson) + ")";
-                    if (web != null) web.evaluateJavascript(script, ignored -> { if (dialog.isShowing()) dialog.dismiss(); });
-                    else if (dialog.isShowing()) dialog.dismiss();
-                });
-                runOnUiThread(() -> notifyDiagnosisStatus("Video pixel analysis is complete. Comparing saved photos from this Drive quadrant with sampled video frames and sending the clearest images to Pl@ntNetâ€¦"));
-                diagnosisWorker.execute(() -> {
-                    String species = "", symptom = "";
-                    JSONObject plantNet = identifyVideoAndDriveEvidence(camera, plotId, analyzedVideoFrames, species, symptom, result.optString("metrics", ""));
-                    sendPlantNetResult(camera, plotId, plantNet);
-                });
-            } catch(Exception error) {
-                final String message="Video color analysis unavailable: "+(error.getMessage()==null?"could not inspect frames":error.getMessage())+". Playback may continue. A.I.-generated screening may require human expert confirmation.";
-                runOnUiThread(()->{
-                    overlay.setText(message);
-                    notifyDiagnosisStatus(message);
-                    JSONObject result = new JSONObject();
-                    try { result.put("summary", "Video color screen could not complete."); result.put("metrics", "Playback may continue, but no readable frames were available for analysis."); result.put("findings", new JSONArray().put(message)); result.put("limitations", "A.I.-generated screening may require confirmation by a qualified human plant health expert."); result.put("capturedAt", new SimpleDateFormat("d MMM yyyy, h:mm a", Locale.getDefault()).format(new Date())); result.put("imageCount", 0); result.put("mediaType", "video"); } catch (Exception ignored) { }
-                    if (web != null) web.evaluateJavascript("window.onDiagnosisVideoAnalysis&&window.onDiagnosisVideoAnalysis(" + camera + "," + JSONObject.quote(plotId) + "," + JSONObject.quote(result.toString()) + ")", null);
-                });
-            } finally { try { retriever.release(); } catch(Exception ignored) { } }
-        });
-    }
-
-    private String pixelIntensityMarkup(double green,double yellow,double brown,double other) {
-        return "<font color='#3EAA5D'>â— Green "+pct(green)+"%</font>ã€€<font color='#F1D451'>â— Yellow "+pct(yellow)+"%</font><br>"+
-                "<font color='#A46A45'>â— Brown "+pct(brown)+"%</font>ã€€<font color='#C7CFCA'>â— Other "+pct(other)+"%</font>";
-    }
-
-    private static String pct(double value) { return String.format(Locale.US,"%.1f",value*100); }
-
-    private double[] measureDiagnosisPixels(Bitmap bitmap) {
-        int width=bitmap.getWidth(),height=bitmap.getHeight(),total=width*height;int[] pixels=new int[total];bitmap.getPixels(pixels,0,width,0,0,width,height);
-        int green=0,yellow=0,brown=0;
-        for(int color:pixels){int r=Color.red(color),g=Color.green(color),b=Color.blue(color);if(g>r*1.10&&g>b*1.04&&g>45)green++;else if(r>100&&g>90&&r>g*.92&&g>b*1.18)yellow++;else if(r>65&&r>g*1.22&&r>b*1.12)brown++;}
-        int other=Math.max(0,total-green-yellow-brown);return new double[]{green/(double)total,yellow/(double)total,brown/(double)total,other/(double)total};
-    }
-
-    private void removeDiagnosisMediaFromStorage(int camera, String plotId, String documentId, String fileName, String mediaUrl) {
-        String error = null;
-        try {
-            if (!fileName.isEmpty() && (fileName.contains("/") || fileName.contains("\\") || fileName.equals(".") || fileName.equals("..") || !(fileName.toLowerCase(Locale.ROOT).endsWith(".jpg") || fileName.toLowerCase(Locale.ROOT).endsWith(".jpeg") || fileName.toLowerCase(Locale.ROOT).endsWith(".png") || fileName.toLowerCase(Locale.ROOT).endsWith(".mp4")))) throw new IllegalArgumentException("Invalid media filename");
-            String treeText=getPrefs().getString(PREF_DIAGNOSIS_TREE_URI,null), rootId=getPrefs().getString(PREF_DIAGNOSIS_ROOT_DOCUMENT_ID,null);
-            if (!documentId.isEmpty()) {
-                if(treeText==null||rootId==null||!isDiagnosisDriveReady()) throw new IllegalStateException("Google Drive Diagnosis folder is not connected");
-                Uri tree=Uri.parse(treeText); String plotDoc=findExistingChildFolder(tree,rootId,diagnosisPlotFolder(plotId));
-                String quadrant="Quadrant_"+String.format(Locale.US,"%02d",camera);
-                String quadrantDoc=plotDoc==null?null:findExistingChildFolder(tree,plotDoc,quadrant);
-                if(quadrantDoc==null) throw new IllegalStateException("The saved diagnosis folder was not found");
-                Uri children=DocumentsContract.buildChildDocumentsUriUsingTree(tree,quadrantDoc); boolean exactChild=false;
-                try(Cursor c=getContentResolver().query(children,new String[]{DocumentsContract.Document.COLUMN_DOCUMENT_ID},null,null,null)){
-                    if(c!=null){int col=c.getColumnIndex(DocumentsContract.Document.COLUMN_DOCUMENT_ID);while(c.moveToNext())if(col>=0&&documentId.equals(c.getString(col))){exactChild=true;break;}}
-                }
-                if(!exactChild) throw new IllegalStateException("That file is no longer in this plot and quadrant folder");
-                Uri target=DocumentsContract.buildDocumentUriUsingTree(tree,documentId);
-                if(!DocumentsContract.deleteDocument(getContentResolver(),target)) throw new IllegalStateException("Google Drive did not confirm deletion");
-            }
-            JSONArray index=new JSONArray(readDiagnosisMediaIndex(camera,plotId));
-            JSONArray kept=new JSONArray(); String foundUrl=mediaUrl, foundThumb="";
-            for(int i=0;i<index.length();i++){JSONObject row=index.optJSONObject(i);if(row==null)continue;
-                boolean match=!documentId.isEmpty()?documentId.equals(row.optString("driveDocumentId")):(!fileName.isEmpty()?fileName.equals(row.optString("fileName")):mediaUrl.equals(row.optString("url")));
-                if(match){if(foundUrl.isEmpty())foundUrl=row.optString("url");foundThumb=row.optString("thumbnailUrl");}else kept.put(row);
-            }
-            getPrefs().edit().putString(diagnosisMediaIndexKey(camera,plotId),kept.toString()).apply();
-            deleteDiagnosisLocalAsset(plotId,camera,fileName);
-            deleteDiagnosisCacheAsset(plotId,camera,foundUrl);
-            deleteDiagnosisCacheAsset(plotId,camera,foundThumb);
-            final String doc=documentId, name=fileName;
-            runOnUiThread(()->{if(web!=null)web.evaluateJavascript("window.onDiagnosisMediaRemoved&&window.onDiagnosisMediaRemoved("+camera+","+JSONObject.quote(plotId)+","+JSONObject.quote(doc)+","+JSONObject.quote(name)+",null)",null);refreshDiagnosisMediaFromDrive(camera,plotId);});
-        }catch(Exception ex){error=ex.getMessage()==null?"Media could not be deleted":ex.getMessage();}
-        if(error!=null){final String message=error;runOnUiThread(()->{if(web!=null)web.evaluateJavascript("window.onDiagnosisMediaRemoved&&window.onDiagnosisMediaRemoved("+camera+","+JSONObject.quote(plotId)+","+JSONObject.quote(documentId)+","+JSONObject.quote(fileName)+","+JSONObject.quote(message)+")",null);});}
-    }
-
-    private void deleteDiagnosisLocalAsset(String plotId,int camera,String name){if(name==null||name.isEmpty())return;try{File dir=new File(new File(new File(getFilesDir(),"diagnosis_media"),plotId),String.format(Locale.US,"cctv_%02d",camera)).getCanonicalFile();File f=new File(dir,name).getCanonicalFile();if(f.getParentFile().equals(dir))f.delete();}catch(Exception ignored){}}
-    private void deleteDiagnosisCacheAsset(String plotId,int camera,String assetUrl){try{String expected="https://appassets.androidplatform.net/assets/diagnosis/"+plotId+"/cctv_"+String.format(Locale.US,"%02d",camera)+"/";if(assetUrl==null||!assetUrl.startsWith(expected))return;String name=Uri.parse(assetUrl).getLastPathSegment();if(name==null||!name.matches("[A-Za-z0-9_-]{1,100}\\.(jpg|jpeg|png|mp4)"))return;File dir=new File(new File(new File(getCacheDir(),"diagnosis_drive_cache"),plotId),String.format(Locale.US,"cctv_%02d",camera)).getCanonicalFile();File f=new File(dir,name).getCanonicalFile();if(f.getParentFile().equals(dir))f.delete();}catch(Exception ignored){}}
-
-    private void openDiagnosisDriveMediaInPlayer(String documentId, String mimeType) {
-        String treeText = getPrefs().getString(PREF_DIAGNOSIS_TREE_URI, null);
-        if (treeText == null || documentId == null || documentId.isEmpty()) {
-            notifyDiagnosisStatus("The Google Drive video reference is unavailable. Refresh the diagnosis list.");
-            return;
-        }
-        try {
-            Uri treeUri = Uri.parse(treeText);
-            Uri mediaUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, documentId);
-            Intent view = new Intent(Intent.ACTION_VIEW);
-            view.setDataAndType(mediaUri, mimeType == null || mimeType.isEmpty() ? "video/mp4" : mimeType);
-            view.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            startActivity(Intent.createChooser(view, "Play diagnosis video"));
-        } catch (Exception error) {
-            notifyDiagnosisStatus("No video player could open this Google Drive file. Open it from the Drive app.");
-        }
-    }
-
-    private String signedInEmailFolderName() {
-        com.google.firebase.auth.FirebaseUser user =
-                com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
-        String email = user == null ? null : user.getEmail();
-        if (email == null || email.trim().isEmpty())
-            throw new IllegalStateException("Sign in to connect this plot's Google Drive folder.");
-        String safe = email.trim().toLowerCase(Locale.ROOT)
-                .replaceAll("[^a-z0-9@._+-]+", "_");
-        if (safe.length() > 100) safe = safe.substring(0, 100);
-        return safe;
-    }
-
-    private void connectDefaultFeedInSavedTree(String plotId, Uri treeUri) throws Exception {
-        String growPlotId = resolveGrowPlotDocumentId(treeUri);
-        if (growPlotId == null) throw new IllegalStateException("The saved Drive permission no longer points to Projects or GrowPlot");
-        String imageFeedId = findOrCreateChildFolder(treeUri, growPlotId, "Image_Feed");
-        String userFolder = signedInEmailFolderName();
-        String userFolderId = findOrCreateChildFolder(treeUri, imageFeedId, userFolder);
-        String plotFolder = safeFolderName(pickerDefaultFolderName);
-        String plotFolderId = findOrCreateChildFolder(treeUri, userFolderId, plotFolder);
-        String relativePath = "Image_Feed/" + userFolder + "/" + plotFolder;
-        String locationLabel = "Google Drive: /Projects/GrowPlot/" + relativePath;
-        JSONObject config = new JSONObject(getPrefs().getString("data_feed_config_" + plotId, "{}"));
-        config.put("plotId", plotId);
-        config.put("enabled", true);
-        config.put("folderUri", treeUri.toString());
-        getPrefs().edit()
-                .putString(feedTreeKey(plotId), treeUri.toString())
-                .putString(feedFolderDocumentKey(plotId), plotFolderId)
-                .putString(feedLocationKey(plotId), locationLabel)
-                .putString("data_feed_config_" + plotId, config.toString())
-                .putString(PREF_ACTIVE_PLOT_ID, plotId)
-                .apply();
-        rememberGrowPlotTreeIfScoped(treeUri);
-        saveDriveStorageConfig(treeUri);
-        if (accountApiBridge != null)
-            accountApiBridge.saveImageFeedPath(plotId, locationLabel, relativePath);
-        pickerCreatesDefaultFeed = false;
-        notifyFeedSettingsSaved(plotId, locationLabel);
-        scanSnapshotFolder(plotId);
-    }
-
-    private void openImageFeedFolderPicker() {
-        if (isFinishing()) return;
-        if (pickerCreatesDefaultFeed) {
-            String savedTree = getPrefs().getString(feedTreeKey(pickerPlotId), null);
-            String savedFolder = getPrefs().getString(feedFolderDocumentKey(pickerPlotId), null);
-            // Reuse any previously granted GrowPlot/Projects tree even when this plot
-            // has no per-plot folder mapping yet; connectDefaultFeed creates that path.
-            if (savedTree == null || savedFolder == null) {
-                Uri scopedTree = findGrowPlotScopedTreeUri();
-                if (scopedTree != null) {
-                    try {
-                        connectDefaultFeedInSavedTree(pickerPlotId, scopedTree);
-                    } catch (Exception error) {
-                        String reason = error.getMessage() == null ? "Drive folder could not be created" : error.getMessage();
-                        publishStatus(makeStatus("Expected Google Drive path: " + expectedFeedPathLabel(pickerPlotId)
-                                + " | Folder status: unavailable â€” " + reason));
-                    }
-                    return;
-                }
-            }
-            if (savedTree != null && savedFolder != null) {
-                Uri savedTreeUri = Uri.parse(savedTree);
-                if (hasPersistedReadWriteGrant(savedTreeUri)) {
-                    try {
-                        connectDefaultFeedInSavedTree(pickerPlotId, savedTreeUri);
-                    } catch (Exception error) {
-                        String reason = error.getMessage() == null ? "Drive folder could not be created" : error.getMessage();
-                        publishStatus(makeStatus("Expected Google Drive path: " + expectedFeedPathLabel(pickerPlotId)
-                                + " | Folder status: unavailable â€” " + reason));
-                    }
-                    return;
-                }
-            }
-        }
-        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
-        intent.putExtra(Intent.EXTRA_TITLE, pickerCreatesDefaultFeed
-                ? "Select Projects or GrowPlot for " + pickerDefaultFolderName : "Choose this plot's image feed folder");
-        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
-                | Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-                | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
-        try {
-            startActivityForResult(intent, REQUEST_IMAGE_FOLDER);
-        } catch (Exception error) {
-            publishStatus(makeStatus("This device does not provide a folder picker. Choose the data feed location using the system Files app."));
-        }
-    }
-
-    private void loadMainPage() {
-        try (InputStream input = getAssets().open("index.html");
-             ByteArrayOutputStream output = new ByteArrayOutputStream()) {
-            byte[] buffer = new byte[8192];
-            int read;
-            while ((read = input.read(buffer)) != -1) output.write(buffer, 0, read);
-            String html = output.toString(StandardCharsets.UTF_8.name())
-                    .replace("{{GROWPLOT_VERSION}}", "v" + BuildConfig.VERSION_NAME);
-            // Inline the packaged CV engine so WebView never needs to fetch leaf-cv.js.
-            try (InputStream cvInput = getAssets().open("leaf-cv.js");
-                 ByteArrayOutputStream cvOutput = new ByteArrayOutputStream()) {
-                byte[] cvBuffer = new byte[8192];
-                int cvRead;
-                while ((cvRead = cvInput.read(cvBuffer)) != -1) cvOutput.write(cvBuffer, 0, cvRead);
-                String cvScript = cvOutput.toString(StandardCharsets.UTF_8.name());
-                String cvTag = "<script>" + cvScript + "</script>";
-                if (html.contains("</head>")) html = html.replace("</head>", cvTag + "</head>");
-                else if (html.contains("</body>")) html = html.replace("</body>", cvTag + "</body>");
-                else throw new IllegalStateException("Dashboard HTML missing head/body closing tag");
-            }
-            web.loadDataWithBaseURL("https://appassets.androidplatform.net/", html,
-                    "text/html", "UTF-8", null);
-        } catch (Exception error) {
-            web.loadData("GrowPlot could not load its dashboard.", "text/plain", "UTF-8");
-        }
-    }
-
-    private synchronized void scanSnapshotFolder() {
-        scanSnapshotFolder(null);
-    }
-
-    private synchronized void scanSnapshotFolder(String requestedPlotId) {
-        if (isFinishing()) return;
-        if (drivePathRestorePending) return;
-        if (scanInProgress) {
-            rescanRequested = true;
-            return;
-        }
-        final String plotId = safePlotId(requestedPlotId == null
-                ? getPrefs().getString(PREF_ACTIVE_PLOT_ID, DEFAULT_PLOT_ID) : requestedPlotId);
-        String savedTree = getPrefs().getString(feedTreeKey(plotId), null);
-        if (savedTree == null) {
-            JSONObject status = makeStatus("No Google Drive folder is connected for this plot on this device. Tap Connect to folder above to grant access.");
-            try { status.put("plotId", plotId); } catch (Exception ignored) { }
-            publishStatus(status);
-            return;
-        }
-        final Uri treeUri = Uri.parse(savedTree);
-        scanInProgress = true;
-        scanWorker.execute(() -> {
-            try {
-                List<FeedDocument> images = new ArrayList<>();
-                String rootDocumentId = getPrefs().getString(feedFolderDocumentKey(plotId), null);
-                if (rootDocumentId == null || rootDocumentId.isEmpty()) rootDocumentId = DocumentsContract.getTreeDocumentId(treeUri);
-                images.addAll(queryImageFeedFolder(treeUri, rootDocumentId));
-                scanSelectedImages(images, true, plotId);
-            } catch (Exception error) {
-                String message = treeUri != null
-                        ? "Could not scan this plot's data feed. Tap Connect to folder above and grant access again."
-                        : "Could not read the previously selected photos. Tap Connect to folder above and choose the data feed folder.";
-                JSONObject status = makeStatus(message);
-                try { status.put("error", error.getClass().getSimpleName()); status.put("plotId", plotId); } catch (Exception ignored) { }
-                publishStatus(status);
-            } finally {
-                scanInProgress = false;
-                if (rescanRequested && !isFinishing()) {
-                    rescanRequested = false;
-                    mainHandler.post(MainActivity.this::scanSnapshotFolder);
-                }
-            }
-        });
-    }
-
-    private List<FeedDocument> queryImageFeedFolder(Uri treeUri, String rootDocumentId) throws Exception {
-        List<FeedDocument> images = new ArrayList<>();
-        Set<String> visited = new HashSet<>();
-        collectImageFeedDocuments(treeUri, rootDocumentId, images, visited, 0, 0);
-        return images;
-    }
-
-    private void collectImageFeedDocuments(Uri treeUri, String parentDocumentId,
-                                           List<FeedDocument> images, Set<String> visited,
-                                           int depth, int inheritedCamera) throws Exception {
-        if (depth > 6 || images.size() >= MAX_FEED_FILES || !visited.add(parentDocumentId)) return;
-        Uri childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, parentDocumentId);
-        String[] columns = {DocumentsContract.Document.COLUMN_DOCUMENT_ID,
-                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
-                DocumentsContract.Document.COLUMN_MIME_TYPE};
-        try (Cursor cursor = getContentResolver().query(childrenUri, columns, null, null, null)) {
-            if (cursor == null) throw new IllegalStateException("selected feed folder listing unavailable");
-            int idColumn = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DOCUMENT_ID);
-            int nameColumn = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME);
-            int mimeColumn = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_MIME_TYPE);
-            if (idColumn < 0 || nameColumn < 0) throw new IllegalStateException("Folder provider omitted document names");
-            while (cursor.moveToNext() && images.size() < MAX_FEED_FILES) {
-                String documentId = cursor.getString(idColumn);
-                String name = cursor.getString(nameColumn);
-                String mime = mimeColumn < 0 || cursor.isNull(mimeColumn) ? "" : cursor.getString(mimeColumn);
-                if (documentId == null || name == null) continue;
-                int folderCamera = cameraNumber(name);
-                if (folderCamera == 0) folderCamera = quadrantNumber(name);
-                if (folderCamera == 0) folderCamera = cameraFolderNumber(name);
-                int cameraHint = folderCamera > 0 ? folderCamera : inheritedCamera;
-                if (DocumentsContract.Document.MIME_TYPE_DIR.equals(mime)) {
-                    collectImageFeedDocuments(treeUri, documentId, images, visited, depth + 1, cameraHint);
-                } else if ("image/jpeg".equalsIgnoreCase(mime)
-                        || name.toLowerCase(Locale.US).endsWith(".jpg")
-                        || name.toLowerCase(Locale.US).endsWith(".jpeg")) {
-                    images.add(new FeedDocument(DocumentsContract.buildDocumentUriUsingTree(treeUri, documentId), name, cameraHint));
-                }
-            }
-        }
-    }
-
-    private int quadrantNumber(String name) {
-        Matcher matcher = CAMERA_LABEL.matcher(name == null ? "" : name);
-        if (!matcher.find()) return 0;
-        try { return Integer.parseInt(matcher.group(1)); } catch (NumberFormatException ignored) { return 0; }
-    }
-
-    private int cameraFolderNumber(String name) {
-        return quadrantNumber(name);
-    }
-
-    private String getDocumentName(Uri uri) {
-        try (Cursor cursor = getContentResolver().query(uri,
-                new String[]{DocumentsContract.Document.COLUMN_DISPLAY_NAME}, null, null, null)) {
-            if (cursor != null && cursor.moveToFirst()) {
-                int column = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME);
-                if (column >= 0 && !cursor.isNull(column)) return cursor.getString(column);
-            }
-        } catch (Exception ignored) { }
-        return "Selected folder";
-    }
-
-    private String getStorageLabel(Uri uri) {
-        String authority = uri == null ? "" : uri.getAuthority();
-        if (authority == null) return "Storage";
-        String normalized = authority.toLowerCase(Locale.ROOT);
-        if (normalized.contains("google.android.apps.docs")) return "Google Drive";
-        if (normalized.contains("externalstorage")) return "Device storage";
-        if (normalized.contains("downloads")) return "Downloads";
-        return authority.replace(".documents", "").replace("com.android.providers.", "");
-    }
-
-    private boolean hasLocationPermission() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return true;
-        return checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
-                || checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
-    }
-
-    private void requestDeviceLocationPermission(String plotId) {
-        if (isFinishing()) return;
-        locationPermissionPlotId = plotId;
-        if (hasLocationPermission()) {
-            requestDeviceLocationForPlot(plotId);
-            return;
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            if (locationPermissionRequestInFlight) return;
-            locationPermissionRequestInFlight = true;
-            requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION,
-                    Manifest.permission.ACCESS_COARSE_LOCATION}, REQUEST_DEVICE_LOCATION);
-        } else sendDeviceLocation(plotId, null, "Device location is unavailable.");
-    }
-
-    private void requestDeviceLocationForPlot(String plotId) {
-        if (locationRequestInFlight) {
-            locationLookupPlotId = plotId;
-            return;
-        }
-        locationRequestInFlight = true;
-        locationLookupPlotId = plotId;
-        LocationManager manager = (LocationManager) getSystemService(LOCATION_SERVICE);
-        if (manager == null) {
-            locationRequestInFlight = false;
-            sendDeviceLocation(plotId, null, "Device location is unavailable.");
-            return;
-        }
-        try {
-            Location cached = null;
-            for (String provider : new String[]{LocationManager.NETWORK_PROVIDER,
-                    LocationManager.GPS_PROVIDER, LocationManager.PASSIVE_PROVIDER}) {
-                try {
-                    Location candidate = manager.getLastKnownLocation(provider);
-                    if (candidate != null && (cached == null || candidate.getTime() > cached.getTime())) cached = candidate;
-                } catch (SecurityException | IllegalArgumentException ignored) { }
-            }
-            if (cached != null && System.currentTimeMillis() - cached.getTime() <= 10 * 60_000L) {
-                locationRequestInFlight = false;
-                sendDeviceLocation(plotId, cached, "");
-                return;
-            }
-            locationListener = new LocationListener() {
-                @Override public void onLocationChanged(Location location) {
-                    LocationListener listener = locationListener;
-                    locationListener = null;
-                    if (listener != null) manager.removeUpdates(listener);
-                    locationRequestInFlight = false;
-                    sendDeviceLocation(locationLookupPlotId, location, "");
-                }
-                @Override public void onStatusChanged(String provider, int status, android.os.Bundle extras) { }
-                @Override public void onProviderEnabled(String provider) { }
-                @Override public void onProviderDisabled(String provider) { }
-            };
-            boolean requested = false;
-            for (String provider : new String[]{LocationManager.NETWORK_PROVIDER, LocationManager.GPS_PROVIDER}) {
-                try {
-                    if (manager.isProviderEnabled(provider)) {
-                        manager.requestSingleUpdate(provider, locationListener, Looper.getMainLooper());
-                        requested = true;
-                    }
-                } catch (SecurityException | IllegalArgumentException ignored) { }
-            }
-            final Location fallbackLocation = cached;
-            if (!requested) finishDeviceLocationLookup(manager, fallbackLocation);
-            else mainHandler.postDelayed(() -> finishDeviceLocationLookup(manager, fallbackLocation), 15_000L);
-        } catch (SecurityException error) {
-            locationRequestInFlight = false;
-            sendDeviceLocation(plotId, null, "Allow location access to center the map on this device.");
-        }
-    }
-
-    private void finishDeviceLocationLookup(LocationManager manager, Location fallback) {
-        if (!locationRequestInFlight) return;
-        LocationListener listener = locationListener;
-        locationListener = null;
-        if (listener != null) manager.removeUpdates(listener);
-        locationRequestInFlight = false;
-        sendDeviceLocation(locationLookupPlotId, fallback,
-                fallback == null ? "Could not read the device location. Turn on Location or enter the plot address." : "");
-    }
-
-    private void sendDeviceLocation(String plotId, Location location, String message) {
-        JSONObject result = new JSONObject();
-        try {
-            result.put("plotId", safePlotId(plotId));
-            result.put("found", location != null);
-            result.put("message", message == null ? "" : message);
-            if (location != null) {
-                result.put("latitude", location.getLatitude());
-                result.put("longitude", location.getLongitude());
-            }
-        } catch (Exception ignored) { }
-        String json = result.toString();
-        runOnUiThread(() -> {
-            if (web != null) web.evaluateJavascript("window.onDeviceLocationAvailable && window.onDeviceLocationAvailable(" + json + ");", null);
-        });
-    }
-
-    private void notifyFeedSettingsSaved(String plotId, String locationLabel) {
-        JSONObject result = new JSONObject();
-        try {
-            result.put("plotId", safePlotId(plotId));
-            result.put("path", locationLabel == null ? "" : locationLabel);
-            result.put("saved", true);
-        } catch (Exception ignored) { }
-        String json = result.toString();
-        runOnUiThread(() -> {
-            if (web != null) web.evaluateJavascript("window.onFeedSettingsSaved && window.onFeedSettingsSaved(" + json + ");", null);
-        });
-    }
-
-    private void sendAddressGeocode(String plotId, String query, Address address) {
-        JSONObject result = new JSONObject();
-        try {
-            result.put("plotId", plotId);
-            result.put("query", query);
-            result.put("found", address != null && address.hasLatitude() && address.hasLongitude());
-            if (address != null && address.hasLatitude() && address.hasLongitude()) {
-                result.put("latitude", address.getLatitude());
-                result.put("longitude", address.getLongitude());
-                result.put("label", address.getAddressLine(0) == null ? query : address.getAddressLine(0));
-            }
-        } catch (Exception ignored) { }
-        String json = result.toString();
-        runOnUiThread(() -> {
-            if (web != null) web.evaluateJavascript("window.onPlotAddressGeocoded && window.onPlotAddressGeocoded(" + json + ");", null);
-        });
-    }
-
-    private String getDocumentPathLabel(Uri treeUri, String documentId) {
-        String provider = getStorageLabel(treeUri);
-        List<String> names = new ArrayList<>();
-        if (Build.VERSION.SDK_INT >= 26) {
-            try {
-                Uri documentUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, documentId);
-                DocumentsContract.Path path = DocumentsContract.findDocumentPath(getContentResolver(), documentUri);
-                if (path != null && path.getPath() != null) {
-                    for (String id : path.getPath()) {
-                        String name = getDocumentName(DocumentsContract.buildDocumentUriUsingTree(treeUri, id));
-                        if (name != null && !name.isEmpty() && !"Selected folder".equals(name)) names.add(name);
-                    }
-                }
-            } catch (Exception ignored) { }
-        }
-        if (names.isEmpty()) {
-            String rootName = getDocumentName(treeUri);
-            if ("Google Drive".equals(provider)) {
-                if ("GrowPlot".equalsIgnoreCase(rootName)) {
-                    names.add("My Drive"); names.add("Projects"); names.add(rootName);
-                } else {
-                    names.add("My Drive"); names.add(rootName);
-                }
-            } else names.add(rootName);
-        }
-        StringBuilder path = new StringBuilder();
-        for (String name : names) path.append('/').append(name);
-        if (path.length() == 0) path.append('/').append(getDocumentName(treeUri));
-        return "Google Drive".equals(provider) ? "Google Drive: " + path : provider + ": " + path;
-    }
-
-    private String findOrCreateChildFolder(Uri treeUri, String parentDocumentId, String folderName) throws Exception {
-        Uri childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, parentDocumentId);
-        String[] columns = {DocumentsContract.Document.COLUMN_DOCUMENT_ID,
-                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
-                DocumentsContract.Document.COLUMN_MIME_TYPE};
-        try (Cursor cursor = getContentResolver().query(childrenUri, columns, null, null, null)) {
-            if (cursor == null) throw new IllegalStateException("Folder provider cannot list this location");
-            int idColumn = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DOCUMENT_ID);
-            int nameColumn = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME);
-            int mimeColumn = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_MIME_TYPE);
-            while (cursor.moveToNext()) {
-                if (idColumn < 0 || nameColumn < 0 || mimeColumn < 0) continue;
-                if (folderName.equals(cursor.getString(nameColumn))
-                        && DocumentsContract.Document.MIME_TYPE_DIR.equals(cursor.getString(mimeColumn))) {
-                    return cursor.getString(idColumn);
-                }
-            }
-        }
-        Uri parentUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, parentDocumentId);
-        Uri created = DocumentsContract.createDocument(getContentResolver(), parentUri,
-                DocumentsContract.Document.MIME_TYPE_DIR, folderName);
-        if (created == null) throw new IllegalStateException("Folder provider refused to create " + folderName);
-        return DocumentsContract.getDocumentId(created);
-    }
-
-    private String safeFolderName(String value) {
-        String safe = value == null ? "" : value.trim().replaceAll("[^A-Za-z0-9_-]+", "_");
-        return safe.isEmpty() ? "1" : safe.substring(0, Math.min(32, safe.length()));
-    }
-
-    private String safePlotId(String plotId) {
-        return plotId != null && plotId.matches("[A-Za-z0-9_-]{1,64}") ? plotId : DEFAULT_PLOT_ID;
-    }
-
-    private String currentFeedUserKey() {
-        com.google.firebase.auth.FirebaseUser user =
-                com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
-        return user == null ? "signed_out" : user.getUid().replaceAll("[^A-Za-z0-9_-]", "_");
-    }
-
-    private File userPlotDirectory(String root, String plotId) {
-        return new File(new File(new File(getFilesDir(), root), currentFeedUserKey()), safePlotId(plotId));
-    }
-
-    private String feedTreeKey(String plotId) { return "data_feed_tree_uri_" + currentFeedUserKey() + "_" + safePlotId(plotId); }
-
-    private String feedFolderDocumentKey(String plotId) { return "data_feed_folder_document_" + currentFeedUserKey() + "_" + safePlotId(plotId); }
-
-    private String feedLocationKey(String plotId) { return "data_feed_location_label_" + currentFeedUserKey() + "_" + safePlotId(plotId); }
-
-    private String expectedFeedPathLabel(String plotId) {
-        String userFolder;
-        try { userFolder = signedInEmailFolderName(); }
-        catch (Exception error) { return "Google Drive: /Projects/GrowPlot/Image_Feed/<signed-in-user>/<plot>"; }
-        String plot = safeFolderName(pickerDefaultFolderName);
-        return "Google Drive: /Projects/GrowPlot/Image_Feed/" + userFolder + "/" + plot;
-    }
-
-    private String feedLocationLabel(String plotId) {
-        String id = safePlotId(plotId);
-        String label = getPrefs().getString(feedLocationKey(id), "");
-        if (label != null && label.contains(": /")) return label;
-        if (pickerCreatesDefaultFeed && id.equals(safePlotId(pickerPlotId)))
-            return expectedFeedPathLabel(id);
-        if (label != null && !label.isEmpty()) {
-            if (label.startsWith("Google Drive/")) {
-                String suffix = label.substring("Google Drive/".length());
-                return "Google Drive: /" + suffix;
-            }
-            int separator = label.indexOf('/');
-            if (separator > 0) return label.substring(0, separator) + ": /" + label.substring(separator + 1);
-            return label;
-        }
-        String tree = getPrefs().getString(feedTreeKey(id), null);
-        String documentId = getPrefs().getString(feedFolderDocumentKey(id), null);
-        if (tree != null && documentId != null) return getDocumentPathLabel(Uri.parse(tree), documentId);
-        return tree == null ? "" : getStorageLabel(Uri.parse(tree)) + ": /" + getDocumentName(Uri.parse(tree));
-    }
-
-    private long photoFreshness(Photo photo) {
-        // Rank captures by when they were taken, not when Drive synced or modified the file.
-        return photo.capturedAt;
-    }
-
-    private JSONObject compareCameraFrames(Photo current, Photo previous) throws JSONException {
-        JSONObject result = new JSONObject();
-        try {
-            String currentArchive = archivePhoto(current);
-            String previousArchive = archivePhoto(previous);
-            File historyDirectory = userPlotDirectory("photo_history", current.plotId);
-            FrameFeatures now = analyzeFrameColors(currentArchive == null ? current.uri
-                    : Uri.fromFile(new File(historyDirectory, currentArchive)));
-            FrameFeatures before = analyzeFrameColors(previousArchive == null ? previous.uri
-                    : Uri.fromFile(new File(historyDirectory, previousArchive)));
-            double greenDelta = now.greenPercent - before.greenPercent;
-            double brightnessDelta = now.brightness - before.brightness;
-            double magnitude = Math.abs(greenDelta);
-            String change;
-            if (greenDelta >= 4.0) {
-                change = String.format(Locale.US, "More green is visible (+%.1f percentage points).", greenDelta);
-            } else if (greenDelta <= -4.0) {
-                change = String.format(Locale.US, "Less green is visible (âˆ’%.1f percentage points).", magnitude);
-            } else {
-                change = String.format(Locale.US, "Visible green is similar (%+.1f percentage points).", greenDelta);
-            }
-            String lighting;
-            if (Math.abs(brightnessDelta) >= 12.0) {
-                lighting = String.format(Locale.US, " Frame brightness also changed by %+.0f%%, which can affect the color estimate.", brightnessDelta);
-            } else {
-                lighting = " Frame brightness was broadly similar.";
-            }
-            String summary = change + lighting;
-            String explanation = String.format(Locale.US,
-                    "Compared %s with %s. Estimated green pixels: %.1f%% now vs %.1f%% before; average brightness: %.0f%% vs %.0f%%. This is a rough pixel-color comparison, not proof of growth or a disease diagnosis; framing, shadows, and lighting can change the result.",
-                    formatClock(previous.capturedAt), formatClock(current.capturedAt), now.greenPercent,
-                    before.greenPercent, now.brightness, before.brightness);
-            result.put("frameInsight", summary);
-            result.put("frameExplanation", explanation);
-            result.put("greenChangePercentPoints", greenDelta);
-            result.put("currentGreenPercent", now.greenPercent);
-            result.put("previousGreenPercent", before.greenPercent);
-            result.put("currentBrightnessPercent", now.brightness);
-            result.put("previousBrightnessPercent", before.brightness);
-            result.put("comparedCurrentAt", current.capturedAt);
-            result.put("comparedPreviousAt", previous.capturedAt);
-        } catch (Exception error) {
-            result.put("frameInsight", "Could not compare these two snapshots.");
-            result.put("frameExplanation", "Check that both saved photos can still be read from the selected image-feed folder.");
-        }
-        return result;
-    }
-
-    private FrameFeatures analyzeFrameColors(Uri uri) throws Exception {
-        BitmapFactory.Options bounds = new BitmapFactory.Options();
-        bounds.inJustDecodeBounds = true;
-        try (InputStream input = getContentResolver().openInputStream(uri)) {
-            if (input == null) throw new IllegalStateException("Photo is unavailable");
-            BitmapFactory.decodeStream(input, null, bounds);
-        }
-        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) throw new IllegalStateException("Photo is unreadable");
-        int sampleSize = 1;
-        while (Math.max(bounds.outWidth, bounds.outHeight) / sampleSize > 128) sampleSize *= 2;
-        BitmapFactory.Options options = new BitmapFactory.Options();
-        options.inSampleSize = sampleSize;
-        Bitmap decoded;
-        try (InputStream input = getContentResolver().openInputStream(uri)) {
-            if (input == null) throw new IllegalStateException("Photo is unavailable");
-            decoded = BitmapFactory.decodeStream(input, null, options);
-        }
-        if (decoded == null) throw new IllegalStateException("Photo is unreadable");
-        FrameFeatures features = new FrameFeatures();
-        long green = 0;
-        long brightness = 0;
-        int total = decoded.getWidth() * decoded.getHeight();
-        int[] pixels = new int[total];
-        decoded.getPixels(pixels, 0, decoded.getWidth(), 0, 0, decoded.getWidth(), decoded.getHeight());
-        for (int color : pixels) {
-            int red = Color.red(color), g = Color.green(color), blue = Color.blue(color);
-            brightness += (int) Math.round(0.299 * red + 0.587 * g + 0.114 * blue);
-            if (g >= 45 && g > red * 1.12 && g > blue * 1.06 && g - red >= 12) green++;
-        }
-        features.greenPercent = total == 0 ? 0 : green * 100.0 / total;
-        features.brightness = total == 0 ? 0 : brightness * 100.0 / (total * 255.0);
-        decoded.recycle();
-        return features;
-    }
-
-    private void scanSelectedImages(List<FeedDocument> selectedUris, boolean folderSource, String plotId) throws Exception {
-        List<Photo> photos = new ArrayList<>();
-        Map<Integer, Photo> latestByCamera = new HashMap<>();
-        int imageCount = 0;
-        int unmatchedCount = 0;
-        for (FeedDocument document : selectedUris) {
-            Uri fileUri = document.uri;
-            String name = document.name == null ? getDisplayName(fileUri) : document.name;
-            String mime = getContentResolver().getType(fileUri);
-            if (name == null || !("image/jpeg".equalsIgnoreCase(mime)
-                    || name.toLowerCase(Locale.US).endsWith(".jpg")
-                    || name.toLowerCase(Locale.US).endsWith(".jpeg"))) continue;
-            imageCount++;
-            int camera = cameraNumber(name);
-            if (camera == 0) camera = document.cameraHint;
-            if (camera == 0) camera = knownTimestampCamera(name);
-            if (camera == 0) unmatchedCount++;
-            long size = getDocumentSize(fileUri);
-            long modifiedAt = getDocumentLastModified(fileUri);
-            String sourceKey = fileUri + "|" + size + "|" + modifiedAt;
-            Photo photo;
-            try {
-                photo = readPhotoMetadata(fileUri, name, camera, modifiedAt, sourceKey);
-            } catch (Exception unavailablePhoto) {
-                continue;
-            }
-            photo.plotId = plotId;
-            photos.add(photo);
-            if (camera > 0) {
-                Photo current = latestByCamera.get(camera);
-                if (current == null || photoFreshness(photo) > photoFreshness(current)) latestByCamera.put(camera, photo);
-            }
-        }
-
-        File latestDirectory = userPlotDirectory("latest_images", plotId);
-        if (!latestDirectory.exists() && !latestDirectory.mkdirs()) throw new IllegalStateException("Cannot create image cache");
-        for (Map.Entry<Integer, Photo> entry : latestByCamera.entrySet()) {
-            Photo photo = entry.getValue();
-            copyToPrivateCache(photo.uri, new File(latestDirectory, cameraFileName(entry.getKey())));
-        }
-
-        JSONObject status = new JSONObject();
-        status.put("connected", true);
-        status.put("plotId", plotId);
-        status.put("feedLocation", feedLocationLabel(plotId));
-        Map<Integer, List<Photo>> photosByCamera = new HashMap<>();
-        for (Photo photo : photos) {
-            if (photo.camera > 0) {
-                if (!photosByCamera.containsKey(photo.camera)) photosByCamera.put(photo.camera, new ArrayList<>());
-                photosByCamera.get(photo.camera).add(photo);
-            }
-        }
-        status.put("intervalMinutes", refreshIntervalMinutes);
-        status.put("checkedAt", formatClock(System.currentTimeMillis()));
-        status.put("unmatchedPhotoCount", unmatchedCount);
-        int updatedCameraCount = latestByCamera.size();
-        String statusText;
-        if (imageCount == 0) {
-            statusText = folderSource ? "Selected data feed folder is connected, but no JPEG photos were found."
-                    : "No JPEG photos in the saved photo selection.";
-        } else if (updatedCameraCount == 0) {
-            statusText = "Found " + imageCount + " JPG photos, but none matched a camera. Add CCTV01â€“CCTV06, CAM1â€“CAM6, Q1â€“Q6, or Quadrant 1â€“6 to each filename or folder name.";
-        } else {
-            statusText = (folderSource ? "Scanned this plotâ€™s data feed" : "Checked saved photos")
-                    + " and updated " + updatedCameraCount + " quadrant feed(s) for this plot.";
-            if (unmatchedCount > 0) statusText += " Ignored " + unmatchedCount
-                    + " JPG photo(s) without a camera mapping. Add CCTV01â€“CCTV06, CAM1â€“CAM6, Q1â€“Q6, or Quadrant 1â€“6 to the filename or folder.";
-            if (!folderSource) statusText += " Tap Connect to folder above to discover new uploads.";
-        }
-        status.put("statusText", statusText);
-        JSONArray currentPhotos = new JSONArray();
-        for (int camera = 1; camera <= 6; camera++) {
-            Photo photo = latestByCamera.get(camera);
-            if (photo == null) continue;
-            JSONObject item = new JSONObject();
-            item.put("camera", camera);
-            item.put("name", photo.name);
-            item.put("timestamp", photo.capturedAt);
-            item.put("displayTime", photo.displayTime);
-            item.put("cacheKey", Long.toString(photo.capturedAt) + "-" + Long.toString(System.currentTimeMillis()));
-            currentPhotos.put(item);
-        }
-        status.put("currentPhotos", currentPhotos);
-
-        JSONArray cameraStats = new JSONArray();
-        for (int camera = 1; camera <= 6; camera++) {
-            List<Photo> group = photosByCamera.get(camera);
-            JSONObject item = new JSONObject();
-            item.put("camera", camera);
-            int count = group == null ? 0 : group.size();
-            item.put("photoCount", count);
-            item.put("similarPhotoCount", count > 1 ? count : 0);
-            item.put("frameInsight", count > 1
-                    ? "No distinct previous snapshot is available to compare."
-                    : count == 1 ? "Waiting for a second snapshot to compare." : "No snapshots are available to compare.");
-            item.put("frameExplanation", "The comparison estimates visible green pixels and brightness. It cannot confirm growth or diagnose plant health.");
-            if (count == 0) {
-                item.put("earliestTime", "â€”");
-                item.put("latestTime", "â€”");
-                item.put("earliestTimestamp", 0L);
-                item.put("latestTimestamp", 0L);
-                item.put("elapsedDays", 0);
-                item.put("elapsedHours", 0);
-                item.put("elapsedRemainder", "â€”");
-            } else {
-                Photo earliest = group.get(0);
-                Photo latest = group.get(0);
-                for (Photo photo : group) {
-                    if (photo.capturedAt < earliest.capturedAt) earliest = photo;
-                    if (photo.capturedAt > latest.capturedAt) latest = photo;
-                }
-                if (count > 1) {
-                    List<Photo> ordered = new ArrayList<>(group);
-                    ordered.sort((a, b) -> {
-                        int byCapture = Long.compare(photoFreshness(b), photoFreshness(a));
-                        return byCapture != 0 ? byCapture : String.valueOf(b.name).compareTo(String.valueOf(a.name));
-                    });
-                    Photo current = ordered.get(0);
-                    Photo previous = null;
-                    for (int i = 1; i < ordered.size(); i++) {
-                        if (!ordered.get(i).uri.equals(current.uri)) {
-                            previous = ordered.get(i);
-                            break;
-                        }
-                    }
-                    if (previous != null) {
-                        JSONObject comparison = compareCameraFrames(current, previous);
-                        item.put("frameInsight", comparison.optString("frameInsight"));
-                        item.put("frameExplanation", comparison.optString("frameExplanation"));
-                        item.put("frameCurrentGreenPercent", comparison.optDouble("currentGreenPercent", 0));
-                        item.put("framePreviousGreenPercent", comparison.optDouble("previousGreenPercent", 0));
-                        item.put("frameCurrentBrightnessPercent", comparison.optDouble("currentBrightnessPercent", 0));
-                        item.put("framePreviousBrightnessPercent", comparison.optDouble("previousBrightnessPercent", 0));
-                    }
-                }
-                long elapsed = Math.max(0, latest.capturedAt - earliest.capturedAt) / 1000;
-                item.put("earliestTime", earliest.displayTime);
-                item.put("latestTime", latest.displayTime);
-                item.put("earliestTimestamp", earliest.capturedAt);
-                item.put("latestTimestamp", latest.capturedAt);
-                item.put("elapsedDays", elapsed / 86400);
-                item.put("elapsedHours", (elapsed % 86400) / 3600);
-                item.put("elapsedRemainder", ((elapsed % 3600) / 60) + " min " + (elapsed % 60) + " sec");
-            }
-            cameraStats.put(item);
-        }
-        status.put("cameraStats", cameraStats);
-        status.put("timelineInterval", timelineInterval);
-        status.put("timelinePhotos", makeTimelinePhotos(photosByCamera));
-        publishStatus(status);
-    }
-
-    private JSONArray makeTimelinePhotos(Map<Integer, List<Photo>> photosByCamera) throws Exception {
-        JSONArray timelines = new JSONArray();
-        // Anchor the four buckets to the latest capture in the selected plot's configured
-        // Drive folder, rather than today's date. Historical Drive photos must remain visible.
-        long newestCapture = 0L;
-        for (List<Photo> cameraPhotos : photosByCamera.values()) {
-            if (cameraPhotos == null) continue;
-            for (Photo photo : cameraPhotos) {
-                if (photo.capturedAt > newestCapture && photo.capturedAt <= System.currentTimeMillis() + 86_400_000L)
-                    newestCapture = photo.capturedAt;
-            }
-        }
-        long anchorTime = newestCapture > 0 ? newestCapture : System.currentTimeMillis();
-        List<TimelineBuckets.Period> periods = TimelineBuckets.latestFour(timelineInterval, anchorTime);
-        String periodName = "daily".equals(timelineInterval) ? "Day" : "monthly".equals(timelineInterval) ? "Month"
-                : "yearly".equals(timelineInterval) ? "Year" : "Week";
-        for (int camera = 1; camera <= 6; camera++) {
-            List<Photo> group = photosByCamera.get(camera);
-            JSONObject timeline = new JSONObject();
-            timeline.put("camera", camera);
-            timeline.put("interval", timelineInterval);
-            JSONArray slots = new JSONArray();
-            List<Long> captureTimes = new ArrayList<>();
-            if (group != null) for (Photo photo : group) captureTimes.add(photo.capturedAt);
-            int[] selectedPhoto = TimelineBuckets.earliestPhotoIndices(periods, captureTimes);
-            timeline.put("baselineDate", formatDay(periods.get(0).startMillis));
-            for (int slotIndex = 0; slotIndex < periods.size(); slotIndex++) {
-                TimelineBuckets.Period period = periods.get(slotIndex);
-                String startDate = formatDay(period.startMillis);
-                JSONObject slot = new JSONObject();
-                slot.put("day", period.index);
-                slot.put("label", periodName + " " + period.index + " (start " + startDate + ")");
-                slot.put("expectedDate", startDate);
-                Photo best = selectedPhoto[slotIndex] >= 0 ? group.get(selectedPhoto[slotIndex]) : null;
-                if (best != null && best.historyFile == null) best.historyFile = archivePhoto(best);
-                slot.put("available", best != null && best.historyFile != null);
-                if (best != null && best.historyFile != null) {
-                    slot.put("timestamp", best.capturedAt);
-                    slot.put("capturedAt", best.displayTime);
-                    slot.put("imageUrl", "https://appassets.androidplatform.net/assets/history/" + currentFeedUserKey() + "/" + safePlotId(best.plotId) + "/" + best.historyFile);
-                }
-                slots.put(slot);
-            }
-            timeline.put("slots", slots);
-            timelines.put(timeline);
-        }
-        return timelines;
-    }
-
-    private long startOfLocalDay(long timestamp) {
-        Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("Asia/Kuala_Lumpur"), Locale.US);
-        calendar.setTimeInMillis(timestamp);
-        calendar.set(Calendar.HOUR_OF_DAY, 0);
-        calendar.set(Calendar.MINUTE, 0);
-        calendar.set(Calendar.SECOND, 0);
-        calendar.set(Calendar.MILLISECOND, 0);
-        return calendar.getTimeInMillis();
-    }
-
-    private String formatDay(long timestamp) {
-        SimpleDateFormat format = new SimpleDateFormat("dd MMM yyyy", Locale.US);
-        format.setTimeZone(TimeZone.getTimeZone("Asia/Kuala_Lumpur"));
-        return format.format(new Date(timestamp));
-    }
-
-    private String getDisplayName(Uri uri) {
-        try (Cursor cursor = getContentResolver().query(uri, new String[]{OpenableColumns.DISPLAY_NAME}, null, null, null)) {
-            if (cursor != null && cursor.moveToFirst()) {
-                int column = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
-                if (column >= 0 && !cursor.isNull(column)) return cursor.getString(column);
-            }
-        } catch (Exception ignored) { }
-        String segment = uri.getLastPathSegment();
-        return segment == null ? null : Uri.decode(segment);
-    }
-
-    private long getDocumentSize(Uri uri) {
-        try (Cursor cursor = getContentResolver().query(uri, new String[]{OpenableColumns.SIZE}, null, null, null)) {
-            if (cursor != null && cursor.moveToFirst()) {
-                int column = cursor.getColumnIndex(OpenableColumns.SIZE);
-                if (column >= 0 && !cursor.isNull(column)) return cursor.getLong(column);
-            }
-        } catch (Exception ignored) { }
-        return 0L;
-    }
-
-    private long getDocumentLastModified(Uri uri) {
-        try (Cursor cursor = getContentResolver().query(uri,
-                new String[]{"last_modified"}, null, null, null)) {
-            if (cursor != null && cursor.moveToFirst()) {
-                int column = cursor.getColumnIndex("last_modified");
-                if (column >= 0 && !cursor.isNull(column)) {
-                    long value = cursor.getLong(column);
-                    // Some Android document providers expose epoch seconds rather than milliseconds.
-                    return value > 0 && value < 100_000_000_000L ? value * 1000L : value;
-                }
-            }
-        } catch (Exception ignored) { }
-        return 0L;
-    }
-
-    private Photo readPhotoMetadata(Uri uri, String name, int camera, long modified, String sourceKey) throws Exception {
-        Photo photo = new Photo();
-        photo.uri = uri;
-        photo.name = name;
-        photo.camera = camera;
-        photo.modifiedAt = modified;
-        photo.sourceKey = sourceKey;
-        photo.capturedAt = modified > 0 ? modified : System.currentTimeMillis();
-        boolean hasExifCaptureTime = false;
-        try (InputStream input = getContentResolver().openInputStream(uri)) {
-            if (input != null) {
-                ExifInterface exif = new ExifInterface(input);
-                String raw = exif.getAttribute(ExifInterface.TAG_DATETIME_ORIGINAL);
-                if (raw == null) raw = exif.getAttribute(ExifInterface.TAG_DATETIME);
-                String offset = exif.getAttribute("OffsetTimeOriginal");
-                if (raw != null) {
-                    SimpleDateFormat parser = new SimpleDateFormat("yyyy:MM:dd HH:mm:ss", Locale.US);
-                    parser.setTimeZone(TimeZone.getTimeZone(offset == null ? "Asia/Kuala_Lumpur" : "GMT" + offset));
-                    Date parsed = parser.parse(raw);
-                    if (parsed != null) {
-                        photo.capturedAt = parsed.getTime();
-                        hasExifCaptureTime = true;
-                    }
-                }
-            }
-        } catch (ParseException ignored) { }
-        if (!hasExifCaptureTime) {
-            long fromName = timestampFromFileName(name);
-            if (fromName > 0) photo.capturedAt = fromName;
-            else if (modified <= 0) {
-                // Legacy camera-only names have no embedded time. Use the known baseline only
-                // when the provider also supplied no usable modification timestamp.
-                long knownTime = knownCameraTimestamp(name);
-                if (knownTime > 0) photo.capturedAt = knownTime;
-            }
-        }
-        photo.displayTime = formatDateTime(photo.capturedAt);
-        return photo;
-    }
-
-    private String archivePhoto(Photo photo) {
-        String base = String.format(Locale.US, "cctv_%02d_%d_%s.jpg", photo.camera,
-                photo.capturedAt, Integer.toHexString(photo.sourceKey.hashCode()));
-        File directory = userPlotDirectory("photo_history", photo.plotId);
-        File destination = new File(directory, base);
-        if (destination.isFile() && destination.length() > 0) return base;
-        Bitmap bitmap = null;
-        Bitmap oriented = null;
-        try {
-            if (!directory.exists() && !directory.mkdirs()) return null;
-            BitmapFactory.Options bounds = new BitmapFactory.Options();
-            bounds.inJustDecodeBounds = true;
-            try (InputStream input = getContentResolver().openInputStream(photo.uri)) {
-                if (input == null) return null;
-                BitmapFactory.decodeStream(input, null, bounds);
-            }
-            BitmapFactory.Options decode = new BitmapFactory.Options();
-            decode.inSampleSize = 1;
-            while (bounds.outWidth / decode.inSampleSize > 1440
-                    || bounds.outHeight / decode.inSampleSize > 1440) decode.inSampleSize *= 2;
-            try (InputStream input = getContentResolver().openInputStream(photo.uri)) {
-                if (input == null) return null;
-                bitmap = BitmapFactory.decodeStream(input, null, decode);
-            }
-            if (bitmap == null) return null;
-            int orientation = ExifInterface.ORIENTATION_NORMAL;
-            try (InputStream input = getContentResolver().openInputStream(photo.uri)) {
-                if (input != null) orientation = new ExifInterface(input).getAttributeInt(
-                        ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL);
-            }
-            float rotation = orientation == ExifInterface.ORIENTATION_ROTATE_90 ? 90f
-                    : orientation == ExifInterface.ORIENTATION_ROTATE_180 ? 180f
-                    : orientation == ExifInterface.ORIENTATION_ROTATE_270 ? 270f : 0f;
-            if (rotation != 0f) {
-                Matrix matrix = new Matrix();
-                matrix.postRotate(rotation);
-                oriented = Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), matrix, true);
-            } else oriented = bitmap;
-            try (FileOutputStream output = new FileOutputStream(destination)) {
-                if (!oriented.compress(Bitmap.CompressFormat.JPEG, 82, output)) return null;
-                output.flush();
-            }
-            return destination.length() > 0 ? base : null;
-        } catch (Exception ignored) {
-            if (destination.exists()) destination.delete();
-            return null;
-        } finally {
-            if (oriented != null && oriented != bitmap) oriented.recycle();
-            if (bitmap != null && !bitmap.isRecycled()) bitmap.recycle();
-        }
-    }
-
-    private long timestampFromFileName(String name) {
-        String file = name == null ? "" : name;
-        Matcher matcher = Pattern.compile("(\\d{8})[_-]?(\\d{6})").matcher(file);
-        String capture;
-        if (matcher.find()) {
-            capture = matcher.group(1) + matcher.group(2);
-        } else {
-            // Older Plot01_demo uploads used YYYYMMDDHH without minutes/seconds.
-            Matcher hourOnly = Pattern.compile("(\\d{8})[_-]?(\\d{2})(?!\\d)").matcher(file);
-            if (!hourOnly.find()) return 0L;
-            capture = hourOnly.group(1) + hourOnly.group(2) + "0000";
-        }
-        try {
-            SimpleDateFormat parser = new SimpleDateFormat("yyyyMMddHHmmss", Locale.US);
-            parser.setLenient(false);
-            parser.setTimeZone(TimeZone.getTimeZone("Asia/Kuala_Lumpur"));
-            Date parsed = parser.parse(capture);
-            return parsed == null ? 0L : parsed.getTime();
-        } catch (ParseException ignored) { return 0L; }
-    }
-
-    private long knownCameraTimestamp(String name) {
-        Matcher matcher = CAMERA_FILE.matcher(name == null ? "" : name);
-        if (!matcher.matches()) return 0L;
-        try {
-            int camera = Integer.parseInt(matcher.group(1));
-            String[] captureTimes = {"20261008_175252", "20261008_175312", "20261008_175325",
-                    "20261008_175337", "20261008_175346", "20261008_175355"};
-            return timestampFromFileName(captureTimes[camera - 1]);
-        } catch (Exception ignored) { return 0L; }
-    }
-
-    private void copyToPrivateCache(Uri source, File destination) throws Exception {
-        try (InputStream input = getContentResolver().openInputStream(source);
-             FileOutputStream output = new FileOutputStream(destination)) {
-            if (input == null) throw new IllegalStateException("Image stream unavailable");
-            byte[] buffer = new byte[32 * 1024];
-            int read;
-            while ((read = input.read(buffer)) != -1) output.write(buffer, 0, read);
-            output.flush();
-        }
-    }
-
-    private int knownTimestampCamera(String name) {
-        String normalized = name == null ? "" : name.replaceAll("(?i)\\.jpe?g$", "");
-        switch (normalized) {
-            case "20261008_184621": return 1;
-            case "20261008_184637": return 2;
-            case "20261008_184727": return 3;
-            case "20261008_184644": return 4;
-            case "20261008_184652": return 5;
-            case "20261008_184705": return 6;
-            case "20261009_104256": return 1;
-            case "20261009_104315": return 2;
-            case "20261009_104330": return 4;
-            case "20261009_104341": return 6;
-            case "20261009_104359": return 5;
-            case "20261009_104416": return 3;
-            default: return 0;
-        }
-    }
-
-    private int cameraNumber(String fileName) {
-        String candidate = fileName == null ? "" : fileName;
-        Matcher matcher = CAMERA_FILE.matcher(candidate);
-        if (matcher.matches()) {
-            try { return Integer.parseInt(matcher.group(1)); }
-            catch (NumberFormatException ignored) { return 0; }
-        }
-        matcher = CAMERA_LABEL.matcher(candidate);
-        if (matcher.find()) {
-            try { return Integer.parseInt(matcher.group(1)); }
-            catch (NumberFormatException ignored) { return 0; }
-        }
-        String normalized = candidate.replaceAll("(?i)\\.jpe?g$", "");
-        switch (normalized) {
-            // These six timestamp-named uploads were visually matched to the same six plant quadrants.
-            case "20261008_184621": return 1; // Andong merah / Cordyline
-            case "20261008_184637": return 2; // Citrus
-            case "20261008_184727": return 3; // Belimbing buluh
-            case "20261008_184644": return 4; // Pandan
-            case "20261008_184652": return 5; // Curcuma family, tentative
-            case "20261008_184705": return 6; // Cassava
-            // Visually matched 9 Oct 2026 timestamp-only uploads to the established quadrants.
-            case "20261009_104256": return 1; // Andong merah / Cordyline
-            case "20261009_104315": return 2; // Citrus
-            case "20261009_104330": return 4; // Pandan
-            case "20261009_104341": return 6; // Cassava
-            case "20261009_104359": return 5; // Curcuma family, tentative
-            case "20261009_104416": return 3; // Bilimbi
-            default: return 0;
-        }
-    }
-
-    private String cameraFileName(int camera) {
-        return String.format(Locale.US, "cctv_%02d.jpg", camera);
-    }
-
-    private String sourceLabel(Photo photo) {
-        return photo.camera > 0 ? "CCTV " + String.format(Locale.US, "%02d", photo.camera) : photo.name;
-    }
-
-    private String formatDateTime(long timestamp) {
-        SimpleDateFormat format = new SimpleDateFormat("dd MMM yyyy Â· h:mm:ss a 'MYT'", Locale.US);
-        format.setTimeZone(TimeZone.getTimeZone("Asia/Kuala_Lumpur"));
-        return format.format(new Date(timestamp));
-    }
-
-    private String formatClock(long timestamp) {
-        SimpleDateFormat format = new SimpleDateFormat("h:mm a 'MYT'", Locale.US);
-        format.setTimeZone(TimeZone.getTimeZone("Asia/Kuala_Lumpur"));
-        return format.format(new Date(timestamp));
-    }
-
-    private JSONObject makeStatus(String message) {
-        JSONObject status = new JSONObject();
-        try {
-            status.put("connected", false);
-            status.put("cameraStats", new JSONArray());
-            status.put("statusText", message);
-            status.put("intervalMinutes", refreshIntervalMinutes);
-            String activePlot = safePlotId(getPrefs().getString(PREF_ACTIVE_PLOT_ID, DEFAULT_PLOT_ID));
-            status.put("plotId", activePlot);
-            status.put("feedLocation", feedLocationLabel(activePlot));
-        } catch (Exception ignored) { }
-        return status;
-    }
-
-    private void publishStatus(JSONObject status) {
-        final String json = status.toString();
-        runOnUiThread(() -> {
-            if (!pageReady || web == null) pendingPageUpdate = json;
-            else sendToPage(json);
-        });
-    }
-
-    private void sendToPage(String json) {
-        if (web != null) web.evaluateJavascript("window.onSnapshotScan && window.onSnapshotScan(" + json + ");", null);
-    }
-}
+YªçŠx-®éÜj×¢ëiºÚ+Š§j[h‘éÜ¢éí×NµßÔèµ©hºÚn¶X§zÍ\XÚØYÙHÛÛK™Ü›ÝÜÝ™˜\›NÂ‚š[\Ü[™›ÚY˜\XÝ]š]NÂš[\Ü[™›ÚY˜\‘X[ÙÎÂš[\Ü[™›ÚY“X[šY™\ÝÂš[\Ü[™›ÚY˜ÛÛ[œK”XÚØYÙSX[˜YÙ\ŽÂš[\Ü[™›ÚY›ØØ][Û‹Y™\ÜÎÂš[\Ü[™›ÚY›ØØ][Û‹‘Ù[ØÛÙ\ŽÂš[\Ü[™›ÚY›ØØ][Û‹“ØØ][ÛŽÂš[\Ü[™›ÚY›ØØ][Û‹“ØØ][Û“\Ý[™\ŽÂš[\Ü[™›ÚY›ØØ][Û‹“ØØ][Û“X[˜YÙ\ŽÂš[\Ü[™›ÚY˜ÛÛ[’[[Âš[\Ü[™›ÚY˜ÛÛ[Û\]NÂš[\Ü[™›ÚY˜ÛÛ[”Ú\™Y™Y™\™[˜Ù\ÎÂš[\Ü[™›ÚY˜ÛÛ[œ™\ËÛÛ™šYÝ\˜][ÛŽÂš[\Ü[™›ÚY™]X˜\ÙKÝ\œÛÜŽÂš[\Ü[™›ÚY›YYXK‘^Y’[\™˜XÙNÂš[\Ü[™›ÚY›YYXK“YYXT^Y\ŽÂš[\Ü[™›ÚY›YYXK“YYXSY]Y]T™]šY]™\ŽÂš[\Ü[™›ÚY›™]•\šNÂš[\Ü[™›ÚY›ÜË[™NÂš[\Ü[™›ÚY›ÜËZ[Âš[\Ü[™›ÚY›ÜË’[™\ŽÂš[\Ü[™›ÚY›ÜË“ÛÜ\ŽÂš[\Ü[™›ÚY›ÜË‘[š\›Û›Y[Âš[\Ü[™›ÚYšY]Ë•Ú[™ÝÒ[œÙ]ÎÂš[\Ü[™›ÚYšY]Ë•Ú[™ÝÎÂš[\Ü[™›ÚYšY]Ë•šY]ÎÂš[\Ü[™›ÚYšY]Ë‘Ü˜]š]NÂš[\Ü[™›ÚYšY]Ë”^[ÛÜNÂš[\Ü[™›ÚYšY]Ë”Ý\™˜XÙUšY]ÎÂš[\Ü[™›ÚYÚYÙ]‘œ˜[YS^[Ý]Âš[\Ü[™›ÚYÚYÙ]“[™X\“^[Ý]Âš[\Ü[™›ÚYÚYÙ]‘Y]^Âš[\Ü[™›ÚYÚYÙ]”ØÜ›ÛšY]ÎÂš[\Ü[™›ÚYÚYÙ]•^šY]ÎÂš[\Ü[™›ÚYÚYÙ]“YYXPÛÛ›Û\ŽÂš[\Ü[™›ÚYÚYÙ]•šY[ÕšY]ÎÂš[\Ü[™›ÚYÚYÙ]•Ø\ÝÂš[\Ü[™›ÚY™Ü˜\XÜËš]X\Âš[\Ü[™›ÚY™Ü˜\XÜËÛÛÜŽÂš[\Ü[™›ÚY™Ü˜\XÜË™˜]ØX›K‘Ü˜YY[˜]ØX›NÂš[\Ü[™›ÚY™Ü˜\XÜËš]X\˜XÝÜžNÂš[\Ü[™›ÚY™Ü˜\XÜË“X]š^Âš[\Ü[™›ÚYœ›ÝšY\‹“Ü[˜X›PÛÛ[[œÎÂš[\Ü[™›ÚYœ›ÝšY\‹‘ØÝ[Y[ÐÛÛ˜XÝÂš[\Ü[™›ÚYœ›ÝšY\‹“YYXTÝÜ™NÂš[\Ü[™›ÚYÙXšÚ]’˜]˜\ØÜš\[\™˜XÙNÂš[\Ü[™›ÚYÙXšÚ]•ÙX”™\ÛÝ\˜ÙT™\]Y\ÝÂš[\Ü[™›ÚYÙXšÚ]•ÙX”™\ÛÝ\˜ÙT™\ÜÛœÙNÂš[\Ü[™›ÚYÙXšÚ]•ÙX”Ù][™ÜÎÂš[\Ü[™›ÚYÙXšÚ]•ÙX•šY]ÎÂš[\Ü[™›ÚYÙXšÚ]•ÙX•šY]ÐÛY[Âš[\Ü[™›ÚY][˜\ÙMÂš[\Ü[™›ÚY^’[Âš[\Ü[™›ÚY^’[œ]\NÂ‚š[\ÜÜ™ËšœÛÛ‹’”ÓÓ\œ˜^NÂš[\ÜÜ™ËšœÛÛ‹’”ÓÓ‘^Ù\[ÛŽÂš[\ÜÜ™ËšœÛÛ‹’”ÓÓ“Øš™XÝÂš[\ÜÜ™ËšY[Û[‹›X›Ë“X•“ÎÂš[\ÜÜ™ËšY[Û[‹›X›Ë“YYXNÂš[\ÜÜ™ËšY[Û[‹›X›Ë][•“ÕšY[Ó^[Ý]Â‚š[\Ü˜]˜Kš[Ë‘š[NÂš[\Ü˜]˜Kš[Ë‘š[R[œ]Ý™X[NÂš[\Ü˜]˜Kš[Ë‘š[SÝ]]Ý™X[NÂš[\Ü˜]˜Kš[Ë’[œ]Ý™X[NÂš[\Ü˜]˜Kš[Ë“Ý]]Ý™X[NÂš[\Ü˜]˜Kš[Ëž]P\œ˜^SÝ]]Ý™X[NÂš[\Ü˜]˜Kš[Ëž]P\œ˜^R[œ]Ý™X[NÂš[\Ü˜]˜K›™]’T“ÛÛ›™XÝ[ÛŽÂš[\Ü˜]˜K›™]•T“Âš[\Ü˜]˜K›™]•T“[˜ÛÙ\ŽÂš[\Ü˜]˜K›š[Ë˜Ú\œÙ]”Ý[™\™Ú\œÙ]ÎÂš[\Ü˜]˜K^”\œÙQ^Ù\[ÛŽÂš[\Ü˜]˜K^”Ú[\Q]Q›Ü›X]Âš[\Ü˜]˜K][\œ˜^S\ÝÂš[\Ü˜]˜K][Ø[[™\ŽÂš[\Ü˜]˜K][ÛÛXÝ[ÛœÎÂš[\Ü˜]˜K][ÛÛ\\˜]ÜŽÂš[\Ü˜]˜K][‘]NÂš[\Ü˜]˜K][’\ÚX\Âš[\Ü˜]˜K][’\ÚÙ]Âš[\Ü˜]˜K][“\ÝÂš[\Ü˜]˜K][“ØØ[NÂš[\Ü˜]˜K][“X\Âš[\Ü˜]˜K][”Ù]Âš[\Ü˜]˜K][•[YV›Û™NÂš[\Ü˜]˜K][˜ÛÛ˜Ý\œ™[‘^XÝ]Ü”Ù\šXÙNÂš[\Ü˜]˜K][˜ÛÛ˜Ý\œ™[‘^XÝ]ÜœÎÂš[\Ü˜]˜K][œ™YÙ^“X]Ú\ŽÂš[\Ü˜]˜K][œ™YÙ^”]\›ŽÂš[\Ü˜]˜KœÙXÝ\š]K’Ù^TÝÜ™NÂš[\Ü˜]˜^˜Üž\ËÚ\\ŽÂš[\Ü˜]˜^˜Üž\Ë’Ù^QÙ[™\˜]ÜŽÂš[\Ü˜]˜^˜Üž\Ë”ÙXÜ™]Ù^NÂš[\Ü˜]˜^˜Üž\ËœÜXË‘ÐÓT\˜[Y]\”ÜXÎÂš[\Ü[™›ÚYœÙXÝ\š]KšÙ^\ÝÜ™K’Ù^QÙ[”\˜[Y]\”ÜXÎÂš[\Ü[™›ÚYœÙXÝ\š]KšÙ^\ÝÜ™K’Ù^T›Ü\Y\ÎÂ‚œX›XÈÛ\ÜÈXZ[XÝ]š]H^[™ÈXÝ]š]HÂˆš]˜]HÝ]XÈš[˜[[‘TUQTÕÒSPQÑWÑ“ÓTˆHLÂˆš]˜]HÝ]XÈš[˜[[‘TUQTÕÑU’PÑWÓÐÐUSÓˆHLNÂˆš]˜]HÝ]XÈš[˜[[‘TUQTÕÑPQÓ“ÔÒT×ÔÕÈHLŽÂˆš]˜]HÝ]XÈš[˜[[‘TUQTÕÑPQÓ“ÔÒT×Õ’QSÈHLÎÂˆš]˜]HÝ]XÈš[˜[[‘TUQTÕÑPQÓ“ÔÒT×ÔPÒÑTˆHMÂˆš]˜]HÝ]XÈš[˜[[‘TUQTÕÑPQÓ“ÔÒT×Ñ“ÓTˆHMNÂˆš]˜]HÝ]XÈš[˜[[‘TUQTÕÑ‘QQÐÐSQTHHMŽÂˆš]˜]HÝ]XÈš[˜[[‘TUQTÕÑ‘QQÔPÒÑTˆHMÎÂˆš]˜]HÝ]XÈš[˜[Ýš[™È‘Q”ÈH™Ü›ÝÜÝÜÛ˜\ÚÝÜÙ][™ÜÈŽÂˆš]˜]HÝ]XÈš[˜[Ýš[™È‘Q—ÒSPQÑWÑ‘QQÕ‘QWÕT’HHš[XYÙWÙ™YYÝ™YWÝ\šHŽÂˆš]˜]HÝ]XÈš[˜[Ýš[™È‘Q—ÒS•T•SHœ™Yœ™\ÚÚ[\˜[ÛZ[]\ÈŽÂˆš]˜]HÝ]XÈš[˜[Ýš[™È‘Q—ÐÐÕ—ÔÓTÒÕÒS•T•SÓRSTÈH˜ØÝ—ÜÛ˜\ÚÝÚ[\˜[ÛZ[\ÈŽÂˆš]˜]HÝ]XÈš[˜[Ýš[™È‘Q—ÐÐÕ—ÒTÔ‘Q’VH˜ØÝ—Ú\ÜÝLWÈŽÂˆš]˜]HÝ]XÈš[˜[Ýš[™È‘Q—Õ’QÒWÐÐÕŒ×ÐÔ‘QS•PSÈHšYÚWØØÝŒ×ØÜ™Y[X[×Ù[˜Üž\YŽÂˆš]˜]HÝ]XÈš[˜[Ýš[™È’QÒWÐÐÕŒ×ÒÑVWÐSPTÈH‘Ü›ÝÔÝšYÚPØÝŒÈŽÂˆš]˜]HÝ]XÈš[˜[Ýš[™È‘Q—ÐPÕU‘WÔÕÒQH˜XÝ]™WÜÝÚYŽÂˆš]˜]HÝ]XÈš[˜[Ýš[™È‘Q—ÕÑP—ÔÕÔQÑWÓRQÔUQHÙX—ÜÝÜ˜YÙWÛZYÜ˜]YÝ×Ø\\ÜÙ]ÈŽÂˆš]˜]HÝ]XÈš[˜[Ýš[™È‘Q—ÑPQÓ“ÔÒT×Õ‘QWÕT’HH™XYÛ›ÜÚ\×Ý™YWÝ\šHŽÂˆš]˜]HÝ]XÈš[˜[Ýš[™È‘Q—ÑPQÓ“ÔÒT×Ô“ÓÕÑÐÕSQS•ÒQH™XYÛ›ÜÚ\×Ü›ÛÝÙØÝ[Y[ÚYŽÂˆš]˜]HÝ]XÈš[˜[Ýš[™È‘Q—ÑPQÓ“ÔÒT×Ñ“ÓT—ÓP‘SH™XYÛ›ÜÚ\×Ù›Û\—ÛX™[ŽÂˆš]˜]HÝ]XÈš[˜[Ýš[™È‘Q—ÑÔ“ÕÔÕÕ‘QWÕT’HH™Ü›ÝÜÝÜ›ÛÝÝ™YWÝ\šHŽÂˆš]˜]HÝ]XÈš[˜[Ýš[™ÈQUSÐÐÕŒWÒTHŒNL‹ŒMŽŒKŒHŽÂˆš]˜]HÝ]XÈš[˜[Ýš[™ÈQUSÐÐÕŒ—ÒTHŒNL‹ŒMŽŒKŒŒÈŽÂˆš]˜]HÝ]XÈš[˜[Ýš[™ÈQUSÐÐÕŒ×ÒTHŒNL‹ŒMŽŒKŒŒŽŽÂˆš]˜]HÝ]XÈš[˜[Ýš[™È‘Q—ÑT“WÑUWÕTÑT—ÒQH™˜\›WÙ]WÝ\Ù\—ÚYŽÂˆš]˜]HÝ]XÈš[˜[Ýš[™È‘Q—ÔS‘S‘×ÑPQÓ“ÔÒT×ÕTÐQÈHœ[™[™×ÙXYÛ›ÜÚ\×Ý\ØYÈŽÂˆš]˜]HÝ]XÈš[˜[Ýš[™ÈÔ“ÕÔÕÔÕÔQÑWÐÓÓ‘’Q×Ñ’SHHœÝÜ˜YÙK\]ËšœÛÛˆŽÂˆš]˜]HÝ]XÈš[˜[Ýš[™ÈQUSÔÕÒQHœÝLHŽÂˆš]˜]H›Û][HÝš[™ÈXÚÙ\”ÝYHQUSÔÕÒQÂˆš]˜]H›Û][H›ÛÛX[ˆXÚÙ\Ü™X]\ÑY˜][™YYÂˆš]˜]H›Û][HÝš[™ÈXÚÙ\‘Y˜][›Û\“˜[YHH‘[[×ÜÝŽÂˆš]˜]H›Û][HÝš[™ÈØØ][Û”\›Z\ÜÚ[Û”ÝYHQUSÔÕÒQÂˆš]˜]H›Û][HÝš[™ÈØØ][Û“ÛÚÝ\ÝYHQUSÔÕÒQÂˆš]˜]H›Û][H›ÛÛX[ˆØØ][Û”™\]Y\Ý[‘›YÚÂˆš]˜]H›Û][H›ÛÛX[ˆØØ][Û”\›Z\ÜÚ[Û”™\]Y\Ý[‘›YÚÂˆš]˜]HØØ][Û“\Ý[™\ˆØØ][Û“\Ý[™\ŽÂˆš]˜]HÝ]XÈš[˜[[PVÑ‘QQÑ’STÈHMLÂˆš]˜]HÝ]XÈš[˜[Ýš[™ÈTÐTÔÑUÔ‘Q’VH‹Ø\ÜÙ]ËÚ[XYÙ\ËÈŽÂˆš]˜]HÝ]XÈš[˜[Ýš[™ÈTÐTÑSS‘WÔ‘Q’VH‹Ø\ÜÙ]ËØ˜\Ù[[™KÈŽÂˆš]˜]HÝ]XÈš[˜[Ýš[™ÈTÒTÕÔ–WÔ‘Q’VH‹Ø\ÜÙ]ËÚ\ÝÜžKÈŽÂˆš]˜]HÝ]XÈš[˜[Ýš[™ÈTÑPQÓ“ÔÒT×Ô‘Q’VH‹Ø\ÜÙ]ËÙXYÛ›ÜÚ\ËÈŽÂˆš]˜]HÝ]XÈš[˜[]\›ˆÐSQTWÑ’SHH]\›‹˜ÛÛ\[JŠÚJW˜ØÝ–×ÈWOÌÊÌKM—JJÎ–×ÈWKŠŠO×ŠœOÙß™ÊIŠNÂˆš]˜]HÝ]XÈš[˜[]\›ˆÐSQTWÓP‘SH]\›‹˜ÛÛ\[JŠÚJJÎ—Ÿ×KVŒNWJJÎÐÕŸÐSQT_ÐS_UPQS•UPQJVÈËWJŒÊÌKM—JJÎ–×ŒNW_	
+HŠNÂˆš]˜]Hš[˜[[™\ˆXZ[’[™\ˆH™]È[™\ŠÛÜ\‹™Ù]XZ[“ÛÜ\Š
+JNÂˆš]˜]Hš[˜[^XÝ]Ü”Ù\šXÙHØØ[•ÛÜšÙ\ˆH^XÝ]ÜœË›™]ÔÚ[™ÛU™XY^XÝ]ÜŠ
+NÂˆš]˜]Hš[˜[^XÝ]Ü”Ù\šXÙHÙ[ØÛÙUÛÜšÙ\ˆH^XÝ]ÜœË›™]ÔÚ[™ÛU™XY^XÝ]ÜŠ
+NÂˆš]˜]Hš[˜[^XÝ]Ü”Ù\šXÙHXYÛ›ÜÚ\ÕÛÜšÙ\ˆH^XÝ]ÜœË›™]ÔÚ[™ÛU™XY^XÝ]ÜŠ
+NÂˆš]˜]Hš[˜[^XÝ]Ü”Ù\šXÙHXYÛ›ÜÚ\ÐÝ•ÛÜšÙ\ˆH^XÝ]ÜœË›™]ÔÚ[™ÛU™XY^XÝ]ÜŠ
+NÂˆš]˜]Hš[˜[^XÝ]Ü”Ù\šXÙHÚ[™Ú\ÙUÛÜšÙ\ˆH^XÝ]ÜœË›™]ÔÚ[™ÛU™XY^XÝ]ÜŠ
+NÂˆš]˜]Hš[˜[^XÝ]Ü”Ù\šXÙH˜\›Q]UÛÜšÙ\ˆH^XÝ]ÜœË›™]ÔÚ[™ÛU™XY^XÝ]ÜŠ
+NÂˆš]˜]Hš[˜[^XÝ]Ü”Ù\šXÙHØÝ”Û˜\ÚÝÛÜšÙ\ˆH^XÝ]ÜœË›™]ÔÚ[™ÛU™XY^XÝ]ÜŠ
+NÂˆš]˜]H\šH[™[™ÑXYÛ›ÜÚ\ÓÝ]]Âˆš]˜]H›Û][H\šH[™[™Ñ™YYÝÓÝ]]Âˆš]˜]H›Û][H[[™[™Ñ™YYØ[Y\˜HHNÂˆš]˜]H›Û][HÝš[™È[™[™Ñ™YYÝYHQUSÔÕÒQÂˆš]˜]HÝš[™È[™[™ÑXYÛ›ÜÚ\ÒÚ[™HˆŽÂˆš]˜]HÝš[™È[™[™ÑXYÛ›ÜÚ\ÔÝYHQUSÔÕÒQÂˆš]˜]HÝš[™È[™[™ÑXYÛ›ÜÚ\ÔÝ˜[YHH”ÝÌHŽÂˆš]˜]H[[™[™ÑXYÛ›ÜÚ\ÐØ[Y\˜NÂˆš]˜]HÙX•šY]ÈÙXŽÂˆš]˜]HXØÛÝ[\PœšYÙHXØÛÝ[\PœšYÙNÂˆš]˜]Hœ˜[YS^[Ý]\›ÛÝÂˆš]˜]Hœ˜[YS^[Ý]\ÙX˜Ø[U›Ñœ˜[YNÂˆš]˜]H“ÕšY[Ó^[Ý]\ÙX˜Ø[U›Ó^[Ý]Âˆš]˜]H^šY]È\ÙX˜Ø[T™Yœ™\Ú]ÛŽÂˆš]˜]H›ÛÛX[ˆØÝŒSÝ™\›^TÚÝÛŽÂˆš]˜]Hœ˜[YS^[Ý]\ÙX˜Ø[L•›Ñœ˜[YNÂˆš]˜]H“ÕšY[Ó^[Ý]\ÙX˜Ø[L•›Ó^[Ý]Âˆš]˜]H^šY]È\ÙX˜Ø[L”™Yœ™\Ú]ÛŽÂˆš]˜]H›ÛÛX[ˆØÝŒ“Ý™\›^TÚÝÛŽÂˆš]˜]Hœ˜[YS^[Ý]\ÙX˜Ø[LÕ›Ñœ˜[YNÂˆš]˜]H“ÕšY[Ó^[Ý]\ÙX˜Ø[LÕ›Ó^[Ý]Âˆš]˜]H^šY]È\ÙX˜Ø[LÔ™Yœ™\Ú]ÛŽÂˆš]˜]H›ÛÛX[ˆØÝŒÓÝ™\›^TÚÝÛŽÂˆš]˜]H›ÛÛX[ˆØÝ•›Ñ™YYÐ[ÝÙYÛXÝ]™TØÜ™Y[ŽÂˆš]˜]H›ÛÛX[ˆØÝŒÐÜ™Y[X[Ô›Û\ÚÝÚ[™ÎÂˆš]˜]H›ÛÛX[ˆØÝŒÐÜ™Y[X[ÚXÚÒ[”›ÙÜ™\ÜÎÂˆš]˜]H›ÛÛX[ˆØÝŒÐÜ™Y[X[Ô™Z™XÝYÂˆš]˜]H›ÛÛX[ˆXÝ]š]T™\Ý[YYÂˆš]˜]H›Û][HÛ™ÈØÝ”Û˜\ÚÝ[\˜[Z[\ÈHLÌÂˆš]˜]Hš[˜[[›˜X›HØÝŒTÛ˜\ÚÝXÚÙ\ˆH™]È[›˜X›J
+HÂˆÝ™\œšYHX›XÈ›ÚY[Š
+HÂˆYˆ
+XXÝ]š]T™\Ý[YY\ÙX˜Ø[U›Ô^Y\ˆOH[\ÙX˜Ø[U›Ó^[Ý]OH[
+H™]\›ŽÂˆÚXÚÒ\ÙX˜Ø[P™Y›Ü™TÛ˜\ÚÝ
+JNÂˆXZ[’[™\‹œÜÝ[^YY
+\ËØÝ”Û˜\ÚÝ[\˜[Z[\ÊNÂˆBˆNÂˆš]˜]Hš[˜[[›˜X›HØÝŒ”Û˜\ÚÝXÚÙ\ˆH™]È[›˜X›J
+HÂˆÝ™\œšYHX›XÈ›ÚY[Š
+HÂˆYˆ
+XXÝ]š]T™\Ý[YY\ÙX˜Ø[L•›Ô^Y\ˆOH[\ÙX˜Ø[L•›Ó^[Ý]OH[
+H™]\›ŽÂˆÚXÚÒ\ÙX˜Ø[P™Y›Ü™TÛ˜\ÚÝ
+ŠNÂˆXZ[’[™\‹œÜÝ[^YY
+\Ë™^Û˜\ÚÝÚXÚÑ[^JŠJNÂˆBˆNÂˆš]˜]HX•“È\ÙX˜Ø[U›ÎÂˆš]˜]HÜ™ËšY[Û[‹›X›Ë“YYXT^Y\ˆ\ÙX˜Ø[U›Ô^Y\ŽÂˆš]˜]HX•“È\ÙX˜Ø[L•›ÎÂˆš]˜]HÜ™ËšY[Û[‹›X›Ë“YYXT^Y\ˆ\ÙX˜Ø[L•›Ô^Y\ŽÂˆš]˜]HX•“È\ÙX˜Ø[LÕ›ÎÂˆš]˜]HÜ™ËšY[Û[‹›X›Ë“YYXT^Y\ˆ\ÙX˜Ø[LÕ›Ô^Y\ŽÂˆš]˜]Hš[˜[[›˜X›HØÝŒÔÛ˜\ÚÝXÚÙ\ˆH™]È[›˜X›J
+HÂˆÝ™\œšYHX›XÈ›ÚY[Š
+HÂˆYˆ
+XXÝ]š]T™\Ý[YY\ÙX˜Ø[LÕ›Ô^Y\ˆOH[\ÙX˜Ø[LÕ›Ó^[Ý]OH[
+H™]\›ŽÂˆÚXÚÒ\ÙX˜Ø[P™Y›Ü™TÛ˜\ÚÝ
+ÊNÂˆXZ[’[™\‹œÜÝ[^YY
+\ËØÝ”Û˜\ÚÝ[\˜[Z[\ÊNÂˆBˆNÂˆš]˜]H›ÛÛX[ˆYÙT™XYNÂˆš]˜]H›Û][H›ÛÛX[ˆØØ[’[”›ÙÜ™\ÜÎÂˆš]˜]H›Û][H›ÛÛX[ˆš]™T]™\ÝÜ™T[™[™ÎÂˆš]˜]H›Û][H›ÛÛX[ˆ™\ØØ[”™\]Y\ÝYÂˆš]˜]HÝš[™È[™[™ÔYÙU\]NÂˆš]˜]H›Û][H[™Yœ™\Ú[\˜[Z[]\ÈHNÂ‚ˆš]˜]Hš[˜[[›˜X›HØÚY[YØØ[ˆH™]È[›˜X›J
+HÂˆÝ™\œšYHX›XÈ›ÚY[Š
+HÂˆØØ[”Û˜\ÚÝ›Û\Š
+NÂˆXZ[’[™\‹œÜÝ[^YY
+\Ë™Yœ™\Ú[\˜[Z[]\È
+ˆŒÌ
+NÂˆBˆNÂ‚ˆš]˜]HÝ]XÈš[˜[Û\ÜÈÝÈÂˆÝš[™È˜[YNÂˆÝš[™ÈÛÝ\˜ÙRÙ^NÂˆ\šH\šNÂˆ[Ø[Y\˜NÂˆÛ™ÈØ\\™Y]ÂˆÛ™È[ÙYšYY]ÂˆÝš[™È\Ü^U[YNÂˆÝš[™È\ÝÜžQš[NÂˆÝš[™ÈÝYÂˆB‚ˆš]˜]HÝ]XÈš[˜[Û\ÜÈœ˜[YQ™X]\™\ÈÂˆÝX›HÜ™Y[”\˜Ù[ÂˆÝX›HœšYÚ™\ÜÎÂˆB‚ˆš]˜]HÝ]XÈš[˜[Û\ÜÈ™YYØÝ[Y[Âˆ\šH\šNÂˆÝš[™È˜[YNÂˆ[Ø[Y\˜R[Âˆ™YYØÝ[Y[
+\šH\šKÝš[™È˜[YK[Ø[Y\˜R[
+HÈ\Ë\šHH\šNÈ\Ë›˜[YHH˜[YNÈ\Ë˜Ø[Y\˜R[HØ[Y\˜R[ÈBˆB‚ˆš]˜]HÙX”™\ÛÝ\˜ÙT™\ÜÛœÙHØØ[[XYÙT™\ÜÛœÙJÝš[™È\›
+HÂˆ\šH\šHH\šKœ\œÙJ\›
+NÂˆÝš[™È]H\šK™Ù]]
+
+NÂˆYˆ
+]OH[
+H™]\›ˆ[ÂˆYˆ
+]œÝ\ÕÚ]
+TÐTÑSS‘WÔ‘Q’V
+JHÂˆÝš[™È˜[YHH]œÝXœÝš[™ÊTÐTÑSS‘WÔ‘Q’V›[™Ý
+
+JNÂˆYˆ
+[˜[YK›X]Ú\Ê˜ØÝ—ÌÌKM—WšœÈŠJH™]\›ˆ[ÂˆžHÂˆ™]\›ˆ™]ÈÙX”™\ÛÝ\˜ÙT™\ÜÛœÙJš[XYÙKÚœYÈ‹[Ù]\ÜÙ]Ê
+K›Ü[Šš[XYÙ\ËÈˆ
+È˜[YJJNÂˆHØ]Ú
+^Ù\[ÛˆYÛ›Ü™Y
+HÈ™]\›ˆ[ÈBˆBˆYˆ
+]œÝ\ÕÚ]
+TÒTÕÔ–WÔ‘Q’V
+JHÂˆÝš[™È™[]]™HH]œÝXœÝš[™ÊTÒTÕÔ–WÔ‘Q’V›[™Ý
+
+JNÂˆYˆ
+\™[]]™K›X]Ú\Ê–ÐKV˜K^ŒNWËW^ÌKLŽKÖÐKV˜K^ŒNWËW^ÌKKØØÝ—ÌÌKM—W×
+×ÖÌNXKY—J×šœÈŠJH™]\›ˆ[ÂˆÝš[™Ö×HYXÙ\ÈH™[]]™KœÜ]
+‹È‹ÊNÂˆYˆ
+\YXÙ\ÖÌK™\]X[ÊÝ\œ™[™YY\Ù\’Ù^J
+JJH™]\›ˆ[ÂˆžHÂˆš[H\˜Ú]™YH™]Èš[J™]Èš[J™]Èš[J™]Èš[JÙ]š[\Ñ\Š
+KœÝ×Ú\ÝÜžHŠKYXÙ\ÖÌJKYXÙ\ÖÌWJKYXÙ\ÖÌ—JNÂˆYˆ
+X\˜Ú]™Yš\Ñš[J
+JH™]\›ˆ[Âˆ™]\›ˆ™]ÈÙX”™\ÛÝ\˜ÙT™\ÜÛœÙJš[XYÙKÚœYÈ‹[™]Èš[R[œ]Ý™X[J\˜Ú]™Y
+JNÂˆHØ]Ú
+^Ù\[ÛˆYÛ›Ü™Y
+HÈ™]\›ˆ[ÈBˆBˆYˆ
+\]œÝ\ÕÚ]
+TÐTÔÑUÔ‘Q’V
+JH™]\›ˆ[ÂˆÝš[™È™[]]™HH]œÝXœÝš[™ÊTÐTÔÑUÔ‘Q’V›[™Ý
+
+JNÂˆYˆ
+\™[]]™K›X]Ú\Ê–ÐKV˜K^ŒNWËW^ÌKKØØÝ—ÌÌKM—WšœÈŠJH™]\›ˆ[ÂˆÝš[™Ö×HYXÙ\ÈH™[]]™KœÜ]
+‹È‹ŠNÂˆžHÂˆš[H]\ÝH™]Èš[J\Ù\”Ý\™XÝÜžJ›]\ÝÚ[XYÙ\È‹YXÙ\ÖÌJKYXÙ\ÖÌWJNÂˆYˆ
+[]\Ýš\Ñš[J
+H	‰ˆQQUSÔÕÒQ™\]X[ÊYXÙ\ÖÌJJH™]\›ˆ[Âˆ[œ]Ý™X[H[œ]H]\Ýš\Ñš[J
+HÈ™]Èš[R[œ]Ý™X[J]\Ý
+HˆÙ]\ÜÙ]Ê
+K›Ü[Šš[XYÙ\ËÈˆ
+ÈYXÙ\ÖÌWJNÂˆ™]\›ˆ™]ÈÙX”™\ÛÝ\˜ÙT™\ÜÛœÙJš[XYÙKÚœYÈ‹[[œ]
+NÂˆHØ]Ú
+^Ù\[ÛˆYÛ›Ü™Y
+HÈ™]\›ˆ[ÈBˆB‚ˆš]˜]HÙX”™\ÛÝ\˜ÙT™\ÜÛœÙHØØ[XYÛ›ÜÚ\ÓYYXT™\ÜÛœÙJÝš[™È\›X\Ýš[™ËÝš[™ÏˆXY\œÊHÂˆÝš[™È]H\šKœ\œÙJ\›
+K™Ù]]
+
+NÂˆYˆ
+]OH[\]œÝ\ÕÚ]
+TÑPQÓ“ÔÒT×Ô‘Q’V
+JH™]\›ˆ[ÂˆÝš[™È™[]]™HH]œÝXœÝš[™ÊTÑPQÓ“ÔÒT×Ô‘Q’V›[™Ý
+
+JNÂˆYˆ
+\™[]]™K›X]Ú\Ê–ÐKV˜K^ŒNWËW^ÌKKØØÝ—ÌÌKM—KÖÐKV˜K^ŒNWËW^ÌKWŠœß\
+HŠJH™]\›ˆ[ÂˆÝš[™Ö×H\ÈH™[]]™KœÜ]
+‹ÈŠNÂˆš[HYYXHH™]Èš[J™]Èš[J™]Èš[JÙ]š[\Ñ\Š
+K™XYÛ›ÜÚ\×ÛYYXHŠK\ÖÌJK\ÖÌWH
+È‹Èˆ
+È\ÖÌ—JNÂˆYˆ
+[YYXKš\Ñš[J
+JHÂˆYYXHH™]Èš[J™]Èš[J™]Èš[JÙ]ØXÚQ\Š
+K™XYÛ›ÜÚ\×Ùš]™WØØXÚHŠK\ÖÌJK\ÖÌWH
+È‹Èˆ
+È\ÖÌ—JNÂˆBˆYˆ
+[YYXKš\Ñš[J
+JH™]\›ˆ[ÂˆžHÂˆ›ÛÛX[ˆšY[ÈH\ÖÌ—K™[™ÕÚ]
+‹›\ŠNÂˆÛ™ÈÝ\HÂˆÛ™È[™HX]›X^
+YYXK›[™Ý
+
+HHJNÂˆÝš[™È˜[™ÙHH[ÂˆYˆ
+XY\œÈOH[
+H›Üˆ
+X\‘[žOÝš[™ËÝš[™Ïˆ[žHˆXY\œË™[žTÙ]
+
+JHÂˆYˆ
+œ˜[™ÙH‹™\]X[ÒYÛ›Ü™PØ\ÙJ[žK™Ù]Ù^J
+JJHÈ˜[™ÙHH[žK™Ù]˜[YJ
+NÈœ™XZÎÈBˆBˆYˆ
+šY[È	‰ˆ˜[™ÙHOH[	‰ˆ˜[™ÙKÓÝÙ\Ø\ÙJØØ[K”“ÓÕ
+KœÝ\ÕÚ]
+˜ž]\ÏHŠJHÂˆÝš[™Ö×H›Ý[™ÈH˜[™ÙKœÝXœÝš[™ÊŠKœÜ]
+‹H‹ŠNÂˆYˆ
+›Ý[™Ë›[™ÝOHˆYYXK›[™Ý
+
+HOH
+H›ÝÈ™]È[YØ[\™Ý[Y[^Ù\[ÛŠ’[˜[YšY[Èž]H˜[™ÙHŠNÂˆYˆ
+›Ý[™ÖÌKš\Ñ[\J
+JHÂˆÛ™ÈÝY™š^[™ÝHÛ™Ëœ\œÙSÛ™Ê›Ý[™ÖÌWJNÂˆÝ\HX]›X^
+YYXK›[™Ý
+
+HHÝY™š^[™Ý
+NÂˆH[ÙHÂˆÝ\HÛ™Ëœ\œÙSÛ™Ê›Ý[™ÖÌJNÂˆYˆ
+X›Ý[™ÖÌWKš\Ñ[\J
+JH[™HÛ™Ëœ\œÙSÛ™Ê›Ý[™ÖÌWJNÂˆBˆ[™HX]›Z[Š[™YYXK›[™Ý
+
+HHJNÂˆYˆ
+Ý\Ý\HYYXK›[™Ý
+
+H[™Ý\
+HÂˆX\Ýš[™ËÝš[™Ïˆ[˜[Y˜[™ÙRXY\œÈH™]È\ÚX\Š
+NÂˆ[˜[Y˜[™ÙRXY\œËœ]
+ÛÛ[T˜[™ÙH‹˜ž]\È
+‹Èˆ
+ÈYYXK›[™Ý
+
+JNÂˆ[˜[Y˜[™ÙRXY\œËœ]
+ÛÛ[S[™Ý‹ŒŠNÂˆ™]\›ˆ™]ÈÙX”™\ÛÝ\˜ÙT™\ÜÛœÙJšY[ËÛ\‹[M‹”˜[™ÙH›ÝØ]\ÙšXX›H‹ˆ[˜[Y˜[™ÙRXY\œË™]Èž]P\œ˜^R[œ]Ý™X[J™]Èž]VÌJJNÂˆBˆBˆš[R[œ]Ý™X[HÝ™X[HH™]Èš[R[œ]Ý™X[JYYXJNÂˆÛ™ÈÚÚ\YHÝ™X[KœÚÚ\
+Ý\
+NÂˆÚ[H
+ÚÚ\YÝ\
+HÂˆÛ™È[Ü™HHÝ™X[KœÚÚ\
+Ý\HÚÚ\Y
+NÂˆYˆ
+[Ü™HH
+Hœ™XZÎÂˆÚÚ\Y
+ÏH[Ü™NÂˆBˆX\Ýš[™ËÝš[™Ïˆ™\ÜÛœÙRXY\œÈH™]È\ÚX\Š
+NÂˆ™\ÜÛœÙRXY\œËœ]
+XØÙ\T˜[™Ù\È‹˜ž]\ÈŠNÂˆ™\ÜÛœÙRXY\œËœ]
+ÛÛ[S[™Ý‹Ýš[™Ë˜[YSÙŠX]›X^
+[™HÝ\
+ÈJJJNÂˆ™\ÜÛœÙRXY\œËœ]
+ØXÚKPÛÛ›Û‹››Ë\ÝÜ™HŠNÂˆYˆ
+šY[È	‰ˆ˜[™ÙHOH[
+H™\ÜÛœÙRXY\œËœ]
+ÛÛ[T˜[™ÙH‹˜ž]\Èˆ
+ÈÝ\
+È‹Hˆ
+È[™
+È‹Èˆ
+ÈYYXK›[™Ý
+
+JNÂˆ™]\›ˆ™]ÈÙX”™\ÛÝ\˜ÙT™\ÜÛœÙJšY[ÈÈšY[ËÛ\ˆˆš[XYÙKÚœYÈ‹[ˆšY[È	‰ˆ˜[™ÙHOH[ÈŒˆˆŒšY[È	‰ˆ˜[™ÙHOH[È”\X[ÛÛ[ˆˆ“ÒÈ‹ˆ™\ÜÛœÙRXY\œËÝ™X[JNÂˆHØ]Ú
+^Ù\[ÛˆYÛ›Ü™Y
+HÈ™]\›ˆ[ÈBˆB‚ˆÝ™\œšYH›ÝXÝY›ÚYÛ“™]Ò[[
+[[[[
+HÂˆÝ\\‹›Û“™]Ò[[
+[[
+NÂˆÙ][[
+[[
+NÂˆYˆ
+[[OH[
+HYZ[XÝ]˜][Û‘[[Ëš[™S[šÊ\Ë[[™Ù]]J
+JNÂˆB‚ˆÝ™\œšYHX›XÈ›ÚYÛÜ™X]J[™HÝ]JHÂˆÝ\\‹›ÛÜ™X]JÝ]JNÂˆYˆ
+Ù][[
+
+HOH[	‰ˆÙ][[
+
+K™Ù]]J
+HOH[
+HÂˆ™]È[™›ÚY›ÜË’[™\Š[™›ÚY›ÜË“ÛÜ\‹™Ù]XZ[“ÛÜ\Š
+JKœÜÝ[^YY
+ˆ
+
+HOˆYZ[XÝ]˜][Û‘[[Ëš[™S[šÊ\ËÙ][[
+
+K™Ù]]J
+JKL
+NÂˆBˆYˆ
+Ý]HOH[
+HÂˆ[™[™ÑXYÛ›ÜÚ\ÒÚ[™HÝ]K™Ù]Ýš[™Ê™XYÛ›ÜÚ\×ÚÚ[™‹ˆŠNÂˆ[™[™ÑXYÛ›ÜÚ\ÔÝYHØY™TÝY
+Ý]K™Ù]Ýš[™Ê™XYÛ›ÜÚ\×ÜÝ‹QUSÔÕÒQ
+JNÂˆ[™[™ÑXYÛ›ÜÚ\ÔÝ˜[YHHØY™Q›Û\“˜[YJÝ]K™Ù]Ýš[™Ê™XYÛ›ÜÚ\×ÜÝÛ˜[YH‹”ÝÌHŠJNÂˆ[™[™ÑXYÛ›ÜÚ\ÐØ[Y\˜HHÝ]K™Ù][
+™XYÛ›ÜÚ\×ØØ[Y\˜H‹
+NÂˆ[™[™ÑXYÛ›ÜÚ\ÓÝ]]HÝ]K™Ù]\˜Ù[X›J™XYÛ›ÜÚ\×ÛÝ]]ŠNÂˆXÚÙ\”ÝYHØY™TÝY
+Ý]K™Ù]Ýš[™Ê™™YYÜXÚÙ\—ÜÝ‹QUSÔÕÒQ
+JNÂˆXÚÙ\‘Y˜][›Û\“˜[YHHØY™Q›Û\“˜[YJÝ]K™Ù]Ýš[™Ê™™YYÜXÚÙ\—Ù›Û\ˆ‹‘[[×ÜÝŠJNÂˆXÚÙ\Ü™X]\ÑY˜][™YYHÝ]K™Ù]›ÛÛX[Š™™YYÜXÚÙ\—ØÜ™X]\×ÙY˜][‹˜[ÙJNÂˆBˆ™Yœ™\Ú[\˜[Z[]\ÈHÙ]™YœÊ
+K™Ù][
+‘Q—ÒS•T•SJNÂˆØÝ”Û˜\ÚÝ[\˜[Z[\ÈHÙ]™YœÊ
+K™Ù]Û™Ê‘Q—ÐÐÕ—ÔÓTÒÕÒS•T•SÓRSTËLÌ
+NÂˆYˆ
+ØÝ”Û˜\ÚÝ[\˜[Z[\ÈÌÌØÝ”Û˜\ÚÝ[\˜[Z[\Èˆ—ÍÌ
+HÂˆØÝ”Û˜\ÚÝ[\˜[Z[\ÈHLÌÂˆBˆÙXˆH™]ÈÙX•šY]Ê\ÊNÂˆÙX”Ù][™ÜÈÙ][™ÜÈHÙX‹™Ù]Ù][™ÜÊ
+NÂˆÙ][™ÜËœÙ]˜]˜TØÜš\[˜X›Y
+YJNÂˆÙ][™ÜËœÙ]ÛTÝÜ˜YÙQ[˜X›Y
+YJNÂˆÙ][™ÜËœÙ][ÝÑš[PXØÙ\ÜÊYJNÂˆÙ][™ÜËœÙ][ÝÐÛÛ[XØÙ\ÜÊ˜[ÙJNÂˆÙ][™ÜËœÙ]ØYÒ[XYÙ\Ð]]ÛX]XØ[JYJNÂˆËÈÐÕŒH[X™YÈHØØ[TÙX˜Ø[HR”QÈÝ™X[H[ˆH\	ÜÈÈ\ÜÙ]YÙK‚ˆËÈ[ÝÈ]Z^Y™\ÛÝ\˜ÙNÈ™]ÛÜš×ÜÙXÝ\š]WØÛÛ™šYÈÝ[\›Z]ÈÛX\^Û›HÂˆËÈNL‹ŒMŽŒKŒH[™NL‹ŒMŽŒKŒŒËÛÈ\ÈÙ\È›Ý[˜X›HÈ\˜š]˜\žHÜÝË‚ˆÙ][™ÜËœÙ]Z^YÛÛ[[ÙJÙX”Ù][™ÜË“RVQÐÓÓ•S•ÐSÐVT×ÐSÕÊNÂˆÙ][™ÜËœÙ]›ØÚÓ™]ÛÜšÓØYÊ˜[ÙJNÂˆÙ][™ÜËœÙ]›ØÚÓ™]ÛÜšÒ[XYÙJ˜[ÙJNÂˆÙ][™ÜËœÙ]\Ù\YÙ[Ýš[™ÊÙ][™ÜË™Ù]\Ù\YÙ[Ýš[™Ê
+H
+ÈˆÜ›ÝÔÝÈˆ
+ÈZ[ÛÛ™šYË•‘T”ÒSÓ—ÓSQKœ™\XÙJ	È	Ë	ËIÊJNÂˆÙX‹˜Y˜]˜\ØÜš\[\™˜XÙJ™]ÈÛ˜\ÚÝœšYÙJ
+K‘Ü›ÝÔÝœšYÙHŠNÂˆXØÛÝ[\PœšYÙHH™]ÈXØÛÝ[\PœšYÙJ\ËÙXŠNÂˆÙX‹˜Y˜]˜\ØÜš\[\™˜XÙJXØÛÝ[\PœšYÙK‘Ü›ÝÔÝXØÛÝ[ŠNÂˆÙX‹œÙ]ÙX•šY]ÐÛY[
+™]ÈÙX•šY]ÐÛY[
+
+HÂˆÝ™\œšYHX›XÈÙX”™\ÛÝ\˜ÙT™\ÜÛœÙHÚÝ[[\˜Ù\™\]Y\Ý
+ÙX•šY]ÈšY]ËÙX”™\ÛÝ\˜ÙT™\]Y\Ý™\]Y\Ý
+HÂˆÝš[™È™\]Y\ÝY\›H™\]Y\Ý™Ù]\›
+
+KÔÝš[™Ê
+NÂˆYˆ
+šÎ‹ËØ\\ÜÙ]Ë˜[™›ÚY]›Ü›K›™]ÛXY‹XÝ‹šœÈ‹™\]X[Ê™\]Y\ÝY\›
+JHÂˆžHÂˆ™]\›ˆ™]ÈÙX”™\ÛÝ\˜ÙT™\ÜÛœÙJ˜\XØ][Û‹Ú˜]˜\ØÜš\‹•U‹N‹Ù]\ÜÙ]Ê
+K›Ü[Š›XY‹XÝ‹šœÈŠJNÂˆHØ]Ú
+^Ù\[Ûˆ\œ›ÜŠHÂˆ[™›ÚY][“ÙË™J‘Ü›ÝÔÝÕˆ‹‘˜Z[YÈÙ\™H[™YXY‹XÝ‹šœÈ‹\œ›ÜŠNÂˆBˆB‚ˆÙX”™\ÛÝ\˜ÙT™\ÜÛœÙHXYÛ›ÜÚ\ÈHØØ[XYÛ›ÜÚ\ÓYYXT™\ÜÛœÙJ™\]Y\Ý™Ù]\›
+
+KÔÝš[™Ê
+K™\]Y\Ý™Ù]™\]Y\ÝXY\œÊ
+JNÂˆYˆ
+XYÛ›ÜÚ\ÈOH[
+H™]\›ˆXYÛ›ÜÚ\ÎÂˆÙX”™\ÛÝ\˜ÙT™\ÜÛœÙH[XYÙHHØØ[[XYÙT™\ÜÛœÙJ™\]Y\Ý™Ù]\›
+
+KÔÝš[™Ê
+JNÂˆ™]\›ˆ[XYÙHOH[È[XYÙHˆÝ\\‹œÚÝ[[\˜Ù\™\]Y\Ý
+šY]Ë™\]Y\Ý
+NÂˆB‚ˆÝ™\œšYHX›XÈÙX”™\ÛÝ\˜ÙT™\ÜÛœÙHÚÝ[[\˜Ù\™\]Y\Ý
+ÙX•šY]ÈšY]ËÝš[™È\›
+HÂˆÙX”™\ÛÝ\˜ÙT™\ÜÛœÙHXYÛ›ÜÚ\ÈHØØ[XYÛ›ÜÚ\ÓYYXT™\ÜÛœÙJ\›[
+NÂˆYˆ
+XYÛ›ÜÚ\ÈOH[
+H™]\›ˆXYÛ›ÜÚ\ÎÂˆÙX”™\ÛÝ\˜ÙT™\ÜÛœÙH[XYÙHHØØ[[XYÙT™\ÜÛœÙJ\›
+NÂˆ™]\›ˆ[XYÙHOH[È[XYÙHˆÝ\\‹œÚÝ[[\˜Ù\™\]Y\Ý
+šY]Ë\›
+NÂˆB‚ˆÝ™\œšYHX›XÈ›ÚYÛ”YÙQš[š\ÚY
+ÙX•šY]ÈšY]ËÝš[™È\›
+HÂˆÝ\\‹›Û”YÙQš[š\ÚY
+šY]Ë\›
+NÂˆYˆ
+\›OH[	‰ˆ\›œÝ\ÕÚ]
+™š[N‹ËËØ[™›ÚYØ\ÜÙ]ÛZYÜ˜]Kš[ŠJH™]\›ŽÂˆYÙT™XYHHYNÂˆžH
+[œ]Ý™X[HÛ˜›Ø\™[™Ò[œ]HÙ]\ÜÙ]Ê
+K›Ü[Š›™]Ë]\Ù\‹[Û˜›Ø\™[™ËšœÈŠNÂˆž]P\œ˜^SÝ]]Ý™X[HÛ˜›Ø\™[™Ðž]\ÈH™]Èž]P\œ˜^SÝ]]Ý™X[J
+JHÂˆž]V×HÛ˜›Ø\™[™ÐY™™\ˆH™]Èž]VÎNL—NÂˆ[Û˜›Ø\™[™Ô™XYÂˆÚ[H
+
+Û˜›Ø\™[™Ô™XYHÛ˜›Ø\™[™Ò[œ]œ™XY
+Û˜›Ø\™[™ÐY™™\ŠJHOHLJBˆÛ˜›Ø\™[™Ðž]\ËÜš]JÛ˜›Ø\™[™ÐY™™\‹Û˜›Ø\™[™Ô™XY
+NÂˆšY]Ë™]˜[X]R˜]˜\ØÜš\
+Û˜›Ø\™[™Ðž]\ËÔÝš[™ÊÝ[™\™Ú\œÙ]Ë•U—Î›˜[YJ
+JK[
+NÂˆHØ]Ú
+^Ù\[ÛˆÛ˜›Ø\™[™Ñ\œ›ÜŠHÂˆ[™›ÚY][“ÙËÊ‘Ü›ÝÔÝ‹“™]Ë]\Ù\ˆÛ˜›Ø\™[™È™]šY]ÈÛÝ[›ÝØY‹Û˜›Ø\™[™Ñ\œ›ÜŠNÂˆBˆžH
+[œ]Ý™X[HXØÛÝ[[œ]HÙ]\ÜÙ]Ê
+K›Ü[Š˜XØÛÝ[[ÙÚ[‹šœÈŠNÈž]P\œ˜^SÝ]]Ý™X[HXØÛÝ[ž]\ÈH™]Èž]P\œ˜^SÝ]]Ý™X[J
+JHÂˆž]V×HXØÛÝ[Y™™\ˆH™]Èž]VÎNL—NÈ[XØÛÝ[™XYÂˆÚ[H
+
+XØÛÝ[™XYHXØÛÝ[[œ]œ™XY
+XØÛÝ[Y™™\ŠJHOHLJHXØÛÝ[ž]\ËÜš]JXØÛÝ[Y™™\‹XØÛÝ[™XY
+NÂˆšY]Ë™]˜[X]R˜]˜\ØÜš\
+XØÛÝ[ž]\ËÔÝš[™ÊÝ[™\™Ú\œÙ]Ë•U—Î›˜[YJ
+JK[
+NÂˆHØ]Ú
+^Ù\[ÛˆXØÛÝ[\œ›ÜŠHÈ[™›ÚY][“ÙË™J‘Ü›ÝÔÝ‹XØÛÝ[ÙÚ[ˆRHÛÝ[›ÝØY‹XØÛÝ[\œ›ÜŠNÈBˆžH
+[œ]Ý™X[H]Q™YYZR[œ]HÙ]\ÜÙ]Ê
+K›Ü[Š™]KY™YY]ZKšœÈŠNÂˆž]P\œ˜^SÝ]]Ý™X[H]Q™YYZPž]\ÈH™]Èž]P\œ˜^SÝ]]Ý™X[J
+JHÂˆž]V×H]Q™YYZPY™™\ˆH™]Èž]VÍM—NÂˆ[]Q™YYZT™XYÂˆÚ[H
+
+]Q™YYZT™XYH]Q™YYZR[œ]œ™XY
+]Q™YYZPY™™\ŠJHOHLJBˆ]Q™YYZPž]\ËÜš]J]Q™YYZPY™™\‹]Q™YYZT™XY
+NÂˆšY]Ë™]˜[X]R˜]˜\ØÜš\
+]Q™YYZPž]\ËÔÝš[™ÊÝ[™\™Ú\œÙ]Ë•U—Î›˜[YJ
+JK[
+NÂˆHØ]Ú
+^Ù\[Ûˆ]Q™YYZQ\œ›ÜŠHÂˆ[™›ÚY][“ÙË™J‘Ü›ÝÔÝ‹‘]H™YYRHÛÝ[›ÝØY‹]Q™YYZQ\œ›ÜŠNÂˆBˆYˆ
+[™[™ÔYÙU\]HOH[
+HÂˆÝš[™È\]HH[™[™ÔYÙU\]NÂˆ[™[™ÔYÙU\]HH[ÂˆÙ[™ÔYÙJ\]JNÂˆH[ÙHÂˆ”ÓÓ“Øš™XÝ[š]X[HXZÙTÝ]\ÊÚXÚÚ[™È\ÈÝ8 &\ÈÛÛÙÛHš]™H]H™YYÛÛ›™XÝ[Û‹ˆŠNÂˆžHÈ[š]X[œ]
+œÝY‹ØY™TÝY
+Ù]™YœÊ
+K™Ù]Ýš[™Ê‘Q—ÐPÕU‘WÔÕÒQQUSÔÕÒQ
+JJNÈHØ]Ú
+^Ù\[ÛˆYÛ›Ü™Y
+HÈBˆX›\ÚÝ]\Ê[š]X[
+NÂˆBˆYˆ
+\›OH[	‰ˆ\›œÝ\ÕÚ]
+šÎ‹ËØ\\ÜÙ]Ë˜[™›ÚY]›Ü›K›™]ÈŠJHÂˆšY]ËœÜÝ
+XZ[XÝ]š]K\ÎŽš[œÝ[ØÝŒU›ÔÜÚ][Û“\Ý[™\ŠNÂˆBˆBˆJNÂˆÙX‹œÙ]˜XÚÙÜ›Ý[™ÛÛÜŠ‘‘ÑŒJNÂˆ\›ÛÝH™]Èœ˜[YS^[Ý]
+\ÊNÂˆ\›ÛÝœÙ]˜XÚÙÜ›Ý[™ÛÛÜŠ‘‘ÑŒJNÂˆ\›ÛÝ˜YšY]ÊÙX‹™]Èœ˜[YS^[Ý]“^[Ý]\˜[\Êˆœ˜[YS^[Ý]“^[Ý]\˜[\Ë“PUÒÔT‘S•œ˜[YS^[Ý]“^[Ý]\˜[\Ë“PUÒÔT‘S•
+JNÂˆYˆ
+Z[•‘T”ÒSÓ‹”Ñ×ÒS•HZ[•‘T”ÒSÓ—ÐÓÑTË”ŠHÂˆÙ]Ú[™ÝÊ
+KœÙ]XÛÜ‘š]ÔÞ\Ý[UÚ[™ÝÜÊ˜[ÙJNÂˆ\›ÛÝœÙ]Û\UÚ[™ÝÒ[œÙ]Ó\Ý[™\Š
+šY]Ë[œÙ]ÊHOˆÂˆ[Ü[œÙ]H[œÙ]Ë™Ù][œÙ]ÊˆÚ[™ÝÒ[œÙ]Ë•\KœÝ]\Ð˜\œÊ
+HÚ[™ÝÒ[œÙ]Ë•\K™\Ü^PÝ]Ý]
+
+JKÜÂˆšY]ËœÙ]Y[™ÊÜ[œÙ]
+NÂˆ™]\›ˆ[œÙ]Ëš[œÙ]
+Ü[œÙ]
+NÂˆJNÂˆBˆÙ]Ú[™ÝÊ
+KœÙ]Ý]\Ð˜\ÛÛÜŠ‘‘ÑŒJNÂˆYˆ
+Z[•‘T”ÒSÓ‹”Ñ×ÒS•HZ[•‘T”ÒSÓ—ÐÓÑTË“JHÂˆšY]ÈXÛÜˆHÙ]Ú[™ÝÊ
+K™Ù]XÛÜ•šY]Ê
+NÂˆXÛÜ‹œÙ]Þ\Ý[UZUš\ÚXš[]JXÛÜ‹™Ù]Þ\Ý[UZUš\ÚXš[]J
+HšY]Ë”ÖTÕSWÕRWÑ“Q×ÓQÒÔÕUT×ÐTŠNÂˆBˆÙ]ÛÛ[šY]Ê\›ÛÝ
+NÂˆYˆ
+Z[•‘T”ÒSÓ‹”Ñ×ÒS•HZ[•‘T”ÒSÓ—ÐÓÑTË”ŠH\›ÛÝœ™\]Y\Ý\R[œÙ]Ê
+NÂˆYˆ
+Ù]™YœÊ
+K™Ù]›ÛÛX[Š‘Q—ÕÑP—ÔÕÔQÑWÓRQÔUQ˜[ÙJJHØYXZ[”YÙJ
+NÂˆ[ÙHÙX‹›ØY\›
+™š[N‹ËËØ[™›ÚYØ\ÜÙ]ÛZYÜ˜]Kš[ŠNÂˆš]™T]™\ÝÜ™T[™[™ÈHYNÂˆXYÛ›ÜÚ\ÕÛÜšÙ\‹™^XÝ]J
+
+HOˆÂˆžHÂˆ™\ÝÜ™Qš]™T]Ñœ›ÛPÛÛ™šYÊ
+NÂˆYˆ
+Z\ÑXYÛ›ÜÚ\Ñš]™T™XYJ
+JHYÜ^\Ý[™ÑÜ›ÝÔÝš]™QÜ˜[
+
+NÂˆHš[˜[HÂˆ[“Û•ZU™XY
+
+
+HOˆÂˆš]™T]™\ÝÜ™T[™[™ÈH˜[ÙNÂˆYˆ
+\Ñš[š\Ú[™Ê
+JH™]\›ŽÂˆØØ[”Û˜\ÚÝ›Û\Š
+NÂˆ™Yœ™\ÚXYÛ›ÜÚ\ÓYYXQ›ÜXÝ]™TÝ
+
+NÂˆJNÂˆBˆJNÂˆB‚ˆÝ™\œšYH›ÝXÝY›ÚYÛ”Ø]™R[œÝ[˜ÙTÝ]J[™HÝ]Ý]JHÂˆÝ]Ý]Kœ]Ýš[™Ê™XYÛ›ÜÚ\×ÚÚ[™‹[™[™ÑXYÛ›ÜÚ\ÒÚ[™
+NÂˆÝ]Ý]Kœ]Ýš[™Ê™XYÛ›ÜÚ\×ÜÝ‹[™[™ÑXYÛ›ÜÚ\ÔÝY
+NÂˆÝ]Ý]Kœ]Ýš[™Ê™XYÛ›ÜÚ\×ÜÝÛ˜[YH‹[™[™ÑXYÛ›ÜÚ\ÔÝ˜[YJNÂˆÝ]Ý]Kœ][
+™XYÛ›ÜÚ\×ØØ[Y\˜H‹[™[™ÑXYÛ›ÜÚ\ÐØ[Y\˜JNÂˆYˆ
+[™[™ÑXYÛ›ÜÚ\ÓÝ]]OH[
+HÝ]Ý]Kœ]\˜Ù[X›J™XYÛ›ÜÚ\×ÛÝ]]‹[™[™ÑXYÛ›ÜÚ\ÓÝ]]
+NÂˆÝ]Ý]Kœ]Ýš[™Ê™™YYÜXÚÙ\—ÜÝ‹XÚÙ\”ÝY
+NÂˆÝ]Ý]Kœ]Ýš[™Ê™™YYÜXÚÙ\—Ù›Û\ˆ‹XÚÙ\‘Y˜][›Û\“˜[YJNÂˆÝ]Ý]Kœ]›ÛÛX[Š™™YYÜXÚÙ\—ØÜ™X]\×ÙY˜][‹XÚÙ\Ü™X]\ÑY˜][™YY
+NÂˆÝ\\‹›Û”Ø]™R[œÝ[˜ÙTÝ]JÝ]Ý]JNÂˆB‚ˆš]˜]HÚ\™Y™Y™\™[˜Ù\ÈÙ]™YœÊ
+HÂˆ™]\›ˆÙ]Ú\™Y™Y™\™[˜Ù\Ê‘Q”ËSÑWÔ’UUJNÂˆB‚ˆš]˜]HÝš[™ÈY˜][ØÝ’\
+[Ø[Y\˜JHÂˆYˆ
+Ø[Y\˜HOHJH™]\›ˆQUSÐÐÕŒWÒTÂˆYˆ
+Ø[Y\˜HOHŠH™]\›ˆQUSÐÐÕŒ—ÒTÂˆYˆ
+Ø[Y\˜HOHÊH™]\›ˆQUSÐÐÕŒ×ÒTÂˆ™]\›ˆˆŽÂˆB‚ˆš]˜]HÝš[™ÈØÝ’\
+[Ø[Y\˜JHÂˆ™]\›ˆÙ]™YœÊ
+K™Ù]Ýš[™Ê‘Q—ÐÐÕ—ÒTÔ‘Q’V
+ÈÝš[™Ë™›Ü›X]
+ØØ[K•TË‰L™‹Ø[Y\˜JKY˜][ØÝ’\
+Ø[Y\˜JJNÂˆB‚ˆËÈÝÛ™\‹\ØÛÜYØ[Y\˜H›Ý]\Ëˆ[[ÈÝ[X™\˜][HÙY\ÈYØXÞHØØ[TÙ][™ÜË‚ˆš]˜]Hš[˜[Ýš[™Ö×H\ÜÚYÛ™YÝ™X[U\›ÈH™]ÈÝš[™ÖÍNÂˆš]˜]H›Û][H›ÛÛX[ˆ\Ù\”Ý™X[S[ÙHH˜[ÙNÂˆš]˜]H[\ÜÚYÛ™YÝ™X[QÙ[™\˜][ÛˆHÂˆš]˜]HÝš[™ÈXÝ]™TÝ™X[TØÛÜHHˆŽÂˆš]˜]H›ÛÛX[ˆ\ÜÚYÛ™YÝ™X[\ÓØY[™ÈH˜[ÙNÂ‚ˆš]˜]H›ÚY™Yœ™\Ú\ÜÚYÛ™Y^Y\œÊ
+HÂˆYˆ
+\ÙX˜Ø[U›Ó^[Ý]OH[
+HÝ\\ÙX˜Ø[U›Ê\ÙX˜Ø[U›Ó^[Ý]
+NÂˆYˆ
+\ÙX˜Ø[L•›Ó^[Ý]OH[
+HÝ\ØÝŒ•›Ê\ÙX˜Ø[L•›Ó^[Ý]
+NÂˆYˆ
+\ÙX˜Ø[LÕ›Ó^[Ý]OH[
+HÝ\šYÚPØÝŒÕ›Ê\ÙX˜Ø[LÕ›Ó^[Ý]
+NÂˆB‚ˆš]˜]H›ÚY™Yœ™\Ú\ÜÚYÛ™Y^Y\Š[ÛÝ
+HÂˆËÈ[ˆ\ÜÚYÛ›Y[X^H™H™[[Ý™YÜˆ\ØX›YˆÛX\ˆHÛœ˜[YH[œÝXYÙˆ™]Z[š[™È]‚ˆYˆ
+\Ù\”Ý™X[S[ÙH	‰ˆ
+ÛÝHÛÝˆÈ\ÜÚYÛ™YÝ™X[U\›ÖÜÛÝHOH[\ÜÚYÛ™YÝ™X[U\›ÖÜÛÝKš\Ñ[\J
+JJHÂˆ™\Ù]ØÝ”Ý\™˜XÙ\Ê
+NÂˆ›Üˆ
+[Ø[Y\˜HHNÈØ[Y\˜HHÎÈØ[Y\˜JÊÊHÂˆYˆ
+\ÜÚYÛ™YÝ™X[U\›ÖØØ[Y\˜WHOH[	‰ˆX\ÜÚYÛ™YÝ™X[U\›ÖØØ[Y\˜WKš\Ñ[\J
+JHÂˆYˆ
+Ø[Y\˜HOHH	‰ˆ\ÙX˜Ø[U›Ó^[Ý]OH[
+HÝ\\ÙX˜Ø[U›Ê\ÙX˜Ø[U›Ó^[Ý]
+NÂˆYˆ
+Ø[Y\˜HOHˆ	‰ˆ\ÙX˜Ø[L•›Ó^[Ý]OH[
+HÝ\ØÝŒ•›Ê\ÙX˜Ø[L•›Ó^[Ý]
+NÂˆYˆ
+Ø[Y\˜HOHÈ	‰ˆ\ÙX˜Ø[LÕ›Ó^[Ý]OH[
+HÝ\šYÚPØÝŒÕ›Ê\ÙX˜Ø[LÕ›Ó^[Ý]
+NÂˆBˆBˆ™]\›ŽÂˆBˆYˆ
+ÛÝOHH	‰ˆ\ÙX˜Ø[U›Ó^[Ý]OH[
+HÝ\\ÙX˜Ø[U›Ê\ÙX˜Ø[U›Ó^[Ý]
+NÂˆ[ÙHYˆ
+ÛÝOHˆ	‰ˆ\ÙX˜Ø[L•›Ó^[Ý]OH[
+HÝ\ØÝŒ•›Ê\ÙX˜Ø[L•›Ó^[Ý]
+NÂˆ[ÙHYˆ
+ÛÝOHÈ	‰ˆ\ÙX˜Ø[LÕ›Ó^[Ý]OH[
+HÝ\šYÚPØÝŒÕ›Ê\ÙX˜Ø[LÕ›Ó^[Ý]
+NÂˆB‚ˆËÈ™\Ù]]™\žHšY[ÈÝ\™˜XÙHÚ[™]™\ˆHÙ[XÝYØ[Y\˜HØÛÜHÚ[™Ù\Ë‚ˆËÈY\™[HÝÜ[™È“ÈX]™\È]Èš[˜[XÛÙYœ˜[YHš\ÚX›H[ˆ^\™UšY]Ë‚ˆš]˜]H›ÚY™\Ù]ØÝ”Ý\™˜XÙ\Ê
+HÂˆÝÜ\ÙX˜Ø[U›Ê
+NÂˆÝÜØÝŒ•›Ê
+NÂˆÝÜØÝŒÕ›Ê
+NÂˆËÈ“È]XÚÜÝÜX^HX]™HH™]š[Ý\ÛHXÛÙYœ˜[YH[ˆ^\™UšY]Ë‚ˆËÈ\Ý›ÞHXXÚÛšY[ÈÝ\™˜XÙK[ˆ[œÝ[Hœ™\Ú›XÚÈÝ\™˜XÙH‘SÕÈÝ]\ÈÛÛ›ÛË‚ˆYˆ
+\ÙX˜Ø[U›Ñœ˜[YHOH[	‰ˆ\ÙX˜Ø[U›Ó^[Ý]OH[
+HÂˆ\ÙX˜Ø[U›Ñœ˜[YKœ™[[Ý™UšY]Ê\ÙX˜Ø[U›Ó^[Ý]
+NÂˆ\ÙX˜Ø[U›Ó^[Ý]H™]È“ÕšY[Ó^[Ý]
+\ÊNÂˆ\ÙX˜Ø[U›Ó^[Ý]œÙ]˜XÚÙÜ›Ý[™ÛÛÜŠÛÛÜ‹“PÒÊNÂˆ\ÙX˜Ø[U›Ñœ˜[YK˜YšY]Ê\ÙX˜Ø[U›Ó^[Ý]™]Èœ˜[YS^[Ý]“^[Ý]\˜[\ÊLKLJJNÂˆBˆYˆ
+\ÙX˜Ø[L•›Ñœ˜[YHOH[	‰ˆ\ÙX˜Ø[L•›Ó^[Ý]OH[
+HÂˆ\ÙX˜Ø[L•›Ñœ˜[YKœ™[[Ý™UšY]Ê\ÙX˜Ø[L•›Ó^[Ý]
+NÂˆ\ÙX˜Ø[L•›Ó^[Ý]H™]È“ÕšY[Ó^[Ý]
+\ÊNÂˆ\ÙX˜Ø[L•›Ó^[Ý]œÙ]˜XÚÙÜ›Ý[™ÛÛÜŠÛÛÜ‹“PÒÊNÂˆ\ÙX˜Ø[L•›Ñœ˜[YK˜YšY]Ê\ÙX˜Ø[L•›Ó^[Ý]™]Èœ˜[YS^[Ý]“^[Ý]\˜[\ÊLKLJJNÂˆBˆYˆ
+\ÙX˜Ø[LÕ›Ñœ˜[YHOH[	‰ˆ\ÙX˜Ø[LÕ›Ó^[Ý]OH[
+HÂˆ\ÙX˜Ø[LÕ›Ñœ˜[YKœ™[[Ý™UšY]Ê\ÙX˜Ø[LÕ›Ó^[Ý]
+NÂˆ\ÙX˜Ø[LÕ›Ó^[Ý]H™]È“ÕšY[Ó^[Ý]
+\ÊNÂˆ\ÙX˜Ø[LÕ›Ó^[Ý]œÙ]˜XÚÙÜ›Ý[™ÛÛÜŠÛÛÜ‹“PÒÊNÂˆ\ÙX˜Ø[LÕ›Ñœ˜[YK˜YšY]Ê\ÙX˜Ø[LÕ›Ó^[Ý]™]Èœ˜[YS^[Ý]“^[Ý]\˜[\ÊLKLJJNÂˆBˆYˆ
+\ÙX˜Ø[U›Ñœ˜[YHOH[
+H\ÙX˜Ø[U›Ñœ˜[YKœÙ]˜XÚÙÜ›Ý[™ÛÛÜŠÛÛÜ‹“PÒÊNÂˆYˆ
+\ÙX˜Ø[L•›Ñœ˜[YHOH[
+H\ÙX˜Ø[L•›Ñœ˜[YKœÙ]˜XÚÙÜ›Ý[™ÛÛÜŠÛÛÜ‹“PÒÊNÂˆYˆ
+\ÙX˜Ø[LÕ›Ñœ˜[YHOH[
+H\ÙX˜Ø[LÕ›Ñœ˜[YKœÙ]˜XÚÙÜ›Ý[™ÛÛÜŠÛÛÜ‹“PÒÊNÂˆB‚ˆš]˜]H›ÚY™]\›•Ñ[[ÔÝ™X[\Ê
+HÂˆ
+ÊØ\ÜÚYÛ™YÝ™X[QÙ[™\˜][ÛŽÂˆXÝ]™TÝ™X[TØÛÜHHˆŽÂˆ˜]˜K][\œ˜^\Ë™š[
+\ÜÚYÛ™YÝ™X[U\›Ë[
+NÂˆËÈ[[È\È[™\[™[Ùˆš\™X˜\ÙH[™\Ù\ÈH™YHÙ][™ÜÈØ[Y\˜HT“Ë‚ˆ\Ù\”Ý™X[S[ÙHH˜[ÙNÂˆ\ÜÚYÛ™YÝ™X[\ÓØY[™ÈH˜[ÙNÂˆ™\Ù]ØÝ”Ý\™˜XÙ\Ê
+NÂˆ™Yœ™\Ú\ÜÚYÛ™Y^Y\œÊ
+NÂˆB‚ˆš]˜]H›ÚYØY\ÜÚYÛ™YÝ™X[\ÊÝš[™ÈÝYÝš[™ÈÜ™Y[šÝ\ÙRY›ÛÛX[ˆ›Ü˜ÙJHÂˆš[˜[Ýš[™ÈZY›ÝÈHÛÛK™ÛÛÙÛK™š\™X˜\ÙK˜]]‘š\™X˜\ÙP]]™Ù][œÝ[˜ÙJ
+K™Ù]Ý\œ™[\Ù\Š
+HOH[ÈˆˆˆÛÛK™ÛÛÙÛK™š\™X˜\ÙK˜]]‘š\™X˜\ÙP]]™Ù][œÝ[˜ÙJ
+K™Ù]Ý\œ™[\Ù\Š
+K™Ù]ZY
+
+NÂˆÝš[™ÈØÛÜHHZY›ÝÊÈŸŠÜÝY
+ÈŸŠÙÜ™Y[šÝ\ÙRYÂˆYˆ
+Y›Ü˜ÙH	‰ˆØÛÜK™\]X[ÊXÝ]™TÝ™X[TØÛÜJJH™]\›ŽÂˆXÝ]™TÝ™X[TØÛÜHHØÛÜNÂˆš[˜[[Ù[™\˜][ÛˆH
+ÊØ\ÜÚYÛ™YÝ™X[QÙ[™\˜][ÛŽÂˆ\Ù\”Ý™X[S[ÙHHHœÝLH‹™\]X[ÊÝY
+NÂˆ˜]˜K][\œ˜^\Ë™š[
+\ÜÚYÛ™YÝ™X[U\›Ë[
+NÂˆ\ÜÚYÛ™YÝ™X[\ÓØY[™ÈH\Ù\”Ý™X[S[ÙNÂˆ™\Ù]ØÝ”Ý\™˜XÙ\Ê
+NÈËÈ[Ø^\È™\Ù][Ûœ˜[Y\È™Y›Ü™HÝ\[™ÈH™]ÛHÙ[XÝYØÛÜK‚ˆYˆ
+]\Ù\”Ý™X[S[ÙJH™Yœ™\Ú\ÜÚYÛ™Y^Y\œÊ
+NÈËÈ[[È\Ù\ÈØ]™YÙ][™ÜÈTË‚ˆYˆ
+]\Ù\”Ý™X[S[ÙJHÈ™]\›ŽÈBˆÛÛK™ÛÛÙÛK™š\™X˜\ÙK˜]]‘š\™X˜\ÙU\Ù\ˆ\Ù\ˆHÛÛK™ÛÛÙÛK™š\™X˜\ÙK˜]]‘š\™X˜\ÙP]]™Ù][œÝ[˜ÙJ
+K™Ù]Ý\œ™[\Ù\Š
+NÂˆYˆ
+\Ù\ˆOH[\ÝY›X]Ú\Ê–ÐKV˜K^ŒNWËW^ÌKLHŠHYÜ™Y[šÝ\ÙRY›X]Ú\Ê™Ü™Y[šÝ\ÙKVÌKNWVÌNWJˆŠJHÂˆ™]\›ŽÂˆBˆš[˜[Ýš[™ÈZYH\Ù\‹™Ù]ZY
+
+NÂˆÛÛK™ÛÛÙÛK™š\™X˜\ÙK™š\™\ÝÜ™K‘š\™X˜\ÙQš\™\ÝÜ™HÝÜ™HHÛÛK™ÛÛÙÛK™š\™X˜\ÙK™š\™\ÝÜ™K‘š\™X˜\ÙQš\™\ÝÜ™K™Ù][œÝ[˜ÙJ
+NÂˆËÈYZ[š\Ý˜]ÜˆØÛÜH\ÈÜ˜[YÛ›HžHH™\šYšYYš\™X˜\ÙHÝ\ÝÛHÛZ[K‚ˆ\Ù\‹™Ù]YÚÙ[Š˜[ÙJK˜YÛ”ÝXØÙ\ÜÓ\Ý[™\ŠÚÙ[ˆOˆÂˆ›ÛÛX[ˆYZ[ˆH›ÛÛX[‹••QK™\]X[ÊÚÙ[‹™Ù]ÛZ[\Ê
+K™Ù]
+˜YZ[ˆŠJBˆ›ÛÛX[‹••QK™\]X[ÊÚÙ[‹™Ù]ÛZ[\Ê
+K™Ù]
+œÝÙ\•\Ù\ˆŠJNÂˆÛÛK™ÛÛÙÛK™š\™X˜\ÙK™š\™\ÝÜ™K”]Y\žH\ÜÚYÛ›Y[ÈHYZ[‚ˆÈÝÜ™K˜ÛÛXÝ[ÛŠ™™YYØ\ÜÚYÛ›Y[ÈŠBˆˆÝÜ™K˜ÛÛXÝ[ÛŠ™™YYØ\ÜÚYÛ›Y[ÈŠKÚ\™Q\]X[Ê›ÝÛ™\•\Ù\’Y‹ZY
+NÂˆ\ÜÚYÛ›Y[Ë™Ù]
+
+K˜YÛ”ÝXØÙ\ÜÓ\Ý[™\Š›ÝÜÈOˆÂˆYˆ
+Ù[™\˜][ÛˆOH\ÜÚYÛ™YÝ™X[QÙ[™\˜][ÛŠH™]\›ŽÂˆ\ÜÚYÛ™YÝ™X[\ÓØY[™ÈH˜[ÙNÂˆ›Üˆ
+ÛÛK™ÛÛÙÛK™š\™X˜\ÙK™š\™\ÝÜ™K”]Y\žQØÝ[Y[Û˜\ÚÝ\ÜÚYÛ›Y[ˆ›ÝÜÊHÂˆYˆ
+\ÝY™\]X[Ê\ÜÚYÛ›Y[™Ù]Ýš[™ÊœÝYŠJHYÜ™Y[šÝ\ÙRY™\]X[Ê\ÜÚYÛ›Y[™Ù]Ýš[™Ê™Ü™Y[šÝ\ÙRYŠJJHÛÛ[YNÂˆÝš[™ÈÙXÝ[ÛˆH\ÜÚYÛ›Y[™Ù]Ýš[™ÊœÙXÝ[Û’YŠK]šXÙRYH\ÜÚYÛ›Y[™Ù]Ýš[™Ê™]šXÙRYŠNÂˆYˆ
+ÙXÝ[ÛˆOH[]šXÙRYOH[\ÙXÝ[Û‹›X]Ú\ÊœÙXÝ[Û‹VÌKL×HŠHY]šXÙRY›X]Ú\Ê–ÐKV˜K^ŒNWËW^ÌKLHŠJHÛÛ[YNÂˆ[ÛÝH[YÙ\‹œ\œÙR[
+ÙXÝ[Û‹œÝXœÝš[™Ê
+JNÂˆÝš[™ÈÝÛ™\•ZYX\ÜÚYÛ›Y[™Ù]Ýš[™Ê›ÝÛ™\•\Ù\’YŠNÂˆYŠÝÛ™\•ZYO[[
+XYZ[‰‰ˆ]ZY™\]X[ÊÝÛ™\•ZY
+JJXÛÛ[YNÂˆÝÜ™K˜ÛÛXÝ[ÛŠ™]WÙ™YYÈŠK™ØÝ[Y[
+ÝÛ™\•ZY
+È—ÈŠÙ]šXÙRY
+K™Ù]
+
+K˜YÛ”ÝXØÙ\ÜÓ\Ý[™\Š]šXÙHOˆÂˆYˆ
+Ù[™\˜][ÛˆOH\ÜÚYÛ™YÝ™X[QÙ[™\˜][ÛˆY]šXÙK™^\ÝÊ
+H[ÝÛ™\•ZY™\]X[Ê]šXÙK™Ù]Ýš[™Ê›ÝÛ™\•\Ù\’YŠJHJUˆ‹™\]X[ÒYÛ›Ü™PØ\ÙJ]šXÙK™Ù]Ýš[™Ê™]šXÙU\HŠJHØ[Y\˜H‹™\]X[ÒYÛ›Ü™PØ\ÙJ]šXÙK™Ù]Ýš[™Ê™]šXÙU\HŠJJJH™]\›ŽÂˆÝš[™ÈÜÝH]šXÙK™Ù]Ýš[™Êš\Y™\ÜÈŠK›ÝØÛÛY]šXÙK™Ù]Ýš[™Êœ›ÝØÛÛŠK]Y]šXÙK™Ù]Ýš[™ÊœÝ™X[T]ŠNÂˆ[X™\ˆÜH]šXÙK™Ù]ÝX›JœÜŠNÂˆYˆ
+ÜÝOH[ZÜÝ›X]Ú\Ê–ÐKV˜K^ŒNK‹W^ÌKLßHŠJH™]\›ŽÂˆÝš[™ÈØÚ[YHH”•Ô‹™\]X[ÒYÛ›Ü™PØ\ÙJ›ÝØÛÛ
+HÈœÜˆˆ’È‹™\]X[ÒYÛ›Ü™PØ\ÙJ›ÝØÛÛ
+HÈšÈˆˆšŽÂˆ[XÝX[ÜHÜOH[È
+œÜ‹™\]X[ÊØÚ[YJOÍMMŽ
+HˆÜš[˜[YJ
+NÂˆYˆ
+XÝX[ÜHXÝX[ÜˆMLÍJH™]\›ŽÂˆYˆ
+]OH[]š\Ñ[\J
+JH]HœÜ‹™\]X[ÊØÚ[YJHÈ‹ÜÝ™X[LHˆˆ‹ÝšY[Ù™YYŽÂˆYˆ
+\]œÝ\ÕÚ]
+‹ÈŠH]˜ÛÛZ[œÊ‹‹ˆŠH]˜ÛÛZ[œÊŠH]˜ÛÛZ[œÊÈŠJH™]\›ŽÂˆ\ÜÚYÛ™YÝ™X[U\›ÖÜÛÝHHØÚ[YJÈŽ‹ËÈŠÚÜÝ
+ÈŽˆŠØXÝX[Ü
+Ü]Âˆ™Yœ™\Ú\ÜÚYÛ™Y^Y\ŠÛÝ
+NÂˆJNÂˆBˆJK˜YÛ‘˜Z[\™S\Ý[™\ŠHOˆÈ\ÜÚYÛ™YÝ™X[\ÓØY[™ÈH˜[ÙNÈ[™›ÚY][“ÙËÊ‘Ü›ÝÔÝÝ™X[\È‹\ÜÚYÛ›Y[™]šY]˜[˜Z[Y‹JNÈJNÂˆJK˜YÛ‘˜Z[\™S\Ý[™\ŠHOˆÈ\ÜÚYÛ™YÝ™X[\ÓØY[™ÏY˜[ÙNÈ[™›ÚY][“ÙËÊ‘Ü›ÝÔÝÝ™X[\È‹”š]š[YÙH™\šYšXØ][Ûˆ˜Z[Y‹JNÈJNÂˆB‚ˆš]˜]HÝš[™ÈØÝ”Ý™X[U\›
+[Ø[Y\˜JHÂˆYˆ
+\Ù\”Ý™X[S[ÙJH™]\›ˆ\ÜÚYÛ™YÝ™X[U\›ÖØØ[Y\˜WHOH[Èˆˆˆ\ÜÚYÛ™YÝ™X[U\›ÖØØ[Y\˜WNÂˆÝš[™È\HØÝ’\
+Ø[Y\˜JNÂˆ™]\›ˆ\š\Ñ[\J
+HÈˆˆˆš‹ËÈˆ
+È\
+ÈŽŽÝšY[Ù™YYŽÂˆB‚ˆš]˜]HÝš[™Ö×HšYÚPØÝŒÐÜ™Y[X[Ê
+HÂˆžHÂˆÝš[™È[˜ÛÙYHÙ]™YœÊ
+K™Ù]Ýš[™Ê‘Q—Õ’QÒWÐÐÕŒ×ÐÔ‘QS•PSËˆŠNÂˆYˆ
+[˜ÛÙYš\Ñ[\J
+JH™]\›ˆ™]ÈÝš[™Ö×^Èˆ‹ˆŸNÂˆž]V×HÛÛXš[™YH˜\ÙM™XÛÙJ[˜ÛÙY˜\ÙM““×ÕÔT
+NÂˆž]V×H]ˆH˜]˜K][\œ˜^\Ë˜ÛÜSÙ”˜[™ÙJÛÛXš[™YLŠNÂˆž]V×HÚ\\^H˜]˜K][\œ˜^\Ë˜ÛÜSÙ”˜[™ÙJÛÛXš[™YL‹ÛÛXš[™Y›[™Ý
+NÂˆÙ^TÝÜ™HÝÜ™HHÙ^TÝÜ™K™Ù][œÝ[˜ÙJ[™›ÚYÙ^TÝÜ™HŠNÂˆÝÜ™K›ØY
+[
+NÂˆÙXÜ™]Ù^HÙ^HH
+ÙXÜ™]Ù^JHÝÜ™K™Ù]Ù^J’QÒWÐÐÕŒ×ÒÑVWÐSPTË[
+NÂˆÚ\\ˆÚ\\ˆHÚ\\‹™Ù][œÝ[˜ÙJQTËÑÐÓKÓ›ÔY[™ÈŠNÂˆÚ\\‹š[š]
+Ú\\‹‘PÔ–TÓSÑKÙ^K™]ÈÐÓT\˜[Y]\”ÜXÊLŽ]ŠJNÂˆ”ÓÓ“Øš™XÝÜ™Y[X[ÈH™]È”ÓÓ“Øš™XÝ
+™]ÈÝš[™ÊÚ\\‹™Ñš[˜[
+Ú\\^
+KÝ[™\™Ú\œÙ]Ë•U—Î
+JNÂˆ™]\›ˆ™]ÈÝš[™Ö×^ØÜ™Y[X[Ë›ÜÝš[™Ê\Ù\›˜[YH‹ˆŠKÜ™Y[X[Ë›ÜÝš[™Êœ\ÜÝÛÜ™‹ˆŠ_NÂˆHØ]Ú
+^Ù\[ÛˆYÛ›Ü™Y
+HÈ™]\›ˆ™]ÈÝš[™Ö×^Èˆ‹ˆŸNÈBˆB‚ˆ›ÛÛX[ˆØ]™UšYÚPØÝŒÐÜ™Y[X[ÊÝš[™È\Ù\›˜[YKÝš[™È\ÜÝÛÜ™
+HÂˆžHÂˆYˆ
+
+\Ù\›˜[YHOH[\Ù\›˜[YKš\Ñ[\J
+JH	‰ˆ
+\ÜÝÛÜ™OH[\ÜÝÛÜ™š\Ñ[\J
+JJHÂˆ™]\›ˆYNÈËÈ[\HÙ][™ÜÈšY[È]\Ý›Ý\˜\ÙHHØ]™YØ[Y\˜HÙÚ[‹‚ˆBˆYˆ
+\ÜÝÛÜ™OH[\ÜÝÛÜ™š\Ñ[\J
+JHÂˆÝš[™Ö×H™]š[Ý\ÈHšYÚPØÝŒÐÜ™Y[X[Ê
+NÂˆYˆ
+\™]š[Ý\ÖÌWKš\Ñ[\J
+JH\ÜÝÛÜ™H™]š[Ý\ÖÌWNÂˆBˆÙ^TÝÜ™HÝÜ™HHÙ^TÝÜ™K™Ù][œÝ[˜ÙJ[™›ÚYÙ^TÝÜ™HŠNÂˆÝÜ™K›ØY
+[
+NÂˆYˆ
+\ÝÜ™K˜ÛÛZ[œÐ[X\Ê’QÒWÐÐÕŒ×ÒÑVWÐSPTÊJHÂˆÙ^QÙ[™\˜]ÜˆÙ[™\˜]ÜˆHÙ^QÙ[™\˜]Ü‹™Ù][œÝ[˜ÙJÙ^T›Ü\Y\Ë’ÑVWÐSÓÔ’UWÐQTË[™›ÚYÙ^TÝÜ™HŠNÂˆÙ[™\˜]Ü‹š[š]
+™]ÈÙ^QÙ[”\˜[Y]\”ÜXËZ[\Š’QÒWÐÐÕŒ×ÒÑVWÐSPTËˆÙ^T›Ü\Y\Ë”T”ÔÑWÑSÔ–TÙ^T›Ü\Y\Ë”T”ÔÑWÑPÔ–T
+BˆœÙ]›ØÚÓ[Ù\ÊÙ^T›Ü\Y\Ë“ÐÒ×ÓSÑWÑÐÓJBˆœÙ][˜Üž\[Û”Y[™ÜÊÙ^T›Ü\Y\Ë‘SÔ–TSÓ—ÔQS‘×Ó“Ó‘JBˆœÙ]˜[™ÛZ^™Y[˜Üž\[Û”™\]Z\™Y
+YJK˜Z[
+
+JNÂˆÙ[™\˜]Ü‹™Ù[™\˜]RÙ^J
+NÂˆÝÜ™K›ØY
+[
+NÂˆBˆÙXÜ™]Ù^HÙ^HH
+ÙXÜ™]Ù^JHÝÜ™K™Ù]Ù^J’QÒWÐÐÕŒ×ÒÑVWÐSPTË[
+NÂˆÚ\\ˆÚ\\ˆHÚ\\‹™Ù][œÝ[˜ÙJQTËÑÐÓKÓ›ÔY[™ÈŠNÂˆÚ\\‹š[š]
+Ú\\‹‘SÔ–TÓSÑKÙ^JNÂˆ”ÓÓ“Øš™XÝÜ™Y[X[ÈH™]È”ÓÓ“Øš™XÝ
+
+NÂˆÜ™Y[X[Ëœ]
+\Ù\›˜[YH‹\Ù\›˜[YHOH[Èˆˆˆ\Ù\›˜[YJNÂˆÜ™Y[X[Ëœ]
+œ\ÜÝÛÜ™‹\ÜÝÛÜ™OH[Èˆˆˆ\ÜÝÛÜ™
+NÂˆž]V×HÚ\\^HÚ\\‹™Ñš[˜[
+Ü™Y[X[ËÔÝš[™Ê
+K™Ù]ž]\ÊÝ[™\™Ú\œÙ]Ë•U—Î
+JNÂˆž]V×HÛÛXš[™YH™]Èž]VØÚ\\‹™Ù]UŠ
+K›[™Ý
+ÈÚ\\^›[™ÝNÂˆÞ\Ý[K˜\œ˜^XÛÜJÚ\\‹™Ù]UŠ
+KÛÛXš[™YÚ\\‹™Ù]UŠ
+K›[™Ý
+NÂˆÞ\Ý[K˜\œ˜^XÛÜJÚ\\^ÛÛXš[™YÚ\\‹™Ù]UŠ
+K›[™ÝÚ\\^›[™Ý
+NÂˆYˆ
+YÙ]™YœÊ
+K™Y]
+
+Kœ]Ýš[™Ê‘Q—Õ’QÒWÐÐÕŒ×ÐÔ‘QS•PSË˜\ÙM™[˜ÛÙUÔÝš[™ÊÛÛXš[™Y˜\ÙM““×ÕÔT
+JK˜ÛÛ[Z]
+
+JH™]\›ˆ˜[ÙNÂˆØÝŒÐÜ™Y[X[Ô™Z™XÝYH˜[ÙNÂˆ™]\›ˆYNÂˆHØ]Ú
+^Ù\[ÛˆYÛ›Ü™Y
+HÈ™]\›ˆ˜[ÙNÈBˆB‚ˆš]˜]HÝš[™ÈYÚ[\RÙ^JÝš[™È›ÝšY\ŠHÂˆžHÂˆÝš[™È[˜ÛÙYHÙ]™YœÊ
+K™Ù]Ýš[™ÊœYÚ[—Ø\WÚÙ^\×Ù[˜Üž\Y‹ˆŠNÂˆYˆ
+[˜ÛÙYš\Ñ[\J
+JH™]\›ˆˆŽÂˆž]V×Hž]\ÈH˜\ÙM™XÛÙJ[˜ÛÙY˜\ÙM““×ÕÔT
+NÂˆÙ^TÝÜ™HÝÜ™HHÙ^TÝÜ™K™Ù][œÝ[˜ÙJ[™›ÚYÙ^TÝÜ™HŠNÈÝÜ™K›ØY
+[
+NÂˆÙXÜ™]Ù^HÙ^HH
+ÙXÜ™]Ù^JHÝÜ™K™Ù]Ù^J’QÒWÐÐÕŒ×ÒÑVWÐSPTË[
+NÂˆÚ\\ˆÚ\\ˆHÚ\\‹™Ù][œÝ[˜ÙJQTËÑÐÓKÓ›ÔY[™ÈŠNÂˆÚ\\‹š[š]
+Ú\\‹‘PÔ–TÓSÑKÙ^K™]ÈÐÓT\˜[Y]\”ÜXÊLŽ˜]˜K][\œ˜^\Ë˜ÛÜSÙ”˜[™ÙJž]\ËLŠJJNÂˆ”ÓÓ“Øš™XÝÙ^\ÈH™]È”ÓÓ“Øš™XÝ
+™]ÈÝš[™ÊÚ\\‹™Ñš[˜[
+˜]˜K][\œ˜^\Ë˜ÛÜSÙ”˜[™ÙJž]\ËL‹ž]\Ë›[™Ý
+JKÝ[™\™Ú\œÙ]Ë•U—Î
+JNÂˆ™]\›ˆÙ^\Ë›ÜÝš[™Ê›ÝšY\‹ˆŠNÂˆHØ]Ú
+^Ù\[Ûˆ[˜]˜Z[X›JHÈ™]\›ˆˆŽÈBˆB‚ˆš]˜]H›ÛÛX[ˆØ]™TYÚ[\RÙ^\ÊÝš[™È^[ØY
+HÂˆžHÂˆ”ÓÓ“Øš™XÝ\]\ÈH™]È”ÓÓ“Øš™XÝ
+^[ØY
+KÙ^\ÈH™]È”ÓÓ“Øš™XÝ
+
+NÂˆ›Üˆ
+Ýš[™È›ÝšY\ˆˆ™]ÈÝš[™Ö×^Èœ[™]‹œ[Y‹šÚ[™Ú\ÙHŸJHÂˆÝš[™È[\™YH\]\Ë›ÜÝš[™Ê›ÝšY\‹ˆŠKš[J
+NÂˆÙ^\Ëœ]
+›ÝšY\‹[\™Yš\Ñ[\J
+HÈYÚ[\RÙ^J›ÝšY\ŠHˆ[\™Y
+NÂˆBˆÙ^TÝÜ™HÝÜ™HHÙ^TÝÜ™K™Ù][œÝ[˜ÙJ[™›ÚYÙ^TÝÜ™HŠNÈÝÜ™K›ØY
+[
+NÂˆYˆ
+\ÝÜ™K˜ÛÛZ[œÐ[X\Ê’QÒWÐÐÕŒ×ÒÑVWÐSPTÊJHÂˆÙ^QÙ[™\˜]ÜˆÙ[™\˜]ÜˆHÙ^QÙ[™\˜]Ü‹™Ù][œÝ[˜ÙJÙ^T›Ü\Y\Ë’ÑVWÐSÓÔ’UWÐQTË[™›ÚYÙ^TÝÜ™HŠNÂˆÙ[™\˜]Ü‹š[š]
+™]ÈÙ^QÙ[”\˜[Y]\”ÜXËZ[\Š’QÒWÐÐÕŒ×ÒÑVWÐSPTËÙ^T›Ü\Y\Ë”T”ÔÑWÑSÔ–TÙ^T›Ü\Y\Ë”T”ÔÑWÑPÔ–T
+BˆœÙ]›ØÚÓ[Ù\ÊÙ^T›Ü\Y\Ë“ÐÒ×ÓSÑWÑÐÓJKœÙ][˜Üž\[Û”Y[™ÜÊÙ^T›Ü\Y\Ë‘SÔ–TSÓ—ÔQS‘×Ó“Ó‘JBˆœÙ]˜[™ÛZ^™Y[˜Üž\[Û”™\]Z\™Y
+YJK˜Z[
+
+JNÈÙ[™\˜]Ü‹™Ù[™\˜]RÙ^J
+NÈÝÜ™K›ØY
+[
+NÂˆBˆÚ\\ˆÚ\\ˆHÚ\\‹™Ù][œÝ[˜ÙJQTËÑÐÓKÓ›ÔY[™ÈŠNÂˆÚ\\‹š[š]
+Ú\\‹‘SÔ–TÓSÑK
+ÙXÜ™]Ù^JHÝÜ™K™Ù]Ù^J’QÒWÐÐÕŒ×ÒÑVWÐSPTË[
+JNÂˆž]V×H[˜Üž\YHÚ\\‹™Ñš[˜[
+Ù^\ËÔÝš[™Ê
+K™Ù]ž]\ÊÝ[™\™Ú\œÙ]Ë•U—Î
+JNÂˆž]V×Hž]\ÈH™]Èž]VØÚ\\‹™Ù]UŠ
+K›[™Ý
+È[˜Üž\Y›[™ÝNÂˆÞ\Ý[K˜\œ˜^XÛÜJÚ\\‹™Ù]UŠ
+Kž]\ËÚ\\‹™Ù]UŠ
+K›[™Ý
+NÂˆÞ\Ý[K˜\œ˜^XÛÜJ[˜Üž\Yž]\ËÚ\\‹™Ù]UŠ
+K›[™Ý[˜Üž\Y›[™Ý
+NÂˆ™]\›ˆÙ]™YœÊ
+K™Y]
+
+Kœ]Ýš[™ÊœYÚ[—Ø\WÚÙ^\×Ù[˜Üž\Y‹˜\ÙM™[˜ÛÙUÔÝš[™Êž]\Ë˜\ÙM““×ÕÔT
+JK˜ÛÛ[Z]
+
+NÂˆHØ]Ú
+^Ù\[Ûˆ\œ›ÜŠHÈ™]\›ˆ˜[ÙNÈBˆB‚ˆš]˜]H›ÛÛX[ˆ\Ôš]˜]R\Ü›[šÊÝš[™ÈY™\ÜÊHÂˆYˆ
+Y™\ÜÈOH[Y™\ÜËš[J
+Kš\Ñ[\J
+JH™]\›ˆYNÂˆÝš[™Ö×HØÝ]ÈHY™\ÜËš[J
+KœÜ]
+—ˆ‹LJNÂˆYˆ
+ØÝ]Ë›[™ÝOH
+H™]\›ˆ˜[ÙNÂˆ[×H˜[Y\ÈH™]È[ÍNÂˆ›Üˆ
+[HHÈHÈJÊÊHÂˆYˆ
+[ØÝ]ÖÚWK›X]Ú\Ê—ÌKßHŠJH™]\›ˆ˜[ÙNÂˆžHÈ˜[Y\ÖÚWHH[YÙ\‹œ\œÙR[
+ØÝ]ÖÚWJNÈBˆØ]Ú
+[X™\‘›Ü›X]^Ù\[ÛˆYÛ›Ü™Y
+HÈ™]\›ˆ˜[ÙNÈBˆYˆ
+˜[Y\ÖÚWH˜[Y\ÖÚWHˆMJH™]\›ˆ˜[ÙNÂˆBˆËÈZ[ØØ[H\ÜÚYÛœÈT›ÙHY™\ÜÙ\Èœ›ÛHLŒŒÌL‚ˆËÈ\›Z]\ÙH”ˆY™\ÜÙ\ÈÚ]Ý][ÝÚ[™È\˜š]˜\žHX›XÈ[™Ú[Ë‚ˆ›ÛÛX[ˆš]˜]PY™\ÜÈH˜[Y\ÖÌHOHLˆ
+˜[Y\ÖÌHOHMÌˆ	‰ˆ˜[Y\ÖÌWHHMˆ	‰ˆ˜[Y\ÖÌWHHÌJBˆ
+˜[Y\ÖÌHOHNLˆ	‰ˆ˜[Y\ÖÌWHOHMŽ
+NÂˆ›ÛÛX[ˆZ[ØØ[PY™\ÜÈH˜[Y\ÖÌHOHL	‰ˆ˜[Y\ÖÌWHH	‰ˆ˜[Y\ÖÌWHHLÎÂˆ™]\›ˆ
+š]˜]PY™\ÜÈZ[ØØ[PY™\ÜÊH	‰ˆ˜[Y\ÖÌ×Hˆ	‰ˆ˜[Y\ÖÌ×HMNÂˆB‚ˆš]˜]H›ÛÛX[ˆ\Ô\œÚ\ÝY™XYÜš]QÜ˜[
+\šH™YU\šJHÂˆYˆ
+™YU\šHOH[
+H™]\›ˆ˜[ÙNÂˆ›Üˆ
+[™›ÚY˜ÛÛ[•\šT\›Z\ÜÚ[ÛˆÜ˜[ˆÙ]ÛÛ[™\ÛÛ™\Š
+K™Ù]\œÚ\ÝY\šT\›Z\ÜÚ[ÛœÊ
+JHÂˆYˆ
+Ü˜[™Ù]\šJ
+K™\]X[Ê™YU\šJH	‰ˆÜ˜[š\Ô™XY\›Z\ÜÚ[ÛŠ
+H	‰ˆÜ˜[š\ÕÜš]T\›Z\ÜÚ[ÛŠ
+JH™]\›ˆYNÂˆBˆ™]\›ˆ˜[ÙNÂˆB‚ˆš]˜]H\šHš[™Ü›ÝÔÝØÛÜY™YU\šJ
+HÂˆÚ\™Y™Y™\™[˜Ù\È™Y™\™[˜Ù\ÈHÙ]™YœÊ
+NÂˆÙ]Ýš[™ÏˆØ[™Y]\ÈH™]È˜]˜K][“[šÙY\ÚÙ]Š
+NÂˆ›Üˆ
+Ýš[™ÈÙ^Hˆ™]ÈÝš[™Ö×^Ô‘Q—ÑÔ“ÕÔÕÕ‘QWÕT’K‘Q—ÑPQÓ“ÔÒT×Õ‘QWÕT’Kˆ‘Q—ÒSPQÑWÑ‘QQÕ‘QWÕT’K™YY™YRÙ^JQUSÔÕÒQ
+_JHÂˆÝš[™È˜[YHH™Y™\™[˜Ù\Ë™Ù]Ýš[™ÊÙ^K[
+NÂˆYˆ
+˜[YHOH[
+HØ[™Y]\Ë˜Y
+˜[YJNÂˆBˆ›Üˆ
+Ýš[™ÈÙ^Hˆ™Y™\™[˜Ù\Ë™Ù][
+
+KšÙ^TÙ]
+
+JHÂˆYˆ
+Ù^KœÝ\ÕÚ]
+™]WÙ™YYÝ™YWÝ\šWÈŠJHÂˆÝš[™È˜[YHH™Y™\™[˜Ù\Ë™Ù]Ýš[™ÊÙ^K[
+NÂˆYˆ
+˜[YHOH[
+HØ[™Y]\Ë˜Y
+˜[YJNÂˆBˆBˆ›Üˆ
+[™›ÚY˜ÛÛ[•\šT\›Z\ÜÚ[ÛˆÜ˜[ˆÙ]ÛÛ[™\ÛÛ™\Š
+K™Ù]\œÚ\ÝY\šT\›Z\ÜÚ[ÛœÊ
+JHÂˆ\šH\šHHÜ˜[™Ù]\šJ
+NÂˆYˆ
+\šK™Ù]]]Üš]J
+HOH[	‰ˆ\šK™Ù]]]Üš]J
+KÓÝÙ\Ø\ÙJØØ[K”“ÓÕ
+Bˆ˜ÛÛZ[œÊ™ÛÛÙÛK˜[™›ÚY˜\Ë™ØÜÈŠJHØ[™Y]\Ë˜Y
+\šKÔÝš[™Ê
+JNÂˆBˆ›Üˆ
+Ýš[™È˜[YHˆØ[™Y]\ÊHÂˆžHÂˆ\šHØ[™Y]HH\šKœ\œÙJ˜[YJNÂˆÝš[™È]]Üš]HHØ[™Y]K™Ù]]]Üš]J
+NÂˆYˆ
+]]Üš]HOH[X]]Üš]KÓÝÙ\Ø\ÙJØØ[K”“ÓÕ
+K˜ÛÛZ[œÊ™ÛÛÙÛK˜[™›ÚY˜\Ë™ØÜÈŠBˆZ\Ô\œÚ\ÝY™XYÜš]QÜ˜[
+Ø[™Y]JJHÛÛ[YNÂˆÝš[™È˜[YHHÙ]ØÝ[Y[˜[YJØ[™Y]JNÂˆYˆ
+‘Ü›ÝÔÝ‹™\]X[ÒYÛ›Ü™PØ\ÙJ˜[YJH”›Ú™XÝÈ‹™\]X[ÒYÛ›Ü™PØ\ÙJ˜[YJBˆ“^Hš]™H‹™\]X[ÒYÛ›Ü™PØ\ÙJ˜[YJH‘š]™H‹™\]X[ÒYÛ›Ü™PØ\ÙJ˜[YJJH™]\›ˆØ[™Y]NÂˆHØ]Ú
+^Ù\[ÛˆYÛ›Ü™Y
+HÈBˆBˆ™]\›ˆ[ÂˆB‚ˆš]˜]HÝš[™È™\ÛÛ™QÜ›ÝÔÝØÝ[Y[Y
+\šH™YU\šJH›ÝÜÈ^Ù\[ÛˆÂˆÝš[™ÈYHØÝ[Y[ÐÛÛ˜XÝ™Ù]™YQØÝ[Y[Y
+™YU\šJNÂˆÝš[™ÈÙ[XÝY˜[YHHÙ]ØÝ[Y[˜[YJ™YU\šJNÂˆYˆ
+‘Ü›ÝÔÝ‹™\]X[ÒYÛ›Ü™PØ\ÙJÙ[XÝY˜[YJJH™]\›ˆYÂˆYˆ
+”›Ú™XÝÈ‹™\]X[ÒYÛ›Ü™PØ\ÙJÙ[XÝY˜[YJJH™]\›ˆš[™ÜÜ™X]PÚ[›Û\Š™YU\šKY‘Ü›ÝÔÝŠNÂˆYˆ
+“^Hš]™H‹™\]X[ÒYÛ›Ü™PØ\ÙJÙ[XÝY˜[YJH‘š]™H‹™\]X[ÒYÛ›Ü™PØ\ÙJÙ[XÝY˜[YJJHÂˆÝš[™È›Ú™XÝÒYHš[™ÜÜ™X]PÚ[›Û\Š™YU\šKY”›Ú™XÝÈŠNÂˆ™]\›ˆš[™ÜÜ™X]PÚ[›Û\Š™YU\šK›Ú™XÝÒY‘Ü›ÝÔÝŠNÂˆBˆ™]\›ˆ[ÂˆB‚ˆš]˜]H›ÚY™[Y[X™\‘Ü›ÝÔÝ™YRY”ØÛÜY
+\šH™YU\šJHÂˆžHÂˆYˆ
+™\ÛÛ™QÜ›ÝÔÝØÝ[Y[Y
+™YU\šJHOH[
+HÂˆÙ]™YœÊ
+K™Y]
+
+Kœ]Ýš[™Ê‘Q—ÑÔ“ÕÔÕÕ‘QWÕT’K™YU\šKÔÝš[™Ê
+JK˜\J
+NÂˆBˆHØ]Ú
+^Ù\[ÛˆYÛ›Ü™Y
+HÈBˆB‚ˆš]˜]HÝš[™È™[]]™T]œ›ÛQÜ›ÝÔÝ
+Ýš[™È\Ü^T]
+HÂˆYˆ
+\Ü^T]OH[
+H™]\›ˆ[Âˆ›Üˆ
+Ýš[™ÈX\šÙ\ˆˆ™]ÈÝš[™Ö×^È‹Ô›Ú™XÝËÑÜ›ÝÔÝÈ‹‹Ó^Hš]™KÑÜ›ÝÔÝÈ‹‹ÑÜ›ÝÔÝÈŸJHÂˆ[[™^H\Ü^T]š[™^ÙŠX\šÙ\ŠNÂˆYˆ
+[™^H
+HÂˆÝš[™È]H\Ü^T]œÝXœÝš[™Ê[™^
+ÈX\šÙ\‹›[™Ý
+
+JKœ™\XÙJ	×	Ë	ËÉÊNÂˆYˆ
+]›X]Ú\Ê–ÐKV˜K^ŒNHË‹ËW^ÌKHŠH	‰ˆ\]˜ÛÛZ[œÊ‹‹‹ÈŠH	‰ˆ\]œÝ\ÕÚ]
+‹‹‹ÈŠJH™]\›ˆ]ÂˆBˆBˆ™]\›ˆ[ÂˆB‚ˆš]˜]H›ÚY[œÝ[ØÝŒU›ÔÜÚ][Û“\Ý[™\Š
+HÂˆYˆ
+ÙXˆOH[\Ñš[š\Ú[™Ê
+JH™]\›ŽÂˆÙX‹™]˜[X]R˜]˜\ØÜš\
+Š
+
+OOžØÛÛœÝÜÝYØÝ[Y[œ]Y\žTÙ[XÝÜŠ	ÈØØ[Y\˜\ÉÊNÚYŠZÜÝ
+\™]\›ˆ˜[ÙNÛ]ÜÜÏYØÝ[Y[™Ù][[Y[žRY
+	ÙÜ›ÝÜÝ]›ËXØÝ‹\Ý[IÊNÚYŠXÜÜÊ^ØÜÜÏYØÝ[Y[˜Ü™X]Q[[Y[
+	ÜÝ[IÊNØÜÜËšYIÙÜ›ÝÜÝ]›ËXØÝ‹\Ý[IÎØÜÜË^ÛÛ[IÈØØ[Y\˜\È˜Ø[Y\˜N›XÚ[
+[ŠÌÊH™™YY[YËØØ[Y\˜\È˜Ø[Y\˜N›XÚ[
+[ŠÌÊH›[ØÚÝYËØØ[Y\˜\È˜Ø[Y\˜N›XÚ[
+[ŠÌÊHœÝ[\Ù\Ü^N››Û™HZ[\Ü[IÎÙØÝ[Y[šXY˜\[™Ú[
+ÜÜÊ_[]ØÚY[YY˜[ÙK\ÝVÉÉË	ÉË	É×NØÛÛœÝÙ[™J
+OOžÚYŠØÚY[Y
+\™]\›ˆYNÜØÚY[Y]YNÜ™\]Y\Ý[š[X][Û‘œ˜[YJ
+
+OOžÜØÚY[YY˜[ÙNØÛÛœÝ\Ú›Ø\™YØÝ[Y[™Ù][[Y[žRY
+	ÛXZ[‘\Ú›Ø\™	ÊKX[YØÝ[Y[™Ù][[Y[žRY
+	ÚX[[™[	ÊK]]YØÝ[Y[™Ù][[Y[žRY
+	Ø]]ØÜ™Y[‰ÊK›ØÚÚ[™ÓÝ™\›^PXÝ]™OVË‹‹™ØÝ[Y[œ]Y\žTÙ[XÝÜ[
+	Ë›[Ù[›Ü[‹X[ÙÖÛÜ[—KÜ›ÛOW™X[Ù×—VØ\šXK[[Ù[WYW—KÙÜ›ÝÜÝ\Ù\“X[˜YÙ[Y[YÙIÊWKœÛÛYJ[OžÚYŠ[šY[Š\™]\›ˆ˜[ÙNØÛÛœÝÝ[OYÙ]ÛÛ\]YÝ[J[
+NÜ™]\›ˆÝ[K™\Ü^HOOIÛ›Û™IÉ‰œÝ[Kš\ÚXš[]HOOIÚY[‰É‰œÝ[Kš\ÚXš[]HOOIØÛÛ\ÙIÉ‰™[™Ù]ÛY[™XÝÊ
+K›[™ÝŒJKÛYPXÝ]™OHHY\Ú›Ø\™	‰ˆY\Ú›Ø\™šY[‰‰ŠZX[X[šY[ŠI‰ˆX›ØÚÚ[™ÓÝ™\›^PXÝ]™I‰ŠX]]]]šY[ŠNÚYŠÚ[™ÝË‘Ü›ÝÔÝœšYÙJQÜ›ÝÔÝœšYÙKœÙ]ØÝ•›Ñ™YYÐ[ÝÙYÛXÝ]™TØÜ™Y[ŠÛYPXÝ]™JNÙ›ÜŠ]OLÚOÎÚJÊÊ^ØÛÛœÝOYØÝ[Y[œ]Y\žTÙ[XÝÜŠ	ÈØØ[Y\˜\È˜Ø[Y\˜N›XÚ[
+	ÊÊJÌJJÉÊH™™YY	ÊNÚYŠYJXÛÛ[YNØÛÛœÝ[OYKœ]Y\žTÙ[XÝÜŠ	Ë™™YY[YÉÊNÚYŠ[I‰š[Kš\Ð]šX]J	ÜÜ˜ÉÊJZ[Kœ™[[Ý™P]šX]J	ÜÜ˜ÉÊNØÛÛœÝYK™Ù]›Ý[™[™ÐÛY[™XÝ
+
+KÙ™œØÜ™Y[\‹˜›ÝÛOL‹Ü]Ú[™ÝËš[›™\’ZYÚÛÛÜ™ÏVÜ‹›Y‹Ü‹ÚY‹šZYÚÙ™œØÜ™Y[ÌNŒÛYPXÝ]™OÌNŒKš›Ú[Š	Ë	ÊNÚYŠÛÛÜ™ÈOO[\ÝÚWJ^Û\ÝÚWOXÛÛÜ™ÎÚYŠOOOL
+QÜ›ÝÔÝœšYÙK\]PØÝŒU›ÔÜÚ][ÛŠÛÛÜ™ÊNÙ[ÙHYŠOOOLJQÜ›ÝÔÝœšYÙK\]PØÝŒ•›ÔÜÚ][ÛŠÛÛÜ™ÊNÙ[ÙHÜ›ÝÔÝœšYÙK\]PØÝŒÕ›ÔÜÚ][ÛŠÛÛÜ™Ê___JNÜ™]\›ˆY_NÚYŠ]Ú[™ÝË—×ÙÜ›ÝÜÝ›ÔÜÚ][Û’[œÝ[Y
+^ÝÚ[™ÝË˜Y]™[\Ý[™\Š	ÜØÜ›Û	ËÙ[™Ü\ÜÚ]™NY_JNÝÚ[™ÝË˜Y]™[\Ý[™\Š	Ü™\Ú^™IËÙ[™Ü\ÜÚ]™NY_JNÛ™]È]]][Û“ØœÙ\™\ŠÙ[™
+K›ØœÙ\™JÜÝØÚ[\ÝYKÝX™YNY_JNÛ™]È]]][Û“ØœÙ\™\ŠÙ[™
+K›ØœÙ\™JØÝ[Y[˜›ÙKØÚ[\ÝYKÝX™YNYK]šX]\ÎYK]šX]Qš[\Ž–ÉÚY[‰Ë	ØÛ\ÜÉË	ÛÜ[‰Ë	ÜÝ[IË	Ü›ÛIË	Ø\šXK[[Ù[	×_JNÝÚ[™ÝË—×ÙÜ›ÝÜÝ›ÔÜÚ][Û’[œÝ[Y]Y_\Ù[™
+
+NÜÙ][Y[Ý]
+Ù[™
+NÜÙ][Y[Ý]
+Ù[™LŒ
+NÜ™]\›ˆY_JJ
+H‹[
+NÂˆB‚ˆÊŠˆÙY\˜]]™H“ÈÚ[™[ˆÝ]ÙˆHØ^H[›\ÜÈH\Ú›Ø\™\ÈXÝ]™Kˆ
+‹Âˆš]˜]H›ÚYÙ]ØÝ•›Ñ™YYÐ[ÝÙYÛXÝ]™TØÜ™Y[Š›ÛÛX[ˆ[ÝÙY
+HÂˆØÝ•›Ñ™YYÐ[ÝÙYÛXÝ]™TØÜ™Y[ˆH[ÝÙYÂˆYˆ
+[ÝÙY
+H™]\›ŽÈËÈÜÚ][ÛˆØ[˜XÚÜÈ™]™X[™YYÈY\ˆ˜[Y\Ú›Ø\™›Ý[™È\œš]™K‚ˆYU›Ñœ˜[YJ\ÙX˜Ø[U›Ñœ˜[YJNÂˆYU›Ñœ˜[YJ\ÙX˜Ø[L•›Ñœ˜[YJNÂˆYU›Ñœ˜[YJ\ÙX˜Ø[LÕ›Ñœ˜[YJNÂˆØÝŒSÝ™\›^TÚÝÛˆH˜[ÙNÂˆØÝŒ“Ý™\›^TÚÝÛˆH˜[ÙNÂˆØÝŒÓÝ™\›^TÚÝÛˆH˜[ÙNÂˆB‚ˆš]˜]H›ÚYYU›Ñœ˜[YJœ˜[YS^[Ý]œ˜[YJHÂˆYˆ
+œ˜[YHOH[
+H™]\›ŽÂˆœ˜[YK˜[š[X]J
+K˜Ø[˜Ù[
+
+NÂˆœ˜[YKœÙ][JŠNÂˆœ˜[YKœÙ]š\ÚXš[]JšY]Ë’S•’TÒP“JNÂˆB‚ˆš]˜]H›ÚYÜÚ][ÛØÝŒU›ÊÝš[™ÈÛÛÜ™[˜]\ÊHÂˆYˆ
+\›ÛÝOH[ÛÛÜ™[˜]\ÈOH[\Ñš[š\Ú[™Ê
+JH™]\›ŽÂˆžHÂˆÝš[™Ö×H˜[Y\ÈHÛÛÜ™[˜]\ËœÜ]
+‹ŠNÂˆYˆ
+˜[Y\Ë›[™ÝŠH™]\›ŽÂˆ›Ø][œÚ]HHÙ]™\ÛÝ\˜Ù\Ê
+K™Ù]\Ü^SY]šXÜÊ
+K™[œÚ]NÂˆ[YHX]œ›Ý[™
+›Ø]œ\œÙQ›Ø]
+˜[Y\ÖÌJH
+ˆ[œÚ]JNÂˆ[ÜHX]œ›Ý[™
+›Ø]œ\œÙQ›Ø]
+˜[Y\ÖÌWJH
+ˆ[œÚ]JNÂˆ[ÚYHX]œ›Ý[™
+›Ø]œ\œÙQ›Ø]
+˜[Y\ÖÌ—JH
+ˆ[œÚ]JNÂˆ[ZYÚHX]œ›Ý[™
+›Ø]œ\œÙQ›Ø]
+˜[Y\ÖÌ×JH
+ˆ[œÚ]JNÂˆ›ÛÛX[ˆÙ™œØÜ™Y[ˆHŒH‹™\]X[Ê˜[Y\ÖÍJNÂˆ›ÛÛX[ˆÛYPXÝ]™HHŒH‹™\]X[Ê˜[Y\ÖÍWJNÂˆ›ÛÛX[ˆÚÝ[ÚÝÈH[Ù™œØÜ™Y[ˆ	‰ˆÛYPXÝ]™H	‰ˆØÝ•›Ñ™YYÐ[ÝÙYÛXÝ]™TØÜ™Y[ŽÂˆYˆ
+ÚYHZYÚH
+H™]\›ŽÂ‚ˆYˆ
+\ÙX˜Ø[U›Ñœ˜[YHOH[
+HÂˆ\ÙX˜Ø[U›Ñœ˜[YHH™]Èœ˜[YS^[Ý]
+\ÊNÂˆ\ÙX˜Ø[U›Ñœ˜[YKœÙ]˜XÚÙÜ›Ý[™ÛÛÜŠÛÛÜ‹“PÒÊNÂˆ\ÙX˜Ø[U›Ñœ˜[YKœÙ][JŠNÂˆ\ÙX˜Ø[U›Ñœ˜[YKœÙ]š\ÚXš[]JšY]Ë’S•’TÒP“JNÂˆ\ÙX˜Ø[U›Ñœ˜[YKœÙ]Û\Ú[™[ŠYJNÂˆ\ÙX˜Ø[U›Ñœ˜[YKœÙ]Û\ÔY[™ÊYJNÂˆ\ÙX˜Ø[U›Ñœ˜[YKœÙ][]˜][ÛŠ
+
+JNÂˆ\ÙX˜Ø[U›Ó^[Ý]H™]È“ÕšY[Ó^[Ý]
+\ÊNÂˆ\ÙX˜Ø[U›Ó^[Ý]œÙ]˜XÚÙÜ›Ý[™ÛÛÜŠÛÛÜ‹“PÒÊNÂˆ\ÙX˜Ø[U›Ñœ˜[YK˜YšY]Ê\ÙX˜Ø[U›Ó^[Ý]™]Èœ˜[YS^[Ý]“^[Ý]\˜[\ÊLKLJJNÂˆ[œÝ[ØÝ”Ý]\ÑÝ
+\ÙX˜Ø[U›Ñœ˜[YKJNÂˆ\ÙX˜Ø[T™Yœ™\Ú]ÛˆH™]È^šY]Ê\ÊNÂˆ\ÙX˜Ø[T™Yœ™\Ú]Û‹œÙ]^
+¸¡®È™Yœ™\ÚŠNÂˆ\ÙX˜Ø[T™Yœ™\Ú]Û‹œÙ]^ÛÛÜŠÛÛÜ‹•ÒUJNÂˆ\ÙX˜Ø[T™Yœ™\Ú]Û‹œÙ]^Ú^™JLŠNÂˆ\ÙX˜Ø[T™Yœ™\Ú]Û‹œÙ]\Y˜XÙJ[[™›ÚY™Ü˜\XÜË•\Y˜XÙK“Ó
+NÂˆ\ÙX˜Ø[T™Yœ™\Ú]Û‹œÙ]Ü˜]š]JÜ˜]š]KÑS•TŠNÂˆ\ÙX˜Ø[T™Yœ™\Ú]Û‹œÙ]Y[™Ê
+L
+K
+L
+K
+NÂˆ\ÙX˜Ø[T™Yœ™\Ú]Û‹œÙ]ÛÛ[\ØÜš\[ÛŠ”™XÛÛ›™XÝÈTÙX˜Ø[HŠNÂˆÜ˜YY[˜]ØX›H]Û˜XÚÙÜ›Ý[™H™]ÈÜ˜YY[˜]ØX›J
+NÂˆ]Û˜XÚÙÜ›Ý[™œÙ]ÛÛÜŠMŒMÍLÍJNÂˆ]Û˜XÚÙÜ›Ý[™œÙ]ÛÜ›™\”˜Y]\Ê
+
+JNÂˆ]Û˜XÚÙÜ›Ý[™œÙ]Ý›ÚÙJ
+JK‘‘PQPÊNÂˆ\ÙX˜Ø[T™Yœ™\Ú]Û‹œÙ]˜XÚÙÜ›Ý[™
+]Û˜XÚÙÜ›Ý[™
+NÂˆ\ÙX˜Ø[T™Yœ™\Ú]Û‹œÙ][]˜][ÛŠ
+ŠJNÂˆ\ÙX˜Ø[T™Yœ™\Ú]Û‹œÙ]ÛÛXÚÓ\Ý[™\ŠšY]ÈOˆ™XÛÛ›™XÝ\ÙX˜Ø[U›Ê
+JNÂˆœ˜[YS^[Ý]“^[Ý]\˜[\È]Û”\˜[\ÈH™]Èœ˜[YS^[Ý]“^[Ý]\˜[\ÊL‹
+ÍŠKÜ˜]š]K•ÔÜ˜]š]K”’QÒ
+NÂˆ]Û”\˜[\ËœÙ]X\™Ú[œÊ
+
+K
+
+K
+NÂˆ\ÙX˜Ø[U›Ñœ˜[YK˜YšY]Ê\ÙX˜Ø[T™Yœ™\Ú]Û‹]Û”\˜[\ÊNÂˆœ˜[YS^[Ý]“^[Ý]\˜[\È\˜[\ÈH™]Èœ˜[YS^[Ý]“^[Ý]\˜[\ÊÚYZYÚÜ˜]š]K•ÔÜ˜]š]K“Q•
+NÂˆ\˜[\Ë›YX\™Ú[ˆHYÂˆ\˜[\ËÜX\™Ú[ˆHÜÂˆ\›ÛÝ˜YšY]Ê\ÙX˜Ø[U›Ñœ˜[YK\˜[\ÊNÂˆYˆ
+XÝ]š]T™\Ý[YY
+HÝ\\ÙX˜Ø[U›Ê\ÙX˜Ø[U›Ó^[Ý]
+NÂˆH[ÙHÂˆœ˜[YS^[Ý]“^[Ý]\˜[\È\˜[\ÈH
+œ˜[YS^[Ý]“^[Ý]\˜[\ÊH\ÙX˜Ø[U›Ñœ˜[YK™Ù]^[Ý]\˜[\Ê
+NÂˆYˆ
+\˜[\ËÚYOHÚY\˜[\ËšZYÚOHZYÚ\˜[\Ë›YX\™Ú[ˆOHY\˜[\ËÜX\™Ú[ˆOHÜ
+HÂˆ\˜[\ËÚYHÚYÂˆ\˜[\ËšZYÚHZYÚÂˆ\˜[\Ë›YX\™Ú[ˆHYÂˆ\˜[\ËÜX\™Ú[ˆHÜÂˆ\ÙX˜Ø[U›Ñœ˜[YKœÙ]^[Ý]\˜[\Ê\˜[\ÊNÂˆBˆBˆYˆ
+ÚÝ[ÚÝÈOHØÝŒSÝ™\›^TÚÝÛŠHÂˆØÝŒSÝ™\›^TÚÝÛˆHÚÝ[ÚÝÎÂˆ\ÙX˜Ø[U›Ñœ˜[YK˜[š[X]J
+K˜Ø[˜Ù[
+
+NÂˆYˆ
+ÚÝ[ÚÝÊHÂˆ\ÙX˜Ø[U›Ñœ˜[YKœÙ][JŠNÂˆ\ÙX˜Ø[U›Ñœ˜[YKœÙ]š\ÚXš[]JšY]Ë•’TÒP“JNÂˆ\ÙX˜Ø[U›Ñœ˜[YK˜[š[X]J
+K˜[JYŠKœÙ]\˜][ÛŠN
+KœÝ\
+
+NÂˆH[ÙHYˆ
+ZÛYPXÝ]™JHÂˆ\ÙX˜Ø[U›Ñœ˜[YK˜[š[X]J
+K˜[JŠKœÙ]\˜][ÛŠN
+BˆÚ][™XÝ[ÛŠ
+
+HOˆÂˆYˆ
+XØÝŒSÝ™\›^TÚÝÛˆ	‰ˆ\ÙX˜Ø[U›Ñœ˜[YHOH[
+HÂˆ\ÙX˜Ø[U›Ñœ˜[YKœÙ]š\ÚXš[]JšY]Ë’S•’TÒP“JNÂˆBˆJKœÝ\
+
+NÂˆH[ÙHÂˆ\ÙX˜Ø[U›Ñœ˜[YK˜[š[X]J
+K˜Ø[˜Ù[
+
+NÂˆ\ÙX˜Ø[U›Ñœ˜[YKœÙ][JŠNÂˆ\ÙX˜Ø[U›Ñœ˜[YKœÙ]š\ÚXš[]JšY]Ë’S•’TÒP“JNÂˆBˆBˆHØ]Ú
+^Ù\[ÛˆYÛ›Ü™Y
+HÈBˆB‚ˆËÈ›[šÈ™YÚ[ˆ[˜XÝ]™H[™Ü™Y[ˆÛ›HÚ[HH“È^Y\ˆ™\ÜÈ^X˜XÚË‚ˆš]˜]Hš[˜[^šY]Ö×HØÝ”Ý]\ÑÝÈH™]È^šY]ÖÌ×NÂˆš]˜]Hš[˜[[›˜X›HØÝ”Ý]\Ô™Yœ™\ÚH™]È[›˜X›J
+HÂˆÝ™\œšYHX›XÈ›ÚY[Š
+HÂˆÜ™ËšY[Û[‹›X›Ë“YYXT^Y\–×H^Y\œÈHÚ\ÙX˜Ø[U›Ô^Y\‹\ÙX˜Ø[L•›Ô^Y\‹\ÙX˜Ø[LÕ›Ô^Y\ŸNÂˆ›Üˆ
+[HHÈH^Y\œË›[™ÝÈJÊÊHÂˆ^šY]ÈÝHØÝ”Ý]\ÑÝÖÚWNÂˆYˆ
+ÝOH[
+HÛÛ[YNÂˆ›ÛÛX[ˆ^Z[™ÈH˜[ÙNÂˆžHÈ^Z[™ÈH^Y\œÖÚWHOH[	‰ˆ^Y\œÖÚWKš\Ô^Z[™Ê
+NÈBˆØ]Ú
+^Ù\[ÛˆYÛ›Ü™Y
+HÈBˆÝœÙ]^ÛÛÜŠ^Z[™ÈÈÛÛÜ‹‘Ô‘QSˆˆ
+
+Þ\Ý[K˜Ý\œ™[[YSZ[\Ê
+HÈL
+H	HˆOHÈÛÛÜ‹”‘QˆÛÛÜ‹•S”ÔT‘S•
+JNÂˆÝœÙ]ÛÛ[\ØÜš\[ÛŠÐÕˆˆ
+È
+H
+ÈJH
+È
+^Z[™ÈÈˆXÝ]™Hˆˆˆ[˜XÝ]™HŠJNÂˆBˆXZ[’[™\‹œÜÝ[^YY
+\ËL
+NÂˆBˆNÂ‚ˆš]˜]H›ÚY[œÝ[ØÝ”Ý]\ÑÝ
+œ˜[YS^[Ý]œ˜[YK[Ø[Y\˜JHÂˆ^šY]ÈÝH™]È^šY]Ê\ÊNÂˆÝœÙ]^
+¸¥ãÈŠNÂˆÝœÙ]^Ú^™JNJNÂˆÝœÙ]^ÛÛÜŠÛÛÜ‹”‘Q
+NÂˆÝœÙ]ÛÛ[\ØÜš\[ÛŠÐÕˆˆ
+ÈØ[Y\˜H
+Èˆ[˜XÝ]™HŠNÂˆœ˜[YS^[Ý]“^[Ý]\˜[\È\˜[\ÈH™]Èœ˜[YS^[Ý]“^[Ý]\˜[\Ê
+Ì
+K
+Ì
+KÜ˜]š]K•ÔÜ˜]š]K“Q•
+NÂˆ\˜[\Ë›YX\™Ú[ˆH
+ÊNÂˆ\˜[\ËÜX\™Ú[ˆH
+JNÂˆœ˜[YK˜YšY]ÊÝ\˜[\ÊNÂˆÝ˜œš[™ÕÑœ›Û
+
+NÂˆ[™›ÚYšY]Ë˜[š[X][Û‹[P[š[X][Ûˆ›[šÈH™]È[™›ÚYšY]Ë˜[š[X][Û‹[P[š[X][ÛŠY‹ŒYŠNÂˆ›[šËœÙ]\˜][ÛŠL
+NÂˆ›[šËœÙ]™\X][ÙJ[™›ÚYšY]Ë˜[š[X][Û‹[š[X][Û‹”‘U‘T”ÑJNÂˆ›[šËœÙ]™\X]ÛÝ[
+[™›ÚYšY]Ë˜[š[X][Û‹[š[X][Û‹’S‘’S’UJNÂˆÝœÝ\[š[X][ÛŠ›[šÊNÂˆØÝ”Ý]\ÑÝÖØØ[Y\˜HHWHHÝÂˆXZ[’[™\‹œ™[[Ý™PØ[˜XÚÜÊØÝ”Ý]\Ô™Yœ™\Ú
+NÂˆXZ[’[™\‹œÜÝ
+ØÝ”Ý]\Ô™Yœ™\Ú
+NÂˆB‚ˆš]˜]H›ÚYÝ\\ÙX˜Ø[U›Ê“ÕšY[Ó^[Ý]šY[Ó^[Ý]
+HÂˆÝÜ\ÙX˜Ø[U›Ê
+NÂˆ\ÙX˜Ø[U›Ó^[Ý]HšY[Ó^[Ý]ÂˆžHÂˆ\œ˜^S\ÝÝš[™ÏˆÜ[ÛœÈH™]È\œ˜^S\ÝŠ
+NÂˆÜ[ÛœË˜Y
+‹K[›ËX]Y[ÈŠNÂˆÜ[ÛœË˜Y
+‹K[™]ÛÜšËXØXÚ[™ÏLLŠNÂˆÜ[ÛœË˜Y
+‹K[]™KXØXÚ[™ÏLLŠNÂˆ\ÙX˜Ø[U›ÈH™]ÈX•“Ê\ËÜ[ÛœÊNÂˆ\ÙX˜Ø[U›Ô^Y\ˆH™]ÈÜ™ËšY[Û[‹›X›Ë“YYXT^Y\Š\ÙX˜Ø[U›ÊNÂˆËÈ\ÙH^\™UšY]ÈÛÛ\ÜÚ][ÛˆÛÈ[™›ÚY[Ù[X[ÙÜÈØ[ˆÛÝ™\ˆ[™YBˆËÈH“ÈÝ\™˜XÙH[œÝXYÙˆHÝ\™˜XÙUšY]È^Y\ˆÝ^Z[™ÈÛˆÜ‚ˆ\ÙX˜Ø[U›Ô^Y\‹˜]XÚšY]ÜÊšY[Ó^[Ý][YK˜[ÙJNÂˆËÈTÙX˜Ø[HR”QÎˆ™XÛÛ›™XÝÛˆ“È^X˜XÚÈ˜Z[\™H˜]\ˆ[ˆX]š[™ÈH›XÚÈœ˜[YK‚ˆš[˜[Ü™ËšY[Û[‹›X›Ë“YYXT^Y\ˆÙ\ÜÚ[Û”^Y\ˆH\ÙX˜Ø[U›Ô^Y\ŽÂˆÙ\ÜÚ[Û”^Y\‹œÙ]]™[\Ý[™\Š]™[OˆÂˆYˆ
+]™[\HOHÜ™ËšY[Û[‹›X›Ë“YYXT^Y\‹‘]™[‘[˜ÛÝ[\™Y\œ›ÜŠHÂˆXZ[’[™\‹œÜÝ[^YY
+
+
+HOˆÂˆYˆ
+Z\Ñš[š\Ú[™Ê
+H	‰ˆXÝ]š]T™\Ý[YY	‰ˆ\ÙX˜Ø[U›Ô^Y\ˆOHÙ\ÜÚ[Û”^Y\‚ˆ	‰ˆ\ÙX˜Ø[U›Ó^[Ý]OHšY[Ó^[Ý]
+HÂˆÝ\\ÙX˜Ø[U›ÊšY[Ó^[Ý]
+NÂˆBˆKL
+NÂˆBˆJNÂˆYˆ
+ØÝ”Ý™X[U\›
+JKš\Ñ[\J
+JHÈÝÜ\ÙX˜Ø[U›Ê
+NÈ™]\›ŽÈBˆYYXHYYXHH™]ÈYYXJ\ÙX˜Ø[U›Ë\šKœ\œÙJØÝ”Ý™X[U\›
+JJJNÂˆYYXK˜YÜ[ÛŠŽ›™]ÛÜšËXØXÚ[™ÏLLŠNÂˆYYXK˜YÜ[ÛŠŽ›]™KXØXÚ[™ÏLLŠNÂˆ\ÙX˜Ø[U›Ô^Y\‹œÙ]YYXJYYXJNÂˆYYXKœ™[X\ÙJ
+NÂˆ\ÙX˜Ø[U›Ô^Y\‹œ^J
+NÂˆXZ[’[™\‹œ™[[Ý™PØ[˜XÚÜÊØÝŒTÛ˜\ÚÝXÚÙ\ŠNÂˆXZ[’[™\‹œÜÝ[^YY
+ØÝŒTÛ˜\ÚÝXÚÙ\‹ØÝ”Û˜\ÚÝ[\˜[Z[\ÊNÂˆHØ]Ú
+^Ù\[Ûˆ\œ›ÜŠHÂˆÝÜ\ÙX˜Ø[U›Ê
+NÂˆ^šY]ÈY\ÜØYÙHH™]È^šY]Ê\ÊNÂˆY\ÜØYÙKœÙ]^
+•“ÈÛÝ[›ÝÝ\\ÈÝ™X[HŠNÂˆY\ÜØYÙKœÙ]^ÛÛÜŠÛÛÜ‹•ÒUJNÂˆY\ÜØYÙKœÙ]Ü˜]š]JÜ˜]š]KÑS•TŠNÂˆYˆ
+šY[Ó^[Ý]™Ù]Ú[ÛÝ[
+
+HOH
+HšY[Ó^[Ý]˜YšY]ÊY\ÜØYÙKˆ™]Èœ˜[YS^[Ý]“^[Ý]\˜[\ÊLKLJJNÂˆBˆB‚ˆš]˜]H›ÚYÜÚ][ÛØÝŒ•›ÊÝš[™ÈÛÛÜ™[˜]\ÊHÂˆYˆ
+\›ÛÝOH[ÛÛÜ™[˜]\ÈOH[\Ñš[š\Ú[™Ê
+JH™]\›ŽÂˆžHÂˆÝš[™Ö×H˜[Y\ÈHÛÛÜ™[˜]\ËœÜ]
+‹ŠNÂˆYˆ
+˜[Y\Ë›[™ÝŠH™]\›ŽÂˆ›Ø][œÚ]HHÙ]™\ÛÝ\˜Ù\Ê
+K™Ù]\Ü^SY]šXÜÊ
+K™[œÚ]NÂˆ[YHX]œ›Ý[™
+›Ø]œ\œÙQ›Ø]
+˜[Y\ÖÌJH
+ˆ[œÚ]JNÂˆ[ÜHX]œ›Ý[™
+›Ø]œ\œÙQ›Ø]
+˜[Y\ÖÌWJH
+ˆ[œÚ]JNÂˆ[ÚYHX]œ›Ý[™
+›Ø]œ\œÙQ›Ø]
+˜[Y\ÖÌ—JH
+ˆ[œÚ]JNÂˆ[ZYÚHX]œ›Ý[™
+›Ø]œ\œÙQ›Ø]
+˜[Y\ÖÌ×JH
+ˆ[œÚ]JNÂˆ›ÛÛX[ˆÙ™œØÜ™Y[ˆHŒH‹™\]X[Ê˜[Y\ÖÍJNÂˆ›ÛÛX[ˆÛYPXÝ]™HHŒH‹™\]X[Ê˜[Y\ÖÍWJNÂˆ›ÛÛX[ˆÚÝ[ÚÝÈH[Ù™œØÜ™Y[ˆ	‰ˆÛYPXÝ]™H	‰ˆØÝ•›Ñ™YYÐ[ÝÙYÛXÝ]™TØÜ™Y[ŽÂˆYˆ
+ÚYHZYÚH
+H™]\›ŽÂ‚ˆYˆ
+\ÙX˜Ø[L•›Ñœ˜[YHOH[
+HÂˆ\ÙX˜Ø[L•›Ñœ˜[YHH™]Èœ˜[YS^[Ý]
+\ÊNÂˆ\ÙX˜Ø[L•›Ñœ˜[YKœÙ]˜XÚÙÜ›Ý[™ÛÛÜŠÛÛÜ‹“PÒÊNÂˆ\ÙX˜Ø[L•›Ñœ˜[YKœÙ][JŠNÂˆ\ÙX˜Ø[L•›Ñœ˜[YKœÙ]š\ÚXš[]JšY]Ë’S•’TÒP“JNÂˆ\ÙX˜Ø[L•›Ñœ˜[YKœÙ]Û\Ú[™[ŠYJNÂˆ\ÙX˜Ø[L•›Ñœ˜[YKœÙ]Û\ÔY[™ÊYJNÂˆ\ÙX˜Ø[L•›Ñœ˜[YKœÙ][]˜][ÛŠ
+
+JNÂˆ\ÙX˜Ø[L•›Ó^[Ý]H™]È“ÕšY[Ó^[Ý]
+\ÊNÂˆ\ÙX˜Ø[L•›Ó^[Ý]œÙ]˜XÚÙÜ›Ý[™ÛÛÜŠÛÛÜ‹“PÒÊNÂˆ\ÙX˜Ø[L•›Ñœ˜[YK˜YšY]Ê\ÙX˜Ø[L•›Ó^[Ý]™]Èœ˜[YS^[Ý]“^[Ý]\˜[\ÊLKLJJNÂˆ[œÝ[ØÝ”Ý]\ÑÝ
+\ÙX˜Ø[L•›Ñœ˜[YKŠNÂˆ\ÙX˜Ø[L”™Yœ™\Ú]ÛˆH™]È^šY]Ê\ÊNÂˆ\ÙX˜Ø[L”™Yœ™\Ú]Û‹œÙ]^
+¸¡®È™Yœ™\ÚŠNÂˆ\ÙX˜Ø[L”™Yœ™\Ú]Û‹œÙ]^ÛÛÜŠÛÛÜ‹•ÒUJNÂˆ\ÙX˜Ø[L”™Yœ™\Ú]Û‹œÙ]^Ú^™JLŠNÂˆ\ÙX˜Ø[L”™Yœ™\Ú]Û‹œÙ]\Y˜XÙJ[[™›ÚY™Ü˜\XÜË•\Y˜XÙK“Ó
+NÂˆ\ÙX˜Ø[L”™Yœ™\Ú]Û‹œÙ]Ü˜]š]JÜ˜]š]KÑS•TŠNÂˆ\ÙX˜Ø[L”™Yœ™\Ú]Û‹œÙ]Y[™Ê
+L
+K
+L
+K
+NÂˆ\ÙX˜Ø[L”™Yœ™\Ú]Û‹œÙ]ÛÛ[\ØÜš\[ÛŠ”™XÛÛ›™XÝÈÐÕŒˆTÙX˜Ø[HŠNÂˆÜ˜YY[˜]ØX›H]Û˜XÚÙÜ›Ý[™H™]ÈÜ˜YY[˜]ØX›J
+NÂˆ]Û˜XÚÙÜ›Ý[™œÙ]ÛÛÜŠMŒMÍLÍJNÂˆ]Û˜XÚÙÜ›Ý[™œÙ]ÛÜ›™\”˜Y]\Ê
+
+JNÂˆ]Û˜XÚÙÜ›Ý[™œÙ]Ý›ÚÙJ
+JK‘‘PQPÊNÂˆ\ÙX˜Ø[L”™Yœ™\Ú]Û‹œÙ]˜XÚÙÜ›Ý[™
+]Û˜XÚÙÜ›Ý[™
+NÂˆ\ÙX˜Ø[L”™Yœ™\Ú]Û‹œÙ][]˜][ÛŠ
+ŠJNÂˆ\ÙX˜Ø[L”™Yœ™\Ú]Û‹œÙ]ÛÛXÚÓ\Ý[™\ŠšY]ÈOˆ™XÛÛ›™XÝØÝŒ•›Ê
+JNÂˆœ˜[YS^[Ý]“^[Ý]\˜[\È]Û”\˜[\ÈH™]Èœ˜[YS^[Ý]“^[Ý]\˜[\ÊL‹
+ÍŠKÜ˜]š]K•ÔÜ˜]š]K”’QÒ
+NÂˆ]Û”\˜[\ËœÙ]X\™Ú[œÊ
+
+K
+
+K
+NÂˆ\ÙX˜Ø[L•›Ñœ˜[YK˜YšY]Ê\ÙX˜Ø[L”™Yœ™\Ú]Û‹]Û”\˜[\ÊNÂˆœ˜[YS^[Ý]“^[Ý]\˜[\È\˜[\ÈH™]Èœ˜[YS^[Ý]“^[Ý]\˜[\ÊÚYZYÚÜ˜]š]K•ÔÜ˜]š]K“Q•
+NÂˆ\˜[\Ë›YX\™Ú[ˆHYÂˆ\˜[\ËÜX\™Ú[ˆHÜÂˆ\›ÛÝ˜YšY]Ê\ÙX˜Ø[L•›Ñœ˜[YK\˜[\ÊNÂˆYˆ
+XÝ]š]T™\Ý[YY
+HÝ\ØÝŒ•›Ê\ÙX˜Ø[L•›Ó^[Ý]
+NÂˆH[ÙHÂˆœ˜[YS^[Ý]“^[Ý]\˜[\È\˜[\ÈH
+œ˜[YS^[Ý]“^[Ý]\˜[\ÊH\ÙX˜Ø[L•›Ñœ˜[YK™Ù]^[Ý]\˜[\Ê
+NÂˆYˆ
+\˜[\ËÚYOHÚY\˜[\ËšZYÚOHZYÚ\˜[\Ë›YX\™Ú[ˆOHY\˜[\ËÜX\™Ú[ˆOHÜ
+HÂˆ\˜[\ËÚYHÚYÂˆ\˜[\ËšZYÚHZYÚÂˆ\˜[\Ë›YX\™Ú[ˆHYÂˆ\˜[\ËÜX\™Ú[ˆHÜÂˆ\ÙX˜Ø[L•›Ñœ˜[YKœÙ]^[Ý]\˜[\Ê\˜[\ÊNÂˆBˆBˆYˆ
+ÚÝ[ÚÝÈOHØÝŒ“Ý™\›^TÚÝÛŠHÂˆØÝŒ“Ý™\›^TÚÝÛˆHÚÝ[ÚÝÎÂˆ\ÙX˜Ø[L•›Ñœ˜[YK˜[š[X]J
+K˜Ø[˜Ù[
+
+NÂˆYˆ
+ÚÝ[ÚÝÊHÂˆ\ÙX˜Ø[L•›Ñœ˜[YKœÙ][JŠNÂˆ\ÙX˜Ø[L•›Ñœ˜[YKœÙ]š\ÚXš[]JšY]Ë•’TÒP“JNÂˆ\ÙX˜Ø[L•›Ñœ˜[YK˜[š[X]J
+K˜[JYŠKœÙ]\˜][ÛŠN
+KœÝ\
+
+NÂˆH[ÙHYˆ
+ZÛYPXÝ]™JHÂˆ\ÙX˜Ø[L•›Ñœ˜[YK˜[š[X]J
+K˜[JŠKœÙ]\˜][ÛŠN
+BˆÚ][™XÝ[ÛŠ
+
+HOˆÂˆYˆ
+XØÝŒ“Ý™\›^TÚÝÛˆ	‰ˆ\ÙX˜Ø[L•›Ñœ˜[YHOH[
+HÂˆ\ÙX˜Ø[L•›Ñœ˜[YKœÙ]š\ÚXš[]JšY]Ë’S•’TÒP“JNÂˆBˆJKœÝ\
+
+NÂˆH[ÙHÂˆ\ÙX˜Ø[L•›Ñœ˜[YK˜[š[X]J
+K˜Ø[˜Ù[
+
+NÂˆ\ÙX˜Ø[L•›Ñœ˜[YKœÙ][JŠNÂˆ\ÙX˜Ø[L•›Ñœ˜[YKœÙ]š\ÚXš[]JšY]Ë’S•’TÒP“JNÂˆBˆBˆHØ]Ú
+^Ù\[ÛˆYÛ›Ü™Y
+HÈBˆB‚ˆš]˜]H›ÚYÜÚ][ÛØÝŒÕ›ÊÝš[™ÈÛÛÜ™[˜]\ÊHÂˆYˆ
+\›ÛÝOH[ÛÛÜ™[˜]\ÈOH[\Ñš[š\Ú[™Ê
+JH™]\›ŽÂˆžHÂˆÝš[™Ö×H˜[Y\ÈHÛÛÜ™[˜]\ËœÜ]
+‹ŠNÂˆYˆ
+˜[Y\Ë›[™ÝŠH™]\›ŽÂˆ›Ø][œÚ]HHÙ]™\ÛÝ\˜Ù\Ê
+K™Ù]\Ü^SY]šXÜÊ
+K™[œÚ]NÂˆ[YHX]œ›Ý[™
+›Ø]œ\œÙQ›Ø]
+˜[Y\ÖÌJH
+ˆ[œÚ]JNÂˆ[ÜHX]œ›Ý[™
+›Ø]œ\œÙQ›Ø]
+˜[Y\ÖÌWJH
+ˆ[œÚ]JNÂˆ[ÚYHX]œ›Ý[™
+›Ø]œ\œÙQ›Ø]
+˜[Y\ÖÌ—JH
+ˆ[œÚ]JNÂˆ[ZYÚHX]œ›Ý[™
+›Ø]œ\œÙQ›Ø]
+˜[Y\ÖÌ×JH
+ˆ[œÚ]JNÂˆ›ÛÛX[ˆÙ™œØÜ™Y[ˆHŒH‹™\]X[Ê˜[Y\ÖÍJNÂˆ›ÛÛX[ˆÛYPXÝ]™HHŒH‹™\]X[Ê˜[Y\ÖÍWJNÂˆ›ÛÛX[ˆÚÝ[ÚÝÈH[Ù™œØÜ™Y[ˆ	‰ˆÛYPXÝ]™H	‰ˆØÝ•›Ñ™YYÐ[ÝÙYÛXÝ]™TØÜ™Y[ŽÂˆYˆ
+ÚYHZYÚH
+H™]\›ŽÂ‚ˆYˆ
+\ÙX˜Ø[LÕ›Ñœ˜[YHOH[
+HÂˆ\ÙX˜Ø[LÕ›Ñœ˜[YHH™]Èœ˜[YS^[Ý]
+\ÊNÂˆ\ÙX˜Ø[LÕ›Ñœ˜[YKœÙ]˜XÚÙÜ›Ý[™ÛÛÜŠÛÛÜ‹“PÒÊNÂˆ\ÙX˜Ø[LÕ›Ñœ˜[YKœÙ][JŠNÂˆ\ÙX˜Ø[LÕ›Ñœ˜[YKœÙ]š\ÚXš[]JšY]Ë’S•’TÒP“JNÂˆ\ÙX˜Ø[LÕ›Ñœ˜[YKœÙ]Û\Ú[™[ŠYJNÂˆ\ÙX˜Ø[LÕ›Ñœ˜[YKœÙ]Û\ÔY[™ÊYJNÂˆ\ÙX˜Ø[LÕ›Ñœ˜[YKœÙ][]˜][ÛŠ
+
+JNÂˆ\ÙX˜Ø[LÕ›Ó^[Ý]H™]È“ÕšY[Ó^[Ý]
+\ÊNÂˆ\ÙX˜Ø[LÕ›Ó^[Ý]œÙ]˜XÚÙÜ›Ý[™ÛÛÜŠÛÛÜ‹“PÒÊNÂˆ\ÙX˜Ø[LÕ›Ñœ˜[YK˜YšY]Ê\ÙX˜Ø[LÕ›Ó^[Ý]™]Èœ˜[YS^[Ý]“^[Ý]\˜[\ÊLKLJJNÂˆ[œÝ[ØÝ”Ý]\ÑÝ
+\ÙX˜Ø[LÕ›Ñœ˜[YKÊNÂˆ\ÙX˜Ø[LÔ™Yœ™\Ú]ÛˆH™]È^šY]Ê\ÊNÂˆ\ÙX˜Ø[LÔ™Yœ™\Ú]Û‹œÙ]^
+¸¡®È™Yœ™\ÚŠNÂˆ\ÙX˜Ø[LÔ™Yœ™\Ú]Û‹œÙ]^ÛÛÜŠÛÛÜ‹•ÒUJNÂˆ\ÙX˜Ø[LÔ™Yœ™\Ú]Û‹œÙ]^Ú^™JLŠNÂˆ\ÙX˜Ø[LÔ™Yœ™\Ú]Û‹œÙ]\Y˜XÙJ[[™›ÚY™Ü˜\XÜË•\Y˜XÙK“Ó
+NÂˆ\ÙX˜Ø[LÔ™Yœ™\Ú]Û‹œÙ]Ü˜]š]JÜ˜]š]KÑS•TŠNÂˆ\ÙX˜Ø[LÔ™Yœ™\Ú]Û‹œÙ]Y[™Ê
+L
+K
+L
+K
+NÂˆ\ÙX˜Ø[LÔ™Yœ™\Ú]Û‹œÙ]ÛÛ[\ØÜš\[ÛŠ”™XÛÛ›™XÝÈ’QÒHÐÕŒÈŠNÂˆÜ˜YY[˜]ØX›H]Û˜XÚÙÜ›Ý[™H™]ÈÜ˜YY[˜]ØX›J
+NÂˆ]Û˜XÚÙÜ›Ý[™œÙ]ÛÛÜŠMŒMÍLÍJNÂˆ]Û˜XÚÙÜ›Ý[™œÙ]ÛÜ›™\”˜Y]\Ê
+
+JNÂˆ]Û˜XÚÙÜ›Ý[™œÙ]Ý›ÚÙJ
+JK‘‘PQPÊNÂˆ\ÙX˜Ø[LÔ™Yœ™\Ú]Û‹œÙ]˜XÚÙÜ›Ý[™
+]Û˜XÚÙÜ›Ý[™
+NÂˆ\ÙX˜Ø[LÔ™Yœ™\Ú]Û‹œÙ][]˜][ÛŠ
+ŠJNÂˆ\ÙX˜Ø[LÔ™Yœ™\Ú]Û‹œÙ]ÛÛXÚÓ\Ý[™\ŠšY]ÈOˆ™XÛÛ›™XÝØÝŒÕ›Ê
+JNÂˆœ˜[YS^[Ý]“^[Ý]\˜[\È]Û”\˜[\ÈH™]Èœ˜[YS^[Ý]“^[Ý]\˜[\ÊL‹
+ÍŠKÜ˜]š]K•ÔÜ˜]š]K”’QÒ
+NÂˆ]Û”\˜[\ËœÙ]X\™Ú[œÊ
+
+K
+
+K
+NÂˆ\ÙX˜Ø[LÕ›Ñœ˜[YK˜YšY]Ê\ÙX˜Ø[LÔ™Yœ™\Ú]Û‹]Û”\˜[\ÊNÂˆœ˜[YS^[Ý]“^[Ý]\˜[\È\˜[\ÈH™]Èœ˜[YS^[Ý]“^[Ý]\˜[\ÊÚYZYÚÜ˜]š]K•ÔÜ˜]š]K“Q•
+NÂˆ\˜[\Ë›YX\™Ú[ˆHYÂˆ\˜[\ËÜX\™Ú[ˆHÜÂˆ\›ÛÝ˜YšY]Ê\ÙX˜Ø[LÕ›Ñœ˜[YK\˜[\ÊNÂˆYˆ
+XÝ]š]T™\Ý[YY
+HÝ\šYÚPØÝŒÕ›Ê\ÙX˜Ø[LÕ›Ó^[Ý]
+NÂˆH[ÙHÂˆœ˜[YS^[Ý]“^[Ý]\˜[\È\˜[\ÈH
+œ˜[YS^[Ý]“^[Ý]\˜[\ÊH\ÙX˜Ø[LÕ›Ñœ˜[YK™Ù]^[Ý]\˜[\Ê
+NÂˆYˆ
+\˜[\ËÚYOHÚY\˜[\ËšZYÚOHZYÚ\˜[\Ë›YX\™Ú[ˆOHY\˜[\ËÜX\™Ú[ˆOHÜ
+HÂˆ\˜[\ËÚYHÚYÂˆ\˜[\ËšZYÚHZYÚÂˆ\˜[\Ë›YX\™Ú[ˆHYÂˆ\˜[\ËÜX\™Ú[ˆHÜÂˆ\ÙX˜Ø[LÕ›Ñœ˜[YKœÙ]^[Ý]\˜[\Ê\˜[\ÊNÂˆBˆBˆYˆ
+ÚÝ[ÚÝÈOHØÝŒÓÝ™\›^TÚÝÛŠHÂˆØÝŒÓÝ™\›^TÚÝÛˆHÚÝ[ÚÝÎÂˆ\ÙX˜Ø[LÕ›Ñœ˜[YK˜[š[X]J
+K˜Ø[˜Ù[
+
+NÂˆYˆ
+ÚÝ[ÚÝÊHÂˆ\ÙX˜Ø[LÕ›Ñœ˜[YKœÙ][JŠNÂˆ\ÙX˜Ø[LÕ›Ñœ˜[YKœÙ]š\ÚXš[]JšY]Ë•’TÒP“JNÂˆ\ÙX˜Ø[LÕ›Ñœ˜[YK˜[š[X]J
+K˜[JYŠKœÙ]\˜][ÛŠN
+KœÝ\
+
+NÂˆH[ÙHYˆ
+ZÛYPXÝ]™JHÂˆ\ÙX˜Ø[LÕ›Ñœ˜[YK˜[š[X]J
+K˜[JŠKœÙ]\˜][ÛŠN
+BˆÚ][™XÝ[ÛŠ
+
+HOˆÂˆYˆ
+XØÝŒÓÝ™\›^TÚÝÛˆ	‰ˆ\ÙX˜Ø[LÕ›Ñœ˜[YHOH[
+HÂˆ\ÙX˜Ø[LÕ›Ñœ˜[YKœÙ]š\ÚXš[]JšY]Ë’S•’TÒP“JNÂˆBˆJKœÝ\
+
+NÂˆH[ÙHÂˆ\ÙX˜Ø[LÕ›Ñœ˜[YK˜[š[X]J
+K˜Ø[˜Ù[
+
+NÂˆ\ÙX˜Ø[LÕ›Ñœ˜[YKœÙ][JŠNÂˆ\ÙX˜Ø[LÕ›Ñœ˜[YKœÙ]š\ÚXš[]JšY]Ë’S•’TÒP“JNÂˆBˆBˆHØ]Ú
+^Ù\[ÛˆYÛ›Ü™Y
+HÈBˆB‚ˆš]˜]H›ÚYÝ\ØÝŒ•›Ê“ÕšY[Ó^[Ý]šY[Ó^[Ý]
+HÂˆÝÜØÝŒ•›Ê
+NÂˆ\ÙX˜Ø[L•›Ó^[Ý]HšY[Ó^[Ý]ÂˆžHÂˆ\œ˜^S\ÝÝš[™ÏˆÜ[ÛœÈH™]È\œ˜^S\ÝŠ
+NÂˆÜ[ÛœË˜Y
+‹K[›ËX]Y[ÈŠNÂˆÜ[ÛœË˜Y
+‹K[™]ÛÜšËXØXÚ[™ÏLLŠNÂˆÜ[ÛœË˜Y
+‹K[]™KXØXÚ[™ÏLLŠNÂˆ\ÙX˜Ø[L•›ÈH™]ÈX•“Ê\ËÜ[ÛœÊNÂˆ\ÙX˜Ø[L•›Ô^Y\ˆH™]ÈÜ™ËšY[Û[‹›X›Ë“YYXT^Y\Š\ÙX˜Ø[L•›ÊNÂˆËÈX]ÚÐÕŒHÛÈ\È™YY™\ÜXÝÈHØ[YH\ÝÚ[™ÝÈ^Y\š[™Ë‚ˆ\ÙX˜Ø[L•›Ô^Y\‹˜]XÚšY]ÜÊšY[Ó^[Ý][YK˜[ÙJNÂˆËÈTÙX˜Ø[HR”QÎˆ™XÛÛ›™XÝÛˆ“È^X˜XÚÈ˜Z[\™H˜]\ˆ[ˆX]š[™ÈH›XÚÈœ˜[YK‚ˆš[˜[Ü™ËšY[Û[‹›X›Ë“YYXT^Y\ˆÙ\ÜÚ[Û”^Y\ˆH\ÙX˜Ø[L•›Ô^Y\ŽÂˆÙ\ÜÚ[Û”^Y\‹œÙ]]™[\Ý[™\Š]™[OˆÂˆYˆ
+]™[\HOHÜ™ËšY[Û[‹›X›Ë“YYXT^Y\‹‘]™[‘[˜ÛÝ[\™Y\œ›ÜŠHÂˆXZ[’[™\‹œÜÝ[^YY
+
+
+HOˆÂˆYˆ
+Z\Ñš[š\Ú[™Ê
+H	‰ˆXÝ]š]T™\Ý[YY	‰ˆ\ÙX˜Ø[L•›Ô^Y\ˆOHÙ\ÜÚ[Û”^Y\‚ˆ	‰ˆ\ÙX˜Ø[L•›Ó^[Ý]OHšY[Ó^[Ý]
+HÂˆÝ\ØÝŒ•›ÊšY[Ó^[Ý]
+NÂˆBˆKL
+NÂˆBˆJNÂˆÝš[™È›Ý]HHØÝ”Ý™X[U\›
+ŠNÂˆYˆ
+›Ý]Kš\Ñ[\J
+JHÈÝÜØÝŒ•›Ê
+NÈ™]\›ŽÈBˆYˆ
+\Ù\”Ý™X[S[ÙH	‰ˆ
+›Ý]KœÝ\ÕÚ]
+œÜ‹ËÈŠH›Ý]KœÝ\ÕÚ]
+œÜÎ‹ËÈŠJJHÂˆÝš[™Ö×HÜ™Y[X[ÈHšYÚPØÝŒÐÜ™Y[X[Ê
+NÂˆYˆ
+Ü™Y[X[ÖÌKš\Ñ[\J
+HÜ™Y[X[ÖÌWKš\Ñ[\J
+JHÂˆÝÜØÝŒ•›Ê
+NÂˆ›Û\›Ü\ÜÚYÛ™YšYÚPØÝŒÜ™Y[X[Ê
+NÂˆ™]\›ŽÂˆBˆ[ØÚ[YQ[™H›Ý]Kš[™^ÙŠŽ‹ËÈŠH
+ÈÎÂˆYˆ
+\›Ý]KœÝXœÝš[™ÊØÚ[YQ[™
+KœÜ]
+‹È‹ŠVÌK˜ÛÛZ[œÊŠJHÂˆ›Ý]HH›Ý]KœÝXœÝš[™ÊØÚ[YQ[™
+JÕ\šK™[˜ÛÙJÜ™Y[X[ÖÌJJÈŽˆŠÕ\šK™[˜ÛÙJÜ™Y[X[ÖÌWJJÈŠÜ›Ý]KœÝXœÝš[™ÊØÚ[YQ[™
+NÂˆBˆBˆYYXHYYXHH™]ÈYYXJ\ÙX˜Ø[L•›Ë\šKœ\œÙJ›Ý]JJNÂˆYYXK˜YÜ[ÛŠŽ›™]ÛÜšËXØXÚ[™ÏLLŠNÂˆYYXK˜YÜ[ÛŠŽ›]™KXØXÚ[™ÏLLŠNÂˆ\ÙX˜Ø[L•›Ô^Y\‹œÙ]YYXJYYXJNÂˆYYXKœ™[X\ÙJ
+NÂˆ\ÙX˜Ø[L•›Ô^Y\‹œ^J
+NÂˆXZ[’[™\‹œ™[[Ý™PØ[˜XÚÜÊØÝŒ”Û˜\ÚÝXÚÙ\ŠNÂˆXZ[’[™\‹œÜÝ[^YY
+ØÝŒ”Û˜\ÚÝXÚÙ\‹™^Û˜\ÚÝÚXÚÑ[^JŠJNÂˆHØ]Ú
+^Ù\[Ûˆ\œ›ÜŠHÂˆÝÜØÝŒ•›Ê
+NÂˆ^šY]ÈY\ÜØYÙHH™]È^šY]Ê\ÊNÂˆY\ÜØYÙKœÙ]^
+•“ÈÛÝ[›ÝÝ\HÐÕŒˆÝ™X[HŠNÂˆY\ÜØYÙKœÙ]^ÛÛÜŠÛÛÜ‹•ÒUJNÂˆY\ÜØYÙKœÙ]Ü˜]š]JÜ˜]š]KÑS•TŠNÂˆYˆ
+šY[Ó^[Ý]™Ù]Ú[ÛÝ[
+
+HOH
+HšY[Ó^[Ý]˜YšY]ÊY\ÜØYÙKˆ™]Èœ˜[YS^[Ý]“^[Ý]\˜[\ÊLKLJJNÂˆBˆB‚ˆš]˜]H›ÚY™XÛÛ›™XÝØÝŒ•›Ê
+HÂˆYˆ
+\Ñš[š\Ú[™Ê
+HXXÝ]š]T™\Ý[YY
+H™]\›ŽÂˆ“ÕšY[Ó^[Ý]šY[Ó^[Ý]H\ÙX˜Ø[L•›Ó^[Ý]ÂˆYˆ
+šY[Ó^[Ý]OH[
+HÂˆ[œÝ[ØÝŒU›ÔÜÚ][Û“\Ý[™\Š
+NÂˆ™]\›ŽÂˆBˆÝÜØÝŒ•›Ê
+NÂˆYˆ
+\ÙX˜Ø[L”™Yœ™\Ú]ÛˆOH[
+HÂˆ\ÙX˜Ø[L”™Yœ™\Ú]Û‹œÙ][˜X›Y
+˜[ÙJNÂˆ\ÙX˜Ø[L”™Yœ™\Ú]Û‹œÙ][JYŠNÂˆBˆØ\Ý›XZÙU^
+\Ë”™XÛÛ›™XÝ[™ÈÈÐÕŒˆTÙX˜Ø[x )ˆ‹Ø\Ý“S‘ÕÔÒÔ•
+KœÚÝÊ
+NÂˆXZ[’[™\‹œÜÝ[^YY
+
+
+HOˆÂˆYˆ
+\Ñš[š\Ú[™Ê
+HXXÝ]š]T™\Ý[YY\ÙX˜Ø[L•›Ó^[Ý]OHšY[Ó^[Ý]
+H™]\›ŽÂˆÝ\ØÝŒ•›ÊšY[Ó^[Ý]
+NÂˆYˆ
+\ÙX˜Ø[L”™Yœ™\Ú]ÛˆOH[
+HÂˆ\ÙX˜Ø[L”™Yœ™\Ú]Û‹œÙ][˜X›Y
+YJNÂˆ\ÙX˜Ø[L”™Yœ™\Ú]Û‹œÙ][JYŠNÂˆBˆKL
+NÂˆB‚ˆš]˜]H›ÚYÝÜØÝŒ•›Ê
+HÂˆXZ[’[™\‹œ™[[Ý™PØ[˜XÚÜÊØÝŒ”Û˜\ÚÝXÚÙ\ŠNÂˆYˆ
+\ÙX˜Ø[L•›Ô^Y\ˆOH[
+HÂˆžHÈ\ÙX˜Ø[L•›Ô^Y\‹œÝÜ
+
+NÈHØ]Ú
+^Ù\[ÛˆYÛ›Ü™Y
+HÈBˆžHÈ\ÙX˜Ø[L•›Ô^Y\‹™]XÚšY]ÜÊ
+NÈHØ]Ú
+^Ù\[ÛˆYÛ›Ü™Y
+HÈBˆ\ÙX˜Ø[L•›Ô^Y\‹œ™[X\ÙJ
+NÂˆ\ÙX˜Ø[L•›Ô^Y\ˆH[ÂˆBˆYˆ
+\ÙX˜Ø[L•›ÈOH[
+HÂˆ\ÙX˜Ø[L•›Ëœ™[X\ÙJ
+NÂˆ\ÙX˜Ø[L•›ÈH[ÂˆBˆB‚ˆš]˜]H›ÚYÝ\šYÚPØÝŒÕ›Ê“ÕšY[Ó^[Ý]šY[Ó^[Ý]
+HÂˆÝÜØÝŒÕ›Ê
+NÂˆ\ÙX˜Ø[LÕ›Ó^[Ý]HšY[Ó^[Ý]ÂˆYˆ
+\Ù\”Ý™X[S[ÙJHÂˆÝš[™È›Ý]HHØÝ”Ý™X[U\›
+ÊNÂˆYˆ
+›Ý]HOH[›Ý]Kš\Ñ[\J
+JHÈÝÜØÝŒÕ›Ê
+NÈ™]\›ŽÈBˆËÈ\ÜÚYÛ™Y•Ô™YYÈ]\Ý™\]Y\ÝØ[Y\˜HÜ™Y[X[È]ÛÛ›™XÝ[Ûˆ[YK‚ˆËÈ™]™\ˆ\œÚ\ÝHØ[Y\˜H\ÜÝÛÜ™[ˆš\™X˜\ÙHÜˆ[X™Y][ˆHÙË‚ˆYˆ
+›Ý]KœÝ\ÕÚ]
+œÜ‹ËÈŠH›Ý]KœÝ\ÕÚ]
+œÜÎ‹ËÈŠJHÂˆÝš[™Ö×HÜ™Y[X[ÈHšYÚPØÝŒÐÜ™Y[X[Ê
+NÂˆYˆ
+Ü™Y[X[ÖÌKš\Ñ[\J
+HÜ™Y[X[ÖÌWKš\Ñ[\J
+HØÝŒÐÜ™Y[X[Ô™Z™XÝY
+HÂˆÚÝÐØÝŒÕšYÚSY\ÜØYÙJšY[Ó^[Ý]‘[\ˆ’QÒHÜ™Y[X[ÈÈÛÛ›™XÝŠNÂˆ›Û\›ÜØÝŒÕšYÚPÜ™Y[X[Ê
+NÂˆ™]\›ŽÂˆBˆYˆ
+\›Ý]KœÝXœÝš[™Ê›Ý]Kš[™^ÙŠŽ‹ËÈŠH
+ÈÊKœÜ]
+‹È‹ŠVÌK˜ÛÛZ[œÊŠJHÂˆ[ØÚ[YQ[™H›Ý]Kš[™^ÙŠŽ‹ËÈŠH
+ÈÎÂˆ›Ý]HH›Ý]KœÝXœÝš[™ÊØÚ[YQ[™
+Bˆ
+È\šK™[˜ÛÙJÜ™Y[X[ÖÌJH
+ÈŽˆˆ
+È\šK™[˜ÛÙJÜ™Y[X[ÖÌWJH
+È‚ˆ
+È›Ý]KœÝXœÝš[™ÊØÚ[YQ[™
+NÂˆBˆBˆžHÂˆ\œ˜^S\ÝÝš[™ÏˆÜ[ÛœÈH™]È\œ˜^S\ÝŠ
+NÂˆÜ[ÛœË˜Y
+‹K[›ËX]Y[ÈŠNÈÜ[ÛœË˜Y
+‹K[™]ÛÜšËXØXÚ[™ÏLÍLŠNÂˆ\ÙX˜Ø[LÕ›ÈH™]ÈX•“Ê\ËÜ[ÛœÊNÂˆ\ÙX˜Ø[LÕ›Ô^Y\ˆH™]ÈÜ™ËšY[Û[‹›X›Ë“YYXT^Y\Š\ÙX˜Ø[LÕ›ÊNÂˆ\ÙX˜Ø[LÕ›Ô^Y\‹˜]XÚšY]ÜÊšY[Ó^[Ý][YK˜[ÙJNÂˆYYXHYYXHH™]ÈYYXJ\ÙX˜Ø[LÕ›Ë\šKœ\œÙJ›Ý]JJNÂˆYYXK˜YÜ[ÛŠŽ›™]ÛÜšËXØXÚ[™ÏLÍLŠNÂˆ\ÙX˜Ø[LÕ›Ô^Y\‹œÙ]YYXJYYXJNÈYYXKœ™[X\ÙJ
+NÈ\ÙX˜Ø[LÕ›Ô^Y\‹œ^J
+NÂˆHØ]Ú
+^Ù\[Ûˆ\œ›ÜŠHÈÝÜØÝŒÕ›Ê
+NÈBˆ™]\›ŽÂˆBˆÝš[™È\HØÝ’\
+ÊNÂˆÝš[™Ö×HÜ™Y[X[ÈHšYÚPØÝŒÐÜ™Y[X[Ê
+NÂˆ›Üˆ
+[HHšY[Ó^[Ý]™Ù]Ú[ÛÝ[
+
+HHNÈHHÈKKJHÂˆšY]ÈÚ[HšY[Ó^[Ý]™Ù]Ú[]
+JNÂˆYˆ
+Ú[[œÝ[˜Ù[Ùˆ^šY]ÊHšY[Ó^[Ý]œ™[[Ý™UšY]Ð]
+JNÂˆBˆYˆ
+\š\Ñ[\J
+JHÂˆÚÝÐØÝŒÕšYÚSY\ÜØYÙJšY[Ó^[Ý]”Ù]HÐÕŒÈ’QÒHTY™\ÜÈ[ˆÙ][™ÜÈŠNÂˆ™]\›ŽÂˆBˆYˆ
+Ü™Y[X[ÖÌKš\Ñ[\J
+HÜ™Y[X[ÖÌWKš\Ñ[\J
+HØÝŒÐÜ™Y[X[Ô™Z™XÝY
+HÂˆÚÝÐØÝŒÕšYÚSY\ÜØYÙJšY[Ó^[Ý]‘[\ˆH’QÒHØ[Y\˜HXØÛÝ[ÈÛÛ›™XÝŠNÂˆ›Û\›ÜØÝŒÕšYÚPÜ™Y[X[Ê
+NÂˆ™]\›ŽÂˆBˆžHÂˆ\œ˜^S\ÝÝš[™ÏˆÜ[ÛœÈH™]È\œ˜^S\ÝŠ
+NÂˆÜ[ÛœË˜Y
+‹K[›ËX]Y[ÈŠNÂˆÜ[ÛœË˜Y
+‹K[™]ÛÜšËXØXÚ[™ÏMLŠNÂˆÜ[ÛœË˜Y
+‹K[]™KXØXÚ[™ÏMLŠNÂˆ\ÙX˜Ø[LÕ›ÈH™]ÈX•“Ê\ËÜ[ÛœÊNÂˆ\ÙX˜Ø[LÕ›Ô^Y\ˆH™]ÈÜ™ËšY[Û[‹›X›Ë“YYXT^Y\Š\ÙX˜Ø[LÕ›ÊNÂˆ\ÙX˜Ø[LÕ›Ô^Y\‹˜]XÚšY]ÜÊšY[Ó^[Ý][YK˜[ÙJNÂˆš[˜[Ü™ËšY[Û[‹›X›Ë“YYXT^Y\ˆÙ\ÜÚ[Û”^Y\ˆH\ÙX˜Ø[LÕ›Ô^Y\ŽÂˆÙ\ÜÚ[Û”^Y\‹œÙ]]™[\Ý[™\Š]™[OˆÂˆYˆ
+]™[\HOHÜ™ËšY[Û[‹›X›Ë“YYXT^Y\‹‘]™[‘[˜ÛÝ[\™Y\œ›ÜŠHÂˆXZ[’[™\‹œÜÝ
+
+
+HOˆÚXÚÐØÝŒÔ™Z™XÝYÜ™Y[X[ÊÙ\ÜÚ[Û”^Y\‹\Ü™Y[X[ÊJNÂˆBˆJNÂˆÝš[™ÈÜ\›HœÜ‹ËÈˆ
+È\šK™[˜ÛÙJÜ™Y[X[ÖÌJH
+ÈŽˆˆ
+È\šK™[˜ÛÙJÜ™Y[X[ÖÌWJBˆ
+Èˆ
+È\
+ÈŽMMÜÝ™X[LHŽÂˆYYXHYYXHH™]ÈYYXJ\ÙX˜Ø[LÕ›Ë\šKœ\œÙJÜ\›
+JNÂˆYYXK˜YÜ[ÛŠŽœÜ]\Ù\Hˆ
+ÈÜ™Y[X[ÖÌJNÂˆYYXK˜YÜ[ÛŠŽœÜ\ÙHˆ
+ÈÜ™Y[X[ÖÌWJNÂˆYYXK˜YÜ[ÛŠŽ›™]ÛÜšËXØXÚ[™ÏMLŠNÂˆYYXK˜YÜ[ÛŠŽ›]™KXØXÚ[™ÏMLŠNÂˆ\ÙX˜Ø[LÕ›Ô^Y\‹œÙ]YYXJYYXJNÂˆYYXKœ™[X\ÙJ
+NÂˆ\ÙX˜Ø[LÕ›Ô^Y\‹œ^J
+NÂˆXZ[’[™\‹œ™[[Ý™PØ[˜XÚÜÊØÝŒÔÛ˜\ÚÝXÚÙ\ŠNÂˆXZ[’[™\‹œÜÝ[^YY
+ØÝŒÔÛ˜\ÚÝXÚÙ\‹Û˜\ÚÝYJÊHÈLˆØÝ”Û˜\ÚÝ[\˜[Z[\ÊNÂˆHØ]Ú
+^Ù\[Ûˆ\œ›ÜŠHÂˆÝÜØÝŒÕ›Ê
+NÂˆ^šY]ÈY\ÜØYÙHH™]È^šY]Ê\ÊNÂˆY\ÜØYÙKœÙ]^
+•“ÈÛÝ[›ÝÝ\H’QÒHÝ™X[HŠNÂˆY\ÜØYÙKœÙ]^ÛÛÜŠÛÛÜ‹•ÒUJNÂˆY\ÜØYÙKœÙ]Ü˜]š]JÜ˜]š]KÑS•TŠNÂˆYˆ
+šY[Ó^[Ý]™Ù]Ú[ÛÝ[
+
+HOH
+HšY[Ó^[Ý]˜YšY]ÊY\ÜØYÙK™]Èœ˜[YS^[Ý]“^[Ý]\˜[\ÊLKLJJNÂˆBˆB‚ˆš]˜]H›ÚYÚÝÐØÝŒÕšYÚSY\ÜØYÙJ“ÕšY[Ó^[Ý]^[Ý]Ýš[™ÈY\ÜØYÙU^
+HÂˆ›Üˆ
+[HH^[Ý]™Ù]Ú[ÛÝ[
+
+HHNÈHHÈKKJHÂˆšY]ÈÚ[H^[Ý]™Ù]Ú[]
+JNÂˆYˆ
+Ú[[œÝ[˜Ù[Ùˆ^šY]ÊH^[Ý]œ™[[Ý™UšY]Ð]
+JNÂˆBˆ^šY]ÈY\ÜØYÙHH™]È^šY]Ê\ÊNÂˆY\ÜØYÙKœÙ]^
+Y\ÜØYÙU^
+NÂˆY\ÜØYÙKœÙ]^ÛÛÜŠÛÛÜ‹•ÒUJNÂˆY\ÜØYÙKœÙ]Ü˜]š]JÜ˜]š]KÑS•TŠNÂˆY\ÜØYÙKœÙ]Y[™Ê
+LŠK
+
+K
+LŠK
+
+JNÂˆ^[Ý]˜YšY]ÊY\ÜØYÙK™]Èœ˜[YS^[Ý]“^[Ý]\˜[\ÊLKLJJNÂˆB‚ˆš]˜]H›ÚYÚXÚÐØÝŒÔ™Z™XÝYÜ™Y[X[ÊÜ™ËšY[Û[‹›X›Ë“YYXT^Y\ˆ^Y\‹Ýš[™È\Ýš[™Ö×HÜ™Y[X[ÊHÂˆYˆ
+^Y\ˆOH\ÙX˜Ø[LÕ›Ô^Y\ˆØÝŒÐÜ™Y[X[ÚXÚÒ[”›ÙÜ™\ÜÊH™]\›ŽÂˆØÝŒÐÜ™Y[X[ÚXÚÒ[”›ÙÜ™\ÜÈHYNÂˆØÝ”Û˜\ÚÝÛÜšÙ\‹™^XÝ]J
+
+HOˆÂˆÜÜ™Y[X[™\šYšY\‹”™\Ý[™\Ý[HÜÜ™Y[X[™\šYšY\‹™\šYžJ\MMÜ™Y[X[ÖÌKÜ™Y[X[ÖÌWJNÂˆXZ[’[™\‹œÜÝ
+
+
+HOˆÂˆØÝŒÐÜ™Y[X[ÚXÚÒ[”›ÙÜ™\ÜÈH˜[ÙNÂˆYˆ
+^Y\ˆOH\ÙX˜Ø[LÕ›Ô^Y\ˆZ\™\]X[ÊØÝ’\
+ÊJJH™]\›ŽÂˆYˆ
+™\Ý[OHÜÜ™Y[X[™\šYšY\‹”™\Ý[”‘R‘PÕQ
+HÂˆØÝŒÐÜ™Y[X[Ô™Z™XÝYHYNÂˆYˆ
+\ÙX˜Ø[LÕ›Ó^[Ý]OH[
+HÚÝÐØÝŒÕšYÚSY\ÜØYÙJ\ÙX˜Ø[LÕ›Ó^[Ý]•’QÒH™Z™XÝYHØ]™YÙÚ[‹ˆ\]HHØ[Y\˜H\Ù\›˜[YHÜˆ\ÜÝÛÜ™ˆŠNÂˆYˆ
+ØÝ•›Ñ™YYÐ[ÝÙYÛXÝ]™TØÜ™Y[ŠH›Û\›ÜØÝŒÕšYÚPÜ™Y[X[Ê
+NÂˆH[ÙHYˆ
+\ÙX˜Ø[LÕ›Ó^[Ý]OH[
+HÂˆÚÝÐØÝŒÕšYÚSY\ÜØYÙJ\ÙX˜Ø[LÕ›Ó^[Ý]•’QÒH•ÔÝ™X[H[˜]˜Z[X›Kˆ™]žZ[™ÈÛÛ›™XÝ[Û¸ )ˆŠNÂˆš[˜[“ÕšY[Ó^[Ý]™]žS^[Ý]H\ÙX˜Ø[LÕ›Ó^[Ý]ÂˆXZ[’[™\‹œÜÝ[^YY
+
+
+HOˆÂˆYˆ
+Z\Ñš[š\Ú[™Ê
+H	‰ˆXÝ]š]T™\Ý[YY	‰ˆØÝ•›Ñ™YYÐ[ÝÙYÛXÝ]™TØÜ™Y[‚ˆ	‰ˆ]\Ù\”Ý™X[S[ÙH	‰ˆXØÝŒÐÜ™Y[X[Ô™Z™XÝYˆ	‰ˆ^Y\ˆOH\ÙX˜Ø[LÕ›Ô^Y\ˆ	‰ˆ\ÙX˜Ø[LÕ›Ó^[Ý]OH™]žS^[Ý]
+HÂˆÝ\šYÚPØÝŒÕ›Ê™]žS^[Ý]
+NÂˆBˆKL
+NÂˆBˆJNÂˆJNÂˆB‚ˆš]˜]H›ÚY›Û\›ÜØÝŒÕšYÚPÜ™Y[X[Ê
+HÂˆYˆ
+XXÝ]š]T™\Ý[YY\Ñš[š\Ú[™Ê
+HØÝŒÐÜ™Y[X[Ô›Û\ÚÝÚ[™ÊH™]\›ŽÂˆØÝŒÐÜ™Y[X[Ô›Û\ÚÝÚ[™ÈHYNÂˆ[™X\“^[Ý]›Ü›HH™]È[™X\“^[Ý]
+\ÊNÂˆ›Ü›KœÙ]ÜšY[][ÛŠ[™X\“^[Ý]•‘T•PÐS
+NÂˆ›Ü›KœÙ]Y[™Ê
+
+K
+
+K
+
+K
+
+JNÂˆ^šY]È›ÝHH™]È^šY]Ê\ÊNÂˆ›ÝKœÙ]^
+‘[\ˆHØ[Y\˜HXØÛÝ[Ü™X]Y[ˆH’QÒH\ˆÜ›ÝÔÝÚ[Ø]™H][˜Üž\YÛˆ\È]šXÙKˆŠNÂˆ›Ü›K˜YšY]Ê›ÝK™]È[™X\“^[Ý]“^[Ý]\˜[\ÊLKLŠJNÂˆY]^\Ù\›˜[YHH™]ÈY]^
+\ÊNÂˆ\Ù\›˜[YKœÙ]Ú[™ÛS[™JYJNÂˆ\Ù\›˜[YKœÙ][
+•’QÒH\Ù\›˜[YHŠNÂˆÝš[™Ö×HØ]™YÜ™Y[X[ÈHšYÚPØÝŒÐÜ™Y[X[Ê
+NÂˆ\Ù\›˜[YKœÙ]^
+Ø]™YÜ™Y[X[ÖÌJNÂˆ\Ù\›˜[YKœÙ][œ]\J[œ]\K•TWÐÓTÔ×ÕV[œ]\K•TWÕVÕT’PUSÓ—Õ’TÒP“WÔTÔÕÓÔ‘
+NÂˆ›Ü›K˜YšY]Ê\Ù\›˜[YK™]È[™X\“^[Ý]“^[Ý]\˜[\ÊLKLŠJNÂˆY]^\ÜÝÛÜ™H™]ÈY]^
+\ÊNÂˆ\ÜÝÛÜ™œÙ]Ú[™ÛS[™JYJNÂˆ\ÜÝÛÜ™œÙ][
+•’QÒH\ÜÝÛÜ™ŠNÂˆYˆ
+XØÝŒÐÜ™Y[X[Ô™Z™XÝY
+H\ÜÝÛÜ™œÙ]^
+Ø]™YÜ™Y[X[ÖÌWJNÂˆ\ÜÝÛÜ™œÙ][œ]\J[œ]\K•TWÐÓTÔ×ÕV[œ]\K•TWÕVÕT’PUSÓ—ÔTÔÕÓÔ‘
+NÂˆ›Ü›K˜YšY]Ê\ÜÝÛÜ™™]È[™X\“^[Ý]“^[Ý]\˜[\ÊLKLŠJNÂ‚ˆ[™›ÚY˜\[\X[ÙÈX[ÙÈH™]È[™›ÚY˜\[\X[ÙËZ[\Š\ÊBˆœÙ]]JÛÛ›™XÝÐÕŒÈ0­È’QÒHŠBˆœÙ]šY]Ê›Ü›JBˆœÙ]™YØ]]™P]ÛŠØ[˜Ù[‹
+ÚXÚ
+HOˆÈJBˆœÙ]ÜÚ]]™P]ÛŠÛÛ›™XÝ‹[
+Bˆ˜Ü™X]J
+NÂˆX[ÙËœÙ]Û‘\ÛZ\ÜÓ\Ý[™\ŠOˆØÝŒÐÜ™Y[X[Ô›Û\ÚÝÚ[™ÈH˜[ÙJNÂˆX[ÙËœÙ]Û”ÚÝÓ\Ý[™\ŠYÛ›Ü™YOˆX[ÙË™Ù]]ÛŠ[™›ÚY˜\[\X[ÙË•UÓ—ÔÔÒUU‘JKœÙ]ÛÛXÚÓ\Ý[™\ŠšY]ÈOˆÂˆÝš[™È\Ù\ˆH\Ù\›˜[YK™Ù]^
+
+KÔÝš[™Ê
+Kš[J
+NÂˆÝš[™ÈÙXÜ™]H\ÜÝÛÜ™™Ù]^
+
+KÔÝš[™Ê
+NÂˆYˆ
+\Ù\‹š\Ñ[\J
+JHÂˆ\Ù\›˜[YKœÙ]\œ›ÜŠ‘[\ˆH’QÒH\Ù\›˜[YHŠNÂˆ™]\›ŽÂˆBˆYˆ
+ÙXÜ™]š\Ñ[\J
+JHÂˆ\ÜÝÛÜ™œÙ]\œ›ÜŠ‘[\ˆH’QÒH\ÜÝÛÜ™ŠNÂˆ™]\›ŽÂˆBˆYˆ
+\Ø]™UšYÚPØÝŒÐÜ™Y[X[Ê\Ù\‹ÙXÜ™]
+JHÂˆ\ÜÝÛÜ™œÙ]\œ›ÜŠÛÝ[›Ý›ÝXÝ\ÙHÜ™Y[X[ÈÛˆ\È]šXÙHŠNÂˆ™]\›ŽÂˆBˆ\Ù\›˜[YKœÙ]^
+ˆŠNÂˆ\ÜÝÛÜ™œÙ]^
+ˆŠNÂˆX[ÙË™\ÛZ\ÜÊ
+NÂˆ™XÛÛ›™XÝØÝŒÕ›Ê
+NÂˆJJNÂˆX[ÙËœÚÝÊ
+NÂˆB‚ˆËÈÐÕŒˆØ[ˆÜÝ[ˆ\ÜÚYÛ™Y’QÒH•Ô™YY
+K™ËˆHÙXÝ[ÛˆŠK‚ˆËÈÙY\HØ[Y\˜HÙÚ[ˆØØ[È[™›ÚYÙ^\ÝÜ™K›Ýš\™\ÝÜ™K‚ˆš]˜]H›ÚY›Û\›Ü\ÜÚYÛ™YšYÚPØÝŒÜ™Y[X[Ê
+HÂˆYˆ
+XXÝ]š]T™\Ý[YY\Ñš[š\Ú[™Ê
+HØÝŒÐÜ™Y[X[Ô›Û\ÚÝÚ[™ÊH™]\›ŽÂˆØÝŒÐÜ™Y[X[Ô›Û\ÚÝÚ[™ÈHYNÂˆ[™X\“^[Ý]›Ü›HH™]È[™X\“^[Ý]
+\ÊNÂˆ›Ü›KœÙ]ÜšY[][ÛŠ[™X\“^[Ý]•‘T•PÐS
+NÂˆ›Ü›KœÙ]Y[™Ê
+
+K
+
+K
+
+K
+
+JNÂˆY]^\Ù\›˜[YHH™]ÈY]^
+\ÊNÂˆ\Ù\›˜[YKœÙ]Ú[™ÛS[™JYJNÂˆ\Ù\›˜[YKœÙ][
+•’QÒH\Ù\›˜[YHŠNÂˆ\Ù\›˜[YKœÙ]^
+šYÚPØÝŒÐÜ™Y[X[Ê
+VÌJNÂˆ›Ü›K˜YšY]Ê\Ù\›˜[YJNÂˆY]^\ÜÝÛÜ™H™]ÈY]^
+\ÊNÂˆ\ÜÝÛÜ™œÙ]Ú[™ÛS[™JYJNÂˆ\ÜÝÛÜ™œÙ][
+•’QÒH\ÜÝÛÜ™ŠNÂˆ\ÜÝÛÜ™œÙ][œ]\J[œ]\K•TWÐÓTÔ×ÕV[œ]\K•TWÕVÕT’PUSÓ—ÔTÔÕÓÔ‘
+NÂˆ›Ü›K˜YšY]Ê\ÜÝÛÜ™
+NÂˆ[™›ÚY˜\[\X[ÙÈX[ÙÈH™]È[™›ÚY˜\[\X[ÙËZ[\Š\ÊBˆœÙ]]JÛÛ›™XÝ\ÜÚYÛ™YÐÕŒˆ0­È’QÒHŠBˆœÙ]šY]Ê›Ü›JKœÙ]™YØ]]™P]ÛŠØ[˜Ù[‹
+ÊKOžßJBˆœÙ]ÜÚ]]™P]ÛŠÛÛ›™XÝ‹[
+K˜Ü™X]J
+NÂˆX[ÙËœÙ]Û‘\ÛZ\ÜÓ\Ý[™\ŠO˜ØÝŒÐÜ™Y[X[Ô›Û\ÚÝÚ[™ÏY˜[ÙJNÂˆX[ÙËœÙ]Û”ÚÝÓ\Ý[™\ŠO™X[ÙË™Ù]]ÛŠ[™›ÚY˜\[\X[ÙË•UÓ—ÔÔÒUU‘JKœÙ]ÛÛXÚÓ\Ý[™\Š‹OžÂˆÝš[™È\Ù\]\Ù\›˜[YK™Ù]^
+
+KÔÝš[™Ê
+Kš[J
+KÙXÜ™]\\ÜÝÛÜ™™Ù]^
+
+KÔÝš[™Ê
+NÂˆYŠ\Ù\‹š\Ñ[\J
+J^Ý\Ù\›˜[YKœÙ]\œ›ÜŠ‘[\ˆ’QÒH\Ù\›˜[YHŠNÜ™]\›ŽßBˆYŠÙXÜ™]š\Ñ[\J
+J^Ü\ÜÝÛÜ™œÙ]\œ›ÜŠ‘[\ˆ’QÒH\ÜÝÛÜ™ŠNÜ™]\›ŽßBˆYŠ\Ø]™UšYÚPØÝŒÐÜ™Y[X[Ê\Ù\‹ÙXÜ™]
+J^Ü\ÜÝÛÜ™œÙ]\œ›ÜŠÛÝ[›Ý[˜Üž\Ø[Y\˜HÙÚ[ˆÛˆ\È]šXÙHŠNÜ™]\›ŽßBˆ\ÜÝÛÜ™œÙ]^
+ˆŠNÙX[ÙË™\ÛZ\ÜÊ
+NÜ™XÛÛ›™XÝØÝŒ•›Ê
+NÂˆJJNÂˆX[ÙËœÚÝÊ
+NÂˆB‚ˆš]˜]H›ÚY™XÛÛ›™XÝØÝŒÕ›Ê
+HÂˆYˆ
+\Ñš[š\Ú[™Ê
+HXXÝ]š]T™\Ý[YY
+H™]\›ŽÂˆ“ÕšY[Ó^[Ý]šY[Ó^[Ý]H\ÙX˜Ø[LÕ›Ó^[Ý]ÂˆYˆ
+šY[Ó^[Ý]OH[
+HÂˆ[œÝ[ØÝŒU›ÔÜÚ][Û“\Ý[™\Š
+NÂˆ™]\›ŽÂˆBˆÝÜØÝŒÕ›Ê
+NÂˆXZ[’[™\‹œÜÝ[^YY
+
+
+HOˆÂˆYˆ
+Z\Ñš[š\Ú[™Ê
+H	‰ˆXÝ]š]T™\Ý[YY	‰ˆ\ÙX˜Ø[LÕ›Ó^[Ý]OHšY[Ó^[Ý]
+HÝ\šYÚPØÝŒÕ›ÊšY[Ó^[Ý]
+NÂˆKL
+NÂˆB‚ˆš]˜]H›ÚYÝÜØÝŒÕ›Ê
+HÂˆXZ[’[™\‹œ™[[Ý™PØ[˜XÚÜÊØÝŒÔÛ˜\ÚÝXÚÙ\ŠNÂˆYˆ
+\ÙX˜Ø[LÕ›Ô^Y\ˆOH[
+HÂˆžHÈ\ÙX˜Ø[LÕ›Ô^Y\‹œÝÜ
+
+NÈHØ]Ú
+^Ù\[ÛˆYÛ›Ü™Y
+HÈBˆžHÈ\ÙX˜Ø[LÕ›Ô^Y\‹™]XÚšY]ÜÊ
+NÈHØ]Ú
+^Ù\[ÛˆYÛ›Ü™Y
+HÈBˆ\ÙX˜Ø[LÕ›Ô^Y\‹œ™[X\ÙJ
+NÂˆ\ÙX˜Ø[LÕ›Ô^Y\ˆH[ÂˆBˆYˆ
+\ÙX˜Ø[LÕ›ÈOH[
+HÂˆ\ÙX˜Ø[LÕ›Ëœ™[X\ÙJ
+NÂˆ\ÙX˜Ø[LÕ›ÈH[ÂˆBˆB‚ˆš]˜]H›ÚY™XÛÛ›™XÝ\ÙX˜Ø[U›Ê
+HÂˆYˆ
+\Ñš[š\Ú[™Ê
+HXXÝ]š]T™\Ý[YY
+H™]\›ŽÂˆ“ÕšY[Ó^[Ý]šY[Ó^[Ý]H\ÙX˜Ø[U›Ó^[Ý]ÂˆYˆ
+šY[Ó^[Ý]OH[
+HÂˆ[œÝ[ØÝŒU›ÔÜÚ][Û“\Ý[™\Š
+NÂˆ™]\›ŽÂˆBˆÝÜ\ÙX˜Ø[U›Ê
+NÂˆYˆ
+\ÙX˜Ø[T™Yœ™\Ú]ÛˆOH[
+HÂˆ\ÙX˜Ø[T™Yœ™\Ú]Û‹œÙ][˜X›Y
+˜[ÙJNÂˆ\ÙX˜Ø[T™Yœ™\Ú]Û‹œÙ][JYŠNÂˆBˆØ\Ý›XZÙU^
+\Ë”™XÛÛ›™XÝ[™ÈÈTÙX˜Ø[x )ˆ‹Ø\Ý“S‘ÕÔÒÔ•
+KœÚÝÊ
+NÂˆXZ[’[™\‹œÜÝ[^YY
+
+
+HOˆÂˆYˆ
+\Ñš[š\Ú[™Ê
+HXXÝ]š]T™\Ý[YY\ÙX˜Ø[U›Ó^[Ý]OHšY[Ó^[Ý]
+H™]\›ŽÂˆÝ\\ÙX˜Ø[U›ÊšY[Ó^[Ý]
+NÂˆYˆ
+\ÙX˜Ø[T™Yœ™\Ú]ÛˆOH[
+HÂˆ\ÙX˜Ø[T™Yœ™\Ú]Û‹œÙ][˜X›Y
+YJNÂˆ\ÙX˜Ø[T™Yœ™\Ú]Û‹œÙ][JYŠNÂˆBˆKL
+NÂˆB‚ˆš]˜]H›ÚYÝÜ\ÙX˜Ø[U›Ê
+HÂˆXZ[’[™\‹œ™[[Ý™PØ[˜XÚÜÊØÝŒTÛ˜\ÚÝXÚÙ\ŠNÂˆYˆ
+\ÙX˜Ø[U›Ô^Y\ˆOH[
+HÂˆžHÈ\ÙX˜Ø[U›Ô^Y\‹œÝÜ
+
+NÈHØ]Ú
+^Ù\[ÛˆYÛ›Ü™Y
+HÈBˆžHÈ\ÙX˜Ø[U›Ô^Y\‹™]XÚšY]ÜÊ
+NÈHØ]Ú
+^Ù\[ÛˆYÛ›Ü™Y
+HÈBˆ\ÙX˜Ø[U›Ô^Y\‹œ™[X\ÙJ
+NÂˆ\ÙX˜Ø[U›Ô^Y\ˆH[ÂˆBˆYˆ
+\ÙX˜Ø[U›ÈOH[
+HÂˆ\ÙX˜Ø[U›Ëœ™[X\ÙJ
+NÂˆ\ÙX˜Ø[U›ÈH[ÂˆBˆB‚ˆš]˜]Hš[˜[˜]˜K][”Ù]Ýš[™ÏˆÛ˜\ÚÝ[‘›YÚH˜]˜K][ÛÛXÝ[ÛœËœÞ[˜Ú›Ûš^™YÙ]
+™]È˜]˜K][’\ÚÙ]Š
+JNÂ‚ˆš]˜]HÝš[™ÈÛ˜\ÚÝ›YÚÙ^J[Ø[Y\˜KÝš[™ÈÝY
+HÂˆ™]\›ˆØY™TÝY
+ÝY
+JÈŸŠØØ[Y\˜NÂˆB‚ˆš]˜]HÝš[™ÈÛ˜\ÚÝ\ÝÝXØÙ\ÜÒÙ^J[Ø[Y\˜KÝš[™ÈÝY
+HÂˆ™]\›ˆ›\ÝÜÝXØÙ\ÜÙ[ÜÛ˜\ÚÝÈŠÜÝY
+È—ÈŠØØ[Y\˜NÂˆB‚ˆš]˜]H›ÛÛX[ˆÛ˜\ÚÝYJ[Ø[Y\˜JHÂˆÝš[™ÈÝY\ØY™TÝY
+Ù]™YœÊ
+K™Ù]Ýš[™Ê‘Q—ÐPÕU‘WÔÕÒQQUSÔÕÒQ
+JNÂˆÛ™È\ÝYÙ]™YœÊ
+K™Ù]Û™ÊÛ˜\ÚÝ\ÝÝXØÙ\ÜÒÙ^JØ[Y\˜KÝY
+K
+NÂˆ™]\›ˆ\Û˜\ÚÝ[‘›YÚ˜ÛÛZ[œÊÛ˜\ÚÝ›YÚÙ^JØ[Y\˜KÝY
+JBˆ	‰ˆ
+\ÝLÞ\Ý[K˜Ý\œ™[[YSZ[\Ê
+K[\ÝXØÝ”Û˜\ÚÝ[\˜[Z[\ÊNÂˆBˆš]˜]HÛ™È™^Û˜\ÚÝÚXÚÑ[^J[Ø[Y\˜JHÂˆÝš[™ÈÝY\ØY™TÝY
+Ù]™YœÊ
+K™Ù]Ýš[™Ê‘Q—ÐPÕU‘WÔÕÒQQUSÔÕÒQ
+JNÂˆËÈHZ\ÜÚ[™ÈÝ›Û\ˆ\ÈHÛÛ™šYÝ\˜][Ûˆ›Ø›[K›ÝHœ˜[YK][Z[™È›Ø›[K‚ˆËÈ˜XÚÈÙ™ˆÈHÛÛ™šYÝ\™Y[\˜[˜]\ˆ[ˆ™]žZ[™È^[ÛÜH]™\žHHÙXÛÛ™Ë‚ˆYˆ
+Z\Ñ™YY›Û\”™XYJÝY
+JH™]\›ˆØÝ”Û˜\ÚÝ[\˜[Z[\ÎÂˆÛ™È\ÝYÙ]™YœÊ
+K™Ù]Û™ÊÛ˜\ÚÝ\ÝÝXØÙ\ÜÒÙ^JØ[Y\˜KÝY
+K
+NÂˆYˆ
+Û˜\ÚÝ[‘›YÚ˜ÛÛZ[œÊÛ˜\ÚÝ›YÚÙ^JØ[Y\˜KÝY
+JJH™]\›ˆLÂˆYˆ
+\ÝL
+H™]\›ˆLÂˆÛ™È™[XZ[š[™ÏXØÝ”Û˜\ÚÝ[\˜[Z[\ËJÞ\Ý[K˜Ý\œ™[[YSZ[\Ê
+K[\Ý
+NÂˆ™]\›ˆ™[XZ[š[™ÏLÈLˆ™[XZ[š[™ÎÂˆB‚ˆš]˜]H›ÚYÚXÚÒ\ÙX˜Ø[P™Y›Ü™TÛ˜\ÚÝ
+[Ø[Y\˜JHÂˆ›ÛÛX[ˆ™XYHHØ[Y\˜HOHBˆÈ\ÙX˜Ø[U›Ô^Y\ˆOH[	‰ˆ\ÙX˜Ø[U›Ó^[Ý]OH[	‰ˆ\ÙX˜Ø[U›Ñœ˜[YHOH[	‰ˆ\ÙX˜Ø[U›Ñœ˜[YK™Ù]š\ÚXš[]J
+HOHšY]Ë•’TÒP“BˆˆØ[Y\˜HOHˆÈ\ÙX˜Ø[L•›Ô^Y\ˆOH[	‰ˆ\ÙX˜Ø[L•›Ó^[Ý]OH[	‰ˆ\ÙX˜Ø[L•›Ñœ˜[YHOH[	‰ˆ\ÙX˜Ø[L•›Ñœ˜[YK™Ù]š\ÚXš[]J
+HOHšY]Ë•’TÒP“Bˆˆ\ÙX˜Ø[LÕ›Ô^Y\ˆOH[	‰ˆ\ÙX˜Ø[LÕ›Ó^[Ý]OH[	‰ˆ\ÙX˜Ø[LÕ›Ñœ˜[YHOH[	‰ˆ\ÙX˜Ø[LÕ›Ñœ˜[YK™Ù]š\ÚXš[]J
+HOHšY]Ë•’TÒP“NÂˆÜ™ËšY[Û[‹›X›Ë“YYXT^Y\ˆ^Y\ˆHØ[Y\˜HOHHÈ\ÙX˜Ø[U›Ô^Y\‚ˆˆØ[Y\˜HOHˆÈ\ÙX˜Ø[L•›Ô^Y\ˆˆ\ÙX˜Ø[LÕ›Ô^Y\ŽÂˆYˆ
+XXÝ]š]T™\Ý[YY\™XYHXØÝ•›Ñ™YYÐ[ÝÙYÛXÝ]™TØÜ™Y[ˆ\^Y\‹š\Ô^Z[™Ê
+H\Û˜\ÚÝYJØ[Y\˜JJH™]\›ŽÂˆÝš[™ÈXÝ]™TÝHØY™TÝY
+Ù]™YœÊ
+K™Ù]Ýš[™Ê‘Q—ÐPÕU‘WÔÕÒQQUSÔÕÒQ
+JNÂˆYˆ
+Z\Ñ™YY›Û\”™XYJXÝ]™TÝ
+JHÂˆÝš[™ÈØ\›š[™ÒÙ^HH™™YYÙ›Û\—Û›ÝÜ™XYWÈˆ
+ÈXÝ]™TÝ
+È—Èˆ
+ÈØ[Y\˜NÂˆYˆ
+YÙ]™YœÊ
+K™Ù]›ÛÛX[ŠØ\›š[™ÒÙ^K˜[ÙJJHÂˆÙ]™YœÊ
+K™Y]
+
+Kœ]›ÛÛX[ŠØ\›š[™ÒÙ^KYJK˜\J
+NÂˆ›ÝYžQ™YYØ\\™TÝ]\ÊÐÕˆˆ
+ÈÝš[™Ë™›Ü›X]
+ØØ[K•TË‰L™‹Ø[Y\˜JBˆ
+Èˆ\È]™K]\ÈÝ\È›ÈÛÛ›™XÝY[XYÙKY™YY›Û\‹ˆÛÛ›™XÝHÝ›Û\ˆ[ˆÙ][™ÜÈÈØ]™HÛ˜\ÚÝËˆŠNÂˆBˆ™]\›ŽÂˆBˆËÈ•Ô\È[™XYHXÛÙYžH“ËˆÈ›Ý›Ø™H]\È[ˆR”QÈ™YY‚ˆÝš[™ÈÝ™X[U\›HØÝ”Ý™X[U\›
+Ø[Y\˜JNÂˆ›ÛÛX[ˆÜHÝ™X[U\›œ™YÚ[Û“X]Ú\ÊYKœÜ‹ËÈ‹ÊBˆÝ™X[U\›œ™YÚ[Û“X]Ú\ÊYKœÜÎ‹ËÈ‹
+NÂˆYˆ
+ÜØ[Y\˜HOHÊHÂˆØ\\™PØÝ•›Ñœ˜[YJØ[Y\˜JNÂˆ™]\›ŽÂˆBˆžHÂˆØÝ”Û˜\ÚÝÛÜšÙ\‹™^XÝ]J
+
+HOˆÂˆ›ÛÛX[ˆ]˜Z[X›HH\Ò\ÙX˜Ø[Qœ˜[YP]˜Z[X›JØ[Y\˜JNÂˆ[“Û•ZU™XY
+
+
+HOˆÂˆYˆ
+XXÝ]š]T™\Ý[YY\Ñš[š\Ú[™Ê
+JH™]\›ŽÂˆYˆ
+]˜Z[X›JHÂˆØ\\™PØÝ•›Ñœ˜[YJØ[Y\˜JNÂˆH[ÙHÂˆ›ÝYžQ™YYØ\\™TÝ]\Ê’TÙX˜Ø[H›ÜˆÐÕˆˆ
+ÈÝš[™Ë™›Ü›X]
+ØØ[K•TË‰L™‹Ø[Y\˜JH
+Èˆ\È[˜]˜Z[X›NÈÛ˜\ÚÝÚÚ\YˆŠNÂˆBˆJNÂˆJNÂˆHØ]Ú
+^Ù\[ÛˆYÛ›Ü™Y
+HÈBˆB‚ˆš]˜]H›ÛÛX[ˆ\Ò\ÙX˜Ø[Qœ˜[YP]˜Z[X›J[Ø[Y\˜JHÂˆT“ÛÛ›™XÝ[ÛˆÛÛ›™XÝ[ÛˆH[ÂˆžHÂˆÝš[™ÈÝ™X[U\›HØÝ”Ý™X[U\›
+Ø[Y\˜JNÂˆYˆ
+Ý™X[U\›š\Ñ[\J
+JH™]\›ˆ˜[ÙNÂˆÛÛ›™XÝ[ÛˆH
+T“ÛÛ›™XÝ[ÛŠH™]ÈT“
+Ý™X[U\›
+K›Ü[ÛÛ›™XÝ[ÛŠ
+NÂˆÛÛ›™XÝ[Û‹œÙ]™\]Y\ÝY]Ù
+‘ÑUŠNÂˆÛÛ›™XÝ[Û‹œÙ]™\]Y\Ý›Ü\JXØÙ\‹›][\\Þ[Z^Y\™\XÙK[XYÙKÚœYÈŠNÂˆÛÛ›™XÝ[Û‹œÙ]ÛÛ›™XÝ[Y[Ý]
+L
+NÂˆÛÛ›™XÝ[Û‹œÙ]™XY[Y[Ý]
+L
+NÂˆÛÛ›™XÝ[Û‹œÙ]\ÙPØXÚ\Ê˜[ÙJNÂˆÛÛ›™XÝ[Û‹œÙ][œÝ[˜ÙQ›ÛÝÔ™Y\™XÝÊ˜[ÙJNÂˆYˆ
+ÛÛ›™XÝ[Û‹™Ù]™\ÜÛœÙPÛÙJ
+HOHT“ÛÛ›™XÝ[Û‹’ÓÒÊH™]\›ˆ˜[ÙNÂ‚ˆËÈH]™HR”QÈ™\ÜÛœÙHØ[ˆ™]\›ˆŒÚ[HHØ[Y\˜H\ÈÝÜYˆËÈ›ÙXÚ[™Èœ˜[Y\Ëˆ™\]Z\™HHÝ\ÙˆH”QÈœ˜[YH™Y›Ü™HØ\\š[™È“Ë‚ˆžH
+[œ]Ý™X[HÝ™X[HHÛÛ›™XÝ[Û‹™Ù][œ]Ý™X[J
+JHÂˆ[™]š[Ý\ÈHLNÂˆ[ØØ[›™YHÂˆž]V×HY™™\ˆH™]Èž]VÌŒNÂˆÚ[H
+ØØ[›™YMˆ
+ˆL
+HÂˆ[ÛÝ[HÝ™X[Kœ™XY
+Y™™\‹X]›Z[ŠY™™\‹›[™ÝMˆ
+ˆLHØØ[›™Y
+JNÂˆYˆ
+ÛÝ[H
+H™]\›ˆ˜[ÙNÂˆ›Üˆ
+[HHÈHÛÝ[ÈJÊÊHÂˆ[Ý\œ™[HY™™\–ÚWH	ˆ‘ŽÂˆYˆ
+™]š[Ý\ÈOH‘ˆ	‰ˆÝ\œ™[OH
+H™]\›ˆYNÂˆ™]š[Ý\ÈHÝ\œ™[ÂˆBˆØØ[›™Y
+ÏHÛÝ[ÂˆBˆBˆHØ]Ú
+^Ù\[ÛˆYÛ›Ü™Y
+HÂˆ™]\›ˆ˜[ÙNÂˆHš[˜[HÂˆYˆ
+ÛÛ›™XÝ[ÛˆOH[
+HÛÛ›™XÝ[Û‹™\ØÛÛ›™XÝ
+
+NÂˆBˆ™]\›ˆ˜[ÙNÂˆB‚‚ˆš]˜]H›ÚYØ\\™PØÝ•›Ñœ˜[YJ[Ø[Y\˜JHÂˆ›ÛÛX[ˆ™XYHHØ[Y\˜HOHBˆÈ\ÙX˜Ø[U›Ô^Y\ˆOH[	‰ˆ\ÙX˜Ø[U›Ó^[Ý]OH[	‰ˆ\ÙX˜Ø[U›Ñœ˜[YHOH[	‰ˆ\ÙX˜Ø[U›Ñœ˜[YK™Ù]š\ÚXš[]J
+HOHšY]Ë•’TÒP“BˆˆØ[Y\˜HOHˆÈ\ÙX˜Ø[L•›Ô^Y\ˆOH[	‰ˆ\ÙX˜Ø[L•›Ó^[Ý]OH[	‰ˆ\ÙX˜Ø[L•›Ñœ˜[YHOH[	‰ˆ\ÙX˜Ø[L•›Ñœ˜[YK™Ù]š\ÚXš[]J
+HOHšY]Ë•’TÒP“Bˆˆ\ÙX˜Ø[LÕ›Ô^Y\ˆOH[	‰ˆ\ÙX˜Ø[LÕ›Ó^[Ý]OH[	‰ˆ\ÙX˜Ø[LÕ›Ñœ˜[YHOH[	‰ˆ\ÙX˜Ø[LÕ›Ñœ˜[YK™Ù]š\ÚXš[]J
+HOHšY]Ë•’TÒP“NÂˆÜ™ËšY[Û[‹›X›Ë“YYXT^Y\ˆ^Y\ˆHØ[Y\˜HOHHÈ\ÙX˜Ø[U›Ô^Y\‚ˆˆØ[Y\˜HOHˆÈ\ÙX˜Ø[L•›Ô^Y\ˆˆ\ÙX˜Ø[LÕ›Ô^Y\ŽÂˆYˆ
+Z[•‘T”ÒSÓ‹”Ñ×ÒS•Z[•‘T”ÒSÓ—ÐÓÑTË“ˆXXÝ]š]T™\Ý[YY\™XYBˆXØÝ•›Ñ™YYÐ[ÝÙYÛXÝ]™TØÜ™Y[ˆ\^Y\‹š\Ô^Z[™Ê
+JH™]\›ŽÂˆš[˜[Ýš[™ÈØ\\™TÝYHØY™TÝY
+Ù]™YœÊ
+K™Ù]Ýš[™Ê‘Q—ÐPÕU‘WÔÕÒQQUSÔÕÒQ
+JNÂˆ“ÕšY[Ó^[Ý]^[Ý]HØ[Y\˜HOHHÈ\ÙX˜Ø[U›Ó^[Ý]ˆØ[Y\˜HOHˆÈ\ÙX˜Ø[L•›Ó^[Ý]ˆ\ÙX˜Ø[LÕ›Ó^[Ý]ÂˆÝ\™˜XÙUšY]ÈÝ\™˜XÙHHš[™›ÔÝ\™˜XÙUšY]Ê^[Ý]
+NÂˆYˆ
+Ý\™˜XÙHOH[	‰ˆÝ\™˜XÙK™Ù]ÚY
+
+Hˆ	‰ˆÝ\™˜XÙK™Ù]ZYÚ
+
+Hˆˆ	‰ˆÝ\™˜XÙK™Ù]Û\Š
+K™Ù]Ý\™˜XÙJ
+Kš\Õ˜[Y
+
+JHÂˆš]X\œ˜[YHHš]X\˜Ü™X]Pš]X\
+Ý\™˜XÙK™Ù]ÚY
+
+KÝ\™˜XÙK™Ù]ZYÚ
+
+Kš]X\ÛÛ™šYËT‘Ð—Î
+NÂˆ^[ÛÜKœ™\]Y\Ý
+Ý\™˜XÙKœ˜[YK™\Ý[OˆÂˆYˆ
+™\Ý[OH^[ÛÜK”ÕPÐÑTÔÊHÂˆYˆ
+Yœ˜[YKš\Ô™XÞXÛY
+
+JHœ˜[YKœ™XÞXÛJ
+NÂˆ›ÝYžQ™YYØ\\™TÝ]\ÊÐÕˆŠÔÝš[™Ë™›Ü›X]
+ØØ[K•TË‰L™‹Ø[Y\˜JJÈˆÛ˜\ÚÝˆšY[Èœ˜[YH[˜]˜Z[X›H
+^[ÛÜHˆ
+È™\Ý[
+ÈŠNÈÚ[™]žKˆŠNÂˆ™]\›ŽÂˆBˆØ]™PØÝ•›Ñœ˜[YUÑš]™JØ[Y\˜Kœ˜[YKØ\\™TÝY
+NÂˆKXZ[’[™\ŠNÂˆ™]\›ŽÂˆBˆ[™›ÚYšY]Ë•^\™UšY]È^\™HHš[™›Õ^\™UšY]Ê^[Ý]
+NÂˆYˆ
+^\™HOH[	‰ˆ^\™K™Ù]ÚY
+
+Hˆ	‰ˆ^\™K™Ù]ZYÚ
+
+Hˆ	‰ˆ^\™Kš\Ð]˜Z[X›J
+JHÂˆš]X\œ˜[YHH^\™K™Ù]š]X\
+
+NÂˆYˆ
+œ˜[YHOH[
+HÈØ]™PØÝ•›Ñœ˜[YUÑš]™JØ[Y\˜Kœ˜[YKØ\\™TÝY
+NÈ™]\›ŽÈBˆBˆ›ÝYžQ™YYØ\\™TÝ]\ÊÐÕˆŠÔÝš[™Ë™›Ü›X]
+ØØ[K•TË‰L™‹Ø[Y\˜JJÈˆÛ˜\ÚÝˆšY[ÈÝ\™˜XÙH›Ý™XYNÈÚ[™]žKˆŠNÂˆB‚ˆš]˜]H›ÚYØ]™PØÝ•›Ñœ˜[YUÑš]™J[Ø[Y\˜Kš]X\œ˜[YKÝš[™ÈÝY
+HÂˆÝš[™ÈÙ^O\Û˜\ÚÝ›YÚÙ^JØ[Y\˜KÝY
+NÂˆYˆ
+\Û˜\ÚÝ[‘›YÚ˜Y
+Ù^JJHÂˆYˆ
+Yœ˜[YKš\Ô™XÞXÛY
+
+JHœ˜[YKœ™XÞXÛJ
+NÂˆ™]\›ŽÂˆBˆØÝ”Û˜\ÚÝÛÜšÙ\‹™^XÝ]J
+
+HOˆÂˆžHÂˆØ]™Q™YYÝÕÑš]™J[œ˜[YKÝYØ[Y\˜K˜[ÙJNÂˆÙ]™YœÊ
+K™Y]
+
+Kœ]Û™ÊÛ˜\ÚÝ\ÝÝXØÙ\ÜÒÙ^JØ[Y\˜KÝY
+KÞ\Ý[K˜Ý\œ™[[YSZ[\Ê
+JK˜\J
+NÂˆXZ[’[™\‹œÜÝ
+
+
+HOˆÂˆ›ÝYžQ™YYØ\\™TÝ]\ÊÐÕˆŠÔÝš[™Ë™›Ü›X]
+ØØ[K•TË‰L™‹Ø[Y\˜JJÈˆÛ˜\ÚÝØ]™YÝXØÙ\ÜÙ[HÈHÛÛ™šYÝ\™YÝ›Û\‹ˆŠNÂˆØØ[”Û˜\ÚÝ›Û\ŠÝY
+NÂˆJNÂˆHØ]Ú
+^Ù\[Ûˆ\œ›ÜŠHÂˆ[“Û•ZU™XY
+
+
+HOˆ›ÝYžQ™YYØ\\™TÝ]\ÊÐÕˆˆ
+ÈÝš[™Ë™›Ü›X]
+ØØ[K•TË‰L™‹Ø[Y\˜JH
+Èˆœ˜[YHÛÝ[›Ý™HØ]™YÈHÙ[XÝYÝÛÛÙÛHš]™H[XYÙH™YYˆ‚ˆ
+È
+\œ›Ü‹™Ù]Y\ÜØYÙJ
+HOH[È˜ÚXÚÈHØ]™Y›Û\ˆ\›Z\ÜÚ[Ûˆˆˆ\œ›Ü‹™Ù]Y\ÜØYÙJ
+JJJNÂˆHš[˜[HÂˆÛ˜\ÚÝ[‘›YÚœ™[[Ý™JÙ^JNÂˆYˆ
+Yœ˜[YKš\Ô™XÞXÛY
+
+JHœ˜[YKœ™XÞXÛJ
+NÂˆBˆJNÂˆB‚ˆš]˜]HÝ\™˜XÙUšY]Èš[™›ÔÝ\™˜XÙUšY]ÊšY]ÈšY]ÊHÂˆYˆ
+šY]È[œÝ[˜Ù[ÙˆÝ\™˜XÙUšY]ÊH™]\›ˆ
+Ý\™˜XÙUšY]ÊHšY]ÎÂˆYˆ
+JšY]È[œÝ[˜Ù[Ùˆ[™›ÚYšY]Ë•šY]ÑÜ›Ý\
+JH™]\›ˆ[Âˆ[™›ÚYšY]Ë•šY]ÑÜ›Ý\Ü›Ý\H
+[™›ÚYšY]Ë•šY]ÑÜ›Ý\
+HšY]ÎÂˆ›Üˆ
+[HHÈHÜ›Ý\™Ù]Ú[ÛÝ[
+
+NÈJÊÊHÂˆÝ\™˜XÙUšY]ÈÝ\™˜XÙHHš[™›ÔÝ\™˜XÙUšY]ÊÜ›Ý\™Ù]Ú[]
+JJNÂˆYˆ
+Ý\™˜XÙHOH[
+H™]\›ˆÝ\™˜XÙNÂˆBˆ™]\›ˆ[ÂˆB‚ˆš]˜]H[™›ÚYšY]Ë•^\™UšY]Èš[™›Õ^\™UšY]ÊšY]ÈšY]ÊHÂˆYˆ
+šY]È[œÝ[˜Ù[Ùˆ[™›ÚYšY]Ë•^\™UšY]ÊH™]\›ˆ
+[™›ÚYšY]Ë•^\™UšY]ÊHšY]ÎÂˆYˆ
+JšY]È[œÝ[˜Ù[Ùˆ[™›ÚYšY]Ë•šY]ÑÜ›Ý\
+JH™]\›ˆ[Âˆ[™›ÚYšY]Ë•šY]ÑÜ›Ý\Ü›Ý\H
+[™›ÚYšY]Ë•šY]ÑÜ›Ý\
+HšY]ÎÂˆ›Üˆ
+[HHÈHÜ›Ý\™Ù]Ú[ÛÝ[
+
+NÈJÊÊHÂˆ[™›ÚYšY]Ë•^\™UšY]È^\™HHš[™›Õ^\™UšY]ÊÜ›Ý\™Ù]Ú[]
+JJNÂˆYˆ
+^\™HOH[
+H™]\›ˆ^\™NÂˆBˆ™]\›ˆ[ÂˆB‚ˆš]˜]HÝš[™ÈÚ[š[QØÝ[Y[Y
+\šH™YU\šKÝš[™È\™[ØÝ[Y[YÝš[™Èš[S˜[YJH›ÝÜÈ^Ù\[ÛˆÂˆ\šHÚ[™[•\šHHØÝ[Y[ÐÛÛ˜XÝ˜Z[Ú[ØÝ[Y[Õ\šU\Ú[™Õ™YJ™YU\šK\™[ØÝ[Y[Y
+NÂˆÝš[™Ö×HÛÛ[[œÈHÑØÝ[Y[ÐÛÛ˜XÝ‘ØÝ[Y[ÓÓSS—ÑÐÕSQS•ÒQØÝ[Y[ÐÛÛ˜XÝ‘ØÝ[Y[ÓÓSS—ÑTÔVWÓSQ_NÂˆžH
+Ý\œÛÜˆÝ\œÛÜˆHÙ]ÛÛ[™\ÛÛ™\Š
+Kœ]Y\žJÚ[™[•\šKÛÛ[[œË[[[
+JHÂˆYˆ
+Ý\œÛÜˆOH[
+H›ÝÈ™]È[YØ[Ý]Q^Ù\[ÛŠ‘ÛÛÙÛHš]™HÛÝ[›Ý\ÝHÜ›ÝÔÝÛÛ™šYÈ›Û\ˆŠNÂˆ[YÛÛ[[ˆHÝ\œÛÜ‹™Ù]ÛÛ[[’[™^
+ØÝ[Y[ÐÛÛ˜XÝ‘ØÝ[Y[ÓÓSS—ÑÐÕSQS•ÒQ
+NÂˆ[˜[YPÛÛ[[ˆHÝ\œÛÜ‹™Ù]ÛÛ[[’[™^
+ØÝ[Y[ÐÛÛ˜XÝ‘ØÝ[Y[ÓÓSS—ÑTÔVWÓSQJNÂˆÚ[H
+Ý\œÛÜ‹›[Ý™UÓ™^
+
+JHÂˆYˆ
+YÛÛ[[ˆH	‰ˆ˜[YPÛÛ[[ˆH	‰ˆš[S˜[YK™\]X[ÒYÛ›Ü™PØ\ÙJÝ\œÛÜ‹™Ù]Ýš[™Ê˜[YPÛÛ[[ŠJJH™]\›ˆÝ\œÛÜ‹™Ù]Ýš[™ÊYÛÛ[[ŠNÂˆBˆBˆ™]\›ˆ[ÂˆB‚ˆš]˜]HÝš[™È˜\›Q]U\Ù\’Y
+Ýš[™È™\]Y\ÝY
+HÂˆÝš[™ÈÛÛ™šYÝ\™YH™\]Y\ÝYOH[Èˆˆˆ™\]Y\ÝYš[J
+NÂˆYˆ
+XÛÛ™šYÝ\™Y›X]Ú\Ê–ÐKV˜K^ŒNWËW^ÌKHŠJHÛÛ™šYÝ\™YH™Y˜][]\Ù\ˆŽÂˆÙ]™YœÊ
+K™Y]
+
+Kœ]Ýš[™Ê‘Q—ÑT“WÑUWÕTÑT—ÒQÛÛ™šYÝ\™Y
+K˜\J
+NÂˆ™]\›ˆÛÛ™šYÝ\™YÂˆB‚ˆš]˜]H\šH˜\›Q]U™YU\šJ
+H›ÝÜÈ^Ù\[ÛˆÂˆ\šH™YU\šHH[ÂˆÝš[™ÈØ]™YHÙ]™YœÊ
+K™Ù]Ýš[™Ê‘Q—ÑÔ“ÕÔÕÕ‘QWÕT’K[
+NÂˆYˆ
+Ø]™YOH[
+HÂˆ\šHØ[™Y]HH\šKœ\œÙJØ]™Y
+NÂˆYˆ
+\Ô\œÚ\ÝY™XYÜš]QÜ˜[
+Ø[™Y]JJH™YU\šHHØ[™Y]NÂˆBˆYˆ
+™YU\šHOH[
+H™YU\šHHš[™Ü›ÝÔÝØÛÜY™YU\šJ
+NÂˆYˆ
+™YU\šHOH[
+H›ÝÈ™]È[YØ[Ý]Q^Ù\[ÛŠ”Ø]™YÛÛÙÛHš]™HXØÙ\ÜÈÈHÜ›ÝÔÝ›Û\ˆ\È[˜]˜Z[X›HŠNÂˆÝš[™È›ÛÝYH™\ÛÛ™QÜ›ÝÔÝØÝ[Y[Y
+™YU\šJNÂˆYˆ
+›ÛÝYOH[
+H›ÝÈ™]È[YØ[Ý]Q^Ù\[ÛŠ•HØ]™Yš]™H\›Z\ÜÚ[ÛˆÙ\È›Ý[˜ÛYHHÜ›ÝÔÝ›Û\ˆŠNÂˆÙ]™YœÊ
+K™Y]
+
+Kœ]Ýš[™Ê‘Q—ÑÔ“ÕÔÕÕ‘QWÕT’K™YU\šKÔÝš[™Ê
+JK˜\J
+NÂˆ™]\›ˆ™YU\šNÂˆB‚ˆš]˜]HÝš[™È˜\›TØÛÜRÙ^JÝš[™ÈÝYÝš[™ÈÜ™Y[šÝ\ÙK[ÙXÝ[ÛŠHÂˆ™]\›ˆØY™TÝY
+ÝY
+H
+ÈŸˆ
+ÈØY™Q›Û\“˜[YJÜ™Y[šÝ\ÙJH
+ÈŸˆ
+ÈÙXÝ[ÛŽÂˆB‚ˆš]˜]H”ÓÓ“Øš™XÝ™XY˜\›Qš]™RœÛÛŠ\šH™YU\šKÝš[™È\™[YÝš[™Èš[S˜[YJH›ÝÜÈ^Ù\[ÛˆÂˆÝš[™Èš[RYHÚ[š[QØÝ[Y[Y
+™YU\šK\™[Yš[S˜[YJNÂˆYˆ
+š[RYOH[
+H™]\›ˆ[Âˆ\šHš[U\šHHØÝ[Y[ÐÛÛ˜XÝ˜Z[ØÝ[Y[\šU\Ú[™Õ™YJ™YU\šKš[RY
+NÂˆžH
+[œ]Ý™X[H[œ]HÙ]ÛÛ[™\ÛÛ™\Š
+K›Ü[’[œ]Ý™X[Jš[U\šJNÂˆž]P\œ˜^SÝ]]Ý™X[HÝ]]H™]Èž]P\œ˜^SÝ]]Ý™X[J
+JHÂˆYˆ
+[œ]OH[
+H™]\›ˆ[Âˆž]V×HY™™\ˆH™]Èž]VÎNL—NÂˆ[™XYÝ[HÂˆÚ[H
+
+™XYH[œ]œ™XY
+Y™™\ŠJHOHLJHÂˆÝ[
+ÏH™XYÂˆYˆ
+Ý[ˆ
+ˆL
+ˆL
+H›ÝÈ™]È[YØ[Ý]Q^Ù\[ÛŠ‘˜\›H]Hš[H^ÙYYÈPˆŠNÂˆÝ]]Üš]JY™™\‹™XY
+NÂˆBˆ™]\›ˆ™]È”ÓÓ“Øš™XÝ
+Ý]]ÔÝš[™ÊÝ[™\™Ú\œÙ]Ë•U—Î›˜[YJ
+JJNÂˆBˆB‚ˆš]˜]H›ÚYÜš]Q˜\›Qš]™RœÛÛŠ\šH™YU\šKÝš[™È\™[YÝš[™Èš[S˜[YK”ÓÓ“Øš™XÝ]JH›ÝÜÈ^Ù\[ÛˆÂˆÝš[™Èš[RYHÚ[š[QØÝ[Y[Y
+™YU\šK\™[Yš[S˜[YJNÂˆ\šHš[U\šNÂˆYˆ
+š[RYOH[
+HÂˆš[U\šHHØÝ[Y[ÐÛÛ˜XÝ˜Ü™X]QØÝ[Y[
+Ù]ÛÛ[™\ÛÛ™\Š
+KˆØÝ[Y[ÐÛÛ˜XÝ˜Z[ØÝ[Y[\šU\Ú[™Õ™YJ™YU\šK\™[Y
+K˜\XØ][Û‹ÚœÛÛˆ‹š[S˜[YJNÂˆYˆ
+š[U\šHOH[
+H›ÝÈ™]È[YØ[Ý]Q^Ù\[ÛŠ‘ÛÛÙÛHš]™H™Y\ÙYÈÜ™X]Hˆ
+Èš[S˜[YJNÂˆH[ÙHš[U\šHHØÝ[Y[ÐÛÛ˜XÝ˜Z[ØÝ[Y[\šU\Ú[™Õ™YJ™YU\šKš[RY
+NÂˆžH
+Ý]]Ý™X[HÝ]]HÙ]ÛÛ[™\ÛÛ™\Š
+K›Ü[“Ý]]Ý™X[Jš[U\šKÝŠJHÂˆYˆ
+Ý]]OH[
+H›ÝÈ™]È[YØ[Ý]Q^Ù\[ÛŠ‘ÛÛÙÛHš]™HÛÝ[›ÝÜ[ˆˆ
+Èš[S˜[YH
+Èˆ›ÜˆÜš][™ÈŠNÂˆÝ]]Üš]J
+]KÔÝš[™ÊŠH
+È—ˆŠK™Ù]ž]\ÊÝ[™\™Ú\œÙ]Ë•U—Î
+JNÂˆÝ]]™›\Ú
+
+NÂˆBˆB‚ˆš]˜]HÝš[™È˜\›U\Ù\‘›Û\Š\šH™YU\šKÝš[™È›ÛÝYÝš[™È\Ù\’Y›ÛÛX[ˆÜ™X]JH›ÝÜÈ^Ù\[ÛˆÂˆÝš[™È’YHÜ™X]HÈš[™ÜÜ™X]PÚ[›Û\Š™YU\šK›ÛÝY™ˆŠHˆš[™^\Ý[™ÐÚ[›Û\Š™YU\šK›ÛÝY™ˆŠNÂˆYˆ
+’YOH[
+H™]\›ˆ[ÂˆÝš[™È\Ù\™]RYHÜ™X]HÈš[™ÜÜ™X]PÚ[›Û\Š™YU\šK’Y\Ù\™]HŠHˆš[™^\Ý[™ÐÚ[›Û\Š™YU\šK’Y\Ù\™]HŠNÂˆYˆ
+\Ù\™]RYOH[
+H™]\›ˆ[Âˆ™]\›ˆÜ™X]HÈš[™ÜÜ™X]PÚ[›Û\Š™YU\šK\Ù\™]RY\Ù\’Y
+Hˆš[™^\Ý[™ÐÚ[›Û\Š™YU\šK\Ù\™]RY\Ù\’Y
+NÂˆB‚ˆš]˜]H”ÓÓ“Øš™XÝØY˜\›T[[™ÜÑœ›ÛQš]™JÝš[™È™\]Y\ÝY\Ù\’Y
+H›ÝÜÈ^Ù\[ÛˆÂˆÝš[™È\Ù\’YH˜\›Q]U\Ù\’Y
+™\]Y\ÝY\Ù\’Y
+NÂˆ\šH™YU\šHH˜\›Q]U™YU\šJ
+NÂˆÝš[™È›ÛÝYH™\ÛÛ™QÜ›ÝÔÝØÝ[Y[Y
+™YU\šJNÂˆÝš[™È\Ù\‘›Û\’YH˜\›U\Ù\‘›Û\Š™YU\šK›ÛÝY\Ù\’YYJNÂˆ”ÓÓ“Øš™XÝ™\ÜÛœÙHH™]È”ÓÓ“Øš™XÝ
+
+NÂˆ™\ÜÛœÙKœ]
+\Ù\’Y‹\Ù\’Y
+NÂˆ”ÓÓ\œ˜^H™XÛÜ™ÈH™]È”ÓÓ\œ˜^J
+K[]YYÈH™]È”ÓÓ\œ˜^J
+NÂˆYˆ
+\Ù\‘›Û\’YOH[
+HÂˆ”ÓÓ“Øš™XÝ[™^H™XY˜\›Qš]™RœÛÛŠ™YU\šK\Ù\‘›Û\’Y˜Ü›Ü\[[™ÜËZ[™^šœÛÛˆŠNÂˆYˆ
+[™^OH[
+HÂˆ”ÓÓ\œ˜^HØÛÜ\ÈH[™^›Ü”ÓÓ\œ˜^JœØÛÜ\ÈŠNÂˆYˆ
+ØÛÜ\ÈOH[
+HÂˆÙ]Ýš[™Ïˆš\Ú]YH™]È\ÚÙ]Š
+NÂˆ›Üˆ
+[HHÈHØÛÜ\Ë›[™Ý
+
+NÈJÊÊHÂˆ”ÓÓ“Øš™XÝØÛÜHHØÛÜ\Ë›Ü”ÓÓ“Øš™XÝ
+JNÂˆYˆ
+ØÛÜHOH[
+HÛÛ[YNÂˆÝš[™ÈÝYHØY™TÝY
+ØÛÜK›ÜÝš[™ÊœÝY‹QUSÔÕÒQ
+JNÂˆÝš[™ÈÜ™Y[šÝ\ÙHHØY™Q›Û\“˜[YJØÛÜK›ÜÝš[™Ê™Ü™Y[šÝ\ÙH‹ŒHŠJNÂˆ[ÙXÝ[ÛˆHØÛÜK›Ü[
+œÙXÝ[Ûˆ‹
+NÂˆYˆ
+ÙXÝ[ÛˆHÙXÝ[Ûˆˆˆ]š\Ú]Y˜Y
+˜\›TØÛÜRÙ^JÝYÜ™Y[šÝ\ÙKÙXÝ[ÛŠJJHÛÛ[YNÂˆÝš[™ÈÝ›Û\ˆHš[™^\Ý[™ÐÚ[›Û\Š™YU\šK\Ù\‘›Û\’YÝY
+NÂˆYˆ
+Ý›Û\ˆOH[
+HÛÛ[YNÂˆÝš[™ÈÜ™Y[šÝ\ÙQ›Û\ˆHš[™^\Ý[™ÐÚ[›Û\Š™YU\šKÝ›Û\‹™Ü™Y[šÝ\ÙWÈˆ
+ÈÜ™Y[šÝ\ÙJNÂˆYˆ
+Ü™Y[šÝ\ÙQ›Û\ˆOH[
+HÛÛ[YNÂˆÝš[™ÈÙXÝ[Û‘›Û\ˆHš[™^\Ý[™ÐÚ[›Û\Š™YU\šKÜ™Y[šÝ\ÙQ›Û\‹ˆÝš[™Ë™›Ü›X]
+ØØ[K•TËœÙXÝ[Û—ÉL™‹ÙXÝ[ÛŠJNÂˆYˆ
+ÙXÝ[Û‘›Û\ˆOH[
+HÛÛ[YNÂˆ”ÓÓ“Øš™XÝÙXÝ[Û‘]HH™XY˜\›Qš]™RœÛÛŠ™YU\šKÙXÝ[Û‘›Û\‹˜Ü›Ü\[[™ÜËšœÛÛˆŠNÂˆ”ÓÓ\œ˜^HÙXÝ[Û”™XÛÜ™ÈHÙXÝ[Û‘]HOH[È[ˆÙXÝ[Û‘]K›Ü”ÓÓ\œ˜^Jœ™XÛÜ™ÈŠNÂˆYˆ
+ÙXÝ[Û”™XÛÜ™ÈOH[
+H›Üˆ
+[ˆHÈˆÙXÝ[Û”™XÛÜ™Ë›[™Ý
+
+NÈŠÊÊHÂˆ”ÓÓ“Øš™XÝ™XÛÜ™HÙXÝ[Û”™XÛÜ™Ë›Ü”ÓÓ“Øš™XÝ
+ŠNÂˆYˆ
+™XÛÜ™OH[
+H™XÛÜ™Ëœ]
+™XÛÜ™
+NÂˆBˆBˆBˆ”ÓÓ\œ˜^H™[[Ý™YH[™^›Ü”ÓÓ\œ˜^J™[]YYÈŠNÂˆYˆ
+™[[Ý™YOH[
+H›Üˆ
+[HHÈH™[[Ý™Y›[™Ý
+
+NÈJÊÊHÂˆÝš[™ÈYH™[[Ý™Y›ÜÝš[™ÊKˆŠNÂˆYˆ
+ZYš\Ñ[\J
+JH[]YYËœ]
+Y
+NÂˆBˆBˆBˆ”ÓÓ“Øš™XÝX[˜YÙ[Y[H\Ù\‘›Û\’YOH[È[ˆ™XY˜\›Qš]™RœÛÛŠ™YU\šK\Ù\‘›Û\’Y™˜\›K[X[˜YÙ[Y[šœÛÛˆŠNÂˆ™\ÜÛœÙKœ]
+œ™XÛÜ™È‹™XÛÜ™ÊNÂˆ™\ÜÛœÙKœ]
+™[]YYÈ‹[]YYÊNÂˆ™\ÜÛœÙKœ]
+š\œšYØ][Û”ØÚY[\È‹X[˜YÙ[Y[OH[È™]È”ÓÓ\œ˜^J
+HˆX[˜YÙ[Y[›Ü”ÓÓ\œ˜^Jš\œšYØ][Û”ØÚY[\ÈŠHOH[È™]È”ÓÓ\œ˜^J
+HˆX[˜YÙ[Y[›Ü”ÓÓ\œ˜^Jš\œšYØ][Û”ØÚY[\ÈŠJNÂˆ™\ÜÛœÙKœ]
+›XZ[[˜[˜ÙU\ÚÜÈ‹X[˜YÙ[Y[OH[È™]È”ÓÓ\œ˜^J
+HˆX[˜YÙ[Y[›Ü”ÓÓ\œ˜^J›XZ[[˜[˜ÙU\ÚÜÈŠHOH[È™]È”ÓÓ\œ˜^J
+HˆX[˜YÙ[Y[›Ü”ÓÓ\œ˜^J›XZ[[˜[˜ÙU\ÚÜÈŠJNÂˆ™\ÜÛœÙKœ]
+›X[˜YÙ[Y[[]YYÈ‹X[˜YÙ[Y[OH[È™]È”ÓÓ\œ˜^J
+HˆX[˜YÙ[Y[›Ü”ÓÓ\œ˜^J™[]YYÈŠHOH[È™]È”ÓÓ\œ˜^J
+HˆX[˜YÙ[Y[›Ü”ÓÓ\œ˜^J™[]YYÈŠJNÂˆ™\ÜÛœÙKœ]
+›ÚÈ‹YJNÂˆ™\ÜÛœÙKœ]
+œ]‹‹Ù‹Ý\Ù\™]KÈˆ
+È\Ù\’Y
+NÂˆ™]\›ˆ™\ÜÛœÙNÂˆB‚ˆš]˜]H”ÓÓ“Øš™XÝØ]™Q˜\›T[[™ÜÕÑš]™JÝš[™È^[ØY
+H›ÝÜÈ^Ù\[ÛˆÂˆ”ÓÓ“Øš™XÝ™\]Y\ÝH™]È”ÓÓ“Øš™XÝ
+^[ØYOH[ÈžßHˆˆ^[ØY
+NÂˆÝš[™È\Ù\’YH˜\›Q]U\Ù\’Y
+™\]Y\Ý›ÜÝš[™Ê\Ù\’Y‹™Y˜][]\Ù\ˆŠJNÂˆ”ÓÓ\œ˜^H™XÛÜ™ÈH™\]Y\Ý›Ü”ÓÓ\œ˜^Jœ™XÛÜ™ÈŠNÂˆYˆ
+™XÛÜ™ÈOH[
+H™XÛÜ™ÈH™]È”ÓÓ\œ˜^J
+NÂˆ”ÓÓ\œ˜^H™\]Y\ÝY[]YH™\]Y\Ý›Ü”ÓÓ\œ˜^J™[]YYÈŠNÂˆ\šH™YU\šHH˜\›Q]U™YU\šJ
+NÂˆÝš[™È›ÛÝYH™\ÛÛ™QÜ›ÝÔÝØÝ[Y[Y
+™YU\šJNÂˆÝš[™È\Ù\‘›Û\’YH˜\›U\Ù\‘›Û\Š™YU\šK›ÛÝY\Ù\’YYJNÂˆYˆ
+\Ù\‘›Û\’YOH[
+H›ÝÈ™]È[YØ[Ý]Q^Ù\[ÛŠÛÝ[›ÝÜ™X]HHÜ›ÝÔÝÙ‹Ý\Ù\™]H›Û\ˆŠNÂ‚ˆ”ÓÓ“Øš™XÝÛ[™^H™XY˜\›Qš]™RœÛÛŠ™YU\šK\Ù\‘›Û\’Y˜Ü›Ü\[[™ÜËZ[™^šœÛÛˆŠNÂˆX\Ýš[™Ë”ÓÓ“Øš™XÝˆØÛÜ\ÈH™]È˜]˜K][“[šÙY\ÚX\Š
+NÂˆ”ÓÓ\œ˜^HÛØÛÜ\ÈHÛ[™^OH[È[ˆÛ[™^›Ü”ÓÓ\œ˜^JœØÛÜ\ÈŠNÂˆYˆ
+ÛØÛÜ\ÈOH[
+H›Üˆ
+[HHÈHÛØÛÜ\Ë›[™Ý
+
+NÈJÊÊHÂˆ”ÓÓ“Øš™XÝØÛÜHHÛØÛÜ\Ë›Ü”ÓÓ“Øš™XÝ
+JNÂˆYˆ
+ØÛÜHOH[
+HÛÛ[YNÂˆÝš[™ÈÝYHØY™TÝY
+ØÛÜK›ÜÝš[™ÊœÝY‹QUSÔÕÒQ
+JNÂˆÝš[™ÈÜ™Y[šÝ\ÙHHØY™Q›Û\“˜[YJØÛÜK›ÜÝš[™Ê™Ü™Y[šÝ\ÙH‹ŒHŠJNÂˆ[ÙXÝ[ÛˆHØÛÜK›Ü[
+œÙXÝ[Ûˆ‹
+NÂˆYˆ
+ÙXÝ[ÛˆHÙXÝ[ÛˆˆŠHÛÛ[YNÂˆ”ÓÓ“Øš™XÝØY™TØÛÜHH™]È”ÓÓ“Øš™XÝ
+
+NÂˆØY™TØÛÜKœ]
+œÝY‹ÝY
+NÈØY™TØÛÜKœ]
+™Ü™Y[šÝ\ÙH‹Ü™Y[šÝ\ÙJNÈØY™TØÛÜKœ]
+œÙXÝ[Ûˆ‹ÙXÝ[ÛŠNÂˆØÛÜ\Ëœ]
+˜\›TØÛÜRÙ^JÝYÜ™Y[šÝ\ÙKÙXÝ[ÛŠKØY™TØÛÜJNÂˆBˆX\Ýš[™Ë”ÓÓ\œ˜^OˆÜ›Ý\YH™]È˜]˜K][“[šÙY\ÚX\Š
+NÂˆ›Üˆ
+[HHÈH™XÛÜ™Ë›[™Ý
+
+NÈJÊÊHÂˆ”ÓÓ“Øš™XÝ™XÛÜ™H™XÛÜ™Ë›Ü”ÓÓ“Øš™XÝ
+JNÂˆYˆ
+™XÛÜ™OH[
+HÛÛ[YNÂˆÝš[™ÈÝYHØY™TÝY
+™XÛÜ™›ÜÝš[™ÊœÝY‹QUSÔÕÒQ
+JNÂˆÝš[™ÈÜ™Y[šÝ\ÙHHØY™Q›Û\“˜[YJ™XÛÜ™›ÜÝš[™Ê™Ü™Y[šÝ\ÙH‹ŒHŠJNÂˆÝš[™ÈÙXÝ[Û•˜[YHH™XÛÜ™›ÜÝš[™ÊœÙXÝ[Ûˆ‹ŒHŠNÂˆ›ÛÛX[ˆ[ÙXÝ[ÛœÈH˜[‹™\]X[ÒYÛ›Ü™PØ\ÙJÙXÝ[Û•˜[YJNÂˆ[ÙXÝ[ÛˆH[ÙXÝ[ÛœÈÈˆ™XÛÜ™›Ü[
+œÙXÝ[Ûˆ‹JNÂˆYˆ
+X[ÙXÝ[ÛœÈ	‰ˆ
+ÙXÝ[ÛˆHÙXÝ[ÛˆˆŠJHÂˆ›ÝÈ™]È[YØ[\™Ý[Y[^Ù\[ÛŠ”ÙXÝ[Ûˆ]\Ý™H™]ÙY[ˆH[™‹Üˆ[ŠNÂˆBˆ[š\œÝÙXÝ[ÛˆH[ÙXÝ[ÛœÈÈHˆÙXÝ[ÛŽÂˆ[\ÝÙXÝ[ÛˆH[ÙXÝ[ÛœÈÈˆˆÙXÝ[ÛŽÂˆ›Üˆ
+[\™Ù]ÙXÝ[ÛˆHš\œÝÙXÝ[ÛŽÈ\™Ù]ÙXÝ[ÛˆH\ÝÙXÝ[ÛŽÈ\™Ù]ÙXÝ[ÛŠÊÊHÂˆÝš[™ÈØÛÜRÙ^HH˜\›TØÛÜRÙ^JÝYÜ™Y[šÝ\ÙK\™Ù]ÙXÝ[ÛŠNÂˆ”ÓÓ“Øš™XÝØÛÜHH™]È”ÓÓ“Øš™XÝ
+
+NÂˆØÛÜKœ]
+œÝY‹ÝY
+NÈØÛÜKœ]
+™Ü™Y[šÝ\ÙH‹Ü™Y[šÝ\ÙJNÈØÛÜKœ]
+œÙXÝ[Ûˆ‹\™Ù]ÙXÝ[ÛŠNÂˆØÛÜ\Ëœ]
+ØÛÜRÙ^KØÛÜJNÂˆ”ÓÓ\œ˜^HÜ›Ý\HÜ›Ý\Y™Ù]
+ØÛÜRÙ^JNÂˆYˆ
+Ü›Ý\OH[
+HÈÜ›Ý\H™]È”ÓÓ\œ˜^J
+NÈÜ›Ý\Yœ]
+ØÛÜRÙ^KÜ›Ý\
+NÈBˆ”ÓÓ“Øš™XÝÛÜHH™]È”ÓÓ“Øš™XÝ
+™XÛÜ™ÔÝš[™Ê
+JNÂˆÛÜKœ]
+œÝY‹ÝY
+NÈÛÜKœ]
+™Ü™Y[šÝ\ÙH‹Ü™Y[šÝ\ÙJNÂˆÛÜKœ]
+œÙXÝ[Ûˆ‹[ÙXÝ[ÛœÈÈ˜[ˆˆ\™Ù]ÙXÝ[ÛŠNÂˆÛÜKœ]
+\Ù\’Y‹\Ù\’Y
+NÂˆÜ›Ý\œ]
+ÛÜJNÂˆBˆB‚ˆÙ]Ýš[™Ïˆ[]YH™]È˜]˜K][“[šÙY\ÚÙ]Š
+NÂˆ”ÓÓ\œ˜^HÛ[]YHÛ[™^OH[È[ˆÛ[™^›Ü”ÓÓ\œ˜^J™[]YYÈŠNÂˆYˆ
+Û[]YOH[
+H›Üˆ
+[HHÈHÛ[]Y›[™Ý
+
+NÈJÊÊHÂˆÝš[™ÈYHÛ[]Y›ÜÝš[™ÊKˆŠNÈYˆ
+ZYš\Ñ[\J
+JH[]Y˜Y
+Y
+NÂˆBˆYˆ
+™\]Y\ÝY[]YOH[
+H›Üˆ
+[HHÈH™\]Y\ÝY[]Y›[™Ý
+
+NÈJÊÊHÂˆÝš[™ÈYH™\]Y\ÝY[]Y›ÜÝš[™ÊKˆŠNÈYˆ
+Y›X]Ú\Ê–ÐKV˜K^ŒNWËW^ÌKLHŠJH[]Y˜Y
+Y
+NÂˆBˆ›Üˆ
+Ýš[™ÈØÛÜRÙ^HˆØÛÜ\ËšÙ^TÙ]
+
+JHÂˆ”ÓÓ“Øš™XÝØÛÜHHØÛÜ\Ë™Ù]
+ØÛÜRÙ^JNÂˆÝš[™ÈÝYHØÛÜK™Ù]Ýš[™ÊœÝYŠKÜ™Y[šÝ\ÙHHØÛÜK™Ù]Ýš[™Ê™Ü™Y[šÝ\ÙHŠNÂˆ[ÙXÝ[ÛˆHØÛÜK™Ù][
+œÙXÝ[ÛˆŠNÂˆÝš[™ÈÝ›Û\ˆHš[™ÜÜ™X]PÚ[›Û\Š™YU\šK\Ù\‘›Û\’YÝY
+NÂˆÝš[™ÈÜ™Y[šÝ\ÙQ›Û\ˆHš[™ÜÜ™X]PÚ[›Û\Š™YU\šKÝ›Û\‹™Ü™Y[šÝ\ÙWÈˆ
+ÈÜ™Y[šÝ\ÙJNÂˆÝš[™ÈÙXÝ[Û‘›Û\ˆHš[™ÜÜ™X]PÚ[›Û\Š™YU\šKÜ™Y[šÝ\ÙQ›Û\‹ˆÝš[™Ë™›Ü›X]
+ØØ[K•TËœÙXÝ[Û—ÉL™‹ÙXÝ[ÛŠJNÂˆ”ÓÓ“Øš™XÝÙXÝ[Û‘]HH™]È”ÓÓ“Øš™XÝ
+
+NÂˆÙXÝ[Û‘]Kœ]
+œØÚ[XU™\œÚ[Ûˆ‹JNÈÙXÝ[Û‘]Kœ]
+\Ù\’Y‹\Ù\’Y
+NÂˆÙXÝ[Û‘]Kœ]
+œÝY‹ÝY
+NÈÙXÝ[Û‘]Kœ]
+™Ü™Y[šÝ\ÙH‹Ü™Y[šÝ\ÙJNÈÙXÝ[Û‘]Kœ]
+œÙXÝ[Ûˆ‹ÙXÝ[ÛŠNÂˆÙXÝ[Û‘]Kœ]
+\]Y]‹™]È˜]˜K^”Ú[\Q]Q›Ü›X]
+ž^^^KSSKY	Õ	Ò›[NœÜÖ‹ØØ[K•TÊK™›Ü›X]
+™]È]J
+JJNÂˆÙXÝ[Û‘]Kœ]
+œ™XÛÜ™È‹Ü›Ý\Y˜ÛÛZ[œÒÙ^JØÛÜRÙ^JHÈÜ›Ý\Y™Ù]
+ØÛÜRÙ^JHˆ™]È”ÓÓ\œ˜^J
+JNÂˆÜš]Q˜\›Qš]™RœÛÛŠ™YU\šKÙXÝ[Û‘›Û\‹˜Ü›Ü\[[™ÜËšœÛÛˆ‹ÙXÝ[Û‘]JNÂˆBˆ”ÓÓ\œ˜^HØÛÜP\œ˜^HH™]È”ÓÓ\œ˜^J
+NÈ›Üˆ
+”ÓÓ“Øš™XÝØÛÜHˆØÛÜ\Ë˜[Y\Ê
+JHØÛÜP\œ˜^Kœ]
+ØÛÜJNÂˆ”ÓÓ\œ˜^H[]Y\œ˜^HH™]È”ÓÓ\œ˜^J
+NÈ›Üˆ
+Ýš[™ÈYˆ[]Y
+H[]Y\œ˜^Kœ]
+Y
+NÂˆ”ÓÓ“Øš™XÝ[™^H™]È”ÓÓ“Øš™XÝ
+
+NÂˆ[™^œ]
+œØÚ[XU™\œÚ[Ûˆ‹JNÈ[™^œ]
+\Ù\’Y‹\Ù\’Y
+NÂˆ[™^œ]
+\]Y]‹™]È˜]˜K^”Ú[\Q]Q›Ü›X]
+ž^^^KSSKY	Õ	Ò›[NœÜÖ‹ØØ[K•TÊK™›Ü›X]
+™]È]J
+JJNÂˆ[™^œ]
+œØÛÜ\È‹ØÛÜP\œ˜^JNÈ[™^œ]
+™[]YYÈ‹[]Y\œ˜^JNÂˆÜš]Q˜\›Qš]™RœÛÛŠ™YU\šK\Ù\‘›Û\’Y˜Ü›Ü\[[™ÜËZ[™^šœÛÛˆ‹[™^
+NÂˆ”ÓÓ\œ˜^H\œšYØ][Û”ØÚY[\ÈH™\]Y\Ý›Ü”ÓÓ\œ˜^Jš\œšYØ][Û”ØÚY[\ÈŠNÂˆYˆ
+\œšYØ][Û”ØÚY[\ÈOH[
+H\œšYØ][Û”ØÚY[\ÈH™]È”ÓÓ\œ˜^J
+NÂˆ”ÓÓ\œ˜^HXZ[[˜[˜ÙU\ÚÜÈH™\]Y\Ý›Ü”ÓÓ\œ˜^J›XZ[[˜[˜ÙU\ÚÜÈŠNÂˆYˆ
+XZ[[˜[˜ÙU\ÚÜÈOH[
+HXZ[[˜[˜ÙU\ÚÜÈH™]È”ÓÓ\œ˜^J
+NÂˆ”ÓÓ\œ˜^HX[˜YÙ[Y[[]YYÈH™\]Y\Ý›Ü”ÓÓ\œ˜^J›X[˜YÙ[Y[[]YYÈŠNÂˆYˆ
+X[˜YÙ[Y[[]YYÈOH[
+HX[˜YÙ[Y[[]YYÈH™]È”ÓÓ\œ˜^J
+NÂˆ”ÓÓ“Øš™XÝX[˜YÙ[Y[H™]È”ÓÓ“Øš™XÝ
+
+NÂˆX[˜YÙ[Y[œ]
+œØÚ[XU™\œÚ[Ûˆ‹JNÈX[˜YÙ[Y[œ]
+\Ù\’Y‹\Ù\’Y
+NÂˆX[˜YÙ[Y[œ]
+\]Y]‹™]È˜]˜K^”Ú[\Q]Q›Ü›X]
+ž^^^KSSKY	Õ	Ò›[NœÜÖ‹ØØ[K•TÊK™›Ü›X]
+™]È]J
+JJNÂˆX[˜YÙ[Y[œ]
+š\œšYØ][Û”ØÚY[\È‹\œšYØ][Û”ØÚY[\ÊNÂˆX[˜YÙ[Y[œ]
+›XZ[[˜[˜ÙU\ÚÜÈ‹XZ[[˜[˜ÙU\ÚÜÊNÂˆX[˜YÙ[Y[œ]
+™[]YYÈ‹X[˜YÙ[Y[[]YYÊNÂˆÜš]Q˜\›Qš]™RœÛÛŠ™YU\šK\Ù\‘›Û\’Y™˜\›K[X[˜YÙ[Y[šœÛÛˆ‹X[˜YÙ[Y[
+NÂˆ”ÓÓ“Øš™XÝ™\ÜÛœÙHH™]È”ÓÓ“Øš™XÝ
+
+NÈ™\ÜÛœÙKœ]
+›ÚÈ‹YJNÈ™\ÜÛœÙKœ]
+\Ù\’Y‹\Ù\’Y
+NÂˆ™\ÜÛœÙKœ]
+œ]‹‹Ù‹Ý\Ù\™]KÈˆ
+È\Ù\’Y
+NÈ™\ÜÛœÙKœ]
+œØÛÜPÛÝ[‹ØÛÜ\ËœÚ^™J
+JNÂˆ™]\›ˆ™\ÜÛœÙNÂˆB‚ˆš]˜]H›ÚY›ÝYžQ˜\›T[[™ÜÓØYY
+”ÓÓ“Øš™XÝ™\Ý[
+HÂˆYˆ
+ÙXˆOH[
+H™]\›ŽÂˆÝš[™È\™Ý[Y[H”ÓÓ“Øš™XÝœ][ÝJ™\Ý[OH[ÈžßHˆˆ™\Ý[ÔÝš[™Ê
+JNÂˆ[“Û•ZU™XY
+
+
+HOˆÈYˆ
+ÙXˆOH[
+HÙX‹™]˜[X]R˜]˜\ØÜš\
+Ú[™ÝË›Û‘˜\›T[[™ÜÓØYY	‰Ú[™ÝË›Û‘˜\›T[[™ÜÓØYY
+ˆ
+È\™Ý[Y[
+ÈŠH‹[
+NÈJNÂˆB‚ˆš]˜]H›ÚY›ÝYžQ˜\›T[[™ÜÔØ]™Y
+”ÓÓ“Øš™XÝ™\Ý[
+HÂˆYˆ
+ÙXˆOH[
+H™]\›ŽÂˆÝš[™È\™Ý[Y[H”ÓÓ“Øš™XÝœ][ÝJ™\Ý[OH[ÈžßHˆˆ™\Ý[ÔÝš[™Ê
+JNÂˆ[“Û•ZU™XY
+
+
+HOˆÈYˆ
+ÙXˆOH[
+HÙX‹™]˜[X]R˜]˜\ØÜš\
+Ú[™ÝË›Û‘˜\›T[[™ÜÔØ]™Y	‰Ú[™ÝË›Û‘˜\›T[[™ÜÔØ]™Y
+ˆ
+È\™Ý[Y[
+ÈŠH‹[
+NÈJNÂˆB‚ˆš]˜]H”ÓÓ“Øš™XÝ™XYš]™TÝÜ˜YÙPÛÛ™šYÊ\šH™YU\šKÝš[™ÈÜ›ÝÔÝØÝ[Y[Y
+H›ÝÜÈ^Ù\[ÛˆÂˆÝš[™ÈÛÛ™šYÒYHš[™^\Ý[™ÐÚ[›Û\Š™YU\šKÜ›ÝÔÝØÝ[Y[Y˜ÛÛ™šYÈŠNÂˆYˆ
+ÛÛ™šYÒYOH[
+H™]\›ˆ™]È”ÓÓ“Øš™XÝ
+
+NÂˆÝš[™Èš[RYHÚ[š[QØÝ[Y[Y
+™YU\šKÛÛ™šYÒYÔ“ÕÔÕÔÕÔQÑWÐÓÓ‘’Q×Ñ’SJNÂˆYˆ
+š[RYOH[
+H™]\›ˆ™]È”ÓÓ“Øš™XÝ
+
+NÂˆ\šHš[U\šHHØÝ[Y[ÐÛÛ˜XÝ˜Z[ØÝ[Y[\šU\Ú[™Õ™YJ™YU\šKš[RY
+NÂˆžH
+[œ]Ý™X[H[œ]HÙ]ÛÛ[™\ÛÛ™\Š
+K›Ü[’[œ]Ý™X[Jš[U\šJNÂˆž]P\œ˜^SÝ]]Ý™X[HÝ]]H™]Èž]P\œ˜^SÝ]]Ý™X[J
+JHÂˆYˆ
+[œ]OH[
+H™]\›ˆ™]È”ÓÓ“Øš™XÝ
+
+NÂˆž]V×HY™™\ˆH™]Èž]VÍM—NÂˆ[™XYÝ[HÂˆÚ[H
+
+™XYH[œ]œ™XY
+Y™™\ŠJHOHLJHÂˆÝ[
+ÏH™XYÂˆYˆ
+Ý[ˆLŽ
+ˆL
+H›ÝÈ™]È[YØ[Ý]Q^Ù\[ÛŠ‘Ü›ÝÔÝÝÜ˜YÙHÛÛ™šYÈ\ÈÛÈ\™ÙHŠNÂˆÝ]]Üš]JY™™\‹™XY
+NÂˆBˆ™]\›ˆ™]È”ÓÓ“Øš™XÝ
+Ý]]ÔÝš[™ÊÝ[™\™Ú\œÙ]Ë•U—Î›˜[YJ
+JJNÂˆBˆB‚ˆš]˜]H”ÓÓ“Øš™XÝ™XY[™YÝÜ˜YÙPÛÛ™šYÊ
+H›ÝÜÈ^Ù\[ÛˆÂˆžH
+[œ]Ý™X[H[œ]HÙ]\ÜÙ]Ê
+K›Ü[Š˜ÛÛ™šYËÜÝÜ˜YÙK\]ËšœÛÛˆŠNÂˆž]P\œ˜^SÝ]]Ý™X[HÝ]]H™]Èž]P\œ˜^SÝ]]Ý™X[J
+JHÂˆž]V×HY™™\ˆH™]Èž]VÍM—NÂˆ[™XYÝ[HÂˆÚ[H
+
+™XYH[œ]œ™XY
+Y™™\ŠJHOHLJHÂˆÝ[
+ÏH™XYÂˆYˆ
+Ý[ˆLŽ
+ˆL
+H›ÝÈ™]È[YØ[Ý]Q^Ù\[ÛŠ[™YÜ›ÝÔÝÝÜ˜YÙHÛÛ™šYÈ\ÈÛÈ\™ÙHŠNÂˆÝ]]Üš]JY™™\‹™XY
+NÂˆBˆ™]\›ˆ™]È”ÓÓ“Øš™XÝ
+Ý]]ÔÝš[™ÊÝ[™\™Ú\œÙ]Ë•U—Î›˜[YJ
+JJNÂˆBˆB‚ˆš]˜]H›ÚY™\ÝÜ™Qš]™T]Ñœ›ÛPÛÛ™šYÊ
+HÂˆ\šH™YU\šHHš[™Ü›ÝÔÝØÛÜY™YU\šJ
+NÂˆYˆ
+™YU\šHOH[
+H™]\›ŽÂˆžHÂˆÝš[™ÈÜ›ÝÔÝYH™\ÛÛ™QÜ›ÝÔÝØÝ[Y[Y
+™YU\šJNÂˆYˆ
+Ü›ÝÔÝYOH[
+H™]\›ŽÂˆÙ]™YœÊ
+K™Y]
+
+Kœ]Ýš[™Ê‘Q—ÑÔ“ÕÔÕÕ‘QWÕT’K™YU\šKÔÝš[™Ê
+JK˜\J
+NÂˆ”ÓÓ“Øš™XÝÛÛ™šYÈH™XYš]™TÝÜ˜YÙPÛÛ™šYÊ™YU\šKÜ›ÝÔÝY
+NÂˆ›ÛÛX[ˆÜ™X]Qš]™PÛÛ™šYÈHÛÛ™šYË›[™Ý
+
+HOHÂˆYˆ
+Ü™X]Qš]™PÛÛ™šYÊHÛÛ™šYÈH™XY[™YÝÜ˜YÙPÛÛ™šYÊ
+NÂˆÝš[™ÈXYÛ›ÜÚ\ÒYHš[™ÜÜ™X]PÚ[›Û\Š™YU\šKÜ›ÝÔÝY‘XYÛ›ÜÚ\ÈŠNÂˆÙ]™YœÊ
+K™Y]
+
+Kœ]Ýš[™Ê‘Q—ÑPQÓ“ÔÒT×Õ‘QWÕT’K™YU\šKÔÝš[™Ê
+JBˆœ]Ýš[™Ê‘Q—ÑPQÓ“ÔÒT×Ô“ÓÕÑÐÕSQS•ÒQXYÛ›ÜÚ\ÒY
+Bˆœ]Ýš[™Ê‘Q—ÑPQÓ“ÔÒT×Ñ“ÓT—ÓP‘SÙ]ØÝ[Y[]X™[
+™YU\šKXYÛ›ÜÚ\ÒY
+JK˜\J
+NÂˆ”ÓÓ“Øš™XÝ™YYÈHÛÛ™šYË›Ü”ÓÓ“Øš™XÝ
+š[XYÙQ™YYÈŠNÂˆYˆ
+™YYÈOH[
+HÂˆ˜]˜K][’]\˜]ÜÝš[™ÏˆÝYÈH™YYËšÙ^\Ê
+NÂˆÚ[H
+ÝYËš\Ó™^
+
+JHÂˆÝš[™ÈÝYHÝYË›™^
+
+NÂˆYˆ
+\ÝY›X]Ú\Ê–ÐKV˜K^ŒNWËW^ÌKHŠJHÛÛ[YNÂˆ”ÓÓ“Øš™XÝ[žHH™YYË›Ü”ÓÓ“Øš™XÝ
+ÝY
+NÂˆÝš[™È]H[žHOH[È[ˆ[žK›ÜÝš[™Êœ™[]]™T]‹[
+NÂˆYˆ
+]OH[\]œ™YÚ[Û“X]Ú\ÊYK’[XYÙWÑ™YYÈ‹’[XYÙWÑ™YYÈ‹›[™Ý
+
+JJHÛÛ[YNÂˆÝš[™ÈØÝ[Y[YHÜ›ÝÔÝYÂˆ›ÛÛX[ˆ›Ý[™HYNÂˆ›Üˆ
+Ýš[™ÈÙYÛY[ˆ]œÜ]
+‹ÈŠJHÂˆYˆ
+ÙYÛY[š\Ñ[\J
+H‹ˆ‹™\]X[ÊÙYÛY[
+H‹‹ˆ‹™\]X[ÊÙYÛY[
+JHÈ›Ý[™H˜[ÙNÈœ™XZÎÈBˆØÝ[Y[YHš[™ÜÜ™X]PÚ[›Û\Š™YU\šKØÝ[Y[YÙYÛY[
+NÂˆBˆYˆ
+Y›Ý[™
+HÛÛ[YNÂˆÝš[™ÈØY™RYHØY™TÝY
+ÝY
+NÂˆËÈš]™HÛÛ™šYÈ\È]]Üš]]]™H›ÜˆHY˜][Ý]Ëˆ™Yœ™\ÚØØ[ˆËÈØÝ[Y[QÈœ›ÛH]Ûˆ][˜ÚÛÈHÝ[H]Ý[]˜[Y›Û\ˆÙ[XÝ[Û‚ˆËÈØ[››ÝÙY\Ú[[™È]Y\Ý\™^IÜÈ[XYÙWÙ™YYØØ][Û‹‚ˆÙ]™YœÊ
+K™Y]
+
+Kœ]Ýš[™Ê™YY™YRÙ^JØY™RY
+K™YU\šKÔÝš[™Ê
+JBˆœ]Ýš[™Ê™YY›Û\‘ØÝ[Y[Ù^JØY™RY
+KØÝ[Y[Y
+Bˆœ]Ýš[™Ê™YYØØ][Û’Ù^JØY™RY
+KÙ]ØÝ[Y[]X™[
+™YU\šKØÝ[Y[Y
+JK˜\J
+NÂˆBˆBˆËÈÜ™X]HHÚ\™YÛÛ™šYÈÛˆHš\œÝ][˜Ú]Ø[ˆÙYHHØ]™YÜ›ÝÔÝÜ˜[‚ˆËÈ\ÈÜš]\È[™XYK\Ø]™Y[XYÙKY™YYX™[È\ÈHØ[›ÛšXØ[XYÛ›ÜÚ\È]Ú]Ý]ˆËÈ\ÚÚ[™ÈH\Ù\ˆÈ™XÛÛ›™XÝÜˆ™]Üš][™È[ˆ^\Ý[™ÈÛÛ™šYÈÛˆ]™\žH][˜Ú‚ˆYˆ
+Ü™X]Qš]™PÛÛ™šYÊHØ]™Qš]™TÝÜ˜YÙPÛÛ™šYÊ™YU\šJNÂˆHØ]Ú
+^Ù\[ÛˆYÛ›Ü™Y
+HÈBˆB‚ˆš]˜]H›ÛÛX[ˆØ]™Qš]™TÝÜ˜YÙPÛÛ™šYÊ\šH™Y™\œ™Y™YU\šJHÂˆžHÂˆ\šH™YU\šHH™Y™\œ™Y™YU\šNÂˆÝš[™ÈÜ›ÝÔÝYH™YU\šHOH[È[ˆ™\ÛÛ™QÜ›ÝÔÝØÝ[Y[Y
+™YU\šJNÂˆYˆ
+Ü›ÝÔÝYOH[
+HÂˆÝš[™ÈØ]™YHÙ]™YœÊ
+K™Ù]Ýš[™Ê‘Q—ÑÔ“ÕÔÕÕ‘QWÕT’K[
+NÂˆ™YU\šHHØ]™YOH[Èš[™Ü›ÝÔÝØÛÜY™YU\šJ
+Hˆ\šKœ\œÙJØ]™Y
+NÂˆYˆ
+™YU\šHOH[
+H™]\›ˆ˜[ÙNÂˆÜ›ÝÔÝYH™\ÛÛ™QÜ›ÝÔÝØÝ[Y[Y
+™YU\šJNÂˆBˆYˆ
+Ü›ÝÔÝYOH[
+H™]\›ˆ˜[ÙNÂˆÙ]™YœÊ
+K™Y]
+
+Kœ]Ýš[™Ê‘Q—ÑÔ“ÕÔÕÕ‘QWÕT’K™YU\šKÔÝš[™Ê
+JK˜\J
+NÂˆÝš[™ÈÛÛ™šYÒYHš[™ÜÜ™X]PÚ[›Û\Š™YU\šKÜ›ÝÔÝY˜ÛÛ™šYÈŠNÂˆ”ÓÓ“Øš™XÝÛÛ™šYÈH™XYš]™TÝÜ˜YÙPÛÛ™šYÊ™YU\šKÜ›ÝÔÝY
+NÂˆYˆ
+ÛÛ™šYË›[™Ý
+
+HOH
+HÛÛ™šYÈH™XY[™YÝÜ˜YÙPÛÛ™šYÊ
+NÂˆ”ÓÓ“Øš™XÝ™YYÈHÛÛ™šYË›Ü”ÓÓ“Øš™XÝ
+š[XYÙQ™YYÈŠNÂˆYˆ
+™YYÈOH[
+H™YYÈH™]È”ÓÓ“Øš™XÝ
+
+NÂˆÝš[™ÈX™[™Yš^H™]WÙ™YYÛØØ][Û—ÛX™[ÈŽÂˆ›Üˆ
+X\‘[žOÝš[™ËÏˆ™YˆˆÙ]™YœÊ
+K™Ù][
+
+K™[žTÙ]
+
+JHÂˆÝš[™ÈÙ^HH™Y‹™Ù]Ù^J
+NÂˆYˆ
+ZÙ^KœÝ\ÕÚ]
+X™[™Yš^
+HJ™Y‹™Ù]˜[YJ
+H[œÝ[˜Ù[ÙˆÝš[™ÊJHÛÛ[YNÂˆÝš[™ÈÝYHØY™TÝY
+Ù^KœÝXœÝš[™ÊX™[™Yš^›[™Ý
+
+JJNÂˆÝš[™È\Ü^T]H
+Ýš[™ÊH™Y‹™Ù]˜[YJ
+NÂˆÝš[™È™[]]™T]H™[]]™T]œ›ÛQÜ›ÝÔÝ
+\Ü^T]
+NÂˆ”ÓÓ“Øš™XÝ[žHH™YYË›Ü”ÓÓ“Øš™XÝ
+ÝY
+NÂˆYˆ
+[žHOH[
+H[žHH™]È”ÓÓ“Øš™XÝ
+
+NÂˆ[žKœ]
+™\Ü^T]‹\Ü^T]
+NÂˆYˆ
+™[]]™T]OH[
+H[žKœ]
+œ™[]]™T]‹™[]]™T]
+NÂˆ[ÙH[žKœ™[[Ý™Jœ™[]]™T]ŠNÂˆ™YYËœ]
+ÝY[žJNÂˆBˆÛÛ™šYËœ]
+œØÚ[XU™\œÚ[Ûˆ‹JNÂˆÛÛ™šYËœ]
+\]Y]‹™]ÈÚ[\Q]Q›Ü›X]
+ž^^^KSSKY	Õ	Ò›[NœÜÖ‹ØØ[K•TÊK™›Ü›X]
+™]È]J
+JJNÂˆÛÛ™šYËœ]
+œ›ÛÝ]‹‘Ü›ÝÔÝŠNÂˆÛÛ™šYËœ]
+š[XYÙQ™YY]\›ˆ‹’[XYÙWÑ™YYÏÝY›Û\ˆŠNÂˆÛÛ™šYËœ]
+š[XYÙQ™YYÈ‹™YYÊNÂˆ”ÓÓ“Øš™XÝXYÛ›ÜÚ\ÈHÛÛ™šYË›Ü”ÓÓ“Øš™XÝ
+™XYÛ›ÜÚ\ÈŠNÂˆYˆ
+XYÛ›ÜÚ\ÈOH[
+HXYÛ›ÜÚ\ÈH™]È”ÓÓ“Øš™XÝ
+
+NÂˆXYÛ›ÜÚ\Ëœ]
+œ›ÛÝ]‹‘XYÛ›ÜÚ\ÈŠNÂˆXYÛ›ÜÚ\Ëœ]
+›YYXT]\›ˆ‹‘XYÛ›ÜÚ\ËÔÝÏ‹Ô]XY˜[ÏKLˆŠNÂˆXYÛ›ÜÚ\Ëœ]
+™\Ü^T]‹Ù]ØÝ[Y[]X™[
+™YU\šKš[™ÜÜ™X]PÚ[›Û\Š™YU\šKÜ›ÝÔÝY‘XYÛ›ÜÚ\ÈŠJJNÂˆÛÛ™šYËœ]
+™XYÛ›ÜÚ\È‹XYÛ›ÜÚ\ÊNÂˆÝš[™Èš[RYHÚ[š[QØÝ[Y[Y
+™YU\šKÛÛ™šYÒYÔ“ÕÔÕÔÕÔQÑWÐÓÓ‘’Q×Ñ’SJNÂˆ\šHš[U\šNÂˆYˆ
+š[RYOH[
+HÂˆš[U\šHHØÝ[Y[ÐÛÛ˜XÝ˜Ü™X]QØÝ[Y[
+Ù]ÛÛ[™\ÛÛ™\Š
+KˆØÝ[Y[ÐÛÛ˜XÝ˜Z[ØÝ[Y[\šU\Ú[™Õ™YJ™YU\šKÛÛ™šYÒY
+K˜\XØ][Û‹ÚœÛÛˆ‹Ô“ÕÔÕÔÕÔQÑWÐÓÓ‘’Q×Ñ’SJNÂˆYˆ
+š[U\šHOH[
+H›ÝÈ™]È[YØ[Ý]Q^Ù\[ÛŠ‘ÛÛÙÛHš]™H™Y\ÙYÈÜ™X]HHÝÜ˜YÙHÛÛ™šYÈš[HŠNÂˆH[ÙHš[U\šHHØÝ[Y[ÐÛÛ˜XÝ˜Z[ØÝ[Y[\šU\Ú[™Õ™YJ™YU\šKš[RY
+NÂˆžH
+Ý]]Ý™X[HÝ]]HÙ]ÛÛ[™\ÛÛ™\Š
+K›Ü[“Ý]]Ý™X[Jš[U\šKÝŠJHÂˆYˆ
+Ý]]OH[
+H›ÝÈ™]È[YØ[Ý]Q^Ù\[ÛŠ‘ÛÛÙÛHš]™HÛÝ[›ÝÜ[ˆHÝÜ˜YÙHÛÛ™šYÈ›ÜˆÜš][™ÈŠNÂˆÝ]]Üš]J
+ÛÛ™šYËÔÝš[™ÊŠH
+È—ˆŠK™Ù]ž]\ÊÝ[™\™Ú\œÙ]Ë•U—Î
+JNÂˆÝ]]™›\Ú
+
+NÂˆBˆ™]\›ˆYNÂˆHØ]Ú
+^Ù\[ÛˆYÛ›Ü™Y
+HÂˆ™]\›ˆ˜[ÙNÂˆBˆB‚ˆÝ™\œšYH›ÝXÝY›ÚYÛ”™\Ý[YJ
+HÂˆÝ\\‹›Û”™\Ý[YJ
+NÂˆYˆ
+\Ù\”Ý™X[S[ÙH	‰ˆXXÝ]™TÝ™X[TØÛÜKš\Ñ[\J
+JHÂˆÝš[™Ö×H\ÈHXÝ]™TÝ™X[TØÛÜKœÜ]
+—‹LJNÂˆYˆ
+\Ë›[™ÝOHÊHXZ[’[™\‹œÜÝ[^YY
+
+
+HOˆØY\ÜÚYÛ™YÝ™X[\Ê\ÖÌWK\ÖÌ—KYJKL
+NÂˆBˆXÝ]š]T™\Ý[YYHYNÂˆXZ[’[™\‹œ™[[Ý™PØ[˜XÚÜÊØÚY[YØØ[ŠNÂˆØØ[”Û˜\ÚÝ›Û\Š
+NÂˆXZ[’[™\‹œÜÝ[^YY
+ØÚY[YØØ[‹™Yœ™\Ú[\˜[Z[]\È
+ˆŒÌ
+NÂˆYˆ
+H–×H‹™\]X[ÊÙ]™YœÊ
+K™Ù]Ýš[™Ê‘Q—ÔS‘S‘×ÑPQÓ“ÔÒT×ÕTÐQË–×HŠJJH›\Ú[™[™ÑXYÛ›ÜÚ\Õ\ØYÊ
+NÂˆYˆ
+\ÙX˜Ø[U›Ó^[Ý]OH[	‰ˆ\ÙX˜Ø[U›Ô^Y\ˆOH[
+HÂˆXZ[’[™\‹œÜÝ[^YY
+\ÎŽœ™XÛÛ›™XÝ\ÙX˜Ø[U›Ë
+NÂˆBˆYˆ
+\ÙX˜Ø[L•›Ó^[Ý]OH[	‰ˆ\ÙX˜Ø[L•›Ô^Y\ˆOH[
+HÂˆXZ[’[™\‹œÜÝ[^YY
+\ÎŽœ™XÛÛ›™XÝØÝŒ•›Ë
+NÂˆBˆYˆ
+\ÙX˜Ø[LÕ›Ó^[Ý]OH[	‰ˆ\ÙX˜Ø[LÕ›Ô^Y\ˆOH[
+HÂˆXZ[’[™\‹œÜÝ[^YY
+\ÎŽœ™XÛÛ›™XÝØÝŒÕ›Ë
+NÂˆBˆB‚ˆÝ™\œšYH›ÝXÝY›ÚYÛ”]\ÙJ
+HÂˆËÈ™[X\ÙHH]™HÝ™X[HÚ[HÜ›ÝÔÝ\È˜XÚÙÜ›Ý[™Yˆ™XÛÛ›™XÝÛˆ™]\›‹‚ˆXÝ]š]T™\Ý[YYH˜[ÙNÂˆÝÜ\ÙX˜Ø[U›Ê
+NÂˆÝÜØÝŒ•›Ê
+NÂˆÝÜØÝŒÕ›Ê
+NÂˆÝ\\‹›Û”]\ÙJ
+NÂˆB‚ˆÝ™\œšYH›ÝXÝY›ÚYÛ‘\Ý›ÞJ
+HÂˆXZ[’[™\‹œ™[[Ý™PØ[˜XÚÜÊØÚY[YØØ[ŠNÂˆYˆ
+ØØ][Û“\Ý[™\ˆOH[
+HÂˆžHÈ
+
+ØØ][Û“X[˜YÙ\ŠHÙ]Þ\Ý[TÙ\šXÙJÐÐUSÓ—ÔÑT•’PÑJJKœ™[[Ý™U\]\ÊØØ][Û“\Ý[™\ŠNÈBˆØ]Ú
+^Ù\[ÛˆYÛ›Ü™Y
+HÈBˆØØ][Û“\Ý[™\ˆH[ÂˆØØ][Û”™\]Y\Ý[‘›YÚH˜[ÙNÂˆBˆØØ][Û”\›Z\ÜÚ[Û”™\]Y\Ý[‘›YÚH˜[ÙNÂˆÝÜ\ÙX˜Ø[U›Ê
+NÂˆÝÜØÝŒ•›Ê
+NÂˆÝÜØÝŒÕ›Ê
+NÂˆYˆ
+\ÙX˜Ø[U›Ñœ˜[YHOH[	‰ˆ\ÙX˜Ø[U›Ñœ˜[YK™Ù]\™[
+
+H[œÝ[˜Ù[Ùˆœ˜[YS^[Ý]
+HÂˆ
+
+œ˜[YS^[Ý]
+H\ÙX˜Ø[U›Ñœ˜[YK™Ù]\™[
+
+JKœ™[[Ý™UšY]Ê\ÙX˜Ø[U›Ñœ˜[YJNÂˆ\ÙX˜Ø[U›Ñœ˜[YHH[ÂˆBˆ\ÙX˜Ø[U›Ó^[Ý]H[Âˆ\ÙX˜Ø[T™Yœ™\Ú]ÛˆH[ÂˆYˆ
+\ÙX˜Ø[L•›Ñœ˜[YHOH[	‰ˆ\ÙX˜Ø[L•›Ñœ˜[YK™Ù]\™[
+
+H[œÝ[˜Ù[Ùˆœ˜[YS^[Ý]
+HÂˆ
+
+œ˜[YS^[Ý]
+H\ÙX˜Ø[L•›Ñœ˜[YK™Ù]\™[
+
+JKœ™[[Ý™UšY]Ê\ÙX˜Ø[L•›Ñœ˜[YJNÂˆ\ÙX˜Ø[L•›Ñœ˜[YHH[ÂˆBˆ\ÙX˜Ø[L•›Ó^[Ý]H[Âˆ\ÙX˜Ø[L”™Yœ™\Ú]ÛˆH[ÂˆYˆ
+\ÙX˜Ø[LÕ›Ñœ˜[YHOH[	‰ˆ\ÙX˜Ø[LÕ›Ñœ˜[YK™Ù]\™[
+
+H[œÝ[˜Ù[Ùˆœ˜[YS^[Ý]
+HÂˆ
+
+œ˜[YS^[Ý]
+H\ÙX˜Ø[LÕ›Ñœ˜[YK™Ù]\™[
+
+JKœ™[[Ý™UšY]Ê\ÙX˜Ø[LÕ›Ñœ˜[YJNÂˆ\ÙX˜Ø[LÕ›Ñœ˜[YHH[ÂˆBˆ\ÙX˜Ø[LÕ›Ó^[Ý]H[Âˆ\ÙX˜Ø[LÔ™Yœ™\Ú]ÛˆH[ÂˆØØ[•ÛÜšÙ\‹œÚ]ÝÛ“›ÝÊ
+NÂˆÙ[ØÛÙUÛÜšÙ\‹œÚ]ÝÛ“›ÝÊ
+NÂˆXYÛ›ÜÚ\ÕÛÜšÙ\‹œÚ]ÝÛ“›ÝÊ
+NÂˆÚ[™Ú\ÙUÛÜšÙ\‹œÚ]ÝÛ“›ÝÊ
+NÂˆXYÛ›ÜÚ\ÐÝ•ÛÜšÙ\‹œÚ]ÝÛ“›ÝÊ
+NÂˆYˆ
+ÙXˆOH[
+HÂˆÙX‹œ™[[Ý™R˜]˜\ØÜš\[\™˜XÙJ‘Ü›ÝÔÝœšYÙHŠNÂˆÙX‹™\Ý›ÞJ
+NÂˆÙXˆH[ÂˆBˆÝ\\‹›Û‘\Ý›ÞJ
+NÂˆB‚ˆÝ™\œšYH›ÝXÝY›ÚYÛXÝ]š]T™\Ý[
+[™\]Y\ÝÛÙK[™\Ý[ÛÙK[[]JHÂˆÝ\\‹›ÛXÝ]š]T™\Ý[
+™\]Y\ÝÛÙK™\Ý[ÛÙK]JNÂˆYˆ
+™\]Y\ÝÛÙHOH‘TUQTÕÑ‘QQÐÐSQTH™\]Y\ÝÛÙHOH‘TUQTÕÑ‘QQÔPÒÑTŠHÂˆ[™Q™YYÝÔ™\Ý[
+™\]Y\ÝÛÙK™\Ý[ÛÙK]JNÂˆ™]\›ŽÂˆBˆYˆ
+™\]Y\ÝÛÙHOH‘TUQTÕÑPQÓ“ÔÒT×ÔÕÈ™\]Y\ÝÛÙHOH‘TUQTÕÑPQÓ“ÔÒT×Õ’QSÂˆ™\]Y\ÝÛÙHOH‘TUQTÕÑPQÓ“ÔÒT×ÔPÒÑTŠHÂˆ[™QXYÛ›ÜÚ\ÐXÝ]š]T™\Ý[
+™\]Y\ÝÛÙK™\Ý[ÛÙK]JNÂˆ™]\›ŽÂˆBˆYˆ
+™\]Y\ÝÛÙHOH‘TUQTÕÑPQÓ“ÔÒT×Ñ“ÓTŠHÂˆ[™QXYÛ›ÜÚ\Ñ›Û\”™\Ý[
+™\Ý[ÛÙK]JNÂˆ™]\›ŽÂˆBˆYˆ
+™\]Y\ÝÛÙHOH‘TUQTÕÒSPQÑWÑ“ÓTŠH™]\›ŽÂˆYˆ
+™\Ý[ÛÙHOH‘TÕSÓÒÈ]HOH[
+HÂˆYˆ
+XÚÙ\Ü™X]\ÑY˜][™YY
+HÂˆXÚÙ\Ü™X]\ÑY˜][™YYH˜[ÙNÂˆX›\ÚÝ]\ÊXZÙTÝ]\Ê‘ÛÛÙÛHš]™HÙ[XÝ[ÛˆØ\ÈØ[˜Ù[Yˆ\ÛÛ›™XÝÈ›Û\ˆÈžHYØZ[‹ˆŠJNÂˆBˆ™]\›ŽÂˆBˆ\šH›Û\•\šHH]K™Ù]]J
+NÂˆYˆ
+›Û\•\šHOH[
+H™]\›ŽÂˆÝš[™ÈÝYHØY™TÝY
+XÚÙ\”ÝY
+NÂˆÝš[™ÈÙ[XÝY›Û\“˜[YHHÙ]ØÝ[Y[˜[YJ›Û\•\šJNÂˆYˆ
+XÚÙ\Ü™X]\ÑY˜][™YY	‰ˆJ”›Ú™XÝÈ‹™\]X[ÒYÛ›Ü™PØ\ÙJÙ[XÝY›Û\“˜[YJBˆ‘Ü›ÝÔÝ‹™\]X[ÒYÛ›Ü™PØ\ÙJÙ[XÝY›Û\“˜[YJJJHÂˆX›\ÚÝ]\ÊXZÙTÝ]\Ê”Ù[XÝ›Ú™XÝÈÜˆÜ›ÝÔÝ[ˆ\\ÙH\È›Û\‹ˆÜ›ÝÔÝÜ™X]\ÈHZ\ÜÚ[™È›Û\œÈ›Üˆˆ
+ÈØY™Q›Û\“˜[YJXÚÙ\‘Y˜][›Û\“˜[YJH
+È‹ˆŠJNÂˆ™]\›ŽÂˆBˆ[Ü˜[›YÜÈH]K™Ù]›YÜÊ
+H	ˆ
+[[‘“Q×ÑÔS•Ô‘PQÕT’WÔT“RTÔÒSÓˆ[[‘“Q×ÑÔS•ÕÔ’UWÕT’WÔT“RTÔÒSÓŠNÂˆYˆ
+
+Ü˜[›YÜÈ	ˆ[[‘“Q×ÑÔS•Ô‘PQÕT’WÔT“RTÔÒSÓŠHOHˆ
+Ü˜[›YÜÈ	ˆ[[‘“Q×ÑÔS•ÕÔ’UWÕT’WÔT“RTÔÒSÓŠHOH
+HÂˆX›\ÚÝ]\ÊXZÙTÝ]\Ê‘ÛÛÙÛHš]™H™YYÈ\Ý[™È™XY[™Üš]HXØÙ\ÜËˆÚÛÜÙHHÜ›ÝÔÝ›Û\ˆYØZ[ˆ[™ÙY\XØÙ\ÜÈ[˜X›YˆŠJNÂˆ™]\›ŽÂˆBˆžHÂˆÙ]ÛÛ[™\ÛÛ™\Š
+KZÙT\œÚ\ÝX›U\šT\›Z\ÜÚ[ÛŠ›Û\•\šKÜ˜[›YÜÊNÂˆHØ]Ú
+ÙXÝ\š]Q^Ù\[Ûˆ\œ›ÜŠHÂˆX›\ÚÝ]\ÊXZÙTÝ]\Ê[™›ÚYY›ÝÜ˜[\Ý[™ÈXØÙ\ÜÈÈ]›Û\‹ˆÚÛÜÙHH]H™YY›Û\ˆYØZ[‹ˆŠJNÂˆ™]\›ŽÂˆBˆÝš[™ÈØØ][Û“X™[Âˆ›ÛÛX[ˆÝÜ˜YÙPÛÛ™šYÔØ]™YH˜[ÙNÂˆžHÂˆÝš[™È\™Ù]ØÝ[Y[YHØÝ[Y[ÐÛÛ˜XÝ™Ù]™YQØÝ[Y[Y
+›Û\•\šJNÂˆÝš[™ÈY˜][™[]]™T]H[ÂˆYˆ
+XÚÙ\Ü™X]\ÑY˜][™YY
+HÂˆ\™Ù]ØÝ[Y[YH™\ÛÛ™QÜ›ÝÔÝØÝ[Y[Y
+›Û\•\šJNÂˆYˆ
+\™Ù]ØÝ[Y[YOH[
+H›ÝÈ™]È[YØ[Ý]Q^Ù\[ÛŠ”Ù[XÝH›Ú™XÝÈÜˆÜ›ÝÔÝ›Û\ˆ[ˆÛÛÙÛHš]™HŠNÂˆÝš[™È[XZ[›Û\ˆHÚYÛ™Y[‘[XZ[›Û\“˜[YJ
+NÂˆÝš[™È[XYÙQ™YYYHš[™ÜÜ™X]PÚ[›Û\Š›Û\•\šK\™Ù]ØÝ[Y[Y’[XYÙWÑ™YYŠNÂˆÝš[™È\Ù\‘›Û\’YHš[™ÜÜ™X]PÚ[›Û\Š›Û\•\šK[XYÙQ™YYY[XZ[›Û\ŠNÂˆÝš[™ÈÝ›Û\ˆHØY™Q›Û\“˜[YJXÚÙ\‘Y˜][›Û\“˜[YJNÂˆ\™Ù]ØÝ[Y[YHš[™ÜÜ™X]PÚ[›Û\Š›Û\•\šK\Ù\‘›Û\’YÝ›Û\ŠNÂˆY˜][™[]]™T]H’[XYÙWÑ™YYÈˆ
+È[XZ[›Û\ˆ
+È‹Èˆ
+ÈÝ›Û\ŽÂˆBˆØØ][Û“X™[HY˜][™[]]™T]OH[ˆÈÙ]ØÝ[Y[]X™[
+›Û\•\šK\™Ù]ØÝ[Y[Y
+Bˆˆ‘ÛÛÙÛHš]™NˆÔ›Ú™XÝËÑÜ›ÝÔÝÈˆ
+ÈY˜][™[]]™T]Âˆ”ÓÓ“Øš™XÝÛÛ™šYÈH™]È”ÓÓ“Øš™XÝ
+Ù]™YœÊ
+K™Ù]Ýš[™Ê™]WÙ™YYØÛÛ™šY×Èˆ
+ÈÝYžßHŠJNÂˆÛÛ™šYËœ]
+œÝY‹ÝY
+NÂˆÛÛ™šYËœ]
+™[˜X›Y‹YJNÂˆÛÛ™šYËœ]
+™›Û\•\šH‹›Û\•\šKÔÝš[™Ê
+JNÂˆÙ]™YœÊ
+K™Y]
+
+Bˆœ]Ýš[™Ê™YY™YRÙ^JÝY
+K›Û\•\šKÔÝš[™Ê
+JBˆœ]Ýš[™Ê™YY›Û\‘ØÝ[Y[Ù^JÝY
+K\™Ù]ØÝ[Y[Y
+Bˆœ]Ýš[™Ê™YYØØ][Û’Ù^JÝY
+KØØ][Û“X™[
+Bˆœ]Ýš[™Ê™]WÙ™YYØÛÛ™šY×Èˆ
+ÈÝYÛÛ™šYËÔÝš[™Ê
+JBˆœ]Ýš[™Ê‘Q—ÐPÕU‘WÔÕÒQÝY
+Bˆ˜\J
+NÂˆ™[Y[X™\‘Ü›ÝÔÝ™YRY”ØÛÜY
+›Û\•\šJNÂˆÝÜ˜YÙPÛÛ™šYÔØ]™YHØ]™Qš]™TÝÜ˜YÙPÛÛ™šYÊ›Û\•\šJNÂˆYˆ
+XØÛÝ[\PœšYÙHOH[
+HÂˆXØÛÝ[\PœšYÙKœØ]™R[XYÙQ™YY]
+ÝYØØ][Û“X™[™[]]™T]œ›ÛQÜ›ÝÔÝ
+ØØ][Û“X™[
+JNÂˆBˆHØ]Ú
+^Ù\[Ûˆ\œ›ÜŠHÂˆÝš[™È™X\ÛÛˆH\œ›Ü‹™Ù]Y\ÜØYÙJ
+HOH[È‘š]™HÛÝ[›ÝÜ™X]HÜˆÜ[ˆH›Û\‹ˆˆˆ\œ›Ü‹™Ù]Y\ÜØYÙJ
+NÂˆX›\ÚÝ]\ÊXZÙTÝ]\ÊXÚÙ\Ü™X]\ÑY˜][™YYˆÈÛÝ[›ÝÜ™X]HHÙ[XÝYÝ	ÜÈÛÛÙÛHš]™H›Û\Žˆˆ
+È™X\ÛÛ‚ˆˆÛÝ[›ÝØ]™H\ÈÝ	ÜÈ]H™YYˆˆ
+È™X\ÛÛŠJNÂˆ™]\›ŽÂˆBˆXÚÙ\Ü™X]\ÑY˜][™YYH˜[ÙNÂˆ›ÝYžQ™YYÙ][™ÜÔØ]™Y
+ÝYØØ][Û“X™[
+NÂˆYˆ
+\ÝÜ˜YÙPÛÛ™šYÔØ]™Y
+HÂˆ”ÓÓ“Øš™XÝÝ]\ÈHXZÙTÝ]\Ê’[XYÙH™YYØØ][Ûˆ\ÈØ]™YÛˆ\È]šXÙKˆÈÞ[˜È]È][Èš]™HÛÛ™šYËÚÛÜÙHÜ›ÝÔÝ\ÈHÚ\™Y›Û\ˆØÛÜKˆŠNÂˆžHÈÝ]\Ëœ]
+œÝY‹ÝY
+NÈHØ]Ú
+^Ù\[ÛˆYÛ›Ü™Y
+HÈBˆX›\ÚÝ]\ÊÝ]\ÊNÂˆBˆØØ[”Û˜\ÚÝ›Û\Š
+NÂˆB‚ˆš]˜]H›ÚY[™Q™YYÝÔ™\Ý[
+[™\]Y\ÝÛÙK[™\Ý[ÛÙK[[]JHÂˆ\šHÝ]]H[™[™Ñ™YYÝÓÝ]]Âˆ[™[™Ñ™YYÝÓÝ]]H[ÂˆYˆ
+™\Ý[ÛÙHOH‘TÕSÓÒÊHÂˆ[]T[™[™Ñ™YYÝÊÝ]]
+NÂˆ›ÝYžQ™YYØ\\™TÝ]\Ê”ÝÈØ[˜Ù[YˆŠNÂˆ™]\›ŽÂˆBˆ\šHÛÝ\˜ÙHH™\]Y\ÝÛÙHOH‘TUQTÕÑ‘QQÔPÒÑT‚ˆÈ
+]HOH[È[ˆ]K™Ù]]J
+JBˆˆ
+]HOH[	‰ˆ]K™Ù]]J
+HOH[È]K™Ù]]J
+HˆÝ]]
+NÂˆš]X\[X›˜Z[H]HOH[	‰ˆ]K™Ù]^˜\Ê
+HOH[ˆ	‰ˆ]K™Ù]^˜\Ê
+K™Ù]
+™]HŠH[œÝ[˜Ù[Ùˆš]X\ˆÈ
+š]X\
+H]K™Ù]^˜\Ê
+K™Ù]
+™]HŠHˆ[Âˆš[˜[[Ø[Y\˜HH[™[™Ñ™YYØ[Y\˜NÂˆš[˜[Ýš[™ÈÝYHØY™TÝY
+[™[™Ñ™YYÝY
+NÂˆYˆ
+ÛÝ\˜ÙHOH[	‰ˆ[X›˜Z[OH[
+HÂˆ[]T[™[™Ñ™YYÝÊÝ]]
+NÂˆ›ÝYžQ™YYØ\\™TÝ]\Ê“›ÈÝÈØ\È™]\›™YˆžHHØ[Y\˜HYØZ[ˆÜˆÚÛÜÙH[ˆ[XYÙHš[KˆŠNÂˆ™]\›ŽÂˆBˆ›ÝYžQ™YYØ\\™TÝ]\Ê”Ø]š[™ÈÝÈÈ\ÈÝ8 &\ÈÛÛÙÛHš]™H[XYÙH›Û\¸ )ˆŠNÂˆØØ[•ÛÜšÙ\‹™^XÝ]J
+
+HOˆÂˆžHÂˆØ]™Q™YYÝÕÑš]™JÛÝ\˜ÙK[X›˜Z[ÝYØ[Y\˜Kˆ™\]Y\ÝÛÙHOH‘TUQTÕÑ‘QQÐÐSQTJNÂˆ[“Û•ZU™XY
+
+
+HOˆÂˆ[]T[™[™Ñ™YYÝÊÝ]]
+NÂˆ›ÝYžQ™YYØ\\™TÝ]\Ê”ÝÈØ]™YÈˆ
+È™YYØØ][Û“X™[
+ÝY
+Bˆ
+Èˆ\ÈÐÕˆˆ
+ÈÝš[™Ë™›Ü›X]
+ØØ[K•TË‰L™‹Ø[Y\˜JH
+È‹ˆŠNÂˆØØ[”Û˜\ÚÝ›Û\ŠÝY
+NÂˆJNÂˆHØ]Ú
+^Ù\[Ûˆ\œ›ÜŠHÂˆ[]T[™[™Ñ™YYÝÊÝ]]
+NÂˆÝš[™È™X\ÛÛˆH\œ›Ü‹™Ù]Y\ÜØYÙJ
+HOH[È\œ›Ü‹™Ù]Û\ÜÊ
+K™Ù]Ú[\S˜[YJ
+Hˆ\œ›Ü‹™Ù]Y\ÜØYÙJ
+NÂˆ[“Û•ZU™XY
+
+
+HOˆ›ÝYžQ™YYØ\\™TÝ]\ÊÛÝ[›ÝØ]™HÝÈÈ\ÈÝ8 &\È[XYÙH›Û\Žˆˆ
+È™X\ÛÛŠJNÂˆHš[˜[HÂˆYˆ
+[X›˜Z[OH[	‰ˆ][X›˜Z[š\Ô™XÞXÛY
+
+JH[X›˜Z[œ™XÞXÛJ
+NÂˆBˆJNÂˆB‚ˆš]˜]H›ÚY][˜Ú™YYÝÐØ\\™J[Ø[Y\˜KÝš[™ÈÝY
+HÂˆYˆ
+Z\Ñ™YY›Û\”™XYJÝY
+JHÂˆ›ÝYžQ™YYØ\\™TÝ]\ÊÛÛ›™XÝ\ÈÝ8 &\È[XYÙH›Û\ˆš\œÝ\Ú[™ÈÛÛ›™XÝÈ›Û\ˆ[ˆ\È[™[ˆŠNÂˆ™]\›ŽÂˆBˆ[™[™Ñ™YYØ[Y\˜HHØ[Y\˜NÂˆ[™[™Ñ™YYÝYHØY™TÝY
+ÝY
+NÂˆ[[[[H™]È[[
+YYXTÝÜ™KPÕSÓ—ÒSPQÑWÐÐTT‘JNÂˆYˆ
+Z[•‘T”ÒSÓ‹”Ñ×ÒS•HŽJHÂˆžHÂˆ[™›ÚY˜ÛÛ[ÛÛ[˜[Y\È˜[Y\ÈH™]È[™›ÚY˜ÛÛ[ÛÛ[˜[Y\Ê
+NÂˆ˜[Y\Ëœ]
+YYXTÝÜ™K’[XYÙ\Ë“YYXK‘TÔVWÓSQK‘Ü›ÝÔÝØØ\\™WÈˆ
+ÈÞ\Ý[K˜Ý\œ™[[YSZ[\Ê
+H
+È‹šœÈŠNÂˆ˜[Y\Ëœ]
+YYXTÝÜ™K’[XYÙ\Ë“YYXK“RSQWÕTKš[XYÙKÚœYÈŠNÂˆ˜[Y\Ëœ]
+YYXTÝÜ™K’[XYÙ\Ë“YYXK”‘SUU‘WÔU[š\›Û›Y[‘T‘PÕÔ–WÔPÕT‘TÈ
+È‹ÑÜ›ÝÔÝŠNÂˆËÈÈ›ÝX\šÈHÝ]][™[™ÎˆÙ]™\˜[Ø[Y\˜H\ÈÝ[Ú[ˆ[‚ˆËÈPÕSÓ—ÒSPQÑWÐÐTT‘HÝ]]Ú[È]H[™[™ÈYYXTÝÜ™H›ÝË‚ˆ[™[™Ñ™YYÝÓÝ]]HÙ]ÛÛ[™\ÛÛ™\Š
+Kš[œÙ\
+YYXTÝÜ™K’[XYÙ\Ë“YYXK‘VT“SÐÓÓ•S•ÕT’K˜[Y\ÊNÂˆYˆ
+[™[™Ñ™YYÝÓÝ]]OH[
+HÂˆ[[œ]^˜JYYXTÝÜ™K‘VWÓÕUU[™[™Ñ™YYÝÓÝ]]
+NÂˆ[[˜Y›YÜÊ[[‘“Q×ÑÔS•Ô‘PQÕT’WÔT“RTÔÒSÓˆ[[‘“Q×ÑÔS•ÕÔ’UWÕT’WÔT“RTÔÒSÓŠNÂˆ[[œÙ]Û\]JÛ\]K›™]Õ\šJÙ]ÛÛ[™\ÛÛ™\Š
+K‘Ü›ÝÔÝØ[Y\˜HÝ]]‹[™[™Ñ™YYÝÓÝ]]
+JNÂˆBˆHØ]Ú
+^Ù\[ÛˆYÛ›Ü™Y
+HÈ[™[™Ñ™YYÝÓÝ]]H[ÈBˆBˆYˆ
+[[œ™\ÛÛ™PXÝ]š]JÙ]XÚØYÙSX[˜YÙ\Š
+JHOH[
+HÂˆ[]T[™[™Ñ™YYÝÊ[™[™Ñ™YYÝÓÝ]]
+NÂˆ[™[™Ñ™YYÝÓÝ]]H[Âˆ›ÝYžQ™YYØ\\™TÝ]\Ê“›ÈÛÛ\]X›HØ[Y\˜H\Ø\È›Ý[™ˆÚÛÜÙH[ˆ[XYÙHš[H[œÝXYˆŠNÂˆ™]\›ŽÂˆBˆ›ÝYžQ™YYØ\\™TÝ]\Ê•ZÚ[™ÈHÝÈ›ÜˆÐÕˆˆ
+ÈÝš[™Ë™›Ü›X]
+ØØ[K•TË‰L™‹Ø[Y\˜JH
+È¸ )ˆŠNÂˆžHÈÝ\XÝ]š]Q›Ü”™\Ý[
+[[˜Ü™X]PÚÛÜÙ\Š[[•ZÙHÝÈ›ÜˆÐÕˆˆ
+ÈØ[Y\˜JK‘TUQTÕÑ‘QQÐÐSQTJNÈBˆØ]Ú
+^Ù\[Ûˆ\œ›ÜŠHÂˆ[]T[™[™Ñ™YYÝÊ[™[™Ñ™YYÝÓÝ]]
+NÂˆ[™[™Ñ™YYÝÓÝ]]H[Âˆ›ÝYžQ™YYØ\\™TÝ]\ÊÛÝ[›ÝÜ[ˆHØ[Y\˜KˆÚÛÜÙH[ˆ[XYÙHš[H[œÝXYˆŠNÂˆBˆB‚ˆš]˜]H›ÚY][˜Ú™YYÝÔXÚÙ\Š[Ø[Y\˜KÝš[™ÈÝY
+HÂˆYˆ
+Z\Ñ™YY›Û\”™XYJÝY
+JHÂˆ›ÝYžQ™YYØ\\™TÝ]\ÊÛÛ›™XÝ\ÈÝ8 &\È[XYÙH›Û\ˆš\œÝ\Ú[™ÈÛÛ›™XÝÈ›Û\ˆ[ˆ\È[™[ˆŠNÂˆ™]\›ŽÂˆBˆ[™[™Ñ™YYØ[Y\˜HHØ[Y\˜NÂˆ[™[™Ñ™YYÝYHØY™TÝY
+ÝY
+NÂˆ[[[[H™]È[[
+[[PÕSÓ—ÓÔS—ÑÐÕSQS•
+NÂˆ[[œÙ]\Jš[XYÙKÊˆŠNÂˆ[[˜YØ]YÛÜžJ[[ÐUQÓÔ–WÓÔSP“JNÂˆ›ÝYžQ™YYØ\\™TÝ]\ÊÚÛÜÙHHÝÈ›ÜˆÐÕˆˆ
+ÈÝš[™Ë™›Ü›X]
+ØØ[K•TË‰L™‹Ø[Y\˜JH
+È‹ˆ]Ú[™HÛÜYY[È\ÈÝ8 &\È[XYÙH›Û\‹ˆŠNÂˆžHÈÝ\XÝ]š]Q›Ü”™\Ý[
+[[‘TUQTÕÑ‘QQÔPÒÑTŠNÈBˆØ]Ú
+^Ù\[Ûˆ\œ›ÜŠHÈ›ÝYžQ™YYØ\\™TÝ]\Ê“›È[XYÙHš[HXÚÙ\ˆ\È]˜Z[X›HÛˆ\È]šXÙKˆŠNÈBˆB‚ˆš]˜]H›ÛÛX[ˆ\Ñ™YY›Û\”™XYJÝš[™ÈÝY
+HÂˆÝš[™ÈYHØY™TÝY
+ÝY
+NÂˆÝš[™È™YHHÙ]™YœÊ
+K™Ù]Ýš[™Ê™YY™YRÙ^JY
+K[
+NÂˆÝš[™È›Û\ˆHÙ]™YœÊ
+K™Ù]Ýš[™Ê™YY›Û\‘ØÝ[Y[Ù^JY
+K[
+NÂˆ™]\›ˆ™YHOH[	‰ˆ›Û\ˆOH[	‰ˆ\Ô\œÚ\ÝY™XYÜš]QÜ˜[
+\šKœ\œÙJ™YJJNÂˆB‚ˆš]˜]H›ÚYØ]™Q™YYÝÕÑš]™J\šHÛÝ\˜ÙKš]X\[X›˜Z[Ýš[™ÈÝY[Ø[Y\˜Kˆ›ÛÛX[ˆÜ˜Z]Ø\\™JH›ÝÜÈ^Ù\[ÛˆÂˆÝš[™ÈYHØY™TÝY
+ÝY
+NÂˆÝš[™È™YU^HÙ]™YœÊ
+K™Ù]Ýš[™Ê™YY™YRÙ^JY
+K[
+NÂˆÝš[™È›Û\’YHÙ]™YœÊ
+K™Ù]Ýš[™Ê™YY›Û\‘ØÝ[Y[Ù^JY
+K[
+NÂˆYˆ
+™YU^OH[›Û\’YOH[
+H›ÝÈ™]È[YØ[Ý]Q^Ù\[ÛŠ•H[XYÙKY™YY›Û\ˆ\È›ÝÛÛ™šYÝ\™Y›Üˆ\ÈÝŠNÂˆ\šH™YU\šHH\šKœ\œÙJ™YU^
+NÂˆYˆ
+Z\Ô\œÚ\ÝY™XYÜš]QÜ˜[
+™YU\šJJH›ÝÈ™]È[YØ[Ý]Q^Ù\[ÛŠ”Ø]™YÛÛÙÛHš]™H›Û\ˆXØÙ\ÜÈ\È[˜]˜Z[X›NÈ™XÛÛ›™XÝH™YY[ˆÙ][™ÜÈŠNÂˆš]X\š]X\H[X›˜Z[Âˆš]X\XÛÙYš]X\H[Âˆš]X\ÜšY[Yš]X\H[Âˆ[^Y“ÜšY[][ÛˆH^Y’[\™˜XÙK“Ô’QS•USÓ—Ó“Ô“PSÂˆYˆ
+ÛÝ\˜ÙHOH[
+HÂˆžH
+[œ]Ý™X[H[œ]HÙ]ÛÛ[™\ÛÛ™\Š
+K›Ü[’[œ]Ý™X[JÛÝ\˜ÙJJHÂˆYˆ
+[œ]OH[
+H^Y“ÜšY[][ÛˆH™]È^Y’[\™˜XÙJ[œ]
+K™Ù]]šX]R[
+ˆ^Y’[\™˜XÙK•Q×ÓÔ’QS•USÓ‹^Y’[\™˜XÙK“Ô’QS•USÓ—Ó“Ô“PS
+NÂˆHØ]Ú
+^Ù\[ÛˆYÛ›Ü™Y
+HÈ^Y“ÜšY[][ÛˆH^Y’[\™˜XÙK“Ô’QS•USÓ—Ó“Ô“PSÈBˆžH
+[œ]Ý™X[H[œ]HÙ]ÛÛ[™\ÛÛ™\Š
+K›Ü[’[œ]Ý™X[JÛÝ\˜ÙJJHÂˆYˆ
+[œ]OH[
+HXÛÙYš]X\Hš]X\˜XÝÜžK™XÛÙTÝ™X[J[œ]
+NÂˆBˆYˆ
+XÛÙYš]X\OH[
+Hš]X\HXÛÙYš]X\ÂˆBˆYˆ
+š]X\OH[	‰ˆ[X›˜Z[OH[
+Hš]X\H[X›˜Z[ÂˆYˆ
+š]X\OH[
+H›ÝÈ™]È[YØ[Ý]Q^Ù\[ÛŠ•HÙ[XÝY[XYÙHÛÝ[›Ý™HXÛÙYŠNÂˆ›Ø]›Ý][ÛˆH^Y“ÜšY[][ÛˆOH^Y’[\™˜XÙK“Ô’QS•USÓ—Ô“ÕUWÎLˆ^Y“ÜšY[][ÛˆOH^Y’[\™˜XÙK“Ô’QS•USÓ—ÕS”ÔÔÑHÈL‚ˆˆ^Y“ÜšY[][ÛˆOH^Y’[\™˜XÙK“Ô’QS•USÓ—Ô“ÕUWÌNÈN‚ˆˆ^Y“ÜšY[][ÛˆOH^Y’[\™˜XÙK“Ô’QS•USÓ—Ô“ÕUWÌÌˆ^Y“ÜšY[][ÛˆOH^Y’[\™˜XÙK“Ô’QS•USÓ—ÕS”Õ‘T”ÑHÈÌˆˆŽÂˆYˆ
+›Ý][ÛˆOHŠHÂˆX]š^X]š^H™]ÈX]š^
+
+NÂˆX]š^œÜÝ›Ý]J›Ý][ÛŠNÂˆÜšY[Yš]X\Hš]X\˜Ü™X]Pš]X\
+š]X\š]X\™Ù]ÚY
+
+Kš]X\™Ù]ZYÚ
+
+KX]š^YJNÂˆš]X\HÜšY[Yš]X\ÂˆBˆYˆ
+Ü˜Z]Ø\\™H	‰ˆš]X\™Ù]ÚY
+
+Hˆš]X\™Ù]ZYÚ
+
+JHÂˆX]š^X]š^H™]ÈX]š^
+
+NÂˆX]š^œÜÝ›Ý]JLŠNÂˆš]X\Ü˜Z]š]X\Hš]X\˜Ü™X]Pš]X\
+š]X\š]X\™Ù]ÚY
+
+Kš]X\™Ù]ZYÚ
+
+KX]š^YJNÂˆYˆ
+ÜšY[Yš]X\OH[	‰ˆÜšY[Yš]X\OHXÛÙYš]X\	‰ˆÜšY[Yš]X\OH[X›˜Z[
+HÂˆÜšY[Yš]X\œ™XÞXÛJ
+NÂˆBˆÜšY[Yš]X\HÜ˜Z]š]X\Âˆš]X\HÜ˜Z]š]X\ÂˆBˆÚ[\Q]Q›Ü›X]Û˜\ÚÝÛØÚÈH™]ÈÚ[\Q]Q›Ü›X]
+ž^^^SSYÒ[\Ü×ÔÔÔÈ‹ØØ[K•TÊNÂˆÛ˜\ÚÝÛØÚËœÙ][YV›Û™J[YV›Û™K™Ù][YV›Û™J\ÚXKÒÝX[WÓ[\\ˆŠJNÂˆÝš[™Èš[S˜[YHHÐÕˆˆ
+ÈÝš[™Ë™›Ü›X]
+ØØ[K•TË‰L™‹Ø[Y\˜JH
+È—È‚ˆ
+ÈÛ˜\ÚÝÛØÚË™›Ü›X]
+™]È]J
+JH
+È‹šœÈŽÂˆ\šH›Û\•\šHHØÝ[Y[ÐÛÛ˜XÝ˜Z[ØÝ[Y[\šU\Ú[™Õ™YJ™YU\šK›Û\’Y
+NÂˆ\šH\Ý[˜][ÛˆHØÝ[Y[ÐÛÛ˜XÝ˜Ü™X]QØÝ[Y[
+Ù]ÛÛ[™\ÛÛ™\Š
+K›Û\•\šKš[XYÙKÚœYÈ‹š[S˜[YJNÂˆYˆ
+\Ý[˜][ÛˆOH[
+H›ÝÈ™]È[YØ[Ý]Q^Ù\[ÛŠ‘ÛÛÙÛHš]™HÛÝ[›ÝÜ™X]HHÝÈ[ˆH[XYÙKY™YY›Û\ˆŠNÂˆžH
+Ý]]Ý™X[HÝ]]HÙ]ÛÛ[™\ÛÛ™\Š
+K›Ü[“Ý]]Ý™X[J\Ý[˜][Û‹ÈŠJHÂˆYˆ
+Ý]]OH[
+H›ÝÈ™]È[YØ[Ý]Q^Ù\[ÛŠ‘ÛÛÙÛHš]™HÛÝ[›ÝÜ[ˆH™]ÈÝÈŠNÂˆYˆ
+Xš]X\˜ÛÛ\™\ÜÊš]X\ÛÛ\™\ÜÑ›Ü›X]’”QËL‹Ý]]
+JH›ÝÈ™]È[YØ[Ý]Q^Ù\[ÛŠÛÝ[›ÝÛÛ™\HÙ[XÝY[XYÙHÈ”QÈŠNÂˆÝ]]™›\Ú
+
+NÂˆHØ]Ú
+^Ù\[Ûˆ\œ›ÜŠHÂˆžHÈØÝ[Y[ÐÛÛ˜XÝ™[]QØÝ[Y[
+Ù]ÛÛ[™\ÛÛ™\Š
+K\Ý[˜][ÛŠNÈHØ]Ú
+^Ù\[ÛˆYÛ›Ü™Y
+HÈBˆ›ÝÈ\œ›ÜŽÂˆHš[˜[HÂˆYˆ
+ÜšY[Yš]X\OH[	‰ˆÜšY[Yš]X\OHXÛÙYš]X\ˆ	‰ˆÜšY[Yš]X\OH[X›˜Z[	‰ˆ[ÜšY[Yš]X\š\Ô™XÞXÛY
+
+JHÜšY[Yš]X\œ™XÞXÛJ
+NÂˆYˆ
+XÛÙYš]X\OH[	‰ˆXÛÙYš]X\OH[X›˜Z[	‰ˆYXÛÙYš]X\š\Ô™XÞXÛY
+
+JHXÛÙYš]X\œ™XÞXÛJ
+NÂˆBˆB‚ˆš]˜]H›ÚY[]T[™[™Ñ™YYÝÊ\šH\šJHÂˆYˆ
+\šHOH[
+H™]\›ŽÂˆžHÈÙ]ÛÛ[™\ÛÛ™\Š
+K™[]J\šK[[
+NÈHØ]Ú
+^Ù\[ÛˆYÛ›Ü™Y
+HÈBˆB‚ˆš]˜]H›ÚY›ÝYžQ™YYØ\\™TÝ]\ÊÝš[™ÈY\ÜØYÙJHÂˆYˆ
+ÙXˆOH[
+HÙX‹™]˜[X]R˜]˜\ØÜš\
+Ú[™ÝË›Û‘™YYØ\\™TÝ]\É‰Ú[™ÝË›Û‘™YYØ\\™TÝ]\Êˆ
+È”ÓÓ“Øš™XÝœ][ÝJY\ÜØYÙJH
+ÈŠH‹[
+NÂˆB‚ˆš]˜]H›ÚY[™QXYÛ›ÜÚ\ÐXÝ]š]T™\Ý[
+[™\]Y\ÝÛÙK[™\Ý[ÛÙK[[]JHÂˆš[˜[\šHÝ]]H[™[™ÑXYÛ›ÜÚ\ÓÝ]]Âˆš[˜[[Ø[Y\˜HH[™[™ÑXYÛ›ÜÚ\ÐØ[Y\˜NÂˆš[˜[Ýš[™ÈÝYHØY™TÝY
+[™[™ÑXYÛ›ÜÚ\ÔÝY
+NÂˆš[˜[Ýš[™ÈÝ˜[YHHØY™Q›Û\“˜[YJ[™[™ÑXYÛ›ÜÚ\ÔÝ˜[YJNÂˆš[˜[Ýš[™ÈÚ[™H™\]Y\ÝÛÙHOH‘TUQTÕÑPQÓ“ÔÒT×ÔPÒÑT‚ˆÈYYXRÚ[™
+]HOH[È[ˆ]K™Ù]]J
+JHˆ[™[™ÑXYÛ›ÜÚ\ÒÚ[™Âˆ[™[™ÑXYÛ›ÜÚ\ÓÝ]]H[ÂˆYˆ
+™\Ý[ÛÙHOH‘TÕSÓÒÊHÂˆ[]T[™[™ÑXYÛ›ÜÚ\ÓÝ]]
+Ý]]
+NÂˆ›ÝYžQXYÛ›ÜÚ\ÔÝ]\ÊØ\\™HÜˆYYXHÙ[XÝ[ÛˆØ[˜Ù[YˆŠNÂˆ™]\›ŽÂˆBˆ\šH™]\›™YH]HOH[È[ˆ]K™Ù]]J
+NÂˆ\šHÛÝ\˜ÙHH™\]Y\ÝÛÙHOH‘TUQTÕÑPQÓ“ÔÒT×ÔPÒÑTˆÈ™]\›™Yˆ
+™]\›™YOH[È™]\›™YˆÝ]]
+NÂˆYˆ
+Ø[Y\˜HHØ[Y\˜HˆŠHÂˆ[]T[™[™ÑXYÛ›ÜÚ\ÓÝ]]
+Ý]]
+NÂˆ›ÝYžQXYÛ›ÜÚ\ÔÝ]\Ê•HØ[Y\˜HÙ\ÜÚ[Ûˆ^\™Yˆ™[Ü[ˆXYÛ›ÜÙH[™žHYØZ[‹ˆŠNÂˆ™]\›ŽÂˆBˆYˆ
+œÝÈ‹™\]X[ÊÚ[™
+H	‰ˆXYÛ›ÜÚ\ÔÝÐÛÝ[
+Ø[Y\˜KÝY
+HHJHÂˆ[]T[™[™ÑXYÛ›ÜÚ\ÓÝ]]
+Ý]]
+NÂˆ›ÝYžQXYÛ›ÜÚ\ÔÝ]\Ê•\È]XY˜[[™XYH\ÈHÝÜËˆ™[[Ý™HHÝÈ™Y›Ü™HY[™È[›Ý\‹ˆŠNÂˆ™]\›ŽÂˆBˆYˆ
+ÛÝ\˜ÙHOH[	‰ˆ™\]Y\ÝÛÙHOH‘TUQTÕÑPQÓ“ÔÒT×ÔÕÈ	‰ˆ]HOH[ˆ	‰ˆ]K™Ù]^˜\Ê
+HOH[	‰ˆ]K™Ù]^˜\Ê
+K™Ù]
+™]HŠH[œÝ[˜Ù[Ùˆš]X\
+HÂˆš]X\[X›˜Z[H
+š]X\
+H]K™Ù]^˜\Ê
+K™Ù]
+™]HŠNÂˆ›ÝYžQXYÛ›ÜÚ\ÔÝ]\Ê”Ø]š[™ÈHØ\\™YÝÈ[™[X›˜Z[8 )ˆŠNÂˆXYÛ›ÜÚ\ÕÛÜšÙ\‹™^XÝ]J
+
+HOˆÂˆžHÈ\œÚ\Ý[™ÜÝXYÛ›ÜÚ\ÓYYXJØ[Y\˜KÝYÝ˜[YKœÝÈ‹Ø]™QXYÛ›ÜÚ\Õ[X›˜Z[
+[X›˜Z[Ø[Y\˜KÝY
+JNÈBˆØ]Ú
+^Ù\[Ûˆ\œ›ÜŠHÈ[“Û•ZU™XY
+
+
+HOˆ›ÝYžQXYÛ›ÜÚ\ÔÝ]\ÊÛÝ[›ÝØ]™HHØ\\™YÝËˆŠJNÈBˆš[˜[HÈ[]T[™[™ÑXYÛ›ÜÚ\ÓÝ]]
+Ý]]
+NÈBˆJNÂˆH[ÙHYˆ
+ÛÝ\˜ÙHOH[
+HÂˆ\šHYYXU\šHHÛÝ\˜ÙNÂˆ›ÝYžQXYÛ›ÜÚ\ÔÝ]\Ê”Ø]š[™ÈHØ\\™YYYXH[™™\\š[™È]È[X›˜Z[8 )ˆŠNÂˆXYÛ›ÜÚ\ÕÛÜšÙ\‹™^XÝ]J
+
+HOˆÂˆžHÂˆš[HØ]™YHÛÜQXYÛ›ÜÚ\ÓYYXJYYXU\šKÚ[™Ø[Y\˜KÝY
+NÂˆ[]T[™[™ÑXYÛ›ÜÚ\ÓÝ]]
+Ý]]
+NÂˆ\œÚ\Ý[™ÜÝXYÛ›ÜÚ\ÓYYXJØ[Y\˜KÝYÝ˜[YKÚ[™Ø]™Y
+NÂˆHØ]Ú
+^Ù\[Ûˆ\œ›ÜŠHÂˆ[]T[™[™ÑXYÛ›ÜÚ\ÓÝ]]
+Ý]]
+NÂˆ[“Û•ZU™XY
+
+
+HOˆ›ÝYžQXYÛ›ÜÚ\ÔÝ]\ÊÛÝ[›ÝØ]™H]YYXHÈ\ÈXYÛ›ÜÚ\ËˆŠJNÂˆBˆJNÂˆH[ÙHÂˆ[]T[™[™ÑXYÛ›ÜÚ\ÓÝ]]
+Ý]]
+NÂˆYˆ
+™\]Y\ÝÛÙHOH‘TUQTÕÑPQÓ“ÔÒT×Õ’QSÊHÂˆ›ÝYžQXYÛ›ÜÚ\ÔÝ]\Ê•HØ[Y\˜HY›Ý™]\›ˆHšY[Èš[KˆÙ[XÝH™]È™XÛÜ™[™Èœ›ÛHÛÛÙÛHÝÜÈÜˆš[\ÈÈØ]™H]ˆŠNÂˆ][˜ÚXYÛ›ÜÚ\ÕšY[ÔXÚÙ\ŠØ[Y\˜KÝYÝ˜[YJNÂˆH[ÙHÂˆ›ÝYžQXYÛ›ÜÚ\ÔÝ]\Ê•HØ[Y\˜H™]\›™Y›ÈYYXKˆžH[›Ý\ˆØ[Y\˜H\ÜˆÚÛÜÙH[ˆ^\Ý[™Èš[KˆŠNÂˆBˆBˆB‚ˆš]˜]H›ÚY[™QXYÛ›ÜÚ\Ñ›Û\”™\Ý[
+[™\Ý[ÛÙK[[]JHÂˆYˆ
+™\Ý[ÛÙHOH‘TÕSÓÒÈ]HOH[]K™Ù]]J
+HOH[
+HÂˆ›ÝYžQXYÛ›ÜÚ\ÔÝÜ˜YÙTÝ]\Ê‘ÛÛÙÛHš]™H›Û\ˆÙ[XÝ[ÛˆØ[˜Ù[YˆYYXHÚ[Ý^HÛˆ\È]šXÙKˆŠNÂˆ™]\›ŽÂˆBˆ\šH™YU\šHH]K™Ù]]J
+NÂˆ[Ü˜[›YÜÈH]K™Ù]›YÜÊ
+H	ˆ
+[[‘“Q×ÑÔS•Ô‘PQÕT’WÔT“RTÔÒSÓˆ[[‘“Q×ÑÔS•ÕÔ’UWÕT’WÔT“RTÔÒSÓŠNÂˆYˆ
+
+Ü˜[›YÜÈ	ˆ[[‘“Q×ÑÔS•ÕÔ’UWÕT’WÔT“RTÔÒSÓŠHOHˆ
+Ü˜[›YÜÈ	ˆ[[‘“Q×ÑÔS•Ô‘PQÕT’WÔT“RTÔÒSÓŠHOH
+HÂˆ›ÝYžQXYÛ›ÜÚ\ÔÝÜ˜YÙTÝ]\Ê‘ÛÛÙÛHš]™H™YYÈ™XY[™Üš]HXØÙ\ÜËˆÚÛÜÙHHÜš]X›HÜ›ÝÔÝ›Û\‹ˆŠNÂˆ™]\›ŽÂˆBˆžHÂˆÙ]ÛÛ[™\ÛÛ™\Š
+KZÙT\œÚ\ÝX›U\šT\›Z\ÜÚ[ÛŠ™YU\šKÜ˜[›YÜÊNÂˆÝš[™ÈÛ™YHHÙ]™YœÊ
+K™Ù]Ýš[™Ê‘Q—ÑPQÓ“ÔÒT×Õ‘QWÕT’K[
+NÂˆYˆ
+Û™YHOH[[Û™YK™\]X[Ê™YU\šKÔÝš[™Ê
+JJHÛX\‘XYÛ›ÜÚ\Ñ›Û\’YØXÚJ
+NÂˆÝš[™È›ÛÝØÝ[Y[YH™\ÛÛ™QXYÛ›ÜÚ\Ô›ÛÝ
+™YU\šJNÂˆÝš[™ÈX™[HÙ]ØÝ[Y[]X™[
+™YU\šK›ÛÝØÝ[Y[Y
+NÂˆÙ]™YœÊ
+K™Y]
+
+Kœ]Ýš[™Ê‘Q—ÑPQÓ“ÔÒT×Õ‘QWÕT’K™YU\šKÔÝš[™Ê
+JBˆœ]Ýš[™Ê‘Q—ÑPQÓ“ÔÒT×Ô“ÓÕÑÐÕSQS•ÒQ›ÛÝØÝ[Y[Y
+Bˆœ]Ýš[™Ê‘Q—ÑPQÓ“ÔÒT×Ñ“ÓT—ÓP‘SX™[
+Bˆ˜\J
+NÂˆ™[Y[X™\‘Ü›ÝÔÝ™YRY”ØÛÜY
+™YU\šJNÂˆ›ÛÛX[ˆÛÛ™šYÔØ]™YHØ]™Qš]™TÝÜ˜YÙPÛÛ™šYÊ™YU\šJNÂˆ›ÝYžQXYÛ›ÜÚ\ÔÝÜ˜YÙTÝ]\Ê‘ÛÛÙÛHš]™H\È™XYH\ÈHY˜][ÝÜ˜YÙNˆˆ
+ÈX™[ˆ
+È
+ÛÛ™šYÔØ]™YÈ‹ˆH]\ÈØ]™Y[ˆÜ›ÝÔÝØÛÛ™šYËÜÝÜ˜YÙK\]ËšœÛÛ‹ˆˆˆ‹ˆH]šXÙH\ÈØ]™YXØÙ\ÜË]ÚÛÜÙHÜ›ÝÔÝ\ÈHÚ\™Y›Û\ˆØÛÜHÈØ]™H›Ý]È[ˆš]™HÛÛ™šYËˆŠJNÂˆ›\Ú[™[™ÑXYÛ›ÜÚ\Õ\ØYÊ
+NÂˆ™Yœ™\ÚXYÛ›ÜÚ\ÓYYXQ›ÜXÝ]™TÝ
+
+NÂˆHØ]Ú
+^Ù\[Ûˆ\œ›ÜŠHÂˆÝš[™È™X\ÛÛˆH\œ›Ü‹™Ù]Y\ÜØYÙJ
+HOH[È\œ›Ü‹™Ù]Û\ÜÊ
+K™Ù]Ú[\S˜[YJ
+Hˆ\œ›Ü‹™Ù]Y\ÜØYÙJ
+NÂˆ›ÝYžQXYÛ›ÜÚ\ÔÝÜ˜YÙTÝ]\ÊÛÝ[›ÝÛÛ›™XÝ\ÈÛÛÙÛHš]™H›Û\Žˆˆ
+È™X\ÛÛ‚ˆ
+È‹ˆÙ[XÝÜ›ÝÔÝÈÜ›ÝÔÝÚ[\ÙHÜ›ÝÔÝÑXYÛ›ÜÚ\È]]ÛX]XØ[KˆŠNÂˆBˆB‚ˆš]˜]H›ÚYÜ[‘XYÛ›ÜÚ\Ñ›Û\”XÚÙ\Š
+HÂˆYˆ
+YÜ^\Ý[™ÑÜ›ÝÔÝš]™QÜ˜[
+
+JHÂˆ›ÝYžQXYÛ›ÜÚ\ÔÝÜ˜YÙTÝ]\Ê•\Ú[™ÈHY˜][ÛÛÙÛHš]™H›Û\ŽˆÜ›ÝÔÝÑXYÛ›ÜÚ\ÈŠNÂˆ™Yœ™\ÚXYÛ›ÜÚ\ÓYYXQ›ÜXÝ]™TÝ
+
+NÂˆ™]\›ŽÂˆBˆ™\]Y\ÝXYÛ›ÜÚ\Ñ›Û\]]Üš^˜][ÛŠ
+NÂˆB‚ˆš]˜]H›ÚY™\]Y\ÝXYÛ›ÜÚ\Ñ›Û\]]Üš^˜][ÛŠ
+HÂˆYˆ
+\Ñš[š\Ú[™Ê
+JH™]\›ŽÂˆËÈ[™›ÚY™\]Z\™\È[ˆ^XÚ]\œÚ\ÝYÝÜ˜YÙHXØÙ\ÜÈœ˜[Y]ÛÜšÈÜ˜[™Y›Ü™H[ˆ\ˆËÈØ[ˆ™XYÜˆÜš]HH\Ù\‰ÜÈš]˜]HÛÛÙÛHš]™Hš[\Ëˆ\ÚÈÛ˜ÙH›ÜˆH\™[ØÛÜNÂˆËÈ™\ÛÛ™QXYÛ›ÜÚ\Ô›ÛÝÜ™X]\ËÝ\Ù\ÈHØ[›ÛšXØ[Ü›ÝÔÝÑXYÛ›ÜÚ\È]]]ÛX]XØ[K‚ˆ›ÝYžQXYÛ›ÜÚ\ÔÝÜ˜YÙTÝ]\Ê“Û™K][YH[™›ÚY\›Z\ÜÚ[Ûˆ™YYYˆÚÛÜÙHÜ›ÝÔÝ[ˆÛÛÙÛHš]™KˆÜ›ÝÔÝÚ[\ÙHÜ›ÝÔÝÑXYÛ›ÜÚ\È]]ÛX]XØ[KˆŠNÂˆ[[[[H™]È[[
+[[PÕSÓ—ÓÔS—ÑÐÕSQS•Õ‘QJNÂˆ[[œ]^˜J[[‘VWÕUK[ÝÈÜ›ÝÔÝÈXØÙ\ÜÈÜ›ÝÔÝ[ˆÛÛÙÛHš]™HŠNÂˆ[[˜Y›YÜÊ[[‘“Q×ÑÔS•Ô‘PQÕT’WÔT“RTÔÒSÓ‚ˆ[[‘“Q×ÑÔS•ÕÔ’UWÕT’WÔT“RTÔÒSÓ‚ˆ[[‘“Q×ÑÔS•ÔT”ÒTÕP“WÕT’WÔT“RTÔÒSÓŠNÂˆžHÂˆÝ\XÝ]š]Q›Ü”™\Ý[
+[[‘TUQTÕÑPQÓ“ÔÒT×Ñ“ÓTŠNÂˆHØ]Ú
+^Ù\[Ûˆ\œ›ÜŠHÂˆ›ÝYžQXYÛ›ÜÚ\ÔÝÜ˜YÙTÝ]\Ê[™›ÚYÛÝ[›ÝÜ[ˆHš]™H\›Z\ÜÚ[ÛˆØÜ™Y[‹ˆÜ[ˆÙ][™ÜÈ8¡¤ˆ\È8¡¤ˆÜ›ÝÔÝ8¡¤ˆ\›Z\ÜÚ[ÛœË[ˆ™]žKˆ‚ˆ
+È
+\œ›Ü‹™Ù]Y\ÜØYÙJ
+HOH[Èˆˆˆ\œ›Ü‹™Ù]Y\ÜØYÙJ
+JJNÂˆBˆB‚ˆš]˜]H›ÛÛX[ˆYÜ^\Ý[™ÑÜ›ÝÔÝš]™QÜ˜[
+
+HÂˆÝš[™ÈXÝ]™TÝHØY™TÝY
+Ù]™YœÊ
+K™Ù]Ýš[™Ê‘Q—ÐPÕU‘WÔÕÒQQUSÔÕÒQ
+JNÂˆÙ]Ýš[™ÏˆØ[™Y]\ÈH™]È˜]˜K][“[šÙY\ÚÙ]Š
+NÂˆ›Üˆ
+Ýš[™ÈØ]™Yˆ™]ÈÝš[™Ö×^ÙÙ]™YœÊ
+K™Ù]Ýš[™Ê‘Q—ÑÔ“ÕÔÕÕ‘QWÕT’K[
+KˆÙ]™YœÊ
+K™Ù]Ýš[™Ê‘Q—ÑPQÓ“ÔÒT×Õ‘QWÕT’K[
+KˆÙ]™YœÊ
+K™Ù]Ýš[™Ê‘Q—ÒSPQÑWÑ‘QQÕ‘QWÕT’K[
+KˆÙ]™YœÊ
+K™Ù]Ýš[™Ê™YY™YRÙ^JXÝ]™TÝ
+K[
+_JHÂˆYˆ
+Ø]™YOH[
+HØ[™Y]\Ë˜Y
+Ø]™Y
+NÂˆBˆ\Ý[™›ÚY˜ÛÛ[•\šT\›Z\ÜÚ[ÛˆÜ˜[ÈHÙ]ÛÛz×m¢G§²ÚîÆ­yÒÒ6F6‚„W†6WF–öâ–væ÷&VB’²Ð¢Æ—7BçWB†—FVÒ“°¢vWE&Vg2‚’æVF—B‚’çWE7G&–ær†F–væ÷6—4ÖVF––æFW„¶W’†6ÖW&ÂÆ÷D–B’ÂÆ—7BçFõ7G&–ær‚’’æÇ’‚“°¢Ð ¢&—fFR7G&–ær&VDF–væ÷6—4ÖVF––æFW‚†–çB6ÖW&Â7G&–ærÆ÷D–B’°¢&WGW&âvWE&Vg2‚’ævWE7G&–ær†F–væ÷6—4ÖVF––æFW„¶W’†6ÖW&ÂÆ÷D–B’Â%µÒ"“°¢Ð ¢&—fFRfö–B&Vg&W6„F–væ÷6—4ÖVF–f÷$7F—fUÆ÷B‚’°¢7G&–ærÆ÷D–BÒ6fUÆ÷D–B†vWE&Vg2‚’ævWE7G&–ær…$Teô5D•dUõÄõEô”BÂDTdTÅEõÄõEô”B’“°¢f÷"†–çB6ÖW&Ò²6ÖW&ÃÒc²6ÖW&²²’&Vg&W6„F–væ÷6—4ÖVF–g&öÔG&—fR†6ÖW&ÂÆ÷D–B“°¢Ð ¢&—fFRfö–B&Vg&W6„F–væ÷6—4ÖVF–g&öÔG&—fR†–çB6ÖW&Â7G&–ærÆ÷D–B’°¢–b†6ÖW&ÂÇÂ6ÖW&âbÇÂ—4F–væ÷6—4G&—fU&VG’‚’’&WGW&ã°¢f–æÂ7G&–ær–BÒ6fUÆ÷D–B‡Æ÷D–B“°¢F–væ÷6—5v÷&¶W"æW†V7WFR‚‚’Óâ°¢¥4ôä'&’&W7VÇBÒæWr¥4ôä'&’‚“°¢7G&–ærW'&÷$ÖW76vRÒçVÆÃ°¢G'’°¢–b‚—4F–væ÷6—4G&—fU&VG’‚’’F‡&÷ræWr–ÆÆVvÅ7FFTW†6WF–öâ‚$vöövÆRG&—fRF–væ÷6—2föÆFW"—2æ÷B6öææV7FVB"“°¢&W7VÇBÒÆ—7DæD66†TG&—fTF–væ÷6—4ÖVF–†6ÖW&Â–B“°¢Ð¢6F6‚„W†6WF–öâW'&÷"’²W'&÷$ÖW76vRÒW'&÷"ævWDÖW76vR‚’ÓÒçVÆÂò$G&—fRföÆFW"6÷VÆBæ÷B&R&VBâ"¢W'&÷"ævWDÖW76vR‚“²Ð¢f–æÂ7G&–ærW'&÷"ÒW'&÷$ÖW76vS°¢f–æÂ7G&–ær§6öâÒ&W7VÇBçFõ7G&–ær‚“°¢'VäöåV•F‡&VB‚‚’Óâ°¢–b‡vV"ÓÒçVÆÂ’&WGW&ã°¢7G&–ær67&—BÒ'v–æF÷ræöäF–væ÷6—4ÖVF–7–æ2bgv–æF÷ræöäF–væ÷6—4ÖVF–7–æ2‚"²6ÖW&²"Â ¢²¥4ôäö&¦V7BçV÷FR†–B’²"Â"²¥4ôäö&¦V7BçV÷FR†§6öâ’²"Â"²¥4ôäö&¦V7BçV÷FR†W'&÷"’²"’#°¢vV"æWfÇVFT¦f67&—B‡67&—BÂçVÆÂ“°¢Ò“°¢Ò“°¢Ð ¢&—fFR7FF–2f–æÂ6Æ72G&—fTF–væ÷6—4ÖVF–°¢7G&–ærFö7VÖVçD–C°¢7G&–ærF—7Æ”æÖS°¢7G&–ærÖ–ÖUG—S°¢ÆöærÖöF–f–VC°¢Æöær6—¦S°¢Ð ¢&—fFR7FF–2f–æÂ6Æ72ÆçDæWD–ÖvT6æF–FFR°¢'—FUµÒ§Vs°¢7G&–ær6÷W&6S°¢F÷V&ÆRVÆ—G“°¢ÆçDæWD–ÖvT6æF–FFR†'—FUµÒ§VrÂ7G&–ær6÷W&6RÂF÷V&ÆRVÆ—G’’²F†—2æ§VrÒ§Vs²F†—2ç6÷W&6RÒ6÷W&6S²F†—2çVÆ—G’ÒVÆ—G“²Ð¢Ð ¢&—fFR¥4ôä'&’Æ—7DæD66†TG&—fTF–væ÷6—4ÖVF–†–çB6ÖW&Â7G&–ærÆ÷D–B’F‡&÷w2W†6WF–öâ°¢¥4ôä'&’&W7VÇBÒæWr¥4ôä'&’‚“°¢7G&–ærG&VUFW‡BÒvWE&Vg2‚’ævWE7G&–ær…$TeôD”täõ4•5õE$TUõU$’ÂçVÆÂ“°¢7G&–ær&ö÷D–BÒvWE&Vg2‚’ævWE7G&–ær…$TeôD”täõ4•5õ$ôõEôDô5TÔTåEô”BÂçVÆÂ“°¢–b‡G&VUFW‡BÓÒçVÆÂÇÂ&ö÷D–BÓÒçVÆÂ’&WGW&â&W7VÇC°¢W&’G&VUW&’ÒW&’ç'6R‡G&VUFW‡B“°¢7G&–ærÆ÷DföÆFW"ÒF–væ÷6—5Æ÷DföÆFW"‡Æ÷D–B“°¢7G&–ærÆ÷DFö7VÖVçD–BÒf–æDW†—7F–æt6†–ÆDföÆFW"‡G&VUW&’Â&ö÷D–BÂÆ÷DföÆFW"“°¢–b‡Æ÷DFö7VÖVçD–BÓÒçVÆÂ’&WGW&â&W7VÇC°¢7G&–ærVG&çDæÖRÒ%VG&çEò"²7G&–æræf÷&ÖB„Æö6ÆRåU2Â"S&B"Â6ÖW&“°¢7G&–ærVG&çD–BÒf–æDW†—7F–æt6†–ÆDföÆFW"‡G&VUW&’ÂÆ÷DFö7VÖVçD–BÂVG&çDæÖR“°¢–b‡VG&çD–BÓÒçVÆÂ’&WGW&â&W7VÇC°¢W&’6†–ÆG&VåW&’ÒFö7VÖVçG46öçG&7Bæ'V–ÆD6†–ÆDFö7VÖVçG5W&•W6–æuG&VR‡G&VUW&’ÂVG&çD–B“°¢7G&–æuµÒ6öÇVÖç2Ò´Fö7VÖVçG46öçG&7BäFö7VÖVçBä4ôÅTÔåôDô5TÔTåEô”BÀ¢Fö7VÖVçG46öçG&7BäFö7VÖVçBä4ôÅTÔåôD•5Ä•ôäÔRÀ¢Fö7VÖVçG46öçG&7BäFö7VÖVçBä4ôÅTÔåôÔ”ÔUõE•RÀ¢Fö7VÖVçG46öçG&7BäFö7VÖVçBä4ôÅTÔåôÄ5EôÔôD”d”TBÀ¢Fö7VÖVçG46öçG&7BäFö7VÖVçBä4ôÅTÔåõ4•¤WÓ°¢Æ—7CÄG&—fTF–væ÷6—4ÖVF–âÖVF–ÒæWr'&”Æ—7CÃâ‚“°¢G'’„7W'6÷"7W'6÷"ÒvWD6öçFVçE&W6öÇfW"‚’çVW'’†6†–ÆG&VåW&’Â6öÇVÖç2ÂçVÆÂÂçVÆÂÂçVÆÂ’’°¢–b†7W'6÷"ÓÒçVÆÂ’F‡&÷ræWr–ÆÆVvÅ7FFTW†6WF–öâ‚$vöövÆRG&—fR6÷VÆBæ÷BÆ—7B"²Æ÷DföÆFW"²"ò"²VG&çDæÖR“°¢–çB–D6öÇVÖâÒ7W'6÷"ævWD6öÇVÖä–æFW‚„Fö7VÖVçG46öçG&7BäFö7VÖVçBä4ôÅTÔåôDô5TÔTåEô”B“°¢–çBæÖT6öÇVÖâÒ7W'6÷"ævWD6öÇVÖä–æFW‚„Fö7VÖVçG46öçG&7BäFö7VÖVçBä4ôÅTÔåôD•5Ä•ôäÔR“°¢–çBÖ–ÖT6öÇVÖâÒ7W'6÷"ævWD6öÇVÖä–æFW‚„Fö7VÖVçG46öçG&7BäFö7VÖVçBä4ôÅTÔåôÔ”ÔUõE•R“°¢–çBÖöF–f–VD6öÇVÖâÒ7W'6÷"ævWD6öÇVÖä–æFW‚„Fö7VÖVçG46öçG&7BäFö7VÖVçBä4ôÅTÔåôÄ5EôÔôD”d”TB“°¢–çB6—¦T6öÇVÖâÒ7W'6÷"ævWD6öÇVÖä–æFW‚„Fö7VÖVçG46öçG&7BäFö7VÖVçBä4ôÅTÔåõ4•¤R“°¢v†–ÆR†7W'6÷"æÖ÷fUFôæW‡B‚’’°¢–b†–D6öÇVÖâÂÇÂæÖT6öÇVÖâÂÇÂÖ–ÖT6öÇVÖâÂ’6öçF–çVS°¢7G&–ærÖ–ÖRÒ7W'6÷"ævWE7G&–ær†Ö–ÖT6öÇVÖâ“°¢7G&–æræÖRÒ7W'6÷"ævWE7G&–ær†æÖT6öÇVÖâ“°¢–b„Fö7VÖVçG46öçG&7BäFö7VÖVçBäÔ”ÔUõE•UôD•"æWVÇ2†Ö–ÖR’ÇÂæÖRÓÒçVÆÂ’6öçF–çVS°¢&ööÆVâf–FVòÒÖ–ÖRÒçVÆÂbbÖ–ÖRç7F'G5v—F‚‚'f–FVòò"“°¢&ööÆVâ†÷FòÒÖ–ÖRÒçVÆÂbbÖ–ÖRç7F'G5v—F‚‚&–ÖvRò"“°¢–b‚f–FVòbb†÷Fò’6öçF–çVS°¢G&—fTF–væ÷6—4ÖVF–—FVÒÒæWrG&—fTF–væ÷6—4ÖVF–‚“°¢—FVÒæFö7VÖVçD–BÒ7W'6÷"ævWE7G&–ær†–D6öÇVÖâ“°¢—FVÒæF—7Æ”æÖRÒæÖS°¢—FVÒæÖ–ÖUG—RÒÖ–ÖS°¢—FVÒæÖöF–f–VBÒÖöF–f–VD6öÇVÖâãÒbb7W'6÷"æ—4çVÆÂ†ÖöF–f–VD6öÇVÖâ’ò7W'6÷"ævWDÆöær†ÖöF–f–VD6öÇVÖâ’¢°¢—FVÒç6—¦RÒ6—¦T6öÇVÖâãÒbb7W'6÷"æ—4çVÆÂ‡6—¦T6öÇVÖâ’ò7W'6÷"ævWDÆöær‡6—¦T6öÇVÖâ’¢Ó°¢ÖVF–æFB†—FVÒ“°¢Ð¢Ð¢6öÆÆV7F–öç2ç6÷'B†ÖVF–Â†ÆVgBÂ&–v‡B’ÓâÆöæræ6ö×&R‡&–v‡BæÖöF–f–VBÂÆVgBæÖöF–f–VB’“°¢–çBÆ–Ö—BÒÖF‚æÖ–â†ÖVF–ç6—¦R‚’Â“°¢f–ÆRF—&V7F÷'’ÒæWrf–ÆR†æWrf–ÆR†æWrf–ÆR†vWD66†TF—"‚’Â&F–væ÷6—5öG&—fUö66†R"’ÂÆ÷D–B’À¢7G&–æræf÷&ÖB„Æö6ÆRåU2Â&67GeòS&B"Â6ÖW&’“°¢–b‚F—&V7F÷'’æ—4F—&V7F÷'’‚’bbF—&V7F÷'’æÖ¶F—'2‚’’F‡&÷ræWr–ÆÆVvÅ7FFTW†6WF–öâ‚$6ææ÷B7&VFRG&—fRÆ–&6²66†R"“°¢6WCÅ7G&–æsâ¶VWæÖW2ÒæWr†6…6WCÃâ‚“°¢f÷"†–çB–æFW‚Ò²–æFW‚ÂÆ–Ö—C²–æFW‚²²’°¢G&—fTF–væ÷6—4ÖVF–—FVÒÒÖVF–ævWB†–æFW‚“°¢&ööÆVâf–FVòÒ—FVÒæÖ–ÖUG—Rç7F'G5v—F‚‚'f–FVòò"“°¢7G&–ærW‡FVç6–öâÒf–FVòò"æ×B"¢"æ§r#°¢Æöær7F×ÒÖF‚æÖ‚ƒÂ—FVÒæÖöF–f–VB“°¢7G&–ær66†TæÖRÒ&B"²ÆöærçFô†W…7G&–ær‡7F×’²%ò"²–çFVvW"çFô†W…7G&–ær†—FVÒæFö7VÖVçD–Bæ†6„6öFR‚’’²W‡FVç6–öã°¢¶VWæÖW2æFB†66†TæÖR“°¢f–ÆR66†VBÒæWrf–ÆR†F—&V7F÷'’Â66†TæÖR“°¢–b‚66†VBæ—4f–ÆR‚’ÇÂ†—FVÒç6—¦RãÒbb66†VBæÆVæwF‚‚’Ò—FVÒç6—¦R’’°¢W&’Fö7VÖVçEW&’ÒFö7VÖVçG46öçG&7Bæ'V–ÆDFö7VÖVçEW&•W6–æuG&VR‡G&VUW&’Â—FVÒæFö7VÖVçD–B“°¢f–ÆRFV×ÒæWrf–ÆR†F—&V7F÷'’Â66†TæÖR²"ç'B"“°¢G'’„–çWE7G&VÒ–çWBÒvWD6öçFVçE&W6öÇfW"‚’æ÷Vä–çWE7G&VÒ†Fö7VÖVçEW&’“°¢f–ÆT÷WGWE7G&VÒ÷WGWBÒæWrf–ÆT÷WGWE7G&VÒ‡FV×’’°¢–b†–çWBÓÒçVÆÂ’F‡&÷ræWr–ÆÆVvÅ7FFTW†6WF–öâ‚$G&—fR6÷VÆBæ÷B÷Vâ"²—FVÒæF—7Æ”æÖR“°¢'—FUµÒ'VffW"ÒæWr'—FU³cSS3eÓ°¢–çB&VC°¢v†–ÆR‚‡&VBÒ–çWBç&VB†'VffW"’’ÒÓ’÷WGWBçw&—FR†'VffW"ÂÂ&VB“°¢÷WGWBæfÇW6‚‚“°¢Ò6F6‚„W†6WF–öâW'&÷"’°¢FV×æFVÆWFR‚“°¢F‡&÷rW'&÷#°¢Ð¢–b†—FVÒç6—¦RãÒbbFV×æÆVæwF‚‚’Ò—FVÒç6—¦R’°¢FV×æFVÆWFR‚“°¢F‡&÷ræWr–ÆÆVvÅ7FFTW†6WF–öâ‚$G&—fRF÷væÆöBv2–æ6ö×ÆWFRf÷""²—FVÒæF—7Æ”æÖR“°¢Ð¢–b†66†VBæW†—7G2‚’’66†VBæFVÆWFR‚“°¢–b‚FV×ç&VæÖUFò†66†VB’’F‡&÷ræWr–ÆÆVvÅ7FFTW†6WF–öâ‚$6÷VÆBæ÷Bf–æÆ—¦RG&—fRÆ–&6²66†R"“°¢Ð¢7G&–ær&VÆF—fUW&ÂÒ&‡GG3¢òö76WG2ææG&ö–GÆFf÷&ÒææWBö76WG2öF–væ÷6—2ò"²Æ÷D–B²"ò ¢²7G&–æræf÷&ÖB„Æö6ÆRåU2Â&67GeòS&B"Â6ÖW&’²"ò"²66†TæÖS°¢¥4ôäö&¦V7B&÷rÒæWr¥4ôäö&¦V7B‚“°¢&÷rçWB‚&6ÖW&"Â6ÖW&“°¢&÷rçWB‚'Æ÷D–B"ÂÆ÷D–B“°¢&÷rçWB‚&¶–æB"Âf–FVòò'f–FVò"¢'†÷Fò"“°¢&÷rçWB‚'W&Â"Â&VÆF—fUW&Â“°¢&÷rçWB‚&f–ÆTæÖR"Â—FVÒæF—7Æ”æÖR“°¢&÷rçWB‚&G&—fU6fVB"ÂG'VR“°¢&÷rçWB‚&G&—fUF‚"Â$F–væ÷6—2ò"²Æ÷DföÆFW"²"ò"²VG&çDæÖR²"ò"²—FVÒæF—7Æ”æÖR“°¢&÷rçWB‚&G&—fTFö7VÖVçD–B"Â—FVÒæFö7VÖVçD–B“°¢ÆöærFFRÒ—FVÒæÖöF–f–VBâò—FVÒæÖöF–f–VB¢66†VBæÆ7DÖöF–f–VB‚“°¢&÷rçWB‚&6GW&VDB"ÂæWr6–×ÆTFFTf÷&ÖB‚&FBÔÔÒ———’„ƒ¦ÖÒ"ÂÆö6ÆRåU2’æf÷&ÖB†æWrFFR†FFR’’²"Õ•B"“°¢–b‡f–FVò’°¢f–ÆR÷7FW"Ò7&VFTF–væ÷6—5f–FVõ÷7FW"†66†VBÂ6ÖW&ÂÆ÷D–B“°¢–b‡÷7FW"ÒçVÆÂ’°¢¶VWæÖW2æFB‡÷7FW"ævWDæÖR‚’“°¢&÷rçWB‚'F‡VÖ&æ–ÅW&Â"Â&VÆF—fUW&Âç&WÆ6R†66†TæÖRÂ÷7FW"ævWDæÖR‚’’“°¢Ð¢Ð¢&W7VÇBçWB‡&÷r“°¢Ð¢f–ÆUµÒ66†VDf–ÆW2ÒF—&V7F÷'’æÆ—7Df–ÆW2‚“°¢–b†66†VDf–ÆW2ÒçVÆÂ’f÷"„f–ÆR66†VDf–ÆR¢66†VDf–ÆW2’°¢–b‚¶VWæÖW2æ6öçF–ç2†66†VDf–ÆRævWDæÖR‚’’’66†VDf–ÆRæFVÆWFR‚“°¢Ð¢&WGW&â&W7VÇC°¢Ð ¢&—fFR7G&–ærf–æDW†—7F–æt6†–ÆDföÆFW"…W&’G&VUW&’Â7G&–ær&VçDFö7VÖVçD–BÂ7G&–ærföÆFW$æÖR’F‡&÷w2W†6WF–öâ°¢W&’6†–ÆG&VåW&’ÒFö7VÖVçG46öçG&7Bæ'V–ÆD6†–ÆDFö7VÖVçG5W&•W6–æuG&VR‡G&VUW&’Â&VçDFö7VÖVçD–B“°¢7G&–æuµÒ6öÇVÖç2Ò´Fö7VÖVçG46öçG&7BäFö7VÖVçBä4ôÅTÔåôDô5TÔTåEô”BÀ¢Fö7VÖVçG46öçG&7BäFö7VÖVçBä4ôÅTÔåôD•5Ä•ôäÔRÀ¢Fö7VÖVçG46öçG&7BäFö7VÖVçBä4ôÅTÔåôÔ”ÔUõE•WÓ°¢G'’„7W'6÷"7W'6÷"ÒvWD6öçFVçE&W6öÇfW"‚’çVW'’†6†–ÆG&VåW&’Â6öÇVÖç2ÂçVÆÂÂçVÆÂÂçVÆÂ’’°¢–b†7W'6÷"ÓÒçVÆÂ’F‡&÷ræWr–ÆÆVvÅ7FFTW†6WF–öâ‚$vöövÆRG&—fR6÷VÆBæ÷BÆ—7BföÆFW'2"“°¢–çB–D6öÇVÖâÒ7W'6÷"ævWD6öÇVÖä–æFW‚„Fö7VÖVçG46öçG&7BäFö7VÖVçBä4ôÅTÔåôDô5TÔTåEô”B“°¢–çBæÖT6öÇVÖâÒ7W'6÷"ævWD6öÇVÖä–æFW‚„Fö7VÖVçG46öçG&7BäFö7VÖVçBä4ôÅTÔåôD•5Ä•ôäÔR“°¢–çBÖ–ÖT6öÇVÖâÒ7W'6÷"ævWD6öÇVÖä–æFW‚„Fö7VÖVçG46öçG&7BäFö7VÖVçBä4ôÅTÔåôÔ”ÔUõE•R“°¢v†–ÆR†7W'6÷"æÖ÷fUFôæW‡B‚’’°¢–b†–D6öÇVÖâãÒbbæÖT6öÇVÖâãÒbbÖ–ÖT6öÇVÖâãÒ ¢bbföÆFW$æÖRæWVÇ2†7W'6÷"ævWE7G&–ær†æÖT6öÇVÖâ’¢bbFö7VÖVçG46öçG&7BäFö7VÖVçBäÔ”ÔUõE•UôD•"æWVÇ2†7W'6÷"ævWE7G&–ær†Ö–ÖT6öÇVÖâ’’’°¢&WGW&â7W'6÷"ævWE7G&–ær†–D6öÇVÖâ“°¢Ð¢Ð¢Ð¢&WGW&âçVÆÃ°¢Ð ¢&—fFRf–ÆR7&VFTF–væ÷6—5f–FVõ÷7FW"„f–ÆRf–FVòÂ–çB6ÖW&Â7G&–ærÆ÷D–B’°¢ÖVF–ÖWFFF&WG&–WfW"&WG&–WfW"ÒæWrÖVF–ÖWFFF&WG&–WfW"‚“°¢&—FÖg&ÖRÒçVÆÃ°¢G'’°¢&WG&–WfW"ç6WDFF6÷W&6R‡f–FVòævWD'6öÇWFUF‚‚’“°¢g&ÖRÒ&WG&–WfW"ævWDg&ÖTEF–ÖRƒÂÖVF–ÖWFFF&WG&–WfW"äõD”ôåô4Äõ4U5Eõ5”ä2“°¢–b†g&ÖRÓÒçVÆÂ’&WGW&âçVÆÃ°¢f–ÆR÷7FW"ÒæWrf–ÆR‡f–FVòævWE&VçDf–ÆR‚’Âf–FVòævWDæÖR‚’ç&WÆ6Tf—'7B‚%ÅÂæ×BB"Â%÷F‡VÖ"æ§r"’“°¢G'’„f–ÆT÷WGWE7G&VÒ÷WGWBÒæWrf–ÆT÷WGWE7G&VÒ‡÷7FW"’’°¢–b‚g&ÖRæ6ö×&W72„&—FÖä6ö×&W74f÷&ÖBä¥TrÂƒbÂ÷WGWB’’&WGW&âçVÆÃ°¢Ð¢&WGW&â÷7FW#°¢Ò6F6‚„W†6WF–öâ–væ÷&VB’²&WGW&âçVÆÃ²Ð¢f–æÆÇ’°¢G'’²&WG&–WfW"ç&VÆV6R‚“²Ò6F6‚„W†6WF–öâ–væ÷&VB’²Ð¢–b†g&ÖRÒçVÆÂbbg&ÖRæ—5&V7–6ÆVB‚’’g&ÖRç&V7–6ÆR‚“°¢Ð¢Ð ¢&—fFRfö–Bæ÷F–g”F–væ÷6—57FGW2…7G&–ærÖW76vR’°¢–b‡vV"ÒçVÆÂ’vV"æWfÇVFT¦f67&—B‚'v–æF÷ræöäF–væ÷6—57FGW2bgv–æF÷ræöäF–væ÷6—57FGW2‚"²¥4ôäö&¦V7BçV÷FR†ÖW76vR’²"’"ÂçVÆÂ“°¢Ð ¢&—fFRfö–BÆVæ6„F–væ÷6—46GW&R…7G&–ær¶–æBÂ–çB6ÖW&Â7G&–ærÆ÷D–BÂ7G&–ærÆ÷DæÖR’°¢–b†6ÖW&ÂÇÂ6ÖW&âb’&WGW&ã°¢–b‚'†÷Fò"æWVÇ2†¶–æB’bbF–væ÷6—5†÷Fô6÷VçB†6ÖW&ÂÆ÷D–B’ãÒR’°¢æ÷F–g”F–væ÷6—57FGW2‚%F†—2VG&çBÇ&VG’†2R†÷F÷2â&VÖ÷fR†÷Fò&Vf÷&RFF–æræ÷F†W"â"“°¢&WGW&ã°¢Ð¢VæF–ætF–væ÷6—4¶–æBÒ¶–æC°¢VæF–ætF–væ÷6—46ÖW&Ò6ÖW&°¢VæF–ætF–væ÷6—5Æ÷D–BÒ6fUÆ÷D–B‡Æ÷D–B“°¢VæF–ætF–væ÷6—5Æ÷DæÖRÒ6fTföÆFW$æÖR‡Æ÷DæÖR“°¢–çB&WVW7D6öFRÒ'f–FVò"æWVÇ2†¶–æB’ò$UTU5EôD”täõ4•5õd”DTò¢$UTU5EôD”täõ4•5õ„õDó°¢G'’°¢–çFVçB–çFVçBÒæWr–çFVçB‚'f–FVò"æWVÇ2†¶–æB’òÖVF–7F÷&Rä5D”ôåõd”DTõô4EU$R¢ÖVF–7F÷&Rä5D”ôåô”ÔtUô4EU$R“°¢–b‚'f–FVò"æWVÇ2†¶–æB’’°¢–çFVçBçWDW‡G&„ÖVF–7F÷&RäU…E$ôEU$D”ôåôÄ”Ô•BÂ3“°¢–çFVçBçWDW‡G&„ÖVF–7F÷&RäU…E$õd”DTõõTÄ•E’Â“°¢Ð¢òòÆWBF†R6ÖW&ÖævR—G2÷vâ÷WGWBâ7WÇ––ærVæF–ærÖVF–7F÷&RU$¢òò6W6VB6öÖR6ÖW&2Fò7FÆÂv†–ÆRw&—F–æröf–æÆ—¦–ærF†R6GW&Rà¢VæF–ætF–væ÷6—4÷WGWBÒçVÆÃ°¢–b†–çFVçBç&W6öÇfT7F—f—G’†vWE6¶vTÖævW"‚’’ÓÒçVÆÂ’°¢–b‚'f–FVò"æWVÇ2†¶–æB’’°¢æ÷F–g”F–væ÷6—57FGW2‚$æòf–FVò6ÖW&v2f÷VæBâ6†ö÷6R&V6÷&FVBf–FVòg&öÒF†R–6¶W"–ç7FVBâ"“°¢ÆVæ6„F–væ÷6—5f–FVõ–6¶W"†6ÖW&ÂÆ÷D–BÂÆ÷DæÖR“°¢ÒVÇ6Ræ÷F–g”F–væ÷6—57FGW2‚$æò6ö×F–&ÆR6ÖW&v2f÷VæBâ6†ö÷6RâW†—7F–ær†÷Fò–ç7FVBâ"“°¢&WGW&ã°¢Ð¢–çFVçB6†ö÷6W"Ò–çFVçBæ7&VFT6†ö÷6W"†–çFVçBÂ%&V6÷&BÆçB"²¶–æB“°¢7F'D7F—f—G”f÷%&W7VÇB†6†ö÷6W"Â&WVW7D6öFR“°¢Ò6F6‚„W†6WF–öâW'&÷"’°¢–b‡VæF–ætF–væ÷6—4÷WGWBÒçVÆÂ’G'’²vWD6öçFVçE&W6öÇfW"‚’æFVÆWFR‡VæF–ætF–væ÷6—4÷WGWBÂçVÆÂÂçVÆÂ“²Ò6F6‚„W†6WF–öâ–væ÷&VB’²Ð¢VæF–ætF–væ÷6—4÷WGWBÒçVÆÃ°¢–b‚'f–FVò"æWVÇ2†¶–æB’’ÆVæ6„F–væ÷6—5f–FVõ–6¶W"†6ÖW&ÂÆ÷D–BÂÆ÷DæÖR“°¢VÇ6Ræ÷F–g”F–væ÷6—57FGW2‚$æò6ö×F–&ÆR6ÖW&v2f÷VæBâ6†ö÷6RâW†—7F–ær†÷Fò–ç7FVBâ"“°¢Ð¢Ð ¢&—fFRfö–BÆVæ6„F–væ÷6—5–6¶W"†–çB6ÖW&Â7G&–ærÆ÷D–BÂ7G&–ærÆ÷DæÖR’°¢VæF–ætF–væ÷6—46ÖW&Ò6ÖW&°¢VæF–ætF–væ÷6—5Æ÷D–BÒ6fUÆ÷D–B‡Æ÷D–B“°¢VæF–ætF–væ÷6—5Æ÷DæÖRÒ6fTföÆFW$æÖR‡Æ÷DæÖR“°¢VæF–ætF–væ÷6—4÷WGWBÒçVÆÃ°¢–çFVçB–çFVçBÒæWr–çFVçB„–çFVçBä5D”ôåôõTåôDô5TÔTåB“°¢–çFVçBç6WEG—R‚"¢ò¢"“°¢–çFVçBçWDW‡G&„–çFVçBäU…E$ôÔ”ÔUõE•U2ÂæWr7G&–æuµ×²&–ÖvRò¢"Â'f–FVòò¢'Ò“°¢–çFVçBæFD6FVv÷'’„–çFVçBä4DTtõ%•ôõTä$ÄR“°¢æ÷F–g”F–væ÷6—57FGW2‚$6†ö÷6R†÷Fò÷"f–FVòâw&÷uÆ÷B6fW2—BöâF†—2FWf–6Rf—'7BÂF†VâWÆöG2—BFòvöövÆRG&—fRâ"“°¢G'’²7F'D7F—f—G”f÷%&W7VÇB†–çFVçBÂ$UTU5EôD”täõ4•5õ”4´U"“²Ð¢6F6‚„W†6WF–öâW'&÷"’²æ÷F–g”F–væ÷6—57FGW2‚$æòÖVF––6¶W"—2f–Æ&ÆRöâF†—2FWf–6Râ"²†W'&÷"ævWDÖW76vR‚’ÓÒçVÆÂò""¢W'&÷"ævWDÖW76vR‚’’“²Ð¢Ð ¢÷fW'&–FRV&Æ–2fö–Böå&WVW7EW&Ö—76–öç5&W7VÇB†–çB&WVW7D6öFRÂ7G&–æuµÒW&Ö—76–öç2Â–çEµÒw&çE&W7VÇG2’°¢7WW"æöå&WVW7EW&Ö—76–öç5&W7VÇB‡&WVW7D6öFRÂW&Ö—76–öç2Âw&çE&W7VÇG2“°¢–b‡&WVW7D6öFRÒ$UTU5EôDUd”4UôÄô4D”ôâ’&WGW&ã°¢7G&–ærÆ÷D–BÒ6fUÆ÷D–B†Æö6F–öåW&Ö—76–öåÆ÷D–B“°¢Æö6F–öåW&Ö—76–öå&WVW7D–äfÆ–v‡BÒfÇ6S°¢–b††4Æö6F–öåW&Ö—76–öâ‚’’&WVW7DFWf–6TÆö6F–öäf÷%Æ÷B‡Æ÷D–B“°¢VÇ6R6VæDFWf–6TÆö6F–öâ‡Æ÷D–BÂçVÆÂÂ$Æö6F–öâW&Ö—76–öâv2æ÷Bw&çFVBâ"“°¢Ð ¢÷fW'&–FRV&Æ–2fö–Böä6öæf–wW&F–öä6†ævVB„6öæf–wW&F–öâæWt6öæf–r’°¢7WW"æöä6öæf–wW&F–öä6†ævVB†æWt6öæf–r“°¢–b‡vV"ÒçVÆÂ’vV"ç&WVW7DÆ–÷WB‚“°¢Ð ¢&—fFRf–æÂ6Æ726æ6†÷D'&–FvR°¢¦f67&—D–çFW&f6RV&Æ–2fö–BÆöv–äFÖ–ä÷GFVÖò…7G&–ær77v÷&B’°¢'VäöåV•F‡&VB‚‚’ÓâFÖ–ä÷GFVÖòæÆöv–â„Ö–ä7F—f—G’çF†—2Â77v÷&BÂ‚’ÓâvV"æWfÇVFT¦f67&—B‚'v–æF÷räw&÷uÆ÷DFÖ–åfW&–f–VBbgv–æF÷räw&÷uÆ÷DFÖ–åfW&–f–VB‚’"ÂçVÆÂ’’“°¢Ð¢¦f67&—D–çFW&f6RV&Æ–2fö–B&WVW7DFÖ–ä7F—fF–öäFVÖò‚’°¢'VäöåV•F‡&VB‚‚’ÓâFÖ–ä7F—fF–öäFVÖòç&WVW7B„Ö–ä7F—f—G’çF†—2’“°¢Ð¢¦f67&—D–çFW&f6RV&Æ–27G&–ærvWD67Gd6ÖW&—FG&W76W2‚’°¢¥4ôä'&’FG&W76W2ÒæWr¥4ôä'&’‚“°¢f÷"†–çB6ÖW&Ò²6ÖW&ÃÒc²6ÖW&²²’FG&W76W2çWB†67Gd—†6ÖW&’“°¢&WGW&âFG&W76W2çFõ7G&–ær‚“°¢Ð ¢¦f67&—D–çFW&f6RV&Æ–2&ööÆVâ6fT67Gd6ÖW&—FG&W76W2…7G&–ær§6öâ’°¢G'’°¢¥4ôä'&’FG&W76W2ÒæWr¥4ôä'&’†§6öâ“°¢–b†FG&W76W2æÆVæwF‚‚’Òb’&WGW&âfÇ6S°¢7G&–æuµÒfÇVW2ÒæWr7G&–æu³eÓ°¢f÷"†–çB’Ò²’Âc²’²²’°¢fÇVW5¶•ÒÒFG&W76W2æ÷E7G&–ær†’Â""’çG&–Ò‚“°¢–b‚—5&—fFT—cD÷$&Ææ²‡fÇVW5¶•Ò’’&WGW&âfÇ6S°¢Ð¢–b‡fÇVW5³Òæ—4V×G’‚’ÇÂfÇVW5³Òæ—4V×G’‚’’&WGW&âfÇ6S°¢6†&VE&VfW&Væ6W2äVF—F÷"VF—F÷"ÒvWE&Vg2‚’æVF—B‚“°¢f÷"†–çB’Ò²’Âc²’²²’°¢VF—F÷"çWE7G&–ær…$Teô45Eeô•õ$Td•‚²7G&–æræf÷&ÖB„Æö6ÆRåU2Â"S&B"Â’²’ÂfÇVW5¶•Ò“°¢Ð¢VF—F÷"æÇ’‚“°¢'VäöåV•F‡&VB‚‚’Óâ°¢&V6öææV7D—vV&6ÕfÆ2‚“°¢&V6öææV7D67Gc%fÆ2‚“°¢&V6öææV7D67Gc5fÆ2‚“°¢Ò“°¢&WGW&âG'VS°¢Ò6F6‚„W†6WF–öâ–væ÷&VB’²&WGW&âfÇ6S²Ð¢Ð ¢¦f67&—D–çFW&f6RV&Æ–27G&–ærvWEÇVv–ä”¶W•7FGW2‚’°¢G'’²&WGW&âæWr¥4ôäö&¦V7B‚’çWB‚'ÆçFæWB"ÂÇVv–ä”¶W’‚'ÆçFæWB"’æ—4V×G’‚’ÇÂ'V–ÆD6öæf–råÄåDäUEô•ô´U’æ—4V×G’‚’¢çWB‚'ÆçF–B"ÂÇVv–ä”¶W’‚'ÆçF–B"’æ—4V×G’‚’¢çWB‚&¶–æGv—6R"ÂÇVv–ä”¶W’‚&¶–æGv—6R"’æ—4V×G’‚’’çFõ7G&–ær‚“²Ð¢6F6‚„W†6WF–öâW'&÷"’²&WGW&â'·Ò#²Ð¢Ð¢¦f67&—D–çFW&f6RV&Æ–2&ööÆVâ6fUÇVv–ä”¶W—2…7G&–ær–ÆöB’°¢&WGW&âÖ–ä7F—f—G’çF†—2ç6fUÇVv–ä”¶W—2‡–ÆöB“°¢Ð¢¦f67&—D–çFW&f6RV&Æ–2fö–B÷VåÇVv–ä¶W•÷'FÂ…7G&–ær&÷f–FW"’°¢f–æÂ7G&–ærW&ÂÒ'ÆçFæWB"æWVÇ2‡&÷f–FW"’ò&‡GG3¢òö×’çÆçFæWBæ÷&r÷6WGF–æw2ö’Ö¶W’ ¢¢'ÆçF–B"æWVÇ2‡&÷f–FW"’ò&‡GG3¢òöFÖ–âæ¶–æGv—6Ræ6öÒöÆöv–â ¢¢&¶–æGv—6R"æWVÇ2‡&÷f–FW"’ò&‡GG3¢òöFÖ–âæ¶–æGv—6Ræ6öÒöÆöv–â"¢"#°¢–b‚W&Âæ—4V×G’‚’’'VäöåV•F‡&VB‚‚’Óâ²G'’²7F'D7F—f—G’†æWr–çFVçB„–çFVçBä5D”ôåõd”UrÂW&’ç'6R‡W&Â’’“²Ò6F6‚„W†6WF–öâ–væ÷&VB’²ÒÒ“°¢Ð ¢¦f67&—D–çFW&f6RV&Æ–27G&–ærvWEf–v”67Gc47&VFVçF–Ç2‚’°¢G'’°¢7G&–æuµÒ7&VFVçF–Ç2Òf–v”67Gc47&VFVçF–Ç2‚“°¢&WGW&âæWr¥4ôäö&¦V7B‚’çWB‚'W6W&æÖR"Â7&VFVçF–Ç5³Ò’çWB‚'77v÷&D6öæf–wW&VB"Â7&VFVçF–Ç5³Òæ—4V×G’‚’’çFõ7G&–ær‚“°¢Ò6F6‚„W†6WF–öâ–væ÷&VB’²&WGW&â'·Ò#²Ð¢Ð ¢¦f67&—D–çFW&f6RV&Æ–2&ööÆVâ6fUf–v”67Gc47&VFVçF–Ç2…7G&–ærW6W&æÖRÂ7G&–ær77v÷&B’°¢–b‚Ö–ä7F—f—G’çF†—2ç6fUf–v”67Gc47&VFVçF–Ç2‡W6W&æÖRÓÒçVÆÂò""¢W6W&æÖRçG&–Ò‚’Â77v÷&BÓÒçVÆÂò""¢77v÷&B’’&WGW&âfÇ6S°¢'VäöåV•F‡&VB„Ö–ä7F—f—G’çF†—3£§&V6öææV7D67Gc5fÆ2“°¢&WGW&âG'VS°¢Ð ¢¦f67&—D–çFW&f6RV&Æ–2fö–BÖ–w&FTÆVv7•vV%7F÷&vR…7G&–ær–ÆöB’°¢–b†vWE&Vg2‚’ævWD&ööÆVâ…$TeõtT%õ5Dõ$tUôÔ”u$DTBÂfÇ6R’’&WGW&ã°¢vWE&Vg2‚’æVF—B‚’çWE7G&–ær‚&ÆVv7•÷vV%÷7F÷&vU÷–ÆöB"Â–ÆöBÓÒçVÆÂò'·Ò"¢–ÆöB¢çWD&ööÆVâ…$TeõtT%õ5Dõ$tUôÔ”u$DTBÂG'VR’æÇ’‚“°¢'VäöåV•F‡&VB„Ö–ä7F—f—G’çF†—3£¦ÆöDÖ–åvR“°¢Ð ¢¦f67&—D–çFW&f6RV&Æ–27G&–ærvWDÆVv7•vV%7F÷&vR‚’°¢&WGW&âvWE&Vg2‚’ævWE7G&–ær‚&ÆVv7•÷vV%÷7F÷&vU÷–ÆöB"Â'·Ò"“°¢Ð ¢¦f67&—D–çFW&f6RV&Æ–27G&–ærvWDf&ÔFFW6W$–B‚’°¢&WGW&âf&ÔFFW6W$–B‚&FVfVÇB×W6W""“°¢Ð ¢¦f67&—D–çFW&f6RV&Æ–2fö–BÆöDf&ÕÆçF–æw2‚’°¢f&ÔFFv÷&¶W"æW†V7WFR‚‚’Óâ°¢G'’²æ÷F–g”f&ÕÆçF–æw4ÆöFVB†ÆöDf&ÕÆçF–æw4g&öÔG&—fR†f&ÔFFW6W$–B‚&FVfVÇB×W6W""’’“²Ð¢6F6‚„W†6WF–öâW'&÷"’°¢¥4ôäö&¦V7B&W7öç6RÒæWr¥4ôäö&¦V7B‚“°¢G'’²&W7öç6RçWB‚&ö²"ÂfÇ6R“²&W7öç6RçWB‚'W6W$–B"Âf&ÔFFW6W$–B‚&FVfVÇB×W6W""’“°¢&W7öç6RçWB‚'&V6÷&G2"ÂæWr¥4ôä'&’‚’“²&W7öç6RçWB‚&FVÆWFVD–G2"ÂæWr¥4ôä'&’‚’“°¢&W7öç6RçWB‚&—'&–vF–öå66†VGVÆW2"ÂæWr¥4ôä'&’‚’“²&W7öç6RçWB‚&Ö–çFVææ6UF6·2"ÂæWr¥4ôä'&’‚’“°¢&W7öç6RçWB‚&ÖævVÖVçDFVÆWFVD–G2"ÂæWr¥4ôä'&’‚’“°¢&W7öç6RçWB‚&ÖW76vR"ÂW'&÷"ævWDÖW76vR‚’ÓÒçVÆÂò$6÷VÆBæ÷B&VBF†Rf&ÒFF&6Rg&öÒvöövÆRG&—fR"¢W'&÷"ævWDÖW76vR‚’“²Ð¢6F6‚„W†6WF–öâ–væ÷&VB’²Ð¢æ÷F–g”f&ÕÆçF–æw4ÆöFVB‡&W7öç6R“°¢Ð¢Ò“°¢Ð ¢¦f67&—D–çFW&f6RV&Æ–2fö–B6fTf&ÕÆçF–æw2…7G&–ær–ÆöB’°¢f&ÔFFv÷&¶W"æW†V7WFR‚‚’Óâ°¢G'’²æ÷F–g”f&ÕÆçF–æw56fVB‡6fTf&ÕÆçF–æw5FôG&—fR‡–ÆöB’“²Ð¢6F6‚„W†6WF–öâW'&÷"’°¢¥4ôäö&¦V7B&W7öç6RÒæWr¥4ôäö&¦V7B‚“°¢G'’²&W7öç6RçWB‚&ö²"ÂfÇ6R“²&W7öç6RçWB‚&ÖW76vR"ÂW'&÷"ævWDÖW76vR‚’ÓÒçVÆÀ¢ò$vöövÆRG&—fR6÷VÆBæ÷B6fRF†W6Rf&Ò&V6÷&G2"¢W'&÷"ævWDÖW76vR‚’“²Ð¢6F6‚„W†6WF–öâ–væ÷&VB’²Ð¢æ÷F–g”f&ÕÆçF–æw56fVB‡&W7öç6R“°¢Ð¢Ò“°¢Ð ¢¦f67&—D–çFW&f6RV&Æ–2fö–B6†ö÷6T–ÖvTföÆFW"…7G&–ærÆ÷D–B’°¢–6¶W%Æ÷D–BÒ6fUÆ÷D–B‡Æ÷D–B“°¢–6¶W$7&VFW4FVfVÇDfVVBÒfÇ6S°¢vWE&Vg2‚’æVF—B‚’çWE7G&–ær…$Teô5D•dUõÄõEô”BÂ–6¶W%Æ÷D–B’æÇ’‚“°¢'VäöåV•F‡&VB„Ö–ä7F—f—G’çF†—3£¦÷Vä–ÖvTfVVDföÆFW%–6¶W"“°¢Ð ¢¦f67&—D–çFW&f6RV&Æ–2fö–B7&VFTFVfVÇDFFfVVB…7G&–ærÆ÷D–BÂ7G&–ærföÆFW$æÖR’°¢–6¶W%Æ÷D–BÒ6fUÆ÷D–B‡Æ÷D–B“°¢–6¶W$FVfVÇDföÆFW$æÖRÒ6fTföÆFW$æÖR†föÆFW$æÖR“°¢–6¶W$7&VFW4FVfVÇDfVVBÒG'VS°¢vWE&Vg2‚’æVF—B‚’çWE7G&–ær…$Teô5D•dUõÄõEô”BÂ–6¶W%Æ÷D–B’æÇ’‚“°¢'VäöåV•F‡&VB„Ö–ä7F—f—G’çF†—3£¦÷Vä–ÖvTfVVDföÆFW%–6¶W"“°¢Ð ¢¦f67&—D–çFW&f6RV&Æ–27G&–ærvWDfVVDÆö6F–öâ…7G&–ærÆ÷D–B’°¢7G&–ær–BÒ6fUÆ÷D–B‡Æ÷D–B“°¢&WGW&âfVVDÆö6F–öäÆ&VÂ†–B“°¢Ð ¢¦f67&—D–çFW&f6RV&Æ–27G&–ærvWDfVVEW6W%66÷R‚’°¢6öÒævöövÆRæf—&V&6RæWF‚äf—&V&6UW6W"W6W"Ð¢6öÒævöövÆRæf—&V&6RæWF‚äf—&V&6TWF‚ævWD–ç7Fæ6R‚’ævWD7W'&VçEW6W"‚“°¢&WGW&âW6W"ÓÒçVÆÂò'6–væVBÖ÷WB"¢W6W"ævWEV–B‚“°¢Ð ¢¦f67&—D–çFW&f6RV&Æ–27G&–ærvWDW‡V7FVDfVVEF‚…7G&–ærÆ÷D–BÂ7G&–ærföÆFW$æÖR’°¢G'’°¢&WGW&â$vöövÆRG&—fS¢õ&ö¦V7G2ôw&÷uÆ÷Bô–ÖvUôfVVBò"²6–væVD–äVÖ–ÄföÆFW$æÖR‚¢²"ò"²6fTföÆFW$æÖR†föÆFW$æÖR“°¢Ò6F6‚„W†6WF–öâW'&÷"’°¢&WGW&â"#°¢Ð¢Ð ¢¦f67&—D–çFW&f6RV&Æ–2fö–B÷Vä—vV&6Ò‚’°¢'VäöåV•F‡&VB„Ö–ä7F—f—G’çF†—3£¦–ç7FÆÄ67GcfÆ5÷6—F–öäÆ—7FVæW"“°¢Ð ¢¦f67&—D–çFW&f6RV&Æ–2fö–B6WD67GefÆ4fVVG4ÆÆ÷vVDöä7F—fU67&VVâ†&ööÆVâÆÆ÷vVB’°¢'VäöåV•F‡&VB‚‚’ÓâÖ–ä7F—f—G’çF†—2ç6WD67GefÆ4fVVG4ÆÆ÷vVDöä7F—fU67&VVâ†ÆÆ÷vVB’“°¢Ð ¢¦f67&—D–çFW&f6RV&Æ–2fö–BWFFT67GcfÆ5÷6—F–öâ…7G&–ær6ö÷&F–æFW2’°¢'VäöåV•F‡&VB‚‚’ÓâÖ–ä7F—f—G’çF†—2ç÷6—F–öä67GcfÆ2†6ö÷&F–æFW2’“°¢Ð¢¦f67&—D–çFW&f6RV&Æ–2fö–BWFFT67Gc%fÆ5÷6—F–öâ…7G&–ær6ö÷&F–æFW2’°¢'VäöåV•F‡&VB‚‚’ÓâÖ–ä7F—f—G’çF†—2ç÷6—F–öä67Gc%fÆ2†6ö÷&F–æFW2’“°¢Ð ¢¦f67&—D–çFW&f6RV&Æ–2fö–BWFFT67Gc5fÆ5÷6—F–öâ…7G&–ær6ö÷&F–æFW2’°¢'VäöåV•F‡&VB‚‚’ÓâÖ–ä7F—f—G’çF†—2ç÷6—F–öä67Gc5fÆ2†6ö÷&F–æFW2’“°¢Ð ¢¦f67&—D–çFW&f6RV&Æ–2fö–B÷VävöövÆTÖ2…7G&–ærÆF—GVFRÂ7G&–ærÆöæv—GVFR’°¢G'’°¢F÷V&ÆRÆBÒF÷V&ÆRç'6TF÷V&ÆR†ÆF—GVFR“°¢F÷V&ÆRÆöâÒF÷V&ÆRç'6TF÷V&ÆR†Æöæv—GVFR“°¢–b†ÆBÂÓ“ÇÂÆBâ“ÇÂÆöâÂÓƒÇÂÆöââƒ’&WGW&ã°¢W&’Ö2ÒW&’ç'6R‚&‡GG3¢ò÷wwrævöövÆRæ6öÒöÖ2÷6V&6‚óö“ÓgVW'“Ò"²ÆB²"S$2"²Æöâ“°¢÷VävöövÆTÖ5W&’†Ö2“°¢Ò6F6‚„W†6WF–öâ–væ÷&VB’²Ð¢Ð ¢¦f67&—D–çFW&f6RV&Æ–2fö–B÷VävöövÆTÖ4FG&W72…7G&–ærFG&W75FW‡B’°¢7G&–ærVW'’ÒFG&W75FW‡BÓÒçVÆÂÇÂFG&W75FW‡BçG&–Ò‚’æ—4V×G’‚’ò$ÖÆ—6–"¢FG&W75FW‡BçG&–Ò‚“°¢W&’Ö2ÒæWrW&’ä'V–ÆFW"‚’ç66†VÖR‚&‡GG2"’æWF†÷&—G’‚'wwrævöövÆRæ6öÒ"¢çF‚‚"öÖ2÷6V&6‚ò"’æVæEVW'•&ÖWFW"‚&’"Â#"¢æVæEVW'•&ÖWFW"‚'VW'’"ÂVW'’’æ'V–ÆB‚“°¢÷VävöövÆTÖ5W&’†Ö2“°¢Ð ¢&—fFRfö–B÷VävöövÆTÖ5W&’…W&’Ö2’°¢'VäöåV•F‡&VB‚‚’Óâ°¢–çFVçBvöövÆTÖ2ÒæWr–çFVçB„–çFVçBä5D”ôåõd”UrÂÖ2“°¢vöövÆTÖ2ç6WE6¶vR‚&6öÒævöövÆRææG&ö–Bæ2æÖ2"“°¢G'’°¢7F'D7F—f—G’†vöövÆTÖ2“°¢Ò6F6‚„W†6WF–öâÖ5Væf–Æ&ÆR’°¢G'’²7F'D7F—f—G’†æWr–çFVçB„–çFVçBä5D”ôåõd”UrÂÖ2’“²Ò6F6‚„W†6WF–öâ–væ÷&VB’²Ð¢Ð¢Ò“°¢Ð ¢¦f67&—D–çFW&f6RV&Æ–2fö–B&WVW7DFWf–6TÆö6F–öâ…7G&–ærÆ÷D–B’°¢&WVW7DFWf–6TÆö6F–öåW&Ö—76–öâ‡6fUÆ÷D–B‡Æ÷D–B’“°¢Ð ¢¦f67&—D–çFW&f6RV&Æ–2fö–BvVö6öFUÆ÷DFG&W72…7G&–ærFG&W75FW‡BÂ7G&–ærÆ÷D–B’°¢f–æÂ7G&–ær–BÒ6fUÆ÷D–B‡Æ÷D–B“°¢7G&–ærVW'’ÒFG&W75FW‡BÓÒçVÆÂò""¢FG&W75FW‡BçG&–Ò‚“°¢–b‡VW'’æ—4V×G’‚’’&WGW&ã°¢–b‚VW'’çFôÆ÷vW$66R„Æö6ÆRå$ôõB’æ6öçF–ç2‚&ÖÆ—6–"’’VW'’³Ò"ÂÖÆ—6–#°¢f–æÂ7G&–ær6V&6…FW‡BÒVW'“°¢vVö6öFUv÷&¶W"æW†V7WFR‚‚’Óâ°¢G'’°¢–b‚vVö6öFW"æ—5&W6VçB‚’’F‡&÷ræWr–ÆÆVvÅ7FFTW†6WF–öâ‚$FG&W72Æöö·W—2Væf–Æ&ÆRâ"“°¢vVö6öFW"vVö6öFW"ÒæWrvVö6öFW"„Ö–ä7F—f—G’çF†—2ÂÆö6ÆRævWDFVfVÇB‚’“°¢–b„'V–ÆBådU%4”ôâå4Dµô”åBãÒ32’°¢vVö6öFW"ævWDg&öÔÆö6F–öäæÖR‡6V&6…FW‡BÂÂFG&W76W2Óâ°¢FG&W72f÷VæBÒFG&W76W2ÓÒçVÆÂÇÂFG&W76W2æ—4V×G’‚’òçVÆÂ¢FG&W76W2ævWBƒ“°¢6VæDFG&W74vVö6öFR†–BÂ6V&6…FW‡BÂf÷VæB“°¢Ò“°¢ÒVÇ6R°¢Æ—7CÄFG&W73âFG&W76W2ÒvVö6öFW"ævWDg&öÔÆö6F–öäæÖR‡6V&6…FW‡BÂ“°¢6VæDFG&W74vVö6öFR†–BÂ6V&6…FW‡BÂFG&W76W2ÓÒçVÆÂÇÂFG&W76W2æ—4V×G’‚’òçVÆÂ¢FG&W76W2ævWBƒ’“°¢Ð¢Ò6F6‚„W†6WF–öâW'&÷"’°¢6VæDFG&W74vVö6öFR†–BÂ6V&6…FW‡BÂçVÆÂ“°¢Ð¢Ò“°¢Ð ¢¦f67&—D–çFW&f6RV&Æ–2fö–BVç7W&UÆ÷DfVVB…7G&–ærÆ÷D–B’°¢7G&–ær–BÒ6fUÆ÷D–B‡Æ÷D–B“°¢vWE&Vg2‚’æVF—B‚’çWE7G&–ær‚&FFöfVVEö6öæf–uò"²–BÀ¢vWE&Vg2‚’ævWE7G&–ær‚&FFöfVVEö6öæf–uò"²–BÂ'µÂ'Æ÷D–EÂ#¥Â""²–B²%Â"ÅÂ&Væ&ÆVEÂ#¦fÇ6WÒ"’’æÇ’‚“°¢Ð ¢¦f67&—D–çFW&f6RV&Æ–2fö–B&WGW&åFôFVÖõ7G&V×2‚’°¢'VäöåV•F‡&VB‚‚’ÓâÖ–ä7F—f—G’çF†—2ç&WGW&åFôFVÖõ7G&V×2‚’“°¢Ð¢¦f67&—D–çFW&f6RV&Æ–2fö–B6WD7F—fU7G&VÖ–æt6öçFW‡B…7G&–ærÆ÷D–BÂ7G&–ærw&VVæ†÷W6T–B’°¢'VäöåV•F‡&VB‚‚’ÓâÖ–ä7F—f—G’çF†—2æÆöD76–væVE7G&V×2‡6fUÆ÷D–B‡Æ÷D–B’Âw&VVæ†÷W6T–BÂfÇ6R’“°¢Ð¢¦f67&—D–çFW&f6RV&Æ–2fö–B6WD7F—fUÆ÷B…7G&–ærÆ÷D–B’°¢7G&–ær–BÒ6fUÆ÷D–B‡Æ÷D–B“°¢vWE&Vg2‚’æVF—B‚’çWE7G&–ær…$Teô5D•dUõÄõEô”BÂ–B’æÇ’‚“°¢òò†öÖR6VÆV7F÷"7WÆ–W2F†RÖF6†–ærw&VVæ†÷W6S²Fòæ÷B÷fW'w&—FR—Bv—F‚w&VVæ†÷W6RÓà¢66å6æ6†÷DföÆFW"‚“°¢Ð ¢¦f67&—D–çFW&f6RV&Æ–2fö–B6†V6´æ÷r…7G&–ærÆ÷D–B’°¢66å6æ6†÷DföÆFW"‡6fUÆ÷D–B‡Æ÷D–B’“°¢Ð ¢¦f67&—D–çFW&f6RV&Æ–2fö–B6GW&TfVVE†÷Fò†–çB6ÖW&Â7G&–ærÆ÷D–B’°¢–b†6ÖW&ÂÇÂ6ÖW&âb’&WGW&ã°¢'VäöåV•F‡&VB‚‚’ÓâÆVæ6„fVVE†÷Fô6GW&R†6ÖW&Â6fUÆ÷D–B‡Æ÷D–B’’“°¢Ð ¢¦f67&—D–çFW&f6RV&Æ–2fö–B6†ö÷6TfVVE†÷Fò†–çB6ÖW&Â7G&–ærÆ÷D–B’°¢–b†6ÖW&ÂÇÂ6ÖW&âb’&WGW&ã°¢'VäöåV•F‡&VB‚‚’ÓâÆVæ6„fVVE†÷Fõ–6¶W"†6ÖW&Â6fUÆ÷D–B‡Æ÷D–B’’“°¢Ð ¢¦f67&—D–çFW&f6RV&Æ–2–çBvWE&Vg&W6„–çFW'fÂ‚’°¢&WGW&â&Vg&W6„–çFW'fÄÖ–çWFW3°¢Ð ¢¦f67&—D–çFW&f6RV&Æ–2fö–B6WE&Vg&W6„–çFW'fÂ†–çBÖ–çWFW2’°¢–b†Ö–çWFW2ÒbbÖ–çWFW2ÒRbbÖ–çWFW2ÒRbbÖ–çWFW2Ò3’Ö–çWFW2ÒS°¢f–æÂ–çB–çFW'fÂÒÖ–çWFW3°¢'VäöåV•F‡&VB‚‚’Óâ°¢&Vg&W6„–çFW'fÄÖ–çWFW2Ò–çFW'fÃ°¢vWE&Vg2‚’æVF—B‚’çWD–çB…$Teô”åDU%dÂÂ–çFW'fÂ’æÇ’‚“°¢Ö–ä†æFÆW"ç&VÖ÷fT6ÆÆ&6·2‡66†VGVÆVE66â“°¢66å6æ6†÷DföÆFW"‚“°¢Ö–ä†æFÆW"ç÷7DFVÆ–VB‡66†VGVÆVE66âÂ&Vg&W6„–çFW'fÄÖ–çWFW2¢cóÂ“°¢Ò“°¢Ð ¢¦f67&—D–çFW&f6RV&Æ–2F÷V&ÆRvWD67Ge6æ6†÷D–çFW'fÄÖ–çWFW2‚’°¢&WGW&â67Ge6æ6†÷D–çFW'fÄÖ–ÆÆ—2òcóã°¢Ð ¢¦f67&—D–çFW&f6RV&Æ–2fö–B6WD67Ge6æ6†÷D–çFW'fÄÖ–çWFW2†F÷V&ÆRÖ–çWFW2’°¢–b„F÷V&ÆRæ—4æâ†Ö–çWFW2’ÇÂF÷V&ÆRæ—4–æf–æ—FR†Ö–çWFW2’’&WGW&ã°¢f–æÂÆöær–çFW'fÄÖ–ÆÆ—2ÒÖF‚ç&÷VæB„ÖF‚æÖ‚ƒãRÂÖF‚æÖ–âƒCCãÂÖ–çWFW2’’¢cóã“°¢'VäöåV•F‡&VB‚‚’Óâ°¢67Ge6æ6†÷D–çFW'fÄÖ–ÆÆ—2Ò–çFW'fÄÖ–ÆÆ—3°¢vWE&Vg2‚’æVF—B‚’çWDÆöær…$Teô45Eeõ4ä4„õEô”åDU%dÅôÔ”ÄÄ•2Â–çFW'fÄÖ–ÆÆ—2’æÇ’‚“°¢Ö–ä†æFÆW"ç&VÖ÷fT6ÆÆ&6·2†67Gc6æ6†÷EF–6¶W"“°¢Ö–ä†æFÆW"ç&VÖ÷fT6ÆÆ&6·2†67Gc%6æ6†÷EF–6¶W"“°¢Ö–ä†æFÆW"ç&VÖ÷fT6ÆÆ&6·2†67Gc56æ6†÷EF–6¶W"“°¢–b†7F—f—G•&W7VÖVBbb—vV&6ÕfÆ5Æ–W"ÒçVÆÂbb—vV&6ÕfÆ4Æ–÷WBÒçVÆÂ’°¢Ö–ä†æFÆW"ç÷7DFVÆ–VB†67Gc6æ6†÷EF–6¶W"Â67Ge6æ6†÷D–çFW'fÄÖ–ÆÆ—2“°¢Ð¢–b†7F—f—G•&W7VÖVBbb—vV&6Ó%fÆ5Æ–W"ÒçVÆÂbb—vV&6Ó%fÆ4Æ–÷WBÒçVÆÂ’°¢Ö–ä†æFÆW"ç÷7DFVÆ–VB†67Gc%6æ6†÷EF–6¶W"ÂæW‡E6æ6†÷D6†V6´FVÆ’ƒ"’“°¢Ð¢–b†7F—f—G•&W7VÖVBbb—vV&6Ó5fÆ5Æ–W"ÒçVÆÂbb—vV&6Ó5fÆ4Æ–÷WBÒçVÆÂ’°¢Ö–ä†æFÆW"ç÷7DFVÆ–VB†67Gc56æ6†÷EF–6¶W"Â67Ge6æ6†÷D–çFW'fÄÖ–ÆÆ—2“°¢Ð¢Ò“°¢Ð ¢¦f67&—D–çFW&f6RV&Æ–2fö–B6GW&TF–væ÷6—5†÷Fò†–çB6ÖW&Â7G&–ærÆ÷D–BÂ7G&–ærÆ÷DæÖR’°¢'VäöåV•F‡&VB‚‚’ÓâÆVæ6„F–væ÷6—46GW&R‚'†÷Fò"Â6ÖW&ÂÆ÷D–BÂÆ÷DæÖR’“°¢Ð ¢¦f67&—D–çFW&f6RV&Æ–2fö–B&V6÷&DF–væ÷6—5f–FVò†–çB6ÖW&Â7G&–ærÆ÷D–BÂ7G&–ærÆ÷DæÖR’°¢'VäöåV•F‡&VB‚‚’ÓâÆVæ6„F–væ÷6—46GW&R‚'f–FVò"Â6ÖW&ÂÆ÷D–BÂÆ÷DæÖR’“°¢Ð ¢¦f67&—D–çFW&f6RV&Æ–2fö–B6†ö÷6TF–væ÷6—4ÖVF–†–çB6ÖW&Â7G&–ærÆ÷D–BÂ7G&–ærÆ÷DæÖR’°¢'VäöåV•F‡&VB‚‚’ÓâÆVæ6„F–væ÷6—5–6¶W"†6ÖW&ÂÆ÷D–BÂÆ÷DæÖR’“°¢Ð ¢¦f67&—D–çFW&f6RV&Æ–2fö–BF–væ÷6U†÷F÷5v—F…ÆçDæWB†–çB6ÖW&Â7G&–ærÆ÷D–BÂ7G&–ær7V6–W2Â7G&–ær7–×FöÒÂ7G&–ær—†VÄÖWG&–72’°¢f–æÂ7G&–ær–BÒ6fUÆ÷D–B‡Æ÷D–B“°¢F–væ÷6—5v÷&¶W"æW†V7WFR‚‚’Óâ°¢¥4ôäö&¦V7B&W7öç6S°¢G'’°¢f–ÆRfVVD–ÖvRÒæWrf–ÆR‡W6W%Æ÷DF—&V7F÷'’‚&ÆFW7Eö–ÖvW2"Â–B’Â6ÖW&f–ÆTæÖR†6ÖW&’“°¢Æ—7CÅÆçDæWD–ÖvT6æF–FFSâ6æF–FFW2ÒæWr'&”Æ—7CÃâ‚“°¢G'’²6æF–FFW2æFDÆÂ†ÆöDF–væ÷6—5†÷F÷4g&öÔG&—fR†6ÖW&Â–B’“²Ð¢6F6‚„W†6WF–öâG&—fTW'&÷"’²–b‚fVVD–ÖvRæ—4f–ÆR‚’’F‡&÷rG&—fTW'&÷#²Ð¢&ööÆVâfVVD–ÖvT–æ6ÇVFVBÒfVVD–ÖvRæ—4f–ÆR‚’bbfVVD–ÖvRæÆVæwF‚‚’â°¢–b†fVVD–ÖvT–æ6ÇVFVB’°¢G'’°¢'—FUµÒ§VrÒ&VEÆçDæWD–ÖvR…W&’æg&öÔf–ÆR†fVVD–ÖvR’“°¢–b†§VrÒçVÆÂbb§VræÆVæwF‚â’6æF–FFW2æFB†æWrÆçDæWD–ÖvT6æF–FFR†§VrÀ¢$7W'&VçB†öÖR–ÖvUôfVVB6æ6†÷C¢45Eb"²7G&–æræf÷&ÖB„Æö6ÆRåU2Â"S&B"Â6ÖW&’À¢66÷&UÆçDæWD–ÖvR†§Vr’’“°¢Ò6F6‚„W†6WF–öâfVVDW'&÷"’²–b†6æF–FFW2æ—4V×G’‚’’F‡&÷rfVVDW'&÷#²Ð¢Ð¢–b†6æF–FFW2æ—4V×G’‚’’F‡&÷ræWr–ÆÆVvÅ7FFTW†6WF–öâ‚$æò&VF&ÆR†÷F÷2&Rf–Æ&ÆRf÷"F†—2VG&çB"“°¢Æ—7CÅÆçDæWD–ÖvT6æF–FFSâ6VÆV7FVBÒ6VÆV7D&W7EÆçDæWD–ÖvW2†6æF–FFW2“°¢Æ—7CÆ'—FUµÓâ6VÆV7FVD–ÖvW2Ò6æF–FFT'—FW2‡6VÆV7FVB“°¢&WVW7D¶–æGv—6TF–væ÷6—2†6ÖW&Â–BÂ6VÆV7FVD–ÖvW2Â6æF–FFW2ç6—¦R‚’Â6VÆV7FVBÀ¢7V6–W2Â7–×FöÒÂ—†VÄÖWG&–72Â'VG&çE÷†÷F÷2"À¢$F–væ÷6—2ò"²F–væ÷6—5Æ÷DföÆFW"†–B’²"õVG&çEò"²7G&–æræf÷&ÖB„Æö6ÆRåU2Â"S&B"Â6ÖW&’À¢%6VÆV7FVBF†R6ÆV&W7Bf–Æ&ÆRVG&çB†÷F÷2W6–ær&÷†–ÖFR6†'æW72ÂW‡÷7W&RÂæBf—6–&ÆR×ÆçBÖ&V6†V6·2â"“°¢òò&WVW7B7V6–W2–FVçF–f–6F–öâf—'7B6ò6Æ÷vW"F—6V6R6†V6²6ææ÷BFVÆ’F†P¢òò7&÷–FVçF—G’F†RW6W"æVVG2&Vf÷&R–çFW'&WF–ærF—6V6R6æF–FFW2à¢¥4ôäö&¦V7B7V6–W4–FVçF–f–6F–öâÒ–FVçF–g•ÆçE7V6–W5v—F…ÆçDæWB‡6VÆV7FVD–ÖvW2“°¢&W7öç6RÒ–FVçF–g•v—F…ÆçDæWB‡6VÆV7FVD–ÖvW2“°¢òò¶VW7V6–W2æBF—6V6R÷WF6öÖW26W&FR6òV—F†W"&÷f–FW"6âf–Â–æFWVæFVçFÇ’à¢&W7öç6RçWB‚'7V6–W4–FVçF–f–6F–öâ"Â7V6–W4–FVçF–f–6F–öâ“°¢&W7öç6RçWB‚'7V6–W46öçFW‡B"Â7V6–W2ÓÒçVÆÂò""¢7V6–W2“°¢&W7öç6RçWB‚'7–×FöÔ6öçFW‡B"Â7–×FöÒÓÒçVÆÂò""¢7–×FöÒ“°¢&W7öç6RçWB‚'—†VÄ6öçFW‡B"Â—†VÄÖWG&–72ÓÒçVÆÂò""¢—†VÄÖWG&–72“°¢&W7öç6RçWB‚&ÖVF–G—R"Â'VG&çE÷†÷F÷2"“°¢&W7öç6RçWB‚'6÷W&6TföÆFW""ÂfVVD–ÖvT–æ6ÇVFV@¢ò$7W'&VçB–ÖvUôfVVB6æ6†÷BÇW26fVBF–væ÷6—2†÷F÷2v†Vâf–Æ&ÆR ¢¢$F–væ÷6—2ò"²F–væ÷6—5Æ÷DföÆFW"†–B’²"õVG&çEò"²7G&–æræf÷&ÖB„Æö6ÆRåU2Â"S&B"Â6ÖW&’“°¢&W7öç6RçWB‚&6æF–FFT–ÖvT6÷VçB"Â6æF–FFW2ç6—¦R‚’“°¢&W7öç6RçWB‚&fVVD–ÖvT–æ6ÇVFVB"ÂfVVD–ÖvT–æ6ÇVFVB“°¢&W7öç6RçWB‚'6VÆV7F–öäæ÷FR"Â%6VÆV7FVBF†R6ÆV&W7Bf–Æ&ÆRVG&çB†÷F÷2W6–ær&÷†–ÖFR6†'æW72ÂW‡÷7W&RÂæBf—6–&ÆR×ÆçBÖ&V6†V6·3²F†R7W'&VçB†öÖR–ÖvUôfVVB6æ6†÷B—2–æ6ÇVFVBv†Vâf–Æ&ÆRâ"“°¢&W7öç6RçWB‚'6VÆV7FVE6÷W&6W2"Â6æF–FFU6÷W&6W2‡6VÆV7FVB’“°¢Ò6F6‚„W†6WF–öâW'&÷"’°¢&W7öç6RÒÆçDæWDW'&÷"†W'&÷"“°¢Ð¢6VæEÆçDæWE&W7VÇB†6ÖW&Â–BÂ&W7öç6R“°¢Ò“°¢Ð ¢¦f67&—D–çFW&f6RV&Æ–2fö–B–FVçF–g•ÆçE7V6–W4g&öÕ†÷F÷2†–çB6ÖW&Â7G&–ærÆ÷D–B’°¢f–æÂ7G&–ær–BÒ6fUÆ÷D–B‡Æ÷D–B“°¢F–væ÷6—5v÷&¶W"æW†V7WFR‚‚’Óâ°¢¥4ôäö&¦V7B&W7öç6S°¢G'’°¢Æ—7CÅÆçDæWD–ÖvT6æF–FFSâ6æF–FFW3°¢G'’²6æF–FFW2ÒÆöDF–væ÷6—5†÷F÷4g&öÔG&—fR†6ÖW&Â–B“²Ð¢6F6‚„W†6WF–öâG&—fTW'&÷"’°¢6æF–FFW2ÒÆöDF–væ÷6—5†÷F÷4g&öÔFWf–6T–æFW‚†6ÖW&Â–B“°¢–b†6æF–FFW2æ—4V×G’‚’’F‡&÷rG&—fTW'&÷#°¢Ð¢Æ—7CÅÆçDæWD–ÖvT6æF–FFSâ6VÆV7FVBÒ6VÆV7D&W7EÆçDæWD–ÖvW2†6æF–FFW2“°¢Æ—7CÆ'—FUµÓâ–ÖvW2Ò6æF–FFT'—FW2‡6VÆV7FVB“°¢¥4ôä'&’&÷f–FW%&W7VÇG2ÒæWr¥4ôä'&’‚“°¢&÷f–FW%&W7VÇG2çWB†–FVçF–g•ÆçE7V6–W5v—F…ÆçDæWB†–ÖvW2’“°¢&÷f–FW%&W7VÇG2çWB†–FVçF–g•ÆçE7V6–W5v—F…ÆçD–B†–ÖvW2’“°¢&W7öç6RÒæWr¥4ôäö&¦V7B‚“°¢&ööÆVâç”ö²ÒfÇ6RÂÆÄæ÷D6öæf–wW&VBÒ&÷f–FW%&W7VÇG2æÆVæwF‚‚’â°¢f÷"†–çB’Ò²’Â&÷f–FW%&W7VÇG2æÆVæwF‚‚“²’²²’°¢7G&–ær7FGW2Ò&÷f–FW%&W7VÇG2ævWD¥4ôäö&¦V7B†’’æ÷E7G&–ær‚'7FGW2"“°¢ç”ö²ÃÒ&ö²"æWVÇ2‡7FGW2“°¢ÆÄæ÷D6öæf–wW&VBcÒ&æ÷Eö6öæf–wW&VB"æWVÇ2‡7FGW2“°¢Ð¢&W7öç6RçWB‚'7FGW2"Âç”ö²ò&ö²"¢&W'&÷""“°¢–b‚ç”ö²bbÆÄæ÷D6öæf–wW&VB’&W7öç6RçWB‚'7FGW2"Â&æ÷Eö6öæf–wW&VB"“°¢&W7öç6RçWB‚'&÷f–FW'2"Â&÷f–FW%&W7VÇG2“°¢&W7öç6RçWB‚&6æF–FFT–ÖvT6÷VçB"Â6æF–FFW2ç6—¦R‚’“°¢&W7öç6RçWB‚&–ÖvT6÷VçE7V&Ö—GFVB"Â–ÖvW2ç6—¦R‚’“°¢&W7öç6RçWB‚'6VÆV7FVE6÷W&6W2"Â6æF–FFU6÷W&6W2‡6VÆV7FVB’“°¢&W7öç6RçWB‚'6VÆV7F–öäæ÷FR"Â$&÷F‚6W'f–6W2&V6V—fVBF†R6ÖR6ÆV&W7B6fVB†÷F÷2âF†V—"66÷&W2&R6W&FRÖöFVÂ&æ¶–æw2Âæ÷B&ööböb–FVçF—G’â"“°¢Ò6F6‚„W†6WF–öâW'&÷"’°¢&W7öç6RÒÆçDæWDW'&÷"†W'&÷"“°¢G'’²&W7öç6RçWB‚'&÷f–FW""Â%ÄçDæWB7V6–W2–FVçF–f–6F–öâ"“²Ð¢6F6‚„W†6WF–öâ–væ÷&VB’²Ð¢Ð¢6VæEÆçE7V6–W5&W7VÇB†6ÖW&Â–BÂ&W7öç6R“°¢Ò“°¢Ð ¢¦f67&—D–çFW&f6RV&Æ–2fö–B6†ö÷6TF–væ÷6—4G&—fTföÆFW"‚’°¢'VäöåV•F‡&VB‚‚’Óâ&WVW7DF–væ÷6—4föÆFW$WF†÷&—¦F–öâ‚’“°¢Ð ¢¦f67&—D–çFW&f6RV&Æ–27G&–ærvWDF–væ÷6—57F÷&vTÆ&VÂ‚’°¢&WGW&âF–væ÷6—57F÷&vTÆ&VÂ‚“°¢Ð  ¢¦f67&—D–çFW&f6RV&Æ–27G&–ærvWDF–væ÷6—4”6öæf–r‚’°¢¥4ôäö&¦V7B6öæf–rÒæWr¥4ôäö&¦V7B‚“°¢G'’°¢6öæf–rçWB‚'W&Â"Â'V–ÆD6öæf–räD”täõ4•5ô•õU$Â“°¢6öæf–rçWB‚'&÷‡•Fö¶Vâ"Â'V–ÆD6öæf–räD”täõ4•5õ$õ…•õDô´Tâ“°¢Ò6F6‚„W†6WF–öâ–væ÷&VB’²Ð¢&WGW&â6öæf–rçFõ7G&–ær‚“°¢Ð ¢¦f67&—D–çFW&f6RV&Æ–27G&–ærvWDF–væ÷6—4ÖVF–†–çB6ÖW&Â7G&–ærÆ÷D–B’°¢–b†6ÖW&ÂÇÂ6ÖW&âb’&WGW&â%µÒ#°¢&WGW&â&VDF–væ÷6—4ÖVF––æFW‚†6ÖW&ÂÆ÷D–B“°¢Ð ¢¦f67&—D–çFW&f6RV&Æ–2fö–B&Vg&W6„F–væ÷6—4ÖVF–†–çB6ÖW&Â7G&–ærÆ÷D–B’°¢&Vg&W6„F–væ÷6—4ÖVF–g&öÔG&—fR†6ÖW&ÂÆ÷D–B“°¢Ð ¢¦f67&—D–çFW&f6RV&Æ–2fö–BÆ”F–væ÷6—5f–FVò†–çB6ÖW&Â7G&–ærÆ÷D–BÂ7G&–ærÖVF–W&Â’°¢'VäöåV•F‡&VB‚‚’ÓâÆ”F–væ÷6—5f–FVô–ä†6ÖW&ÂÆ÷D–BÂÖVF–W&Â’“°¢Ð ¢¦f67&—D–çFW&f6RV&Æ–2fö–B&VÖ÷fTF–væ÷6—4ÖVF–†–çB6ÖW&Â7G&–ærÆ÷D–BÂ7G&–ærFö7VÖVçD–BÀ¢7G&–ærf–ÆTæÖRÂ7G&–ærÖVF–W&Â’°¢f–æÂ7G&–ær–BÒ6fUÆ÷D–B‡Æ÷D–B“°¢–b†6ÖW&ÂÇÂ6ÖW&âb’&WGW&ã°¢F–væ÷6—5v÷&¶W"æW†V7WFR‚‚’Óâ&VÖ÷fTF–væ÷6—4ÖVF–g&öÕ7F÷&vR†6ÖW&Â–BÀ¢Fö7VÖVçD–BÓÒçVÆÂò""¢Fö7VÖVçD–BÂf–ÆTæÖRÓÒçVÆÂò""¢f–ÆTæÖRÀ¢ÖVF–W&ÂÓÒçVÆÂò""¢ÖVF–W&Â’“°¢Ð ¢¦f67&—D–çFW&f6RV&Æ–2fö–B÷VäF–væ÷6—4G&—fTÖVF–…7G&–ærFö7VÖVçD–BÂ7G&–ærÖ–ÖUG—R’°¢'VäöåV•F‡&VB‚‚’Óâ÷VäF–væ÷6—4G&—fTÖVF––åÆ–W"†Fö7VÖVçD–BÂÖ–ÖUG—R’“°¢Ð¢Ð  ¢&—fFRfö–BÆ”F–væ÷6—5f–FVô–ä†–çB6ÖW&Â7G&–ærÆ÷D–BÂ7G&–ærÖVF–W&Â’°¢7G&–ær–BÒ6fUÆ÷D–B‡Æ÷D–B“°¢–b†6ÖW&ÂÇÂ6ÖW&âbÇÂÖVF–W&ÂÓÒçVÆÂ’°¢æ÷F–g”F–væ÷6—57FGW2‚%F†Rf–FVò&VfW&Væ6R—2–çfÆ–Bâ&Vg&W6‚F†RF–væ÷6—2Æ—7Bâ"“°¢&WGW&ã°¢Ð¢7G&–ærVG&çBÒ7G&–æræf÷&ÖB„Æö6ÆRåU2Â&67GeòS&B"Â6ÖW&“°¢7G&–ærW‡V7FVE&Vf—‚Ò&‡GG3¢òö76WG2ææG&ö–GÆFf÷&ÒææWBö76WG2öF–væ÷6—2ò"²–B²"ò"²VG&çB²"ò#°¢–b‚ÖVF–W&Âç7F'G5v—F‚†W‡V7FVE&Vf—‚’’°¢æ÷F–g”F–væ÷6—57FGW2‚%F†Rf–FVò&VfW&Væ6RFöW2æ÷BÖF6‚F†—2Æ÷BæBVG&çBâ"“°¢&WGW&ã°¢Ð¢7G&–ærf–ÆTæÖRÒW&’ç'6R†ÖVF–W&Â’ævWDÆ7EF…6VvÖVçB‚“°¢–b†f–ÆTæÖRÓÒçVÆÂÇÂf–ÆTæÖRæÖF6†W2‚%´Õ¦×£Ó•òÕ×³ÃcGÕÅÂæ×B"’’°¢æ÷F–g”F–væ÷6—57FGW2‚%F†Rf–FVòf–ÆRæÖR—2–çfÆ–Bâ"“°¢&WGW&ã°¢Ð¢G'’°¢f–ÆRÆö6ÂÒæWrf–ÆR†æWrf–ÆR†æWrf–ÆR†vWDf–ÆW4F—"‚’Â&F–væ÷6—5öÖVF–"’Â–B’ÂVG&çB²"ò"²f–ÆTæÖR’ævWD6æöæ–6Äf–ÆR‚“°¢f–ÆR66†VBÒæWrf–ÆR†æWrf–ÆR†æWrf–ÆR†vWD66†TF—"‚’Â&F–væ÷6—5öG&—fUö66†R"’Â–B’ÂVG&çB²"ò"²f–ÆTæÖR’ævWD6æöæ–6Äf–ÆR‚“°¢f–ÆRÖVF–ÒÆö6Âæ—4f–ÆR‚’òÆö6Â¢†66†VBæ—4f–ÆR‚’ò66†VB¢çVÆÂ“°¢–b†ÖVF–ÓÒçVÆÂ’°¢æ÷F–g”F–væ÷6—57FGW2‚%F†Rf–FVò—2æ÷B–âF†RFWf–6RÆ–&6²66†R–WBâ&V÷VâF†—2F–væ÷6—2æBv—Bf÷"G&—fR7–æ2â"“°¢&WGW&ã°¢Ð¢F–ÆörF–ÆörÒæWrF–Æör‡F†—2ÂæG&ö–Bå"ç7G–ÆRåF†VÖUô&Æ6µôæõF—FÆT&%ôgVÆÇ67&VVâ“°¢g&ÖTÆ–÷WBg&ÖRÒæWrg&ÖTÆ–÷WB‡F†—2“°¢g&ÖRç6WD&6¶w&÷VæD6öÆ÷"„6öÆ÷"ä$Ä4²“°¢f–FVõf–WrÆ–W"ÒæWrf–FVõf–Wr‡F†—2“°¢g&ÖRæFEf–Wr‡Æ–W"ÂæWrg&ÖTÆ–÷WBäÆ–÷WE&×2„g&ÖTÆ–÷WBäÆ–÷WE&×2äÔD4…õ$TåBÂg&ÖTÆ–÷WBäÆ–÷WE&×2äÔD4…õ$TåB’“°¢FW‡Ef–Wr—†VÄ÷fW&Æ’ÒæWrFW‡Ef–Wr‡F†—2“°¢—†VÄ÷fW&Æ’ç6WEFW‡D6öÆ÷"„6öÆ÷"åt„•DR“°¢—†VÄ÷fW&Æ’ç6WEFW‡E6—¦Rƒ“°¢—†VÄ÷fW&Æ’ç6WEFF–ær†Gƒ’’ÂGƒr’ÂGƒC‚’ÂGƒr’“°¢—†VÄ÷fW&Æ’ç6WD&6¶w&÷VæD6öÆ÷"ƒ„43s$C#“°¢—†VÄ÷fW&Æ’ç6WEFW‡B„‡FÖÂæg&öÔ‡FÖÂ‚#ÆföçB6öÆ÷#Òr34TTBsî)xòw&VVâ(	BSÂöföçCî8ÆföçB6öÆ÷#Òr4cCCSsî)xò–VÆÆ÷r(	BSÂöföçCãÆ'#ãÆföçB6öÆ÷#Òr4CdCRsî)xò'&÷vâ(	BSÂöföçCî8ÆföçB6öÆ÷#Òr43t4d4sî)xò÷F†W"(	BSÂöföçCâ"Ä‡FÖÂäe$ôÕô…DÔÅôÔôDUôÄTt5’’“°¢g&ÖTÆ–÷WBäÆ–÷WE&×2÷fW&Æ•&×2ÒæWrg&ÖTÆ–÷WBäÆ–÷WE&×2„g&ÖTÆ–÷WBäÆ–÷WE&×2äÔD4…õ$TåBÂg&ÖTÆ–÷WBäÆ–÷WE&×2åu$ô4ôåDTåBÂw&f—G’åDõ“°¢g&ÖRæFEf–Wr‡—†VÄ÷fW&Æ’Â÷fW&Æ•&×2“°¢FW‡Ef–Wr6Æ÷6Uf–FVòÒæWrFW‡Ef–Wr‡F†—2“°¢6Æ÷6Uf–FVòç6WEFW‡B‚,9r"“°¢6Æ÷6Uf–FVòç6WEFW‡D6öÆ÷"„6öÆ÷"åt„•DR“°¢6Æ÷6Uf–FVòç6WEFW‡E6—¦Rƒ#‚“°¢6Æ÷6Uf–FVòç6WDw&f—G’„w&f—G’ä4TåDU"“°¢6Æ÷6Uf–FVòç6WD&6¶w&÷VæD6öÆ÷"ƒ„43s$C#“°¢6Æ÷6Uf–FVòç6WD6öçFVçDFW67&—F–öâ‚$6Æ÷6Rf–FVòÆ–W""“°¢6Æ÷6Uf–FVòç6WDöä6Æ–6´Æ—7FVæW"‡f–WrÓâF–ÆöræF—6Ö—72‚’“°¢g&ÖTÆ–÷WBäÆ–÷WE&×26Æ÷6U&×2ÒæWrg&ÖTÆ–÷WBäÆ–÷WE&×2†GƒC"’ÂGƒC"’Âw&f—G’åDõÂw&f—G’å$”t…B“°¢g&ÖRæFEf–Wr†6Æ÷6Uf–FVòÂ6Æ÷6U&×2“°¢F–Æörç6WD6öçFVçEf–Wr†g&ÖR“°¢ÖVF–6öçG&öÆÆW"6öçG&öÇ2ÒæWrÖVF–6öçG&öÆÆW"‡F†—2“°¢6öçG&öÇ2ç6WDæ6†÷%f–Wr‡Æ–W"“°¢Æ–W"ç6WDÖVF–6öçG&öÆÆW"†6öçG&öÇ2“°¢Æ–W"ç6WDöå&W&VDÆ—7FVæW"†×Óâ°¢–b†×ævWEf–FVõv–GF‚‚’ÃÒÇÂ×ævWEf–FVô†V–v‡B‚’ÃÒ’°¢æ÷F–g”F–væ÷6—57FGW2‚$æG&ö–B÷VæVBF†RÕB'WBf÷VæBæòFV6öF&ÆRf–FVòg&ÖW2âF†Rf–ÆRÖ’&RVF–òÖöæÇ’÷"W6RâVç7W÷'FVBf–FVò6öFV2â"“°¢ÒVÇ6R°¢æ÷F–g”F–væ÷6—57FGW2‚%f–FVò—2Æ––ærâ6öÆ÷"67&VVâv–ÆÂV"–âF†RF–væ÷6—2&W7VÇG2v†Vâ6ö×ÆWFS²F9rFò6Æ÷6RBç’F–ÖRâ"“°¢Ð¢–b†×ævWEf–FVõv–GF‚‚’âbb×ævWEf–FVô†V–v‡B‚’â’°¢&W6—¦TF–væ÷6—5f–FVôF–Æör†F–ÆörÂ×ævWEf–FVõv–GF‚‚’Â×ævWEf–FVô†V–v‡B‚’“°¢7F'DF–væ÷6—5f–FVôæÇ—6—2†6ÖW&Â–BÂÖVF–Â—†VÄ÷fW&Æ’ÂF–Æör“°¢Ð¢Æ–W"ç7F'B‚“°¢Ò“°¢Æ–W"ç6WDöä–æfôÆ—7FVæW"‚†×Âv†BÂW‡G&’Óâ°¢–b‡v†BÓÒÖVF–Æ–W"äÔTD”ô”ädõõd”DTõõ$TäDU$”äuõ5D%B’æ÷F–g”F–væ÷6—57FGW2‚%f–FVòg&ÖW2&Ræ÷rÆ––ær–âw&÷uÆ÷Bâ"“°¢&WGW&âfÇ6S°¢Ò“°¢Æ–W"ç6WDöäW'&÷$Æ—7FVæW"‚†×Âv†BÂW‡G&’Óâ°¢F–ÆöræF—6Ö—72‚“°¢æ÷F–g”F–væ÷6—57FGW2‚$æG&ö–B6÷VÆBæ÷BFV6öFRF†—2f–FVò‡Æ–W"W'&÷""²v†B²"ÂFWF–Â"²W‡G&²"’â"“°¢&WGW&âG'VS°¢Ò“°¢F–Æörç6WDöäF—6Ö—74Æ—7FVæW"†–væ÷&VBÓâÆ–W"ç7F÷Æ–&6²‚’“°¢F–Æörç6†÷r‚“°¢æG&ö–BçWF–ÂäF—7Æ”ÖWG&–72F—7Æ’ÒvWE&W6÷W&6W2‚’ævWDF—7Æ”ÖWG&–72‚“°¢–çB–æ—F–Åv–GF‚Ò†–çB’†F—7Æ’çv–GF…—†VÇ2¢ãC†b“°¢–çB–æ—F–Ä†V–v‡BÒ†–çB’†F—7Æ’æ†V–v‡E—†VÇ2¢ã3†b“°¢–b†F–ÆörævWEv–æF÷r‚’ÒçVÆÂ’°¢F–ÆörævWEv–æF÷r‚’ç6WD&6¶w&÷VæDG&v&ÆU&W6÷W&6R†æG&ö–Bå"æ6öÆ÷"çG&ç7&VçB“°¢F–ÆörævWEv–æF÷r‚’ç6WDF–ÔÖ÷VçB‚ã#&b“°¢F–ÆörævWEv–æF÷r‚’ç6WDw&f—G’„w&f—G’ä4TåDU"“°¢F–ÆörævWEv–æF÷r‚’ç6WDÆ–÷WB†–æ—F–Åv–GF‚Â–æ—F–Ä†V–v‡B“°¢Ð¢Æ–W"ç6WEf–FVõF‚†ÖVF–ævWD'6öÇWFUF‚‚’“°¢Ò6F6‚„W†6WF–öâW'&÷"’°¢æ÷F–g”F–væ÷6—57FGW2‚$6÷VÆBæ÷B÷VâF†R66†VBf–FVó¢"²†W'&÷"ævWDÖW76vR‚’ÓÒçVÆÂò'Væ¶æ÷vâÆ–W"W'&÷""¢W'&÷"ævWDÖW76vR‚’’“°¢Ð¢Ð  ¢&—fFRfö–B&W6—¦TF–væ÷6—5f–FVôF–Æör„F–ÆörF–ÆörÂ–çBf–FVõv–GF‚Â–çBf–FVô†V–v‡B’°¢–b†F–ÆörÓÒçVÆÂÇÂf–FVõv–GF‚ÃÒÇÂf–FVô†V–v‡BÃÒÇÂF–ÆörævWEv–æF÷r‚’ÓÒçVÆÂ’&WGW&ã°¢æG&ö–BçWF–ÂäF—7Æ”ÖWG&–72F—7Æ’ÒvWE&W6÷W&6W2‚’ævWDF—7Æ”ÖWG&–72‚“°¢òòÖF6‚F†RF–væ÷6—26&Bw2ÖVF–F‡VÖ&æ–Â&÷VæG3¢†ÆbF†R67&VVâv–GF€¢òòæB&÷Vv†Ç’F†RƒG&Wf–Wr†V–v‡BÂ66ÆVBf÷"F†R7W'&VçBF—7Æ’à¢–çBÖ…v–GF‚Ò†–çB’†F—7Æ’çv–GF…—†VÇ2¢ãC†b“°¢–çBÖ„†V–v‡BÒÖF‚æÖ–â†Gƒƒ’Â†–çB’†F—7Æ’æ†V–v‡E—†VÇ2¢ã3†b’“°¢fÆöB7V7BÒf–FVõv–GF‚ò†fÆöB’f–FVô†V–v‡C°¢–çBv–GF‚ÒÖF‚æÖ–â†Ö…v–GF‚Â†–çB’†Ö„†V–v‡B¢7V7B’“°¢–çB†V–v‡BÒÖF‚æÖ–â†Ö„†V–v‡BÂ†–çB’‡v–GF‚ò7V7B’“°¢v–æF÷rv–æF÷rÒF–ÆörævWEv–æF÷r‚“°¢v–æF÷rç6WDw&f—G’„w&f—G’ä4TåDU"“°¢v–æF÷rç6WDÆ–÷WB‡v–GF‚Â†V–v‡B“°¢Ð ¢&—fFR–çBG†fÆöBfÇVR’²&WGW&â†–çB’‡fÇVR¢vWE&W6÷W&6W2‚’ævWDF—7Æ”ÖWG&–72‚’æFVç6—G’²ãVb“²Ð ¢&—fFR'—FUµÒ&VEÆçDæWD–ÖvR…W&’–ÖvUW&’’F‡&÷w2W†6WF–öâ°¢&—FÖf7F÷'’ä÷F–öç2&÷VæG2ÒæWr&—FÖf7F÷'’ä÷F–öç2‚“²&÷VæG2æ–ä§W7DFV6öFT&÷VæG2ÒG'VS°¢G'’„–çWE7G&VÒ–çWBÒvWD6öçFVçE&W6öÇfW"‚’æ÷Vä–çWE7G&VÒ†–ÖvUW&’’’°¢–b†–çWBÓÒçVÆÂ’F‡&÷ræWr–ÆÆVvÅ7FFTW†6WF–öâ‚$vöövÆRG&—fR6÷VÆBæ÷B÷VâVG&çB†÷Fò"“°¢&—FÖf7F÷'’æFV6öFU7G&VÒ†–çWBÂçVÆÂÂ&÷VæG2“°¢Ð¢–b†&÷VæG2æ÷WEv–GF‚ÃÒÇÂ&÷VæG2æ÷WD†V–v‡BÃÒ’F‡&÷ræWr–ÆÆVvÅ7FFTW†6WF–öâ‚$VG&çB†÷Fò6÷VÆBæ÷B&RFV6öFVB"“°¢–çB6×ÆRÒÂÆöævW7BÒÖF‚æÖ‚†&÷VæG2æ÷WEv–GF‚Â&÷VæG2æ÷WD†V–v‡B“°¢v†–ÆR†ÆöævW7Bò6×ÆRâc’6×ÆR£Ò#°¢&—FÖFV6öFVC°¢&—FÖf7F÷'’ä÷F–öç2÷F–öç2ÒæWr&—FÖf7F÷'’ä÷F–öç2‚“²÷F–öç2æ–å6×ÆU6—¦RÒ6×ÆS°¢G'’„–çWE7G&VÒ–çWBÒvWD6öçFVçE&W6öÇfW"‚’æ÷Vä–çWE7G&VÒ†–ÖvUW&’’’°¢–b†–çWBÓÒçVÆÂ’F‡&÷ræWr–ÆÆVvÅ7FFTW†6WF–öâ‚$vöövÆRG&—fR6÷VÆBæ÷B&V÷VâVG&çB†÷Fò"“°¢FV6öFVBÒ&—FÖf7F÷'’æFV6öFU7G&VÒ†–çWBÂçVÆÂÂ÷F–öç2“°¢Ð¢–b†FV6öFVBÓÒçVÆÂ’F‡&÷ræWr–ÆÆVvÅ7FFTW†6WF–öâ‚$VG&çB†÷Fò6÷VÆBæ÷B&RFV6öFVB"“°¢G'’²&WGW&âÆçDæWD§Vr†FV6öFVB“²Ð¢f–æÆÇ’²–b‚FV6öFVBæ—5&V7–6ÆVB‚’’FV6öFVBç&V7–6ÆR‚“²Ð¢Ð ¢&—fFRÆ—7CÅÆçDæWD–ÖvT6æF–FFSâÆöDF–væ÷6—5†÷F÷4g&öÔG&—fR†–çB6ÖW&Â7G&–ærÆ÷D–B’F‡&÷w2W†6WF–öâ°¢–b†6ÖW&ÂÇÂ6ÖW&âb’F‡&÷ræWr–ÆÆVvÄ&wVÖVçDW†6WF–öâ‚$–çfÆ–BVG&çBçVÖ&W""“°¢–b‚—4F–væ÷6—4G&—fU&VG’‚’’F‡&÷ræWr–ÆÆVvÅ7FFTW†6WF–öâ‚$vöövÆRG&—fRF–væ÷6—2föÆFW"—2æ÷B6öææV7FVB"“°¢7G&–ærG&VUFW‡BÒvWE&Vg2‚’ævWE7G&–ær…$TeôD”täõ4•5õE$TUõU$’ÂçVÆÂ“°¢7G&–ær&ö÷D–BÒvWE&Vg2‚’ævWE7G&–ær…$TeôD”täõ4•5õ$ôõEôDô5TÔTåEô”BÂçVÆÂ“°¢–b‡G&VUFW‡BÓÒçVÆÂÇÂ&ö÷D–BÓÒçVÆÂ’F‡&÷ræWr–ÆÆVvÅ7FFTW†6WF–öâ‚$vöövÆRG&—fRF–væ÷6—2föÆFW"—2æ÷B6öææV7FVB"“°¢W&’G&VUW&’ÒW&’ç'6R‡G&VUFW‡B“°¢7G&–ærÆ÷DföÆFW"ÒF–væ÷6—5Æ÷DföÆFW"‡Æ÷D–B“°¢7G&–ærÆ÷D–DöäG&—fRÒf–æDW†—7F–æt6†–ÆDföÆFW"‡G&VUW&’Â&ö÷D–BÂÆ÷DföÆFW"“°¢–b‡Æ÷D–DöäG&—fRÓÒçVÆÂ’F‡&÷ræWr–ÆÆVvÅ7FFTW†6WF–öâ‚$æòvöövÆRG&—fRföÆFW"f÷VæBf÷""²Æ÷DföÆFW"“°¢7G&–ærVG&çDæÖRÒ%VG&çEò"²7G&–æræf÷&ÖB„Æö6ÆRåU2Â"S&B"Â6ÖW&“°¢7G&–ærVG&çD–BÒf–æDW†—7F–æt6†–ÆDföÆFW"‡G&VUW&’ÂÆ÷D–DöäG&—fRÂVG&çDæÖR“°¢–b‡VG&çD–BÓÒçVÆÂ’F‡&÷ræWr–ÆÆVvÅ7FFTW†6WF–öâ‚$æòvöövÆRG&—fRföÆFW"f÷VæBf÷""²Æ÷DföÆFW"²"ò"²VG&çDæÖR“°¢W&’6†–ÆG&VåW&’ÒFö7VÖVçG46öçG&7Bæ'V–ÆD6†–ÆDFö7VÖVçG5W&•W6–æuG&VR‡G&VUW&’ÂVG&çD–B“°¢7G&–æuµÒ6öÇVÖç2Ò´Fö7VÖVçG46öçG&7BäFö7VÖVçBä4ôÅTÔåôDô5TÔTåEô”BÂFö7VÖVçG46öçG&7BäFö7VÖVçBä4ôÅTÔåôD•5Ä•ôäÔRÀ¢Fö7VÖVçG46öçG&7BäFö7VÖVçBä4ôÅTÔåôÔ”ÔUõE•RÂFö7VÖVçG46öçG&7BäFö7VÖVçBä4ôÅTÔåôÄ5EôÔôD”d”TGÓ°¢Æ—7CÄG&—fTF–væ÷6—4ÖVF–â†÷F÷2ÒæWr'&”Æ—7CÃâ‚“°¢G'’„7W'6÷"7W'6÷"ÒvWD6öçFVçE&W6öÇfW"‚’çVW'’†6†–ÆG&VåW&’Â6öÇVÖç2ÂçVÆÂÂçVÆÂÂçVÆÂ’’°¢–b†7W'6÷"ÓÒçVÆÂ’F‡&÷ræWr–ÆÆVvÅ7FFTW†6WF–öâ‚$vöövÆRG&—fR6÷VÆBæ÷BÆ—7B"²Æ÷DföÆFW"²"ò"²VG&çDæÖR“°¢–çB–D6öÇVÖâÒ7W'6÷"ævWD6öÇVÖä–æFW‚„Fö7VÖVçG46öçG&7BäFö7VÖVçBä4ôÅTÔåôDô5TÔTåEô”B“°¢–çBæÖT6öÇVÖâÒ7W'6÷"ævWD6öÇVÖä–æFW‚„Fö7VÖVçG46öçG&7BäFö7VÖVçBä4ôÅTÔåôD•5Ä•ôäÔR“°¢–çBÖ–ÖT6öÇVÖâÒ7W'6÷"ævWD6öÇVÖä–æFW‚„Fö7VÖVçG46öçG&7BäFö7VÖVçBä4ôÅTÔåôÔ”ÔUõE•R“°¢–çBÖöF–f–VD6öÇVÖâÒ7W'6÷"ævWD6öÇVÖä–æFW‚„Fö7VÖVçG46öçG&7BäFö7VÖVçBä4ôÅTÔåôÄ5EôÔôD”d”TB“°¢v†–ÆR†7W'6÷"æÖ÷fUFôæW‡B‚’’°¢–b†–D6öÇVÖâÂÇÂÖ–ÖT6öÇVÖâÂ’6öçF–çVS°¢7G&–ærÖ–ÖRÒ7W'6÷"ævWE7G&–ær†Ö–ÖT6öÇVÖâ“°¢–b†Ö–ÖRÓÒçVÆÂÇÂÖ–ÖRç7F'G5v—F‚‚&–ÖvRò"’’6öçF–çVS°¢G&—fTF–væ÷6—4ÖVF–†÷FòÒæWrG&—fTF–væ÷6—4ÖVF–‚“°¢†÷FòæFö7VÖVçD–BÒ7W'6÷"ævWE7G&–ær†–D6öÇVÖâ“°¢†÷FòæF—7Æ”æÖRÒæÖT6öÇVÖâãÒò7W'6÷"ævWE7G&–ær†æÖT6öÇVÖâ’¢%VG&çB†÷Fò#°¢†÷FòæÖöF–f–VBÒÖöF–f–VD6öÇVÖâãÒbb7W'6÷"æ—4çVÆÂ†ÖöF–f–VD6öÇVÖâ’ò7W'6÷"ævWDÆöær†ÖöF–f–VD6öÇVÖâ’¢°¢†÷F÷2æFB‡†÷Fò“°¢Ð¢Ð¢6öÆÆV7F–öç2ç6÷'B‡†÷F÷2Â†ÆVgBÂ&–v‡B’ÓâÆöæræ6ö×&R‡&–v‡BæÖöF–f–VBÂÆVgBæÖöF–f–VB’“°¢–b‡†÷F÷2æ—4V×G’‚’’F‡&÷ræWr–ÆÆVvÅ7FFTW†6WF–öâ‚$æò†÷F÷2f÷VæB–âvöövÆRG&—fR"²Æ÷DföÆFW"²"ò"²VG&çDæÖR²"âFB†÷FòFòF†BVG&çBf—'7Bâ"“°¢Æ—7CÅÆçDæWD–ÖvT6æF–FFSâ6æF–FFW2ÒæWr'&”Æ—7CÃâ‚“°¢f÷"†–çB’Ò²’ÂÖF‚æÖ–âƒ#Â†÷F÷2ç6—¦R‚’“²’²²’°¢G&—fTF–væ÷6—4ÖVF–†÷FòÒ†÷F÷2ævWB†’“°¢W&’Fö7VÖVçEW&’ÒFö7VÖVçG46öçG&7Bæ'V–ÆDFö7VÖVçEW&•W6–æuG&VR‡G&VUW&’Â†÷FòæFö7VÖVçD–B“°¢'—FUµÒ§VrÒ&VEÆçDæWD–ÖvR†Fö7VÖVçEW&’“°¢–b†§VrÒçVÆÂbb§VræÆVæwF‚â’6æF–FFW2æFB†æWrÆçDæWD–ÖvT6æF–FFR†§VrÂ$G&—fR†÷Fó¢"²†÷FòæF—7Æ”æÖRÂ66÷&UÆçDæWD–ÖvR†§Vr’’“°¢Ð¢–b†6æF–FFW2æ—4V×G’‚’’F‡&÷ræWr–ÆÆVvÅ7FFTW†6WF–öâ‚%†÷F÷2W†—7B–âF†RVG&çBföÆFW"Â'WBæöæR6÷VÆB&R&VB'’w&÷uÆ÷B"“°¢&WGW&â6æF–FFW3°¢Ð ¢&—fFRÆ—7CÅÆçDæWD–ÖvT6æF–FFSâÆöDF–væ÷6—5†÷F÷4g&öÔFWf–6T–æFW‚†–çB6ÖW&Â7G&–ærÆ÷D–B’F‡&÷w2W†6WF–öâ°¢–b†6ÖW&ÂÇÂ6ÖW&âb’F‡&÷ræWr–ÆÆVvÄ&wVÖVçDW†6WF–öâ‚$–çfÆ–BVG&çBçVÖ&W""“°¢7G&–ær–BÒ6fUÆ÷D–B‡Æ÷D–B“°¢7G&–ærVG&çBÒ7G&–æræf÷&ÖB„Æö6ÆRåU2Â&67GeòS&B"Â6ÖW&“°¢¥4ôä'&’–æFW‚ÒæWr¥4ôä'&’‡&VDF–væ÷6—4ÖVF––æFW‚†6ÖW&Â–B’“°¢Æ—7CÅÆçDæWD–ÖvT6æF–FFSâ6æF–FFW2ÒæWr'&”Æ—7CÃâ‚“°¢f÷"†–çB’Ò²’Â–æFW‚æÆVæwF‚‚“²’²²’°¢¥4ôäö&¦V7B—FVÒÒ–æFW‚æ÷D¥4ôäö&¦V7B†’“°¢–b†—FVÒÓÒçVÆÂ’6öçF–çVS°¢7G&–æræÖRÒ—FVÒæ÷E7G&–ær‚&f–ÆTæÖR"Â""“°¢–b‚æÖRæÖF6†W2‚%´Õ¦×£Ó•òÕ×³ÃÕÅÂâ†§wÆ§VwÇær’"’’6öçF–çVS°¢f–ÆRÆö6ÄF—"ÒæWrf–ÆR†æWrf–ÆR†æWrf–ÆR†vWDf–ÆW4F—"‚’Â&F–væ÷6—5öÖVF–"’Â–B’ÂVG&çB’ævWD6æöæ–6Äf–ÆR‚“°¢f–ÆR66†TF—"ÒæWrf–ÆR†æWrf–ÆR†æWrf–ÆR†vWD66†TF—"‚’Â&F–væ÷6—5öG&—fUö66†R"’Â–B’ÂVG&çB’ævWD6æöæ–6Äf–ÆR‚“°¢f–ÆRÆö6ÂÒæWrf–ÆR†Æö6ÄF—"ÂæÖR’ævWD6æöæ–6Äf–ÆR‚“°¢f–ÆR66†VBÒæWrf–ÆR†66†TF—"ÂæÖR’ævWD6æöæ–6Äf–ÆR‚“°¢f–ÆR†÷FòÒÆö6ÂævWE&VçDf–ÆR‚’æWVÇ2†Æö6ÄF—"’bbÆö6Âæ—4f–ÆR‚’òÆö6À¢¢†66†VBævWE&VçDf–ÆR‚’æWVÇ2†66†TF—"’bb66†VBæ—4f–ÆR‚’ò66†VB¢çVÆÂ“°¢–b‡†÷FòÓÒçVÆÂ’6öçF–çVS°¢'—FUµÒ§VrÒ&VEÆçDæWD–ÖvR…W&’æg&öÔf–ÆR‡†÷Fò’“°¢–b†§VrÒçVÆÂbb§VræÆVæwF‚â’6æF–FFW2æFB†æWrÆçDæWD–ÖvT6æF–FFR†§VrÀ¢%6fVBFWf–6R†÷Fó¢"²æÖRÂ66÷&UÆçDæWD–ÖvR†§Vr’’“°¢Ð¢&WGW&â6æF–FFW3°¢Ð ¢&—fFR'—FUµÒÆçDæWD§Vr„&—FÖ6÷W&6R’°¢&—FÖ66ÆVBÒ6÷W&6S°¢G'’°¢–çBÖ‚ÒÖF‚æÖ‚‡6÷W&6RævWEv–GF‚‚’Â6÷W&6RævWD†V–v‡B‚’“°¢–b†Ö‚âƒ’°¢fÆöB&F–òÒƒbòÖƒ°¢66ÆVBÒ&—FÖæ7&VFU66ÆVD&—FÖ‡6÷W&6RÂÖF‚æÖ‚ƒÂÖF‚ç&÷VæB‡6÷W&6RævWEv–GF‚‚’¢&F–ò’’ÂÖF‚æÖ‚ƒÂÖF‚ç&÷VæB‡6÷W&6RævWD†V–v‡B‚’¢&F–ò’’ÂG'VR“°¢Ð¢'—FT'&”÷WGWE7G&VÒ÷WGWBÒæWr'—FT'&”÷WGWE7G&VÒ‚“°¢66ÆVBæ6ö×&W72„&—FÖä6ö×&W74f÷&ÖBä¥TrÂƒ"Â÷WGWB“°¢&WGW&â÷WGWBçFô'—FT'&’‚“°¢Ò6F6‚„W†6WF–öâ–væ÷&VB’²&WGW&âçVÆÃ²Ð¢f–æÆÇ’²–b‡66ÆVBÒ6÷W&6Rbb66ÆVBæ—5&V7–6ÆVB‚’’66ÆVBç&V7–6ÆR‚“²Ð¢Ð ¢&—fFRF÷V&ÆR66÷&UÆçDæWD–ÖvR†'—FUµÒ§Vr’°¢&—FÖf7F÷'’ä÷F–öç2÷F–öç2ÒæWr&—FÖf7F÷'’ä÷F–öç2‚“²÷F–öç2æ–å6×ÆU6—¦RÒC°¢&—FÖ&—FÖÒ&—FÖf7F÷'’æFV6öFT'—FT'&’†§VrÂÂ§VræÆVæwF‚Â÷F–öç2“°¢–b†&—FÖÓÒçVÆÂ’&WGW&â°¢&—FÖ6ÖÆÂÒ&—FÖ°¢G'’°¢–çBVFvRÒ“c²fÆöB66ÆRÒÖF‚æÖ–âƒbÂVFvRò†fÆöB”ÖF‚æÖ‚†&—FÖævWEv–GF‚‚’Â&—FÖævWD†V–v‡B‚’’“°¢–b‡66ÆRÂb’6ÖÆÂÒ&—FÖæ7&VFU66ÆVD&—FÖ†&—FÖÂÖF‚æÖ‚ƒÂÖF‚ç&÷VæB†&—FÖævWEv–GF‚‚’¢66ÆR’’ÂÖF‚æÖ‚ƒÂÖF‚ç&÷VæB†&—FÖævWD†V–v‡B‚’¢66ÆR’’ÂG'VR“°¢–çBrÒ6ÖÆÂævWEv–GF‚‚’Â‚Ò6ÖÆÂævWD†V–v‡B‚’Â6÷VçBÒr¢ƒ²–çEµÒ‚ÒæWr–çE¶6÷VçEÓ²6ÖÆÂævWE—†VÇ2‡‚ÂÂrÂÂÂrÂ‚“°¢F÷V&ÆR'&–v‡FæW72ÒÂ6Æ—VBÒÂÆçE—†VÇ2ÒÂÆÖVâÒÂÆ7Ò²–çBVFvT6÷VçBÒ°¢f÷"†–çB’Ò²’Â6÷VçC²’²²’°¢–çB"Ò6öÆ÷"ç&VB‡…¶•Ò’ÂrÒ6öÆ÷"æw&VVâ‡…¶•Ò’Â"Ò6öÆ÷"æ&ÇVR‡…¶•Ò“°¢–çBÇVÒÒ‡"¢3²r¢S’²"¢’ò²'&–v‡FæW72³ÒÇVÓ°¢–b†ÇVÒÂ"ÇÂÇVÒâ#CR’6Æ—VB²³°¢–b‚†râ"¢ã‚bbrâ"¢ãBbbrâ3‚’ÇÂ‡"âsRbbrâcRbb"â"¢ãRbbrâ"¢ã"’’ÆçE—†VÇ2²³°¢Ð¢f÷"†–çB’Ò²’Â‚Ò²’²²’f÷"†–çB‚Ò²‚ÂrÒ²‚²²’°¢–çB’Ò’¢r²ƒ°¢–çB2ÒÇVÖ–ææ6R‡…¶•Ò’ÂÆÒÇVÖ–ææ6R‡…¶’ÓÒ’²ÇVÖ–ææ6R‡…¶’³Ò’²ÇVÖ–ææ6R‡…¶’×uÒ’²ÇVÖ–ææ6R‡…¶’·uÒ’ÒB¢3°¢ÆÖVâ³ÒÆ²Æ7³Ò†F÷V&ÆR–Æ¢Æ²VFvT6÷VçB²³°¢Ð¢F÷V&ÆRÖVäÇVÒÒ'&–v‡FæW72òÖF‚æÖ‚ƒÂ6÷VçB’Â6Æ—VDg&2Ò6Æ—VBòÖF‚æÖ‚ƒÂ6÷VçB“°¢F÷V&ÆRÆf&–æ6RÒVFvT6÷VçBÓÒò¢Æ7òVFvT6÷VçBÒÖF‚ç÷r†ÆÖVâòVFvT6÷VçBÂ"“°¢F÷V&ÆR6†'ÒÖF‚æÖ–âƒBÂÖF‚ç7'B„ÖF‚æÖ‚ƒÂÆf&–æ6R’’ò#†B“°¢F÷V&ÆRÆçBÒÖF‚æÖ–âƒBÂ‡ÆçE—†VÇ2òÖF‚æÖ‚ƒÂ6÷VçB’’òãCVB“°¢F÷V&ÆRW‡÷7W&RÒÖF‚æÖ‚ƒBÂBÒÖF‚æ'2†ÖVäÇVÒÒ#†B’ò#†B’¢ƒBÒÖF‚æÖ–â‚ã†BÂ6Æ—VDg&2¢&B’“°¢&WGW&â6†'¢ãCVB²ÆçB¢ã3B²W‡÷7W&R¢ã#VC°¢Òf–æÆÇ’²–b‡6ÖÆÂÒ&—FÖbb6ÖÆÂæ—5&V7–6ÆVB‚’’6ÖÆÂç&V7–6ÆR‚“²–b‚&—FÖæ—5&V7–6ÆVB‚’’&—FÖç&V7–6ÆR‚“²Ð¢Ð ¢&—fFR–çBÇVÖ–ææ6R†–çB6öÆ÷"’²&WGW&â„6öÆ÷"ç&VB†6öÆ÷"’¢3²6öÆ÷"æw&VVâ†6öÆ÷"’¢S’²6öÆ÷"æ&ÇVR†6öÆ÷"’¢’ò²Ð ¢&—fFRÆ—7CÅÆçDæWD–ÖvT6æF–FFSâ6VÆV7D&W7EÆçDæWD–ÖvW2„Æ—7CÅÆçDæWD–ÖvT6æF–FFSâ6æF–FFW2’°¢Æ—7CÅÆçDæWD–ÖvT6æF–FFSâ6÷'FVBÒæWr'&”Æ—7CÃâ†6æF–FFW2“°¢6öÆÆV7F–öç2ç6÷'B‡6÷'FVBÂ†Â"’ÓâF÷V&ÆRæ6ö×&R†"çVÆ—G’ÂçVÆ—G’’“°¢&WGW&âæWr'&”Æ—7CÃâ‡6÷'FVBç7V$Æ—7BƒÂÖF‚æÖ–âƒRÂ6÷'FVBç6—¦R‚’’’“°¢Ð ¢&—fFRÆ—7CÆ'—FUµÓâ6æF–FFT'—FW2„Æ—7CÅÆçDæWD–ÖvT6æF–FFSâ6æF–FFW2’°¢Æ—7CÆ'—FUµÓâ–ÖvW2ÒæWr'&”Æ—7CÃâ‚“²f÷"…ÆçDæWD–ÖvT6æF–FFR6æF–FFR¢6æF–FFW2’–ÖvW2æFB†6æF–FFRæ§Vr“²&WGW&â–ÖvW3°¢Ð ¢&—fFR¥4ôä'&’6æF–FFU6÷W&6W2„Æ—7CÅÆçDæWD–ÖvT6æF–FFSâ6æF–FFW2’°¢¥4ôä'&’6÷W&6W2ÒæWr¥4ôä'&’‚“²f÷"…ÆçDæWD–ÖvT6æF–FFR6æF–FFR¢6æF–FFW2’°¢¥4ôäö&¦V7B—FVÒÒæWr¥4ôäö&¦V7B‚“°¢G'’²—FVÒçWB‚'6÷W&6R"Â6æF–FFRç6÷W&6R“²—FVÒçWB‚'VÆ—G•66÷&R"ÂÖF‚ç&÷VæB†6æF–FFRçVÆ—G’¢’“²6÷W&6W2çWB†—FVÒ“²Ð¢6F6‚„W†6WF–öâ–væ÷&VB’²Ð¢Ð¢&WGW&â6÷W&6W3°¢Ð ¢&—fFR¥4ôäö&¦V7B–FVçF–g•v—F…ÆçDæWB„Æ—7CÆ'—FUµÓâ–ÖvW2’°¢7G&–ær¶W’ÒÇVv–ä”¶W’‚'ÆçFæWB"“°¢–b†¶W’æ—4V×G’‚’’¶W’Ò'V–ÆD6öæf–råÄåDäUEô•ô´U“°¢–b†¶W’ÓÒçVÆÂÇÂ¶W’çG&–Ò‚’æ—4V×G’‚’’&WGW&âÆçDæWE7FGW2‚&æ÷Eö6öæf–wW&VB"Â$FBF†RÄçDæWB’¶W’–â6WGF–æw2(i"ÇVv–ç2+r’¶W—2â"“°¢–b†–ÖvW2ÓÒçVÆÂÇÂ–ÖvW2æ—4V×G’‚’’&WGW&âÆçDæWE7FGW2‚&W'&÷""Â$æò&VF&ÆR†÷F÷2÷"f–FVòg&ÖW2vW&Rf–Æ&ÆRf÷"ÄçDæWBâ"“°¢‡GGU$Ä6öææV7F–öâ6öææV7F–öâÒçVÆÃ°¢G'’°¢7G&–ær&÷VæF'’Ò$w&÷uÆ÷B"²7—7FVÒæ7W'&VçEF–ÖTÖ–ÆÆ—2‚“°¢U$ÂW&ÂÒæWrU$Â‚&‡GG3¢òö×’Ö’çÆçFæWBæ÷&r÷c"öF—6V6W2ö–FVçF–g“ö’Ö¶W“Ò"²U$ÄVæ6öFW"æVæ6öFR†¶W’Â%UDbÓ‚"’²"fÆæsÖVâfæ"×&W7VÇG3ÓR"“°¢6öææV7F–öâÒ„‡GGU$Ä6öææV7F–öâ’W&Âæ÷Vä6öææV7F–öâ‚“°¢6öææV7F–öâç6WE&WVW7DÖWF†öB‚%õ5B"“²6öææV7F–öâç6WD6öææV7EF–ÖV÷WBƒS“²6öææV7F–öâç6WE&VEF–ÖV÷WBƒ3“°¢6öææV7F–öâç6WDFô÷WGWB‡G'VR“²6öææV7F–öâç6WE&WVW7E&÷W'G’‚$6öçFVçBÕG—R"Â&×VÇF—'Böf÷&ÒÖFF²&÷VæF'“Ò"²&÷VæF'’“°¢G'’„÷WGWE7G&VÒ÷WBÒ6öææV7F–öâævWD÷WGWE7G&VÒ‚’’°¢f÷"†–çB’Ò²’ÂÖF‚æÖ–âƒRÂ–ÖvW2ç6—¦R‚’“²’²²’°¢÷WBçw&—FR‚‚"ÒÒ"²&÷VæF'’²%Ç%Æä6öçFVçBÔF—7÷6—F–öã¢f÷&ÒÖFF²æÖSÕÂ&–ÖvW5Â#²f–ÆVæÖSÕÂ&w&÷wÆ÷BÒ"²†’²’²"æ§uÂ%Ç%Æä6öçFVçBÕG—S¢–ÖvRö§VuÇ%ÆåÇ%Æâ"’ævWD'—FW2…7FæF&D6†'6WG2åUDeó‚’“°¢÷WBçw&—FR†–ÖvW2ævWB†’’“²÷WBçw&—FR‚%Ç%Æâ"ævWD'—FW2…7FæF&D6†'6WG2åUDeó‚’“°¢Ð¢÷WBçw&—FR‚‚"ÒÒ"²&÷VæF'’²"ÒÕÇ%Æâ"’ævWD'—FW2…7FæF&D6†'6WG2åUDeó‚’“°¢Ð¢–çB7FGW2Ò6öææV7F–öâævWE&W7öç6T6öFR‚“°¢–çWE7G&VÒ7G&VÒÒ7FGW2ãÒ#bb7FGW2Â3ò6öææV7F–öâævWD–çWE7G&VÒ‚’¢6öææV7F–öâævWDW'&÷%7G&VÒ‚“°¢7G&–æt'V–ÆFW"&öG’ÒæWr7G&–æt'V–ÆFW"‚“°¢–b‡7G&VÒÒçVÆÂ’G'’„–çWE7G&VÒ–çWBÒ7G&VÒ’²'—FUµÒ'VffW"ÒæWr'—FU³ƒ“%Ó²–çB6÷VçC²v†–ÆR‚†6÷VçBÒ–çWBç&VB†'VffW"’’ÒÓ’&öG’æVæB†æWr7G&–ær†'VffW"ÂÂ6÷VçBÂ7FæF&D6†'6WG2åUDeó‚’“²Ð¢–b‡7FGW2Â#ÇÂ7FGW2ãÒ3’°¢¥4ôäö&¦V7BW'&÷"ÒÆçDæWE7FGW2‚&W'&÷""Â%ÄçDæWB&WGW&æVB…EE"²7FGW0¢²†&öG’æÆVæwF‚‚’âò#¢"²&öG’ç7V'7G&–ærƒÂÖF‚æÖ–â†&öG’æÆVæwF‚‚’Â3’’¢""’“°¢–çB&VÖ–æ–ærÒ&VÖ–æ–æuÆçDæWEV÷F†6öææV7F–öâævWD†VFW$f–VÆB‚%&FTÆ–Ö—B"’“°¢–b‡7FGW2ÓÒC#’bb&VÖ–æ–ærÂ’&VÖ–æ–ærÒ°¢–b‡&VÖ–æ–ærãÒ’W'&÷"çWB‚'&VÖ–æ–æt–FVçF–f–6F–öå&WVW7G2"Â&VÖ–æ–ær“°¢7G&–ær&WG'”gFW"Ò6öææV7F–öâævWD†VFW$f–VÆB‚%&WG'’ÔgFW""“°¢–b‡&WG'”gFW"ÒçVÆÂbb&WG'”gFW"æ—4V×G’‚’’W'&÷"çWB‚'V÷F&W6WG4B"Â&WG'”gFW"“°¢&WGW&âW'&÷#°¢Ð¢¥4ôäö&¦V7B&W7VÇBÒæWr¥4ôäö&¦V7B†&öG’çFõ7G&–ær‚’“°¢–b‚&W7VÇBæ†2‚'&VÖ–æ–æt–FVçF–f–6F–öå&WVW7G2"’’°¢–çB&VÖ–æ–ærÒ&VÖ–æ–æuÆçDæWEV÷F†6öææV7F–öâævWD†VFW$f–VÆB‚%&FTÆ–Ö—B"’“°¢–b‡&VÖ–æ–ærãÒ’&W7VÇBçWB‚'&VÖ–æ–æt–FVçF–f–6F–öå&WVW7G2"Â&VÖ–æ–ær“°¢Ð¢&W7VÇBçWB‚'&÷f–FW""Â%ÄçDæWB"“²&W7VÇBçWB‚'7FGW2"Â&ö²"“²&W7VÇBçWB‚&–ÖvT6÷VçE7V&Ö—GFVB"ÂÖF‚æÖ–âƒRÂ–ÖvW2ç6—¦R‚’’“°¢&WGW&â&W7VÇC°¢Ò6F6‚„W†6WF–öâW'&÷"’²&WGW&âÆçDæWE7FGW2‚&W'&÷""ÂW'&÷"ævWDÖW76vR‚’ÓÒçVÆÂò$æWGv÷&²&WVW7Bf–ÆVBâ"¢W'&÷"ævWDÖW76vR‚’“²Ð¢f–æÆÇ’²–b†6öææV7F–öâÒçVÆÂ’6öææV7F–öâæF—66öææV7B‚“²Ð¢Ð ¢&—fFR¥4ôäö&¦V7B–FVçF–g•ÆçE7V6–W5v—F…ÆçDæWB„Æ—7CÆ'—FUµÓâ–ÖvW2’°¢7G&–ær¶W’ÒÇVv–ä”¶W’‚'ÆçFæWB"“°¢–b†¶W’æ—4V×G’‚’’¶W’Ò'V–ÆD6öæf–råÄåDäUEô•ô´U“°¢–b†¶W’ÓÒçVÆÂÇÂ¶W’çG&–Ò‚’æ—4V×G’‚’’&WGW&âÆçDæWE7FGW2‚&æ÷Eö6öæf–wW&VB"Â$FBF†RÄçDæWB’¶W’–â6WGF–æw2(i"ÇVv–ç2+r’¶W—2â"“°¢–b†–ÖvW2ÓÒçVÆÂÇÂ–ÖvW2æ—4V×G’‚’’&WGW&âÆçDæWE7FGW2‚&W'&÷""Â$æò&VF&ÆR†÷F÷2vW&Rf–Æ&ÆRf÷"7V6–W2–FVçF–f–6F–öââ"“°¢‡GGU$Ä6öææV7F–öâ6öææV7F–öâÒçVÆÃ°¢G'’°¢7G&–ær&÷VæF'’Ò$w&÷uÆ÷E7V6–W2"²7—7FVÒæ7W'&VçEF–ÖTÖ–ÆÆ—2‚“°¢U$ÂW&ÂÒæWrU$Â‚&‡GG3¢òö×’Ö’çÆçFæWBæ÷&r÷c"ö–FVçF–g’öÆÃö’Ö¶W“Ò ¢²U$ÄVæ6öFW"æVæ6öFR†¶W’Â%UDbÓ‚"’²"fÆæsÖVâfæ"×&W7VÇG3ÓRgG—SÖ·B"“°¢6öææV7F–öâÒ„‡GGU$Ä6öææV7F–öâ’W&Âæ÷Vä6öææV7F–öâ‚“°¢6öææV7F–öâç6WE&WVW7DÖWF†öB‚%õ5B"“²6öææV7F–öâç6WD6öææV7EF–ÖV÷WBƒS“²6öææV7F–öâç6WE&VEF–ÖV÷WBƒ3“°¢6öææV7F–öâç6WDFô÷WGWB‡G'VR“²6öææV7F–öâç6WE&WVW7E&÷W'G’‚$6öçFVçBÕG—R"Â&×VÇF—'Böf÷&ÒÖFF²&÷VæF'“Ò"²&÷VæF'’“°¢G'’„÷WGWE7G&VÒ÷WBÒ6öææV7F–öâævWD÷WGWE7G&VÒ‚’’°¢f÷"†–çB’Ò²’ÂÖF‚æÖ–âƒRÂ–ÖvW2ç6—¦R‚’“²’²²’°¢÷WBçw&—FR‚‚"ÒÒ"²&÷VæF'’²%Ç%Æä6öçFVçBÔF—7÷6—F–öã¢f÷&ÒÖFF²æÖSÕÂ&–ÖvW5Â#²f–ÆVæÖSÕÂ&w&÷wÆ÷B×7V6–W2Ò"²†’²’²"æ§uÂ%Ç%Æä6öçFVçBÕG—S¢–ÖvRö§VuÇ%ÆåÇ%Æâ"’ævWD'—FW2…7FæF&D6†'6WG2åUDeó‚’“°¢÷WBçw&—FR†–ÖvW2ævWB†’’“²÷WBçw&—FR‚%Ç%Æâ"ævWD'—FW2…7FæF&D6†'6WG2åUDeó‚’“°¢÷WBçw&—FR‚‚"ÒÒ"²&÷VæF'’²%Ç%Æä6öçFVçBÔF—7÷6—F–öã¢f÷&ÒÖFF²æÖSÕÂ&÷&vç5Â%Ç%ÆåÇ%ÆæWFõÇ%Æâ"’ævWD'—FW2…7FæF&D6†'6WG2åUDeó‚’“°¢Ð¢÷WBçw&—FR‚‚"ÒÒ"²&÷VæF'’²"ÒÕÇ%Æâ"’ævWD'—FW2…7FæF&D6†'6WG2åUDeó‚’“°¢Ð¢–çB7FGW2Ò6öææV7F–öâævWE&W7öç6T6öFR‚“°¢–çWE7G&VÒ7G&VÒÒ7FGW2ãÒ#bb7FGW2Â3ò6öææV7F–öâævWD–çWE7G&VÒ‚’¢6öææV7F–öâævWDW'&÷%7G&VÒ‚“°¢7G&–æt'V–ÆFW"&öG’ÒæWr7G&–æt'V–ÆFW"‚“°¢–b‡7G&VÒÒçVÆÂ’G'’„–çWE7G&VÒ–çWBÒ7G&VÒ’²'—FUµÒ'VffW"ÒæWr'—FU³ƒ“%Ó²–çB6÷VçC²v†–ÆR‚†6÷VçBÒ–çWBç&VB†'VffW"’’ÒÓ’&öG’æVæB†æWr7G&–ær†'VffW"ÂÂ6÷VçBÂ7FæF&D6†'6WG2åUDeó‚’“²Ð¢–b‡7FGW2Â#ÇÂ7FGW2ãÒ3’°¢¥4ôäö&¦V7BW'&÷"ÒÆçDæWE7FGW2‚&W'&÷""Â%ÄçDæWB7V6–W2–FVçF–f–6F–öâ&WGW&æVB…EE"²7FGW0¢²†&öG’æÆVæwF‚‚’âò#¢"²&öG’ç7V'7G&–ærƒÂÖF‚æÖ–â†&öG’æÆVæwF‚‚’Â3’’¢""’“°¢–çB&VÖ–æ–ærÒ&VÖ–æ–æuÆçDæWEV÷F†6öææV7F–öâævWD†VFW$f–VÆB‚%&FTÆ–Ö—B"’“°¢–b‡7FGW2ÓÒC#’bb&VÖ–æ–ærÂ’&VÖ–æ–ærÒ°¢–b‡&VÖ–æ–ærãÒ’W'&÷"çWB‚'&VÖ–æ–æt–FVçF–f–6F–öå&WVW7G2"Â&VÖ–æ–ær“°¢&WGW&âW'&÷#°¢Ð¢¥4ôäö&¦V7B&W7VÇBÒæWr¥4ôäö&¦V7B†&öG’çFõ7G&–ær‚’“°¢–b‚&W7VÇBæ†2‚'&VÖ–æ–æt–FVçF–f–6F–öå&WVW7G2"’’°¢–çB&VÖ–æ–ærÒ&VÖ–æ–æuÆçDæWEV÷F†6öææV7F–öâævWD†VFW$f–VÆB‚%&FTÆ–Ö—B"’“°¢–b‡&VÖ–æ–ærãÒ’&W7VÇBçWB‚'&VÖ–æ–æt–FVçF–f–6F–öå&WVW7G2"Â&VÖ–æ–ær“°¢Ð¢&W7VÇBçWB‚'&÷f–FW""Â%ÄçDæWB7V6–W2–FVçF–f–6F–öâ"“²&W7VÇBçWB‚'7FGW2"Â&ö²"“°¢&W7VÇBçWB‚&–ÖvT6÷VçE7V&Ö—GFVB"ÂÖF‚æÖ–âƒRÂ–ÖvW2ç6—¦R‚’’“°¢&WGW&â&W7VÇC°¢Ò6F6‚„W†6WF–öâW'&÷"’°¢&WGW&âÆçDæWE7FGW2‚&W'&÷""ÂW'&÷"ævWDÖW76vR‚’ÓÒçVÆÂò%7V6–W2–FVçF–f–6F–öâ&WVW7Bf–ÆVBâ"¢W'&÷"ævWDÖW76vR‚’“°¢Òf–æÆÇ’²–b†6öææV7F–öâÒçVÆÂ’6öææV7F–öâæF—66öææV7B‚“²Ð¢Ð ¢&—fFR¥4ôäö&¦V7B–FVçF–g•ÆçE7V6–W5v—F…ÆçD–B„Æ—7CÆ'—FUµÓâ–ÖvW2’°¢7G&–ær¶W’ÒÇVv–ä”¶W’‚'ÆçF–B"“°¢–b†¶W’ÓÒçVÆÂÇÂ¶W’çG&–Ò‚’æ—4V×G’‚’¢&WGW&âÆçD–FVçF—G•7FGW2‚$¶–æGv—6RÆçBæ–B"Â&æ÷Eö6öæf–wW&VB"Â$FB6W&FR¶–æGv—6RÆçBæ–B’¶W’–â6WGF–æw2(i"ÇVv–ç2+r’¶W—2â"“°¢–b†–ÖvW2ÓÒçVÆÂÇÂ–ÖvW2æ—4V×G’‚’¢&WGW&âÆçD–FVçF—G•7FGW2‚$¶–æGv—6RÆçBæ–B"Â&W'&÷""Â$æò&VF&ÆR†÷F÷2vW&Rf–Æ&ÆRf÷"ÆçBæ–B–FVçF–f–6F–öââ"“°¢‡GGU$Ä6öææV7F–öâ6öææV7F–öâÒçVÆÃ°¢G'’°¢¥4ôä'&’Væ6öFVD–ÖvW2ÒæWr¥4ôä'&’‚“°¢f÷"†–çB’Ò²’ÂÖF‚æÖ–âƒRÂ–ÖvW2ç6—¦R‚’“²’²²¢Væ6öFVD–ÖvW2çWB„&6ScBæVæ6öFUFõ7G&–ær†–ÖvW2ævWB†’’Â&6ScBääõõu$’“°¢¥4ôäö&¦V7B&WVW7BÒæWr¥4ôäö&¦V7B‚’çWB‚&–ÖvW2"ÂVæ6öFVD–ÖvW2“°¢U$ÂW&ÂÒæWrU$Â‚&‡GG3¢òö’çÆçBæ–B÷c2ö–FVçF–f–6F–öãöFWF–Ç3Ö6öÖÖöåöæÖW2ÇW&Â"“°¢6öææV7F–öâÒ„‡GGU$Ä6öææV7F–öâ’W&Âæ÷Vä6öææV7F–öâ‚“°¢6öææV7F–öâç6WE&WVW7DÖWF†öB‚%õ5B"“²6öææV7F–öâç6WD6öææV7EF–ÖV÷WBƒS“²6öææV7F–öâç6WE&VEF–ÖV÷WBƒCS“°¢6öææV7F–öâç6WDFô÷WGWB‡G'VR“°¢6öææV7F–öâç6WE&WVW7E&÷W'G’‚$’Ô¶W’"Â¶W’“°¢6öææV7F–öâç6WE&WVW7E&÷W'G’‚$6öçFVçBÕG—R"Â&Æ–6F–öâö§6öâ"“°¢G'’„÷WGWE7G&VÒ÷WBÒ6öææV7F–öâævWD÷WGWE7G&VÒ‚’’°¢÷WBçw&—FR‡&WVW7BçFõ7G&–ær‚’ævWD'—FW2…7FæF&D6†'6WG2åUDeó‚’“°¢Ð¢–çB7FGW2Ò6öææV7F–öâævWE&W7öç6T6öFR‚“°¢–çWE7G&VÒ7G&VÒÒ7FGW2ãÒ#bb7FGW2Â3ò6öææV7F–öâævWD–çWE7G&VÒ‚’¢6öææV7F–öâævWDW'&÷%7G&VÒ‚“°¢7G&–æt'V–ÆFW"&öG’ÒæWr7G&–æt'V–ÆFW"‚“°¢–b‡7G&VÒÒçVÆÂ’G'’„–çWE7G&VÒ–çWBÒ7G&VÒ’°¢'—FUµÒ'VffW"ÒæWr'—FU³ƒ“%Ó²–çB6÷VçC°¢v†–ÆR‚†6÷VçBÒ–çWBç&VB†'VffW"’’ÒÓ’&öG’æVæB†æWr7G&–ær†'VffW"ÂÂ6÷VçBÂ7FæF&D6†'6WG2åUDeó‚’“°¢Ð¢–b‡7FGW2Â#ÇÂ7FGW2ãÒ3¢&WGW&âÆçD–FVçF—G•7FGW2‚$¶–æGv—6RÆçBæ–B"Â&W'&÷""Â'ÆçBæ–B&WGW&æVB…EE"²7FGW0¢²†&öG’æÆVæwF‚‚’âò#¢"²&öG’ç7V'7G&–ærƒÂÖF‚æÖ–â†&öG’æÆVæwF‚‚’Â3’’¢""’“°¢¥4ôäö&¦V7B&W7VÇBÒæWr¥4ôäö&¦V7B†&öG’çFõ7G&–ær‚’“°¢&W7VÇBçWB‚'&÷f–FW""Â$¶–æGv—6RÆçBæ–B"“°¢&W7VÇBçWB‚'7FGW2"Â&ö²"“°¢&W7VÇBçWB‚&–ÖvT6÷VçE7V&Ö—GFVB"ÂÖF‚æÖ–âƒRÂ–ÖvW2ç6—¦R‚’’“°¢&WGW&â&W7VÇC°¢Ò6F6‚„W†6WF–öâW'&÷"’°¢&WGW&âÆçD–FVçF—G•7FGW2‚$¶–æGv—6RÆçBæ–B"Â&W'&÷""ÂW'&÷"ævWDÖW76vR‚’ÓÒçVÆÂò'ÆçBæ–B&WVW7Bf–ÆVBâ"¢W'&÷"ævWDÖW76vR‚’“°¢Òf–æÆÇ’²–b†6öææV7F–öâÒçVÆÂ’6öææV7F–öâæF—66öææV7B‚“²Ð¢Ð ¢&—fFR¥4ôäö&¦V7BÆçD–FVçF—G•7FGW2…7G&–ær&÷f–FW"Â7G&–ær7FGW2Â7G&–ærÖW76vR’°¢¥4ôäö&¦V7B&W7VÇBÒæWr¥4ôäö&¦V7B‚“°¢G'’°¢&W7VÇBçWB‚'&÷f–FW""Â&÷f–FW"“°¢&W7VÇBçWB‚'7FGW2"Â7FGW2“°¢&W7VÇBçWB‚&ÖW76vR"ÂÖW76vR“°¢&W7VÇBçWB‚'&W7VÇG2"ÂæWr¥4ôä'&’‚’“°¢Ò6F6‚„W†6WF–öâ–væ÷&VB’²Ð¢&WGW&â&W7VÇC°¢Ð ¢&—fFRfö–B&WVW7D¶–æGv—6TF–væ÷6—2†–çB6ÖW&Â7G&–ærÆ÷D–BÂÆ—7CÆ'—FUµÓâ–ÖvW2Â–çB6æF–FFT6÷VçBÀ¢Æ—7CÅÆçDæWD–ÖvT6æF–FFSâ6VÆV7FVBÂ7G&–ær7V6–W2Â7G&–ær7–×FöÒÀ¢7G&–ær—†VÄÖWG&–72Â7G&–ærÖVF–G—RÂ7G&–ær6÷W&6TföÆFW"Â7G&–ær6VÆV7F–öäæ÷FR’°¢f–æÂÆ—7CÆ'—FUµÓâ7V&Ö—GFVBÒæWr'&”Æ—7CÃâ†–ÖvW2“°¢f–æÂ¥4ôä'&’6VÆV7FVE6÷W&6W2Ò6æF–FFU6÷W&6W2‡6VÆV7FVB“°¢¶–æGv—6Uv÷&¶W"æW†V7WFR‚‚’Óâ°¢¥4ôäö&¦V7B&W7VÇBÒ–FVçF–g•v—F„¶–æGv—6R‡7V&Ö—GFVB“°¢G'’°¢&W7VÇBçWB‚'7V6–W46öçFW‡B"Â7V6–W2ÓÒçVÆÂò""¢7V6–W2“°¢&W7VÇBçWB‚'7–×FöÔ6öçFW‡B"Â7–×FöÒÓÒçVÆÂò""¢7–×FöÒ“°¢&W7VÇBçWB‚'—†VÄ6öçFW‡B"Â—†VÄÖWG&–72ÓÒçVÆÂò""¢—†VÄÖWG&–72“°¢&W7VÇBçWB‚&ÖVF–G—R"ÂÖVF–G—R“°¢&W7VÇBçWB‚'6÷W&6TföÆFW""Â6÷W&6TföÆFW"“°¢&W7VÇBçWB‚&6æF–FFT–ÖvT6÷VçB"Â6æF–FFT6÷VçB“°¢&W7VÇBçWB‚&–ÖvT6÷VçE7V&Ö—GFVB"ÂÖF‚æÖ–âƒRÂ7V&Ö—GFVBç6—¦R‚’’“°¢&W7VÇBçWB‚'6VÆV7F–öäæ÷FR"Â6VÆV7F–öäæ÷FR“°¢&W7VÇBçWB‚'6VÆV7FVE6÷W&6W2"Â6VÆV7FVE6÷W&6W2“°¢Ò6F6‚„W†6WF–öâ–væ÷&VB’²Ð¢6VæD¶–æGv—6U&W7VÇB†6ÖW&ÂÆ÷D–BÂ&W7VÇB“°¢Ò“°¢Ð ¢&—fFR¥4ôäö&¦V7B–FVçF–g•v—F„¶–æGv—6R„Æ—7CÆ'—FUµÓâ–ÖvW2’°¢7G&–ær¶W’ÒÇVv–ä”¶W’‚&¶–æGv—6R"“°¢–b†¶W’ÓÒçVÆÂÇÂ¶W’çG&–Ò‚’æ—4V×G’‚’’°¢&WGW&â¶–æGv—6U7FGW2‚&æ÷Eö6öæf–wW&VB"Â$FBF†R¶–æGv—6R7&÷æ†VÇF‚’¶W’–â6WGF–æw2(i"ÇVv–ç2+r’¶W—2â"“°¢Ð¢–b†–ÖvW2ÓÒçVÆÂÇÂ–ÖvW2æ—4V×G’‚’’°¢&WGW&â¶–æGv—6U7FGW2‚&W'&÷""Â$æò&VF&ÆR†÷F÷2÷"f–FVòg&ÖW2vW&Rf–Æ&ÆRf÷"¶–æGv—6Râ"“°¢Ð¢‡GGU$Ä6öææV7F–öâ6öææV7F–öâÒçVÆÃ°¢G'’°¢¥4ôä'&’Væ6öFVD–ÖvW2ÒæWr¥4ôä'&’‚“°¢f÷"†–çB’Ò²’ÂÖF‚æÖ–âƒRÂ–ÖvW2ç6—¦R‚’“²’²²’°¢Væ6öFVD–ÖvW2çWB„&6ScBæVæ6öFUFõ7G&–ær†–ÖvW2ævWB†’’Â&6ScBääõõu$’“°¢Ð¢¥4ôäö&¦V7B–ÆöBÒæWr¥4ôäö&¦V7B‚’çWB‚&–ÖvW2"ÂVæ6öFVD–ÖvW2“°¢U$ÂW&ÂÒæWrU$Â‚&‡GG3¢òö7&÷æ¶–æGv—6Ræ6öÒö’÷cö–FVçF–f–6F–öâ"“°¢6öææV7F–öâÒ„‡GGU$Ä6öææV7F–öâ’W&Âæ÷Vä6öææV7F–öâ‚“°¢6öææV7F–öâç6WE&WVW7DÖWF†öB‚%õ5B"“°¢6öææV7F–öâç6WD6öææV7EF–ÖV÷WBƒS“°¢6öææV7F–öâç6WE&VEF–ÖV÷WBƒCS“°¢6öææV7F–öâç6WDFô÷WGWB‡G'VR“°¢6öææV7F–öâç6WE&WVW7E&÷W'G’‚$’Ô¶W’"Â¶W’“°¢6öææV7F–öâç6WE&WVW7E&÷W'G’‚$6öçFVçBÕG—R"Â&Æ–6F–öâö§6öã²6†'6WC×WFbÓ‚"“°¢G'’„÷WGWE7G&VÒ÷WBÒ6öææV7F–öâævWD÷WGWE7G&VÒ‚’’°¢÷WBçw&—FR‡–ÆöBçFõ7G&–ær‚’ævWD'—FW2…7FæF&D6†'6WG2åUDeó‚’“°¢Ð¢–çB7FGW2Ò6öææV7F–öâævWE&W7öç6T6öFR‚“°¢–çWE7G&VÒ7G&VÒÒ7FGW2ãÒ#bb7FGW2Â3ò6öææV7F–öâævWD–çWE7G&VÒ‚’¢6öææV7F–öâævWDW'&÷%7G&VÒ‚“°¢7G&–æt'V–ÆFW"&öG’ÒæWr7G&–æt'V–ÆFW"‚“°¢–b‡7G&VÒÒçVÆÂ’G'’„–çWE7G&VÒ–çWBÒ7G&VÒ’°¢'—FUµÒ'VffW"ÒæWr'—FU³ƒ“%Ó²–çB6÷VçC°¢v†–ÆR‚†6÷VçBÒ–çWBç&VB†'VffW"’’ÒÓ’&öG’æVæB†æWr7G&–ær†'VffW"ÂÂ6÷VçBÂ7FæF&D6†'6WG2åUDeó‚’“°¢Ð¢–b‡7FGW2Â#ÇÂ7FGW2ãÒ3’°¢7G&–ærÖW76vRÒ7FGW2ÓÒCÇÂ7FGW2ÓÒC2ò$¶–æGv—6R&V¦V7FVBF†R6fVB’¶W’â6†V6²—B–â6WGF–æw2â ¢¢7FGW2ÓÒC#’ò$¶–æGv—6R&WVW7BV÷F—2W††W7FVB÷"&FRÖÆ–Ö—FVBâ ¢¢$¶–æGv—6R&WGW&æVB…EE"²7FGW2²"â#°¢&WGW&â¶–æGv—6U7FGW2‚&W'&÷""ÂÖW76vR“°¢Ð¢¥4ôäö&¦V7B&W7öç6RÒæWr¥4ôäö&¦V7B†&öG’çFõ7G&–ær‚’“°¢¥4ôäö&¦V7BÖöFVÅ&W7VÇBÒ&W7öç6Ræ÷D¥4ôäö&¦V7B‚'&W7VÇB"“°¢–b†ÖöFVÅ&W7VÇBÓÒçVÆÂ’&WGW&â¶–æGv—6U7FGW2‚&W'&÷""Â$¶–æGv—6R&WGW&æVBâVç&VF&ÆRF–væ÷6—2&W7VÇBâ"“°¢¥4ôä'&’6æF–FFW2ÒæWr¥4ôä'&’‚“°¢VæD¶–æGv—6T6æF–FFW2†6æF–FFW2ÂÖöFVÅ&W7VÇBæ÷D¥4ôäö&¦V7B‚&7&÷"’Â&7&÷"“°¢VæD¶–æGv—6T6æF–FFW2†6æF–FFW2ÂÖöFVÅ&W7VÇBæ÷D¥4ôäö&¦V7B‚&F—6V6R"’Â&†VÇF‚—77VR"“°¢¥4ôäö&¦V7B&W7VÇBÒ¶–æGv—6U7FGW2‚&ö²"Â""“°¢&W7VÇBçWB‚&ÖöFVÂ"Â&W7öç6Ræ÷E7G&–ær‚&ÖöFVÅ÷fW'6–öâ"Â""’“°¢&W7VÇBçWB‚&6æF–FFW2"Â6æF–FFW2“°¢&W7VÇBçWB‚&–ÖvT6÷VçE7V&Ö—GFVB"ÂÖF‚æÖ–âƒRÂ–ÖvW2ç6—¦R‚’’“°¢&WGW&â&W7VÇC°¢Ò6F6‚„W†6WF–öâW'&÷"’°¢&WGW&â¶–æGv—6U7FGW2‚&W'&÷""ÂW'&÷"ævWDÖW76vR‚’ÓÒçVÆÂò$¶–æGv—6RæWGv÷&²&WVW7Bf–ÆVBâ"¢W'&÷"ævWDÖW76vR‚’“°¢Òf–æÆÇ’²–b†6öææV7F–öâÒçVÆÂ’6öææV7F–öâæF—66öææV7B‚“²Ð¢Ð ¢&—fFRfö–BVæD¶–æGv—6T6æF–FFW2„¥4ôä'&’F&vWBÂ¥4ôäö&¦V7Bw&÷WÂ7G&–ærG—R’F‡&÷w2W†6WF–öâ°¢–b†w&÷WÓÒçVÆÂ’&WGW&ã°¢¥4ôä'&’7VvvW7F–öç2Òw&÷Wæ÷D¥4ôä'&’‚'7VvvW7F–öç2"“°¢–b‡7VvvW7F–öç2ÓÒçVÆÂ’&WGW&ã°¢f÷"†–çB’Ò²’Â7VvvW7F–öç2æÆVæwF‚‚’bb’ÂS²’²²’°¢¥4ôäö&¦V7B7VvvW7F–öâÒ7VvvW7F–öç2æ÷D¥4ôäö&¦V7B†’“°¢–b‡7VvvW7F–öâÓÒçVÆÂ’6öçF–çVS°¢¥4ôäö&¦V7B—FVÒÒæWr¥4ôäö&¦V7B‚“°¢—FVÒçWB‚'G—R"ÂG—R“°¢—FVÒçWB‚&æÖR"Â7VvvW7F–öâæ÷E7G&–ær‚&æÖR"Â%VæÆ&VÆÆVB&W7VÇB"’“°¢—FVÒçWB‚&6öæf–FVæ6R"Â7VvvW7F–öâæ÷DF÷V&ÆR‚'&ö&&–Æ—G’"Â’“°¢¥4ôäö&¦V7BFWF–Ç2Ò7VvvW7F–öâæ÷D¥4ôäö&¦V7B‚&FWF–Ç2"“°¢–b†FWF–Ç2ÒçVÆÂ’—FVÒçWB‚&FWF–Ç2"ÂFWF–Ç2“°¢F&vWBçWB†—FVÒ“°¢Ð¢Ð ¢&—fFR¥4ôäö&¦V7B¶–æGv—6U7FGW2…7G&–ær7FGW2Â7G&–ærÖW76vR’°¢¥4ôäö&¦V7B&W7VÇBÒæWr¥4ôäö&¦V7B‚“°¢G'’²&W7VÇBçWB‚'&÷f–FW""Â$¶–æGv—6R7&÷æ†VÇF‚"“²&W7VÇBçWB‚'7FGW2"Â7FGW2“²&W7VÇBçWB‚&ÖW76vR"ÂÖW76vR“²&W7VÇBçWB‚&6æF–FFW2"ÂæWr¥4ôä'&’‚’“²Ð¢6F6‚„W†6WF–öâ–væ÷&VB’²Ð¢&WGW&â&W7VÇC°¢Ð ¢&—fFR–çB&VÖ–æ–æuÆçDæWEV÷F…7G&–ær&FTÆ–Ö—D†VFW"’°¢–b‡&FTÆ–Ö—D†VFW"ÓÒçVÆÂ’&WGW&âÓ°¢ÖF6†W"ÖF6†W"ÒGFW&âæ6ö×–ÆR‚"ƒó¥çÅ³²ÅÒ•ÅÇ2§#Ò…ÅÆB²’"’æÖF6†W"‡&FTÆ–Ö—D†VFW"“°¢–b‚ÖF6†W"æf–æB‚’’&WGW&âÓ°¢G'’²&WGW&â–çFVvW"ç'6T–çB†ÖF6†W"æw&÷Wƒ’“²Ð¢6F6‚„çVÖ&W$f÷&ÖDW†6WF–öâ–væ÷&VB’²&WGW&âÓ²Ð¢Ð ¢&—fFR¥4ôäö&¦V7BÆçDæWE7FGW2…7G&–ær7FGW2Â7G&–ærÖW76vR’°¢¥4ôäö&¦V7B&W7VÇBÒæWr¥4ôäö&¦V7B‚“°¢G'’²&W7VÇBçWB‚'&÷f–FW""Â%ÄçDæWB"“²&W7VÇBçWB‚'7FGW2"Â7FGW2“²&W7VÇBçWB‚&ÖW76vR"ÂÖW76vR“²&W7VÇBçWB‚'&W7VÇG2"ÂæWr¥4ôä'&’‚’“²Ð¢6F6‚„W†6WF–öâ–væ÷&VB’²Ð¢&WGW&â&W7VÇC°¢Ð ¢&—fFR¥4ôäö&¦V7BÆçDæWDW'&÷"„W†6WF–öâW'&÷"’°¢&WGW&âÆçDæWE7FGW2‚&W'&÷""ÂW'&÷"ævWDÖW76vR‚’ÓÒçVÆÂò%ÄçDæWB&WVW7Bf–ÆVBâ"¢W'&÷"ævWDÖW76vR‚’“°¢Ð ¢&—fFR¥4ôäö&¦V7B–FVçF–g•f–FVôæDG&—fTWf–FVæ6R†–çB6ÖW&Â7G&–ærÆ÷D–BÂÆ—7CÅÆçDæWD–ÖvT6æF–FFSâf–FVôg&ÖW2Â7G&–ær7V6–W2Â7G&–ær7–×FöÒÂ7G&–ær—†VÄÖWG&–72’°¢¥4ôäö&¦V7B&W7öç6S°¢G'’°¢Æ—7CÅÆçDæWD–ÖvT6æF–FFSâ6æF–FFW2ÒæWr'&”Æ—7CÃâ‚“°¢7G&–ær†÷Fôæ÷F–6RÒ"#°¢G'’²6æF–FFW2æFDÆÂ†ÆöDF–væ÷6—5†÷F÷4g&öÔG&—fR†6ÖW&ÂÆ÷D–B’“²Ð¢6F6‚„W†6WF–öâ†÷FôW'&÷"’²†÷Fôæ÷F–6RÒ%VG&çB†÷F÷2vW&RVæf–Æ&ÆS¢"²‡†÷FôW'&÷"ævWDÖW76vR‚’ÓÒçVÆÂò$G&—fR6÷VÆBæ÷B&VBF†VÒ"¢†÷FôW'&÷"ævWDÖW76vR‚’“²Ð¢–b‡f–FVôg&ÖW2ÒçVÆÂ’6æF–FFW2æFDÆÂ‡f–FVôg&ÖW2“°¢–b†6æF–FFW2æ—4V×G’‚’’F‡&÷ræWr–ÆÆVvÅ7FFTW†6WF–öâ‡†÷Fôæ÷F–6Ræ—4V×G’‚’ò$æòVG&çB†÷F÷2÷"&VF&ÆRf–FVòg&ÖW2vW&Rf–Æ&ÆR"¢†÷Fôæ÷F–6R“°¢Æ—7CÅÆçDæWD–ÖvT6æF–FFSâ6VÆV7FVBÒ6VÆV7D&W7EÆçDæWD–ÖvW2†6æF–FFW2“°¢Æ—7CÆ'—FUµÓâ6VÆV7FVD–ÖvW2Ò6æF–FFT'—FW2‡6VÆV7FVB“°¢&WVW7D¶–æGv—6TF–væ÷6—2†6ÖW&ÂÆ÷D–BÂ6VÆV7FVD–ÖvW2Â6æF–FFW2ç6—¦R‚’Â6VÆV7FVBÀ¢7V6–W2Â7–×FöÒÂ—†VÄÖWG&–72Â'VG&çE÷†÷F÷5öæE÷f–FVõög&ÖW2"À¢$F–væ÷6—2ò"²F–væ÷6—5Æ÷DföÆFW"‡Æ÷D–B’²"õVG&çEò"²7G&–æræf÷&ÖB„Æö6ÆRåU2Â"S&B"Â6ÖW&’À¢$6ö×&VB6fVBVG&çB†÷F÷2æB6×ÆVBf–FVòg&ÖW2W6–ær&÷†–ÖFR6†'æW72ÂW‡÷7W&RÂæBf—6–&ÆR×ÆçBÖ&V6†V6·3²7V&Ö—GFVBF†R6ÆV&W7Bf—fRâ"“°¢&W7öç6RÒ–FVçF–g•v—F…ÆçDæWB‡6VÆV7FVD–ÖvW2“°¢&W7öç6RçWB‚'7V6–W46öçFW‡B"Â7V6–W2ÓÒçVÆÂò""¢7V6–W2“°¢&W7öç6RçWB‚'7–×FöÔ6öçFW‡B"Â7–×FöÒÓÒçVÆÂò""¢7–×FöÒ“°¢&W7öç6RçWB‚'—†VÄ6öçFW‡B"Â—†VÄÖWG&–72ÓÒçVÆÂò""¢—†VÄÖWG&–72“°¢&W7öç6RçWB‚&ÖVF–G—R"Â'VG&çE÷†÷F÷5öæE÷f–FVõög&ÖW2"“°¢&W7öç6RçWB‚'6÷W&6TföÆFW""Â$F–væ÷6—2ò"²F–væ÷6—5Æ÷DföÆFW"‡Æ÷D–B’²"õVG&çEò"²7G&–æræf÷&ÖB„Æö6ÆRåU2Â"S&B"Â6ÖW&’“°¢&W7öç6RçWB‚&6æF–FFT–ÖvT6÷VçB"Â6æF–FFW2ç6—¦R‚’“°¢&W7öç6RçWB‚'6VÆV7F–öäæ÷FR"Â$6ö×&VB6fVBVG&çB†÷F÷2æB6×ÆVBf–FVòg&ÖW2W6–ær&÷†–ÖFR6†'æW72ÂW‡÷7W&RÂæBf—6–&ÆR×ÆçBÖ&V6†V6·3²7V&Ö—GFVBF†R6ÆV&W7Bf—fRâ"“°¢–b‚†÷Fôæ÷F–6Ræ—4V×G’‚’’&W7öç6RçWB‚'6÷W&6Tæ÷F–6R"Â†÷Fôæ÷F–6R²"âF†Rf–Æ&ÆRf–FVòg&ÖW2vW&R7F–ÆÂ6†V6¶VBâ"“°¢&W7öç6RçWB‚'6VÆV7FVE6÷W&6W2"Â6æF–FFU6÷W&6W2‡6VÆV7FVB’“°¢Ò6F6‚„W†6WF–öâW'&÷"’²&W7öç6RÒÆçDæWDW'&÷"†W'&÷"“²Ð¢&WGW&â&W7öç6S°¢Ð ¢&—fFRfö–B6VæEÆçDæWE&W7VÇB†–çB6ÖW&Â7G&–ærÆ÷D–BÂ¥4ôäö&¦V7B&W7VÇB’°¢'VäöåV•F‡&VB‚‚’Óâ°¢–b‡vV"ÓÒçVÆÂ’&WGW&ã°¢vV"æWfÇVFT¦f67&—B‚'v–æF÷ræöåÆçDæWDF–væ÷6—2bgv–æF÷ræöåÆçDæWDF–væ÷6—2‚"²6ÖW&²"Â"²¥4ôäö&¦V7BçV÷FR‡Æ÷D–B’²"Â"²¥4ôäö&¦V7BçV÷FR‡&W7VÇBçFõ7G&–ær‚’’²"’"ÂçVÆÂ“°¢Ò“°¢Ð ¢&—fFRfö–B6VæEÆçE7V6–W5&W7VÇB†–çB6ÖW&Â7G&–ærÆ÷D–BÂ¥4ôäö&¦V7B&W7VÇB’°¢'VäöåV•F‡&VB‚‚’Óâ°¢–b‡vV"ÓÒçVÆÂ’&WGW&ã°¢vV"æWfÇVFT¦f67&—B‚'v–æF÷ræöåÆçE7V6–W4–FVçF–f–6F–öâbgv–æF÷ræöåÆçE7V6–W4–FVçF–f–6F–öâ‚"²6ÖW&²"Â"²¥4ôäö&¦V7BçV÷FR‡Æ÷D–B’²"Â"²¥4ôäö&¦V7BçV÷FR‡&W7VÇBçFõ7G&–ær‚’’²"’"ÂçVÆÂ“°¢Ò“°¢Ð ¢&—fFRfö–B6VæD¶–æGv—6U&W7VÇB†–çB6ÖW&Â7G&–ærÆ÷D–BÂ¥4ôäö&¦V7B&W7VÇB’°¢'VäöåV•F‡&VB‚‚’Óâ°¢–b‡vV"ÓÒçVÆÂ’&WGW&ã°¢vV"æWfÇVFT¦f67&—B‚'v–æF÷ræöä¶–æGv—6TF–væ÷6—2bgv–æF÷ræöä¶–æGv—6TF–væ÷6—2‚"²6ÖW&²"Â"²¥4ôäö&¦V7BçV÷FR‡Æ÷D–B’²"Â"²¥4ôäö&¦V7BçV÷FR‡&W7VÇBçFõ7G&–ær‚’’²"’"ÂçVÆÂ“°¢Ò“°¢Ð ¢&—fFRfö–B7F'DF–væ÷6—5f–FVôæÇ—6—2†–çB6ÖW&Â7G&–ærÆ÷D–BÂf–ÆRf–FVòÂFW‡Ef–Wr÷fW&Æ’ÂF–ÆörF–Æör’°¢F–væ÷6—47ev÷&¶W"æW†V7WFR‚‚’Óâ°¢ÖVF–ÖWFFF&WG&–WfW"&WG&–WfW"ÒæWrÖVF–ÖWFFF&WG&–WfW"‚“°¢G'’°¢&WG&–WfW"ç6WDFF6÷W&6R‡f–FVòævWD'6öÇWFUF‚‚’“°¢7G&–ærGW&F–öåfÇVRÒ&WG&–WfW"æW‡G&7DÖWFFF„ÖVF–ÖWFFF&WG&–WfW"äÔUDDDô´U•ôEU$D”ôâ“°¢ÆöærGW&F–öä×2ÒGW&F–öåfÇVRÓÒçVÆÂò¢Æöærç'6TÆöær†GW&F–öåfÇVR“°¢–b†GW&F–öä×2ÃÒ’F‡&÷ræWr–ÆÆVvÅ7FFTW†6WF–öâ‚%f–FVòGW&F–öâ—2Væf–Æ&ÆR"“°¢–çB6×ÆW2ÒÖF‚æÖ–âƒÂÖF‚æÖ‚ƒRÂ†–çB’†GW&F–öä×2ò#’’“°¢F÷V&ÆRw&VVãÓÇ–VÆÆ÷sÓÆ'&÷vãÓÆ÷F†W#Ó²–çBfÆ–CÓ°¢Æ—7CÅÆçDæWD–ÖvT6æF–FFSâf–FVô6æF–FFW2ÒæWr'&”Æ—7CÃâ‚“°¢f÷"†–çB“Ó¶“Ç6×ÆW3¶’²²’°¢–b†“ã’²G'’²F‡&VBç6ÆVW„ÖF‚æÖ‚ƒ3ÂÆGW&F–öä×2÷6×ÆW2’“²Ò6F6‚„–çFW''WFVDW†6WF–öâW‚’²F‡&VBæ7W'&VçEF‡&VB‚’æ–çFW''WB‚“²&WGW&ã²ÒÐ¢&—FÖg&ÖRÒ&WG&–WfW"ævWDg&ÖTEF–ÖR‚†Æöær’‚†GW&F–öä×2£B’¦’÷6×ÆW2’ÂÖVF–ÖWFFF&WG&–WfW"äõD”ôåô4Äõ4U5Eõ5”ä2“°¢–b†g&ÖRÓÒçVÆÂ’6öçF–çVS°¢'—FUµÒÖöFVÄ–ÖvRÒÆçDæWD§Vr†g&ÖR“°¢–b†ÖöFVÄ–ÖvRÒçVÆÂbbÖöFVÄ–ÖvRæÆVæwF‚â’f–FVô6æF–FFW2æFB†æWrÆçDæWD–ÖvT6æF–FFR†ÖöFVÄ–ÖvRÂ%f–FVòg&ÖR"²†’²’Â66÷&UÆçDæWD–ÖvR†ÖöFVÄ–ÖvR’’“°¢&—FÖ6ÖÆÃÔ&—FÖæ7&VFU66ÆVD&—FÖ†g&ÖRÃ“bÃSBÇG'VR“²–b‡6ÖÆÂÖg&ÖR–g&ÖRç&V7–6ÆR‚“°¢F÷V&ÆUµÒ6öÆ÷'3ÖÖV7W&TF–væ÷6—5—†VÇ2‡6ÖÆÂ“²6ÖÆÂç&V7–6ÆR‚“°¢w&VVâ³Ö6öÆ÷'5³Ó·–VÆÆ÷r³Ö6öÆ÷'5³Ó¶'&÷vâ³Ö6öÆ÷'5³%Ó¶÷F†W"³Ö6öÆ÷'5³5Ó·fÆ–B²³°¢f–æÂ7G&–ær6†—2Ò—†VÄ–çFVç6—G”Ö&·W†6öÆ÷'5³ÒÆ6öÆ÷'5³ÒÆ6öÆ÷'5³%ÒÆ6öÆ÷'5³5Ò“°¢f–æÂ–çBg&ÖTæóÖ’³ÇF÷FÃ×6×ÆW3°¢'VäöåV•F‡&VB‚‚’Óâ÷fW&Æ’ç6WEFW‡B„‡FÖÂæg&öÔ‡FÖÂ‚#Ç6ÖÆÃäg&ÖR"¶g&ÖTæò²"öb"·F÷FÂ²"+r6×ÆVB—†VÂ6öÆ÷'3Â÷6ÖÆÃãÆ'#â"¶6†—2Ä‡FÖÂäe$ôÕô…DÔÅôÔôDUôÄTt5’’’“°¢Ð¢–b‡fÆ–CÓÓ—F‡&÷ræWr–ÆÆVvÅ7FFTW†6WF–öâ‚$æòf–FVòg&ÖW26÷VÆB&RFV6öFVB"“°¢F÷V&ÆRsÖw&VVâ÷fÆ–BÇ“×–VÆÆ÷r÷fÆ–BÆ#Ö'&÷vâ÷fÆ–BÆóÖ÷F†W"÷fÆ–C°¢7G&–ærföÆÆ÷wW°¢–b‡“ãÒã‚bg“ãÖ"–föÆÆ÷wWÒ%–VÆÆ÷rÖÆ–¶R—†VÇ2&RVÆWfFVBâ6öæf—&ÒF†W’&RöâÆVfW2Â6ö×&R–÷VæræBöÆBw&÷wF‚ÂæB6†V6²&ö÷B×¦öæRÖö—7GW&RÂG&–ævRÂæB6ö–Â‚ôT2â#°¢VÇ6R–b†#ãÒã‚–föÆÆ÷wWÒ$'&÷vâÖÆ–¶R—†VÇ2&RVÆWfFVBâ6†V6²v†WF†W"Ö&v–ç2&RgVÆÇ’FVB÷"F†W&R&RF—7F–æ7B7&VF–ær7÷G3²–ç7V7Bf÷"†VBÂW7G2ÂæBvFW"7G&W72â#°¢VÇ6R–b†sÂã3R–föÆÆ÷wWÒ$Æ—GFÆRw&VVâÖÆ–¶RÆçB&Vv2FWFV7FVBâ&WF¶R6Æ÷6W"Â'&–v‡FW"f–FVòv—F‚F†RffV7FVBÆVbf–ÆÆ–ærF†Rg&ÖRâ#°¢VÇ6RföÆÆ÷wWÒ$æò7G&öær–VÆÆ÷r÷"'&÷vâ7VRV&VB–âF†R6×ÆVBg&ÖW2âF†—2FöW2æ÷B'VÆR÷WBF—6V6RÂW7G2Â÷"&ö÷B&ö&ÆV×3²–ç7V7BÆVbVæFW'6–FW2ÂæWrw&÷wF‚ÂæB&ö÷G2â#°¢7G&–ær&W÷'CÒ%f–FVò6öÆ÷"67&VVâ6ö×ÆWFRâF†R6fVB&W7VÇBæB6&R7VvvW7F–öç2&R6†÷vâ&VÆ÷râ#°¢¥4ôäö&¦V7B&W7VÇBÒæWr¥4ôäö&¦V7B‚“°¢&W7VÇBçWB‚'7VÖÖ'’"Â%f–FVò67&VVæ–ær6ö×ÆWFVBf÷"45Eb"²7G&–æræf÷&ÖB„Æö6ÆRåU2Â"S&B"Â6ÖW&’²"â"“°¢&W7VÇBçWB‚&ÖWG&–72"Â$7&÷72"²fÆ–B²"6×ÆVBf–FVòg&ÖW3¢w&VVâÖÆ–¶R"²7B†r’²"RÂ–VÆÆ÷rÖÆ–¶R"²7B‡’’²"RÂ'&÷vâÖÆ–¶R"²7B†"’²"RÂæB÷F†W"—†VÇ2"²7B†ò’²"Râ"“°¢¥4ôä'&’f–æF–æw2ÒæWr¥4ôä'&’‚“°¢f–æF–æw2çWB†föÆÆ÷wW“°¢f–æF–æw2çWB‚%&VÖ÷fRöæÇ’ÆVfW2F†B&RgVÆÇ’FVB÷"&FÇ’FÖvVBÂW6–ær6ÆVâ6†V'2â¶VWÆVfW2F†B7F–ÆÂ†fR†VÇF‡’w&VVâF—77VRâ"“°¢f–æF–æw2çWB‚$6†V6²6ö–ÂÖö—7GW&R&÷WB^(	3‚6Ò&VÆ÷rF†R7W&f6RæBö'6W'fRG&–ævRgFW"vFW&–ærâ–Òf÷"WfVæÇ’Öö—7B6ö–ÂÂæ÷BvFW&ÆövvVB÷"&öæRG'“²6†V6²v†WF†W"F†R&ö÷B¦öæRG&–W2FöòV–6¶Ç’÷"7F—26GW&FVBâ"“°¢f–æF–æw2çWB‚$Fòæ÷BFBå²g&öÒ—†VÂ6öÆ÷'2ÆöæRâ6†V6²6ö–Â‚ôT2÷"vWB6ö–ÂFW7BæB6ö×&R7–×Fö×2öâ–÷VærfW'7W2öÆBÆVfW2f—'7Bâ–bFVf–6–Væ7’—27W÷'FVBÂW6R7&÷Ö&÷&–FRå²BF†RÆ&VÂ&FRæBfö–B÷fW"ÖfW'F–Æ—6–ærâ"“°¢&W7VÇBçWB‚&f–æF–æw2"Âf–æF–æw2“°¢&W7VÇBçWB‚&Æ–Ö—FF–öç2"Â%F†—2—2&6–26×ÆVB—†VÂÖ6öÆ÷"67&VVâÂæ÷BG&–æVBF—6V6RÖöFVÂâ6öÆ÷"6â&RffV7FVB'’Æ–v‡F–ærÂ&6¶w&÷VæBÂvRÂæB6ÖW&6WGF–æw3²—B6ææ÷B6öæf—&ÒF—6V6R÷"–FVçF–g’F†övVââ"“°¢&W7VÇBçWB‚&6GW&VDB"ÂæWr6–×ÆTFFTf÷&ÖB‚&BÔÔÒ———’Âƒ¦ÖÒ"ÂÆö6ÆRævWDFVfVÇB‚’’æf÷&ÖB†æWrFFR‚’’“°¢&W7VÇBçWB‚&–ÖvT6÷VçB"ÂfÆ–B“²&W7VÇBçWB‚&ÖVF–G—R"Â'f–FVò"“°¢7G&–ær&W7VÇD§6öâÒ&W7VÇBçFõ7G&–ær‚“°¢f–æÂÆ—7CÅÆçDæWD–ÖvT6æF–FFSâæÇ—¦VEf–FVôg&ÖW2Òf–FVô6æF–FFW3°¢'VäöåV•F‡&VB‚‚’Óç°¢æ÷F–g”F–væ÷6—57FGW2‡&W÷'B“°¢7G&–ær67&—BÒ'v–æF÷ræöäF–væ÷6—5f–FVôæÇ—6—2bgv–æF÷ræöäF–væ÷6—5f–FVôæÇ—6—2‚"²6ÖW&²"Â"²¥4ôäö&¦V7BçV÷FR‡Æ÷D–B’²"Â"²¥4ôäö&¦V7BçV÷FR‡&W7VÇD§6öâ’²"’#°¢–b‡vV"ÒçVÆÂ’vV"æWfÇVFT¦f67&—B‡67&—BÂ–væ÷&VBÓâ²–b†F–Æöræ—56†÷v–ær‚’’F–ÆöræF—6Ö—72‚“²Ò“°¢VÇ6R–b†F–Æöræ—56†÷v–ær‚’’F–ÆöræF—6Ö—72‚“°¢Ò“°¢'VäöåV•F‡&VB‚‚’Óâæ÷F–g”F–væ÷6—57FGW2‚%f–FVò—†VÂæÇ—6—2—26ö×ÆWFRâ6ö×&–ær6fVB†÷F÷2g&öÒF†—2G&—fRVG&çBv—F‚6×ÆVBf–FVòg&ÖW2æB6VæF–ærF†R6ÆV&W7B–ÖvW2FòÄçDæWN(
+b"’“°¢F–væ÷6—5v÷&¶W"æW†V7WFR‚‚’Óâ°¢7G&–ær7V6–W2Ò""Â7–×FöÒÒ"#°¢¥4ôäö&¦V7BÆçDæWBÒ–FVçF–g•f–FVôæDG&—fTWf–FVæ6R†6ÖW&ÂÆ÷D–BÂæÇ—¦VEf–FVôg&ÖW2Â7V6–W2Â7–×FöÒÂ&W7VÇBæ÷E7G&–ær‚&ÖWG&–72"Â""’“°¢6VæEÆçDæWE&W7VÇB†6ÖW&ÂÆ÷D–BÂÆçDæWB“°¢Ò“°¢Ò6F6‚„W†6WF–öâW'&÷"’°¢f–æÂ7G&–ærÖW76vSÒ%f–FVò6öÆ÷"æÇ—6—2Væf–Æ&ÆS¢"²†W'&÷"ævWDÖW76vR‚“ÓÖçVÆÃò&6÷VÆBæ÷B–ç7V7Bg&ÖW2#¦W'&÷"ævWDÖW76vR‚’’²"âÆ–&6²Ö’6öçF–çVRâä’âÖvVæW&FVB67&VVæ–ærÖ’&WV—&R‡VÖâW‡W'B6öæf—&ÖF–öââ#°¢'VäöåV•F‡&VB‚‚’Óç°¢÷fW&Æ’ç6WEFW‡B†ÖW76vR“°¢æ÷F–g”F–væ÷6—57FGW2†ÖW76vR“°¢¥4ôäö&¦V7B&W7VÇBÒæWr¥4ôäö&¦V7B‚“°¢G'’²&W7VÇBçWB‚'7VÖÖ'’"Â%f–FVò6öÆ÷"67&VVâ6÷VÆBæ÷B6ö×ÆWFRâ"“²&W7VÇBçWB‚&ÖWG&–72"Â%Æ–&6²Ö’6öçF–çVRÂ'WBæò&VF&ÆRg&ÖW2vW&Rf–Æ&ÆRf÷"æÇ—6—2â"“²&W7VÇBçWB‚&f–æF–æw2"ÂæWr¥4ôä'&’‚’çWB†ÖW76vR’“²&W7VÇBçWB‚&Æ–Ö—FF–öç2"Â$ä’âÖvVæW&FVB67&VVæ–ærÖ’&WV—&R6öæf—&ÖF–öâ'’VÆ–f–VB‡VÖâÆçB†VÇF‚W‡W'Bâ"“²&W7VÇBçWB‚&6GW&VDB"ÂæWr6–×ÆTFFTf÷&ÖB‚&BÔÔÒ———’Âƒ¦ÖÒ"ÂÆö6ÆRævWDFVfVÇB‚’’æf÷&ÖB†æWrFFR‚’’“²&W7VÇBçWB‚&–ÖvT6÷VçB"Â“²&W7VÇBçWB‚&ÖVF–G—R"Â'f–FVò"“²Ò6F6‚„W†6WF–öâ–væ÷&VB’²Ð¢–b‡vV"ÒçVÆÂ’vV"æWfÇVFT¦f67&—B‚'v–æF÷ræöäF–væ÷6—5f–FVôæÇ—6—2bgv–æF÷ræöäF–væ÷6—5f–FVôæÇ—6—2‚"²6ÖW&²"Â"²¥4ôäö&¦V7BçV÷FR‡Æ÷D–B’²"Â"²¥4ôäö&¦V7BçV÷FR‡&W7VÇBçFõ7G&–ær‚’’²"’"ÂçVÆÂ“°¢Ò“°¢Òf–æÆÇ’²G'’²&WG&–WfW"ç&VÆV6R‚“²Ò6F6‚„W†6WF–öâ–væ÷&VB’²ÒÐ¢Ò“°¢Ð ¢&—fFR7G&–ær—†VÄ–çFVç6—G”Ö&·W†F÷V&ÆRw&VVâÆF÷V&ÆR–VÆÆ÷rÆF÷V&ÆR'&÷vâÆF÷V&ÆR÷F†W"’°¢&WGW&â#ÆföçB6öÆ÷#Òr34TTBsî)xòw&VVâ"·7B†w&VVâ’²"SÂöföçCî8ÆföçB6öÆ÷#Òr4cCCSsî)xò–VÆÆ÷r"·7B‡–VÆÆ÷r’²"SÂöföçCãÆ'#â"°¢#ÆföçB6öÆ÷#Òr4CdCRsî)xò'&÷vâ"·7B†'&÷vâ’²"SÂöföçCî8ÆföçB6öÆ÷#Òr43t4d4sî)xò÷F†W""·7B†÷F†W"’²"SÂöföçCâ#°¢Ð ¢&—fFR7FF–27G&–ær7B†F÷V&ÆRfÇVR’²&WGW&â7G&–æræf÷&ÖB„Æö6ÆRåU2Â"Rãb"ÇfÇVR£“²Ð ¢&—fFRF÷V&ÆUµÒÖV7W&TF–væ÷6—5—†VÇ2„&—FÖ&—FÖ’°¢–çBv–GFƒÖ&—FÖævWEv–GF‚‚’Æ†V–v‡CÖ&—FÖævWD†V–v‡B‚’ÇF÷FÃ×v–GF‚¦†V–v‡C¶–çEµÒ—†VÇ3ÖæWr–çE·F÷FÅÓ¶&—FÖævWE—†VÇ2‡—†VÇ2ÃÇv–GF‚ÃÃÇv–GF‚Æ†V–v‡B“°¢–çBw&VVãÓÇ–VÆÆ÷sÓÆ'&÷vãÓ°¢f÷"†–çB6öÆ÷#§—†VÇ2—¶–çB#Ô6öÆ÷"ç&VB†6öÆ÷"’ÆsÔ6öÆ÷"æw&VVâ†6öÆ÷"’Æ#Ô6öÆ÷"æ&ÇVR†6öÆ÷"“¶–b†sç"£ãbfsæ"£ãBbfsãCR–w&VVâ²³¶VÇ6R–b‡#ãbfsã“bg#ær¢ã“"bfsæ"£ã‚—–VÆÆ÷r²³¶VÇ6R–b‡#ãcRbg#ær£ã#"bg#æ"£ã"–'&÷vâ²³·Ð¢–çB÷F†W#ÔÖF‚æÖ‚ƒÇF÷FÂÖw&VVâ×–VÆÆ÷rÖ'&÷vâ“·&WGW&âæWrF÷V&ÆUµ×¶w&VVâò†F÷V&ÆR—F÷FÂÇ–VÆÆ÷rò†F÷V&ÆR—F÷FÂÆ'&÷vâò†F÷V&ÆR—F÷FÂÆ÷F†W"ò†F÷V&ÆR—F÷FÇÓ°¢Ð ¢&—fFRfö–B&VÖ÷fTF–væ÷6—4ÖVF–g&öÕ7F÷&vR†–çB6ÖW&Â7G&–ærÆ÷D–BÂ7G&–ærFö7VÖVçD–BÂ7G&–ærf–ÆTæÖRÂ7G&–ærÖVF–W&Â’°¢7G&–ærW'&÷"ÒçVÆÃ°¢G'’°¢–b‚f–ÆTæÖRæ—4V×G’‚’bb†f–ÆTæÖRæ6öçF–ç2‚"ò"’ÇÂf–ÆTæÖRæ6öçF–ç2‚%ÅÂ"’ÇÂf–ÆTæÖRæWVÇ2‚"â"’ÇÂf–ÆTæÖRæWVÇ2‚"ââ"’ÇÂ†f–ÆTæÖRçFôÆ÷vW$66R„Æö6ÆRå$ôõB’æVæG5v—F‚‚"æ§r"’ÇÂf–ÆTæÖRçFôÆ÷vW$66R„Æö6ÆRå$ôõB’æVæG5v—F‚‚"æ§Vr"’ÇÂf–ÆTæÖRçFôÆ÷vW$66R„Æö6ÆRå$ôõB’æVæG5v—F‚‚"çær"’ÇÂf–ÆTæÖRçFôÆ÷vW$66R„Æö6ÆRå$ôõB’æVæG5v—F‚‚"æ×B"’’’’F‡&÷ræWr–ÆÆVvÄ&wVÖVçDW†6WF–öâ‚$–çfÆ–BÖVF–f–ÆVæÖR"“°¢7G&–ærG&VUFW‡CÖvWE&Vg2‚’ævWE7G&–ær…$TeôD”täõ4•5õE$TUõU$’ÆçVÆÂ’Â&ö÷D–CÖvWE&Vg2‚’ævWE7G&–ær…$TeôD”täõ4•5õ$ôõEôDô5TÔTåEô”BÆçVÆÂ“°¢–b‚Fö7VÖVçD–Bæ—4V×G’‚’’°¢–b‡G&VUFW‡CÓÖçVÆÇÇÇ&ö÷D–CÓÖçVÆÇÇÂ—4F–væ÷6—4G&—fU&VG’‚’’F‡&÷ræWr–ÆÆVvÅ7FFTW†6WF–öâ‚$vöövÆRG&—fRF–væ÷6—2föÆFW"—2æ÷B6öææV7FVB"“°¢W&’G&VSÕW&’ç'6R‡G&VUFW‡B“²7G&–ærÆ÷DFö3Öf–æDW†—7F–æt6†–ÆDföÆFW"‡G&VRÇ&ö÷D–BÆF–væ÷6—5Æ÷DföÆFW"‡Æ÷D–B’“°¢7G&–ærVG&çCÒ%VG&çEò"µ7G&–æræf÷&ÖB„Æö6ÆRåU2Â"S&B"Æ6ÖW&“°¢7G&–ærVG&çDFö3×Æ÷DFö3ÓÖçVÆÃöçVÆÃ¦f–æDW†—7F–æt6†–ÆDföÆFW"‡G&VRÇÆ÷DFö2ÇVG&çB“°¢–b‡VG&çDFö3ÓÖçVÆÂ’F‡&÷ræWr–ÆÆVvÅ7FFTW†6WF–öâ‚%F†R6fVBF–væ÷6—2föÆFW"v2æ÷Bf÷VæB"“°¢W&’6†–ÆG&VãÔFö7VÖVçG46öçG&7Bæ'V–ÆD6†–ÆDFö7VÖVçG5W&•W6–æuG&VR‡G&VRÇVG&çDFö2“²&ööÆVâW†7D6†–ÆCÖfÇ6S°¢G'’„7W'6÷"3ÖvWD6öçFVçE&W6öÇfW"‚’çVW'’†6†–ÆG&VâÆæWr7G&–æuµ×´Fö7VÖVçG46öçG&7BäFö7VÖVçBä4ôÅTÔåôDô5TÔTåEô”GÒÆçVÆÂÆçVÆÂÆçVÆÂ’—°¢–b†2ÖçVÆÂ—¶–çB6öÃÖ2ævWD6öÇVÖä–æFW‚„Fö7VÖVçG46öçG&7BäFö7VÖVçBä4ôÅTÔåôDô5TÔTåEô”B“·v†–ÆR†2æÖ÷fUFôæW‡B‚’––b†6öÃãÓbfFö7VÖVçD–BæWVÇ2†2ævWE7G&–ær†6öÂ’’—¶W†7D6†–ÆC×G'VS¶'&V³·×Ð¢Ð¢–b‚W†7D6†–ÆB’F‡&÷ræWr–ÆÆVvÅ7FFTW†6WF–öâ‚%F†Bf–ÆR—2æòÆöævW"–âF†—2Æ÷BæBVG&çBföÆFW""“°¢W&’F&vWCÔFö7VÖVçG46öçG&7Bæ'V–ÆDFö7VÖVçEW&•W6–æuG&VR‡G&VRÆFö7VÖVçD–B“°¢–b‚Fö7VÖVçG46öçG&7BæFVÆWFTFö7VÖVçB†vWD6öçFVçE&W6öÇfW"‚’ÇF&vWB’’F‡&÷ræWr–ÆÆVvÅ7FFTW†6WF–öâ‚$vöövÆRG&—fRF–Bæ÷B6öæf—&ÒFVÆWF–öâ"“°¢Ð¢¥4ôä'&’–æFWƒÖæWr¥4ôä'&’‡&VDF–væ÷6—4ÖVF––æFW‚†6ÖW&ÇÆ÷D–B’“°¢¥4ôä'&’¶WCÖæWr¥4ôä'&’‚“²7G&–ærf÷VæEW&ÃÖÖVF–W&ÂÂf÷VæEF‡VÖ#Ò"#°¢f÷"†–çB“Ó¶“Æ–æFW‚æÆVæwF‚‚“¶’²²—´¥4ôäö&¦V7B&÷sÖ–æFW‚æ÷D¥4ôäö&¦V7B†’“¶–b‡&÷sÓÖçVÆÂ–6öçF–çVS°¢&ööÆVâÖF6ƒÒFö7VÖVçD–Bæ—4V×G’‚“öFö7VÖVçD–BæWVÇ2‡&÷ræ÷E7G&–ær‚&G&—fTFö7VÖVçD–B"’“¢‚f–ÆTæÖRæ—4V×G’‚“öf–ÆTæÖRæWVÇ2‡&÷ræ÷E7G&–ær‚&f–ÆTæÖR"’“¦ÖVF–W&ÂæWVÇ2‡&÷ræ÷E7G&–ær‚'W&Â"’’“°¢–b†ÖF6‚—¶–b†f÷VæEW&Âæ—4V×G’‚’–f÷VæEW&Ã×&÷ræ÷E7G&–ær‚'W&Â"“¶f÷VæEF‡VÖ#×&÷ræ÷E7G&–ær‚'F‡VÖ&æ–ÅW&Â"“·ÖVÇ6R¶WBçWB‡&÷r“°¢Ð¢vWE&Vg2‚’æVF—B‚’çWE7G&–ær†F–væ÷6—4ÖVF––æFW„¶W’†6ÖW&ÇÆ÷D–B’Æ¶WBçFõ7G&–ær‚’’æÇ’‚“°¢FVÆWFTF–væ÷6—4Æö6Ä76WB‡Æ÷D–BÆ6ÖW&Æf–ÆTæÖR“°¢FVÆWFTF–væ÷6—466†T76WB‡Æ÷D–BÆ6ÖW&Æf÷VæEW&Â“°¢FVÆWFTF–væ÷6—466†T76WB‡Æ÷D–BÆ6ÖW&Æf÷VæEF‡VÖ"“°¢f–æÂ7G&–ærFö3ÖFö7VÖVçD–BÂæÖSÖf–ÆTæÖS°¢'VäöåV•F‡&VB‚‚’Óç¶–b‡vV"ÖçVÆÂ—vV"æWfÇVFT¦f67&—B‚'v–æF÷ræöäF–væ÷6—4ÖVF–&VÖ÷fVBbgv–æF÷ræöäF–væ÷6—4ÖVF–&VÖ÷fVB‚"¶6ÖW&²"Â"´¥4ôäö&¦V7BçV÷FR‡Æ÷D–B’²"Â"´¥4ôäö&¦V7BçV÷FR†Fö2’²"Â"´¥4ôäö&¦V7BçV÷FR†æÖR’²"ÆçVÆÂ’"ÆçVÆÂ“·&Vg&W6„F–væ÷6—4ÖVF–g&öÔG&—fR†6ÖW&ÇÆ÷D–B“·Ò“°¢Ö6F6‚„W†6WF–öâW‚—¶W'&÷#ÖW‚ævWDÖW76vR‚“ÓÖçVÆÃò$ÖVF–6÷VÆBæ÷B&RFVÆWFVB#¦W‚ævWDÖW76vR‚“·Ð¢–b†W'&÷"ÖçVÆÂ—¶f–æÂ7G&–ærÖW76vSÖW'&÷#·'VäöåV•F‡&VB‚‚’Óç¶–b‡vV"ÖçVÆÂ—vV"æWfÇVFT¦f67&—B‚'v–æF÷ræöäF–væ÷6—4ÖVF–&VÖ÷fVBbgv–æF÷ræöäF–væ÷6—4ÖVF–&VÖ÷fVB‚"¶6ÖW&²"Â"´¥4ôäö&¦V7BçV÷FR‡Æ÷D–B’²"Â"´¥4ôäö&¦V7BçV÷FR†Fö7VÖVçD–B’²"Â"´¥4ôäö&¦V7BçV÷FR†f–ÆTæÖR’²"Â"´¥4ôäö&¦V7BçV÷FR†ÖW76vR’²"’"ÆçVÆÂ“·Ò“·Ð¢Ð ¢&—fFRfö–BFVÆWFTF–væ÷6—4Æö6Ä76WB…7G&–ærÆ÷D–BÆ–çB6ÖW&Å7G&–æræÖR—¶–b†æÖSÓÖçVÆÇÇÆæÖRæ—4V×G’‚’—&WGW&ã·G'—´f–ÆRF—#ÖæWrf–ÆR†æWrf–ÆR†æWrf–ÆR†vWDf–ÆW4F—"‚’Â&F–væ÷6—5öÖVF–"’ÇÆ÷D–B’Å7G&–æræf÷&ÖB„Æö6ÆRåU2Â&67GeòS&B"Æ6ÖW&’’ævWD6æöæ–6Äf–ÆR‚“´f–ÆRcÖæWrf–ÆR†F—"ÆæÖR’ævWD6æöæ–6Äf–ÆR‚“¶–b†bævWE&VçDf–ÆR‚’æWVÇ2†F—"’–bæFVÆWFR‚“·Ö6F6‚„W†6WF–öâ–væ÷&VB—·×Ð¢&—fFRfö–BFVÆWFTF–væ÷6—466†T76WB…7G&–ærÆ÷D–BÆ–çB6ÖW&Å7G&–ær76WEW&Â—·G'—µ7G&–ærW‡V7FVCÒ&‡GG3¢òö76WG2ææG&ö–GÆFf÷&ÒææWBö76WG2öF–væ÷6—2ò"·Æ÷D–B²"ö67Geò"µ7G&–æræf÷&ÖB„Æö6ÆRåU2Â"S&B"Æ6ÖW&’²"ò#¶–b†76WEW&ÃÓÖçVÆÇÇÂ76WEW&Âç7F'G5v—F‚†W‡V7FVB’—&WGW&ãµ7G&–æræÖSÕW&’ç'6R†76WEW&Â’ævWDÆ7EF…6VvÖVçB‚“¶–b†æÖSÓÖçVÆÇÇÂæÖRæÖF6†W2‚%´Õ¦×£Ó•òÕ×³ÃÕÅÂâ†§wÆ§VwÇæwÆ×B’"’—&WGW&ã´f–ÆRF—#ÖæWrf–ÆR†æWrf–ÆR†æWrf–ÆR†vWD66†TF—"‚’Â&F–væ÷6—5öG&—fUö66†R"’ÇÆ÷D–B’Å7G&–æræf÷&ÖB„Æö6ÆRåU2Â&67GeòS&B"Æ6ÖW&’’ævWD6æöæ–6Äf–ÆR‚“´f–ÆRcÖæWrf–ÆR†F—"ÆæÖR’ævWD6æöæ–6Äf–ÆR‚“¶–b†bævWE&VçDf–ÆR‚’æWVÇ2†F—"’–bæFVÆWFR‚“·Ö6F6‚„W†6WF–öâ–væ÷&VB—·×Ð ¢&—fFRfö–B÷VäF–væ÷6—4G&—fTÖVF––åÆ–W"…7G&–ærFö7VÖVçD–BÂ7G&–ærÖ–ÖUG—R’°¢7G&–ærG&VUFW‡BÒvWE&Vg2‚’ævWE7G&–ær…$TeôD”täõ4•5õE$TUõU$’ÂçVÆÂ“°¢–b‡G&VUFW‡BÓÒçVÆÂÇÂFö7VÖVçD–BÓÒçVÆÂÇÂFö7VÖVçD–Bæ—4V×G’‚’’°¢æ÷F–g”F–væ÷6—57FGW2‚%F†RvöövÆRG&—fRf–FVò&VfW&Væ6R—2Væf–Æ&ÆRâ&Vg&W6‚F†RF–væ÷6—2Æ—7Bâ"“°¢&WGW&ã°¢Ð¢G'’°¢W&’G&VUW&’ÒW&’ç'6R‡G&VUFW‡B“°¢W&’ÖVF–W&’ÒFö7VÖVçG46öçG&7Bæ'V–ÆDFö7VÖVçEW&•W6–æuG&VR‡G&VUW&’ÂFö7VÖVçD–B“°¢–çFVçBf–WrÒæWr–çFVçB„–çFVçBä5D”ôåõd”Ur“°¢f–Wrç6WDFFæEG—R†ÖVF–W&’ÂÖ–ÖUG—RÓÒçVÆÂÇÂÖ–ÖUG—Ræ—4V×G’‚’ò'f–FVòö×B"¢Ö–ÖUG—R“°¢f–WræFDfÆw2„–çFVçBädÄuôu$åEõ$TEõU$•õU$Ô•54”ôâ“°¢7F'D7F—f—G’„–çFVçBæ7&VFT6†ö÷6W"‡f–WrÂ%Æ’F–væ÷6—2f–FVò"’“°¢Ò6F6‚„W†6WF–öâW'&÷"’°¢æ÷F–g”F–væ÷6—57FGW2‚$æòf–FVòÆ–W"6÷VÆB÷VâF†—2vöövÆRG&—fRf–ÆRâ÷Vâ—Bg&öÒF†RG&—fRâ"“°¢Ð¢Ð ¢&—fFR7G&–ær6–væVD–äVÖ–ÄföÆFW$æÖR‚’°¢6öÒævöövÆRæf—&V&6RæWF‚äf—&V&6UW6W"W6W"Ð¢6öÒævöövÆRæf—&V&6RæWF‚äf—&V&6TWF‚ævWD–ç7Fæ6R‚’ævWD7W'&VçEW6W"‚“°¢7G&–ærVÖ–ÂÒW6W"ÓÒçVÆÂòçVÆÂ¢W6W"ævWDVÖ–Â‚“°¢–b†VÖ–ÂÓÒçVÆÂÇÂVÖ–ÂçG&–Ò‚’æ—4V×G’‚’¢F‡&÷ræWr–ÆÆVvÅ7FFTW†6WF–öâ‚%6–vâ–âFò6öææV7BF†—2Æ÷Bw2vöövÆRG&—fRföÆFW"â"“°¢7G&–ær6fRÒVÖ–ÂçG&–Ò‚’çFôÆ÷vW$66R„Æö6ÆRå$ôõB¢ç&WÆ6TÆÂ‚%µæ×£Ó”åò²ÕÒ²"Â%ò"“°¢–b‡6fRæÆVæwF‚‚’â’6fRÒ6fRç7V'7G&–ærƒÂ“°¢&WGW&â6fS°¢Ð ¢&—fFRfö–B6öææV7DFVfVÇDfVVD–å6fVEG&VR…7G&–ærÆ÷D–BÂW&’G&VUW&’’F‡&÷w2W†6WF–öâ°¢7G&–ærw&÷uÆ÷D–BÒ&W6öÇfTw&÷uÆ÷DFö7VÖVçD–B‡G&VUW&’“°¢–b†w&÷uÆ÷D–BÓÒçVÆÂ’F‡&÷ræWr–ÆÆVvÅ7FFTW†6WF–öâ‚%F†R6fVBG&—fRW&Ö—76–öâæòÆöævW"ö–çG2Fò&ö¦V7G2÷"w&÷uÆ÷B"“°¢7G&–ær–ÖvTfVVD–BÒf–æD÷$7&VFT6†–ÆDföÆFW"‡G&VUW&’Âw&÷uÆ÷D–BÂ$–ÖvUôfVVB"“°¢7G&–ærW6W$föÆFW"Ò6–væVD–äVÖ–ÄföÆFW$æÖR‚“°¢7G&–ærW6W$föÆFW$–BÒf–æD÷$7&VFT6†–ÆDföÆFW"‡G&VUW&’Â–ÖvTfVVD–BÂW6W$föÆFW"“°¢7G&–ærÆ÷DföÆFW"Ò6fTföÆFW$æÖR‡–6¶W$FVfVÇDföÆFW$æÖR“°¢7G&–ærÆ÷DföÆFW$–BÒf–æD÷$7&VFT6†–ÆDföÆFW"‡G&VUW&’ÂW6W$föÆFW$–BÂÆ÷DföÆFW"“°¢7G&–ær&VÆF—fUF‚Ò$–ÖvUôfVVBò"²W6W$föÆFW"²"ò"²Æ÷DföÆFW#°¢7G&–ærÆö6F–öäÆ&VÂÒ$vöövÆRG&—fS¢õ&ö¦V7G2ôw&÷uÆ÷Bò"²&VÆF—fUFƒ°¢¥4ôäö&¦V7B6öæf–rÒæWr¥4ôäö&¦V7B†vWE&Vg2‚’ævWE7G&–ær‚&FFöfVVEö6öæf–uò"²Æ÷D–BÂ'·Ò"’“°¢6öæf–rçWB‚'Æ÷D–B"ÂÆ÷D–B“°¢6öæf–rçWB‚&Væ&ÆVB"ÂG'VR“°¢6öæf–rçWB‚&föÆFW%W&’"ÂG&VUW&’çFõ7G&–ær‚’“°¢vWE&Vg2‚’æVF—B‚¢çWE7G&–ær†fVVEG&VT¶W’‡Æ÷D–B’ÂG&VUW&’çFõ7G&–ær‚’¢çWE7G&–ær†fVVDföÆFW$Fö7VÖVçD¶W’‡Æ÷D–B’ÂÆ÷DföÆFW$–B¢çWE7G&–ær†fVVDÆö6F–öä¶W’‡Æ÷D–B’ÂÆö6F–öäÆ&VÂ¢çWE7G&–ær‚&FFöfVVEö6öæf–uò"²Æ÷D–BÂ6öæf–rçFõ7G&–ær‚’¢çWE7G&–ær…$Teô5D•dUõÄõEô”BÂÆ÷D–B¢æÇ’‚“°¢&VÖVÖ&W$w&÷uÆ÷EG&VT–e66÷VB‡G&VUW&’“°¢6fTG&—fU7F÷&vT6öæf–r‡G&VUW&’“°¢–b†66÷VçD”'&–FvRÒçVÆÂ¢66÷VçD”'&–FvRç6fT–ÖvTfVVEF‚‡Æ÷D–BÂÆö6F–öäÆ&VÂÂ&VÆF—fUF‚“°¢–6¶W$7&VFW4FVfVÇDfVVBÒfÇ6S°¢æ÷F–g”fVVE6WGF–æw56fVB‡Æ÷D–BÂÆö6F–öäÆ&VÂ“°¢66å6æ6†÷DföÆFW"‡Æ÷D–B“°¢Ð ¢&—fFRfö–B÷Vä–ÖvTfVVDföÆFW%–6¶W"‚’°¢–b†—4f–æ—6†–ær‚’’&WGW&ã°¢–b‡–6¶W$7&VFW4FVfVÇDfVVB’°¢7G&–ær6fVEG&VRÒvWE&Vg2‚’ævWE7G&–ær†fVVEG&VT¶W’‡–6¶W%Æ÷D–B’ÂçVÆÂ“°¢7G&–ær6fVDföÆFW"ÒvWE&Vg2‚’ævWE7G&–ær†fVVDföÆFW$Fö7VÖVçD¶W’‡–6¶W%Æ÷D–B’ÂçVÆÂ“°¢òò&WW6Rç’&Wf–÷W6Ç’w&çFVBw&÷uÆ÷Bõ&ö¦V7G2G&VRWfVâv†VâF†—2Æ÷@¢òò†2æòW"×Æ÷BföÆFW"Ö–ær–WC²6öææV7DFVfVÇDfVVB7&VFW2F†BF‚à¢–b‡6fVEG&VRÓÒçVÆÂÇÂ6fVDföÆFW"ÓÒçVÆÂ’°¢W&’66÷VEG&VRÒf–æDw&÷uÆ÷E66÷VEG&VUW&’‚“°¢–b‡66÷VEG&VRÒçVÆÂ’°¢G'’°¢6öææV7DFVfVÇDfVVD–å6fVEG&VR‡–6¶W%Æ÷D–BÂ66÷VEG&VR“°¢Ò6F6‚„W†6WF–öâW'&÷"’°¢7G&–ær&V6öâÒW'&÷"ævWDÖW76vR‚’ÓÒçVÆÂò$G&—fRföÆFW"6÷VÆBæ÷B&R7&VFVB"¢W'&÷"ævWDÖW76vR‚“°¢V&Æ—6…7FGW2†Ö¶U7FGW2‚$W‡V7FVBvöövÆRG&—fRFƒ¢"²W‡V7FVDfVVEF„Æ&VÂ‡–6¶W%Æ÷D–B¢²"ÂföÆFW"7FGW3¢Væf–Æ&ÆR(	B"²&V6öâ’“°¢Ð¢&WGW&ã°¢Ð¢Ð¢–b‡6fVEG&VRÒçVÆÂbb6fVDföÆFW"ÒçVÆÂ’°¢W&’6fVEG&VUW&’ÒW&’ç'6R‡6fVEG&VR“°¢–b††5W'6—7FVE&VEw&—FTw&çB‡6fVEG&VUW&’’’°¢G'’°¢6öææV7DFVfVÇDfVVD–å6fVEG&VR‡–6¶W%Æ÷D–BÂ6fVEG&VUW&’“°¢Ò6F6‚„W†6WF–öâW'&÷"’°¢7G&–ær&V6öâÒW'&÷"ævWDÖW76vR‚’ÓÒçVÆÂò$G&—fRföÆFW"6÷VÆBæ÷B&R7&VFVB"¢W'&÷"ævWDÖW76vR‚“°¢V&Æ—6…7FGW2†Ö¶U7FGW2‚$W‡V7FVBvöövÆRG&—fRFƒ¢"²W‡V7FVDfVVEF„Æ&VÂ‡–6¶W%Æ÷D–B¢²"ÂföÆFW"7FGW3¢Væf–Æ&ÆR(	B"²&V6öâ’“°¢Ð¢&WGW&ã°¢Ð¢Ð¢Ð¢–çFVçB–çFVçBÒæWr–çFVçB„–çFVçBä5D”ôåôõTåôDô5TÔTåEõE$TR“°¢–çFVçBçWDW‡G&„–çFVçBäU…E$õD•DÄRÂ–6¶W$7&VFW4FVfVÇDfVV@¢ò%6VÆV7B&ö¦V7G2÷"w&÷uÆ÷Bf÷""²–6¶W$FVfVÇDföÆFW$æÖR¢$6†ö÷6RF†—2Æ÷Bw2–ÖvRfVVBföÆFW""“°¢–çFVçBæFDfÆw2„–çFVçBädÄuôu$åEõ$TEõU$•õU$Ô•54”ôà¢Â–çFVçBädÄuôu$åEõu$•DUõU$•õU$Ô•54”ôà¢Â–çFVçBädÄuôu$åEõU%4•5D$ÄUõU$•õU$Ô•54”ôâ“°¢G'’°¢7F'D7F—f—G”f÷%&W7VÇB†–çFVçBÂ$UTU5Eô”ÔtUôdôÄDU"“°¢Ò6F6‚„W†6WF–öâW'&÷"’°¢V&Æ—6…7FGW2†Ö¶U7FGW2‚%F†—2FWf–6RFöW2æ÷B&÷f–FRföÆFW"–6¶W"â6†ö÷6RF†RFFfVVBÆö6F–öâW6–ærF†R7—7FVÒf–ÆW2â"’“°¢Ð¢Ð ¢&—fFRfö–BÆöDÖ–åvR‚’°¢G'’„–çWE7G&VÒ–çWBÒvWD76WG2‚’æ÷Vâ‚&–æFW‚æ‡FÖÂ"“°¢'—FT'&”÷WGWE7G&VÒ÷WGWBÒæWr'—FT'&”÷WGWE7G&VÒ‚’’°¢'—FUµÒ'VffW"ÒæWr'—FU³ƒ“%Ó°¢–çB&VC°¢v†–ÆR‚‡&VBÒ–çWBç&VB†'VffW"’’ÒÓ’÷WGWBçw&—FR†'VffW"ÂÂ&VB“°¢7G&–ær‡FÖÂÒ÷WGWBçFõ7G&–ær…7FæF&D6†'6WG2åUDeó‚ææÖR‚’¢ç&WÆ6R‚'·´u$õuÄõEõdU%4”ôç×Ò"Â'b"²'V–ÆD6öæf–rådU%4”ôåôäÔR“°¢òò–æÆ–æRF†R6¶vVB5bVæv–æR6òvV%f–WræWfW"æVVG2FòfWF6‚ÆVbÖ7bæ§2à¢G'’„–çWE7G&VÒ7d–çWBÒvWD76WG2‚’æ÷Vâ‚&ÆVbÖ7bæ§2"“°¢'—FT'&”÷WGWE7G&VÒ7d÷WGWBÒæWr'—FT'&”÷WGWE7G&VÒ‚’’°¢'—FUµÒ7d'VffW"ÒæWr'—FU³ƒ“%Ó°¢–çB7e&VC°¢v†–ÆR‚†7e&VBÒ7d–çWBç&VB†7d'VffW"’’ÒÓ’7d÷WGWBçw&—FR†7d'VffW"ÂÂ7e&VB“°¢7G&–ær7e67&—BÒ7d÷WGWBçFõ7G&–ær…7FæF&D6†'6WG2åUDeó‚ææÖR‚’“°¢7G&–ær7eFrÒ#Ç67&—Câ"²7e67&—B²#Â÷67&—Câ#°¢–b†‡FÖÂæ6öçF–ç2‚#Âö†VCâ"’’‡FÖÂÒ‡FÖÂç&WÆ6R‚#Âö†VCâ"Â7eFr²#Âö†VCâ"“°¢VÇ6R–b†‡FÖÂæ6öçF–ç2‚#Âö&öG“â"’’‡FÖÂÒ‡FÖÂç&WÆ6R‚#Âö&öG“â"Â7eFr²#Âö&öG“â"“°¢VÇ6RF‡&÷ræWr–ÆÆVvÅ7FFTW†6WF–öâ‚$F6†&ö&B…DÔÂÖ—76–ær†VBö&öG’6Æ÷6–ærFr"“°¢Ð¢vV"æÆöDFFv—F„&6UU$Â‚&‡GG3¢òö76WG2ææG&ö–GÆFf÷&ÒææWBò"Â‡FÖÂÀ¢'FW‡Bö‡FÖÂ"Â%UDbÓ‚"ÂçVÆÂ“°¢Ò6F6‚„W†6WF–öâW'&÷"’°¢vV"æÆöDFF‚$w&÷uÆ÷B6÷VÆBæ÷BÆöB—G2F6†&ö&Bâ"Â'FW‡B÷Æ–â"Â%UDbÓ‚"“°¢Ð¢Ð ¢&—fFR7–æ6‡&öæ—¦VBfö–B66å6æ6†÷DföÆFW"‚’°¢66å6æ6†÷DföÆFW"†çVÆÂ“°¢Ð ¢&—fFR7–æ6‡&öæ—¦VBfö–B66å6æ6†÷DföÆFW"…7G&–ær&WVW7FVEÆ÷D–B’°¢–b†—4f–æ—6†–ær‚’’&WGW&ã°¢–b†G&—fUF…&W7F÷&UVæF–ær’&WGW&ã°¢–b‡66ä–å&öw&W72’°¢&W66å&WVW7FVBÒG'VS°¢&WGW&ã°¢Ð¢f–æÂ7G&–ærÆ÷D–BÒ6fUÆ÷D–B‡&WVW7FVEÆ÷D–BÓÒçVÆÀ¢òvWE&Vg2‚’ævWE7G&–ær…$Teô5D•dUõÄõEô”BÂDTdTÅEõÄõEô”B’¢&WVW7FVEÆ÷D–B“°¢7G&–ær6fVEG&VRÒvWE&Vg2‚’ævWE7G&–ær†fVVEG&VT¶W’‡Æ÷D–B’ÂçVÆÂ“°¢–b‡6fVEG&VRÓÒçVÆÂ’°¢¥4ôäö&¦V7B7FGW2ÒÖ¶U7FGW2‚$æòvöövÆRG&—fRföÆFW"—26öææV7FVBf÷"F†—2Æ÷BöâF†—2FWf–6RâF6öææV7BFòföÆFW"&÷fRFòw&çB66W72â"“°¢G'’²7FGW2çWB‚'Æ÷D–B"ÂÆ÷D–B“²Ò6F6‚„W†6WF–öâ–væ÷&VB’²Ð¢V&Æ—6…7FGW2‡7FGW2“°¢&WGW&ã°¢Ð¢f–æÂW&’G&VUW&’ÒW&’ç'6R‡6fVEG&VR“°¢66ä–å&öw&W72ÒG'VS°¢66åv÷&¶W"æW†V7WFR‚‚’Óâ°¢G'’°¢Æ—7CÄfVVDFö7VÖVçCâ–ÖvW2ÒæWr'&”Æ—7CÃâ‚“°¢7G&–ær&ö÷DFö7VÖVçD–BÒvWE&Vg2‚’ævWE7G&–ær†fVVDföÆFW$Fö7VÖVçD¶W’‡Æ÷D–B’ÂçVÆÂ“°¢–b‡&ö÷DFö7VÖVçD–BÓÒçVÆÂÇÂ&ö÷DFö7VÖVçD–Bæ—4V×G’‚’’&ö÷DFö7VÖVçD–BÒFö7VÖVçG46öçG&7BævWEG&VTFö7VÖVçD–B‡G&VUW&’“°¢–ÖvW2æFDÆÂ‡VW'”–ÖvTfVVDföÆFW"‡G&VUW&’Â&ö÷DFö7VÖVçD–B’“°¢66å6VÆV7FVD–ÖvW2†–ÖvW2ÂG'VRÂÆ÷D–B“°¢Ò6F6‚„W†6WF–öâW'&÷"’°¢7G&–ærÖW76vRÒG&VUW&’ÒçVÆÀ¢ò$6÷VÆBæ÷B66âF†—2Æ÷Bw2FFfVVBâF6öææV7BFòföÆFW"&÷fRæBw&çB66W72v–ââ ¢¢$6÷VÆBæ÷B&VBF†R&Wf–÷W6Ç’6VÆV7FVB†÷F÷2âF6öææV7BFòföÆFW"&÷fRæB6†ö÷6RF†RFFfVVBföÆFW"â#°¢¥4ôäö&¦V7B7FGW2ÒÖ¶U7FGW2†ÖW76vR“°¢G'’²7FGW2çWB‚&W'&÷""ÂW'&÷"ævWD6Æ72‚’ævWE6–×ÆTæÖR‚’“²7FGW2çWB‚'Æ÷D–B"ÂÆ÷D–B“²Ò6F6‚„W†6WF–öâ–væ÷&VB’²Ð¢V&Æ—6…7FGW2‡7FGW2“°¢Òf–æÆÇ’°¢66ä–å&öw&W72ÒfÇ6S°¢–b‡&W66å&WVW7FVBbb—4f–æ—6†–ær‚’’°¢&W66å&WVW7FVBÒfÇ6S°¢Ö–ä†æFÆW"ç÷7B„Ö–ä7F—f—G’çF†—3£§66å6æ6†÷DföÆFW"“°¢Ð¢Ð¢Ò“°¢Ð ¢&—fFRÆ—7CÄfVVDFö7VÖVçCâVW'”–ÖvTfVVDföÆFW"…W&’G&VUW&’Â7G&–ær&ö÷DFö7VÖVçD–B’F‡&÷w2W†6WF–öâ°¢Æ—7CÄfVVDFö7VÖVçCâ–ÖvW2ÒæWr'&”Æ—7CÃâ‚“°¢6WCÅ7G&–æsâf—6—FVBÒæWr†6…6WCÃâ‚“°¢6öÆÆV7D–ÖvTfVVDFö7VÖVçG2‡G&VUW&’Â&ö÷DFö7VÖVçD–BÂ–ÖvW2Âf—6—FVBÂÂ“°¢&WGW&â–ÖvW3°¢Ð ¢&—fFRfö–B6öÆÆV7D–ÖvTfVVDFö7VÖVçG2…W&’G&VUW&’Â7G&–ær&VçDFö7VÖVçD–BÀ¢Æ—7CÄfVVDFö7VÖVçCâ–ÖvW2Â6WCÅ7G&–æsâf—6—FVBÀ¢–çBFWF‚Â–çB–æ†W&—FVD6ÖW&’F‡&÷w2W†6WF–öâ°¢–b†FWF‚âbÇÂ–ÖvW2ç6—¦R‚’ãÒÔ…ôdTTEôd”ÄU2ÇÂf—6—FVBæFB‡&VçDFö7VÖVçD–B’’&WGW&ã°¢W&’6†–ÆG&VåW&’ÒFö7VÖVçG46öçG&7Bæ'V–ÆD6†–ÆDFö7VÖVçG5W&•W6–æuG&VR‡G&VUW&’Â&VçDFö7VÖVçD–B“°¢7G&–æuµÒ6öÇVÖç2Ò´Fö7VÖVçG46öçG&7BäFö7VÖVçBä4ôÅTÔåôDô5TÔTåEô”BÀ¢Fö7VÖVçG46öçG&7BäFö7VÖVçBä4ôÅTÔåôD•5Ä•ôäÔRÀ¢Fö7VÖVçG46öçG&7BäFö7VÖVçBä4ôÅTÔåôÔ”ÔUõE•WÓ°¢G'’„7W'6÷"7W'6÷"ÒvWD6öçFVçE&W6öÇfW"‚’çVW'’†6†–ÆG&VåW&’Â6öÇVÖç2ÂçVÆÂÂçVÆÂÂçVÆÂ’’°¢–b†7W'6÷"ÓÒçVÆÂ’F‡&÷ræWr–ÆÆVvÅ7FFTW†6WF–öâ‚'6VÆV7FVBfVVBföÆFW"Æ—7F–ærVæf–Æ&ÆR"“°¢–çB–D6öÇVÖâÒ7W'6÷"ævWD6öÇVÖä–æFW‚„Fö7VÖVçG46öçG&7BäFö7VÖVçBä4ôÅTÔåôDô5TÔTåEô”B“°¢–çBæÖT6öÇVÖâÒ7W'6÷"ævWD6öÇVÖä–æFW‚„Fö7VÖVçG46öçG&7BäFö7VÖVçBä4ôÅTÔåôD•5Ä•ôäÔR“°¢–çBÖ–ÖT6öÇVÖâÒ7W'6÷"ævWD6öÇVÖä–æFW‚„Fö7VÖVçG46öçG&7BäFö7VÖVçBä4ôÅTÔåôÔ”ÔUõE•R“°¢–b†–D6öÇVÖâÂÇÂæÖT6öÇVÖâÂ’F‡&÷ræWr–ÆÆVvÅ7FFTW†6WF–öâ‚$föÆFW"&÷f–FW"öÖ—GFVBFö7VÖVçBæÖW2"“°¢v†–ÆR†7W'6÷"æÖ÷fUFôæW‡B‚’bb–ÖvW2ç6—¦R‚’ÂÔ…ôdTTEôd”ÄU2’°¢7G&–ærFö7VÖVçD–BÒ7W'6÷"ævWE7G&–ær†–D6öÇVÖâ“°¢7G&–æræÖRÒ7W'6÷"ævWE7G&–ær†æÖT6öÇVÖâ“°¢7G&–ærÖ–ÖRÒÖ–ÖT6öÇVÖâÂÇÂ7W'6÷"æ—4çVÆÂ†Ö–ÖT6öÇVÖâ’ò""¢7W'6÷"ævWE7G&–ær†Ö–ÖT6öÇVÖâ“°¢–b†Fö7VÖVçD–BÓÒçVÆÂÇÂæÖRÓÒçVÆÂ’6öçF–çVS°¢–çBföÆFW$6ÖW&Ò6ÖW&çVÖ&W"†æÖR“°¢–b†föÆFW$6ÖW&ÓÒ’föÆFW$6ÖW&ÒVG&çDçVÖ&W"†æÖR“°¢–b†föÆFW$6ÖW&ÓÒ’föÆFW$6ÖW&Ò6ÖW&föÆFW$çVÖ&W"†æÖR“°¢–çB6ÖW&†–çBÒföÆFW$6ÖW&âòföÆFW$6ÖW&¢–æ†W&—FVD6ÖW&°¢–b„Fö7VÖVçG46öçG&7BäFö7VÖVçBäÔ”ÔUõE•UôD•"æWVÇ2†Ö–ÖR’’°¢6öÆÆV7D–ÖvTfVVDFö7VÖVçG2‡G&VUW&’ÂFö7VÖVçD–BÂ–ÖvW2Âf—6—FVBÂFWF‚²Â6ÖW&†–çB“°¢ÒVÇ6R–b‚&–ÖvRö§Vr"æWVÇ4–væ÷&T66R†Ö–ÖR¢ÇÂæÖRçFôÆ÷vW$66R„Æö6ÆRåU2’æVæG5v—F‚‚"æ§r"¢ÇÂæÖRçFôÆ÷vW$66R„Æö6ÆRåU2’æVæG5v—F‚‚"æ§Vr"’’°¢–ÖvW2æFB†æWrfVVDFö7VÖVçB„Fö7VÖVçG46öçG&7Bæ'V–ÆDFö7VÖVçEW&•W6–æuG&VR‡G&VUW&’ÂFö7VÖVçD–B’ÂæÖRÂ6ÖW&†–çB’“°¢Ð¢Ð¢Ð¢Ð ¢&—fFR–çBVG&çDçVÖ&W"…7G&–æræÖR’°¢ÖF6†W"ÖF6†W"Ò4ÔU$ôÄ$TÂæÖF6†W"†æÖRÓÒçVÆÂò""¢æÖR“°¢–b‚ÖF6†W"æf–æB‚’’&WGW&â°¢G'’²&WGW&â–çFVvW"ç'6T–çB†ÖF6†W"æw&÷Wƒ’“²Ò6F6‚„çVÖ&W$f÷&ÖDW†6WF–öâ–væ÷&VB’²&WGW&â²Ð¢Ð ¢&—fFR–çB6ÖW&föÆFW$çVÖ&W"…7G&–æræÖR’°¢&WGW&âVG&çDçVÖ&W"†æÖR“°¢Ð ¢&—fFR7G&–ærvWDFö7VÖVçDæÖR…W&’W&’’°¢G'’„7W'6÷"7W'6÷"ÒvWD6öçFVçE&W6öÇfW"‚’çVW'’‡W&’À¢æWr7G&–æuµ×´Fö7VÖVçG46öçG&7BäFö7VÖVçBä4ôÅTÔåôD•5Ä•ôäÔWÒÂçVÆÂÂçVÆÂÂçVÆÂ’’°¢–b†7W'6÷"ÒçVÆÂbb7W'6÷"æÖ÷fUFôf—'7B‚’’°¢–çB6öÇVÖâÒ7W'6÷"ævWD6öÇVÖä–æFW‚„Fö7VÖVçG46öçG&7BäFö7VÖVçBä4ôÅTÔåôD•5Ä•ôäÔR“°¢–b†6öÇVÖâãÒbb7W'6÷"æ—4çVÆÂ†6öÇVÖâ’’&WGW&â7W'6÷"ævWE7G&–ær†6öÇVÖâ“°¢Ð¢Ò6F6‚„W†6WF–öâ–væ÷&VB’²Ð¢&WGW&â%6VÆV7FVBföÆFW"#°¢Ð ¢&—fFR7G&–ærvWE7F÷&vTÆ&VÂ…W&’W&’’°¢7G&–ærWF†÷&—G’ÒW&’ÓÒçVÆÂò""¢W&’ævWDWF†÷&—G’‚“°¢–b†WF†÷&—G’ÓÒçVÆÂ’&WGW&â%7F÷&vR#°¢7G&–æræ÷&ÖÆ—¦VBÒWF†÷&—G’çFôÆ÷vW$66R„Æö6ÆRå$ôõB“°¢–b†æ÷&ÖÆ—¦VBæ6öçF–ç2‚&vöövÆRææG&ö–Bæ2æFö72"’’&WGW&â$vöövÆRG&—fR#°¢–b†æ÷&ÖÆ—¦VBæ6öçF–ç2‚&W‡FW&æÇ7F÷&vR"’’&WGW&â$FWf–6R7F÷&vR#°¢–b†æ÷&ÖÆ—¦VBæ6öçF–ç2‚&F÷væÆöG2"’’&WGW&â$F÷væÆöG2#°¢&WGW&âWF†÷&—G’ç&WÆ6R‚"æFö7VÖVçG2"Â""’ç&WÆ6R‚&6öÒææG&ö–Bç&÷f–FW'2â"Â""“°¢Ð ¢&—fFR&ööÆVâ†4Æö6F–öåW&Ö—76–öâ‚’°¢–b„'V–ÆBådU%4”ôâå4Dµô”åBÂ'V–ÆBådU%4”ôåô4ôDU2äÒ’&WGW&âG'VS°¢&WGW&â6†V6µ6VÆeW&Ö—76–öâ„Öæ–fW7BçW&Ö—76–öâä44U55ôd”äUôÄô4D”ôâ’ÓÒ6¶vTÖævW"åU$Ô•54”ôåôu$åDT@¢ÇÂ6†V6µ6VÆeW&Ö—76–öâ„Öæ–fW7BçW&Ö—76–öâä44U55ô4ô%4UôÄô4D”ôâ’ÓÒ6¶vTÖævW"åU$Ô•54”ôåôu$åDTC°¢Ð ¢&—fFRfö–B&WVW7DFWf–6TÆö6F–öåW&Ö—76–öâ…7G&–ærÆ÷D–B’°¢–b†—4f–æ—6†–ær‚’’&WGW&ã°¢Æö6F–öåW&Ö—76–öåÆ÷D–BÒÆ÷D–C°¢–b††4Æö6F–öåW&Ö—76–öâ‚’’°¢&WVW7DFWf–6TÆö6F–öäf÷%Æ÷B‡Æ÷D–B“°¢&WGW&ã°¢Ð¢–b„'V–ÆBådU%4”ôâå4Dµô”åBãÒ'V–ÆBådU%4”ôåô4ôDU2äÒ’°¢–b†Æö6F–öåW&Ö—76–öå&WVW7D–äfÆ–v‡B’&WGW&ã°¢Æö6F–öåW&Ö—76–öå&WVW7D–äfÆ–v‡BÒG'VS°¢&WVW7EW&Ö—76–öç2†æWr7G&–æuµ×´Öæ–fW7BçW&Ö—76–öâä44U55ôd”äUôÄô4D”ôâÀ¢Öæ–fW7BçW&Ö—76–öâä44U55ô4ô%4UôÄô4D”ôçÒÂ$UTU5EôDUd”4UôÄô4D”ôâ“°¢ÒVÇ6R6VæDFWf–6TÆö6F–öâ‡Æ÷D–BÂçVÆÂÂ$FWf–6RÆö6F–öâ—2Væf–Æ&ÆRâ"“°¢Ð ¢&—fFRfö–B&WVW7DFWf–6TÆö6F–öäf÷%Æ÷B…7G&–ærÆ÷D–B’°¢–b†Æö6F–öå&WVW7D–äfÆ–v‡B’°¢Æö6F–öäÆöö·WÆ÷D–BÒÆ÷D–C°¢&WGW&ã°¢Ð¢Æö6F–öå&WVW7D–äfÆ–v‡BÒG'VS°¢Æö6F–öäÆöö·WÆ÷D–BÒÆ÷D–C°¢Æö6F–öäÖævW"ÖævW"Ò„Æö6F–öäÖævW"’vWE7—7FVÕ6W'f–6R„Äô4D”ôåõ4U%d”4R“°¢–b†ÖævW"ÓÒçVÆÂ’°¢Æö6F–öå&WVW7D–äfÆ–v‡BÒfÇ6S°¢6VæDFWf–6TÆö6F–öâ‡Æ÷D–BÂçVÆÂÂ$FWf–6RÆö6F–öâ—2Væf–Æ&ÆRâ"“°¢&WGW&ã°¢Ð¢G'’°¢Æö6F–öâ66†VBÒçVÆÃ°¢f÷"…7G&–ær&÷f–FW"¢æWr7G&–æuµ×´Æö6F–öäÖævW"ääUEtõ$µõ$õd”DU"À¢Æö6F–öäÖævW"äu5õ$õd”DU"ÂÆö6F–öäÖævW"å54•dUõ$õd”DU'Ò’°¢G'’°¢Æö6F–öâ6æF–FFRÒÖævW"ævWDÆ7D¶æ÷väÆö6F–öâ‡&÷f–FW"“°¢–b†6æF–FFRÒçVÆÂbb†66†VBÓÒçVÆÂÇÂ6æF–FFRævWEF–ÖR‚’â66†VBævWEF–ÖR‚’’’66†VBÒ6æF–FFS°¢Ò6F6‚…6V7W&—G”W†6WF–öâÂ–ÆÆVvÄ&wVÖVçDW†6WF–öâ–væ÷&VB’²Ð¢Ð¢–b†66†VBÒçVÆÂbb7—7FVÒæ7W'&VçEF–ÖTÖ–ÆÆ—2‚’Ò66†VBævWEF–ÖR‚’ÃÒ¢cóÂ’°¢Æö6F–öå&WVW7D–äfÆ–v‡BÒfÇ6S°¢6VæDFWf–6TÆö6F–öâ‡Æ÷D–BÂ66†VBÂ""“°¢&WGW&ã°¢Ð¢Æö6F–öäÆ—7FVæW"ÒæWrÆö6F–öäÆ—7FVæW"‚’°¢÷fW'&–FRV&Æ–2fö–BöäÆö6F–öä6†ævVB„Æö6F–öâÆö6F–öâ’°¢Æö6F–öäÆ—7FVæW"Æ—7FVæW"ÒÆö6F–öäÆ—7FVæW#°¢Æö6F–öäÆ—7FVæW"ÒçVÆÃ°¢–b†Æ—7FVæW"ÒçVÆÂ’ÖævW"ç&VÖ÷fUWFFW2†Æ—7FVæW"“°¢Æö6F–öå&WVW7D–äfÆ–v‡BÒfÇ6S°¢6VæDFWf–6TÆö6F–öâ†Æö6F–öäÆöö·WÆ÷D–BÂÆö6F–öâÂ""“°¢Ð¢÷fW'&–FRV&Æ–2fö–Böå7FGW46†ævVB…7G&–ær&÷f–FW"Â–çB7FGW2ÂæG&ö–Bæ÷2ä'VæFÆRW‡G&2’²Ð¢÷fW'&–FRV&Æ–2fö–Böå&÷f–FW$Væ&ÆVB…7G&–ær&÷f–FW"’²Ð¢÷fW'&–FRV&Æ–2fö–Böå&÷f–FW$F—6&ÆVB…7G&–ær&÷f–FW"’²Ð¢Ó°¢&ööÆVâ&WVW7FVBÒfÇ6S°¢f÷"…7G&–ær&÷f–FW"¢æWr7G&–æuµ×´Æö6F–öäÖævW"ääUEtõ$µõ$õd”DU"ÂÆö6F–öäÖævW"äu5õ$õd”DU'Ò’°¢G'’°¢–b†ÖævW"æ—5&÷f–FW$Væ&ÆVB‡&÷f–FW"’’°¢ÖævW"ç&WVW7E6–ævÆUWFFR‡&÷f–FW"ÂÆö6F–öäÆ—7FVæW"ÂÆö÷W"ævWDÖ–äÆö÷W"‚’“°¢&WVW7FVBÒG'VS°¢Ð¢Ò6F6‚…6V7W&—G”W†6WF–öâÂ–ÆÆVvÄ&wVÖVçDW†6WF–öâ–væ÷&VB’²Ð¢Ð¢f–æÂÆö6F–öâfÆÆ&6´Æö6F–öâÒ66†VC°¢–b‚&WVW7FVB’f–æ—6„FWf–6TÆö6F–öäÆöö·W†ÖævW"ÂfÆÆ&6´Æö6F–öâ“°¢VÇ6RÖ–ä†æFÆW"ç÷7DFVÆ–VB‚‚’Óâf–æ—6„FWf–6TÆö6F–öäÆöö·W†ÖævW"ÂfÆÆ&6´Æö6F–öâ’ÂUóÂ“°¢Ò6F6‚…6V7W&—G”W†6WF–öâW'&÷"’°¢Æö6F–öå&WVW7D–äfÆ–v‡BÒfÇ6S°¢6VæDFWf–6TÆö6F–öâ‡Æ÷D–BÂçVÆÂÂ$ÆÆ÷rÆö6F–öâ66W72Fò6VçFW"F†RÖöâF†—2FWf–6Râ"“°¢Ð¢Ð ¢&—fFRfö–Bf–æ—6„FWf–6TÆö6F–öäÆöö·W„Æö6F–öäÖævW"ÖævW"ÂÆö6F–öâfÆÆ&6²’°¢–b‚Æö6F–öå&WVW7D–äfÆ–v‡B’&WGW&ã°¢Æö6F–öäÆ—7FVæW"Æ—7FVæW"ÒÆö6F–öäÆ—7FVæW#°¢Æö6F–öäÆ—7FVæW"ÒçVÆÃ°¢–b†Æ—7FVæW"ÒçVÆÂ’ÖævW"ç&VÖ÷fUWFFW2†Æ—7FVæW"“°¢Æö6F–öå&WVW7D–äfÆ–v‡BÒfÇ6S°¢6VæDFWf–6TÆö6F–öâ†Æö6F–öäÆöö·WÆ÷D–BÂfÆÆ&6²À¢fÆÆ&6²ÓÒçVÆÂò$6÷VÆBæ÷B&VBF†RFWf–6RÆö6F–öââGW&âöâÆö6F–öâ÷"VçFW"F†RÆ÷BFG&W72â"¢""“°¢Ð ¢&—fFRfö–B6VæDFWf–6TÆö6F–öâ…7G&–ærÆ÷D–BÂÆö6F–öâÆö6F–öâÂ7G&–ærÖW76vR’°¢¥4ôäö&¦V7B&W7VÇBÒæWr¥4ôäö&¦V7B‚“°¢G'’°¢&W7VÇBçWB‚'Æ÷D–B"Â6fUÆ÷D–B‡Æ÷D–B’“°¢&W7VÇBçWB‚&f÷VæB"ÂÆö6F–öâÒçVÆÂ“°¢&W7VÇBçWB‚&ÖW76vR"ÂÖW76vRÓÒçVÆÂò""¢ÖW76vR“°¢–b†Æö6F–öâÒçVÆÂ’°¢&W7VÇBçWB‚&ÆF—GVFR"ÂÆö6F–öâævWDÆF—GVFR‚’“°¢&W7VÇBçWB‚&Æöæv—GVFR"ÂÆö6F–öâævWDÆöæv—GVFR‚’“°¢Ð¢Ò6F6‚„W†6WF–öâ–væ÷&VB’²Ð¢7G&–ær§6öâÒ&W7VÇBçFõ7G&–ær‚“°¢'VäöåV•F‡&VB‚‚’Óâ°¢–b‡vV"ÒçVÆÂ’vV"æWfÇVFT¦f67&—B‚'v–æF÷ræöäFWf–6TÆö6F–öäf–Æ&ÆRbbv–æF÷ræöäFWf–6TÆö6F–öäf–Æ&ÆR‚"²§6öâ²"“²"ÂçVÆÂ“°¢Ò“°¢Ð ¢&—fFRfö–Bæ÷F–g”fVVE6WGF–æw56fVB…7G&–ærÆ÷D–BÂ7G&–ærÆö6F–öäÆ&VÂ’°¢¥4ôäö&¦V7B&W7VÇBÒæWr¥4ôäö&¦V7B‚“°¢G'’°¢&W7VÇBçWB‚'Æ÷D–B"Â6fUÆ÷D–B‡Æ÷D–B’“°¢&W7VÇBçWB‚'F‚"ÂÆö6F–öäÆ&VÂÓÒçVÆÂò""¢Æö6F–öäÆ&VÂ“°¢&W7VÇBçWB‚'6fVB"ÂG'VR“°¢Ò6F6‚„W†6WF–öâ–væ÷&VB’²Ð¢7G&–ær§6öâÒ&W7VÇBçFõ7G&–ær‚“°¢'VäöåV•F‡&VB‚‚’Óâ°¢–b‡vV"ÒçVÆÂ’vV"æWfÇVFT¦f67&—B‚'v–æF÷ræöäfVVE6WGF–æw56fVBbbv–æF÷ræöäfVVE6WGF–æw56fVB‚"²§6öâ²"“²"ÂçVÆÂ“°¢Ò“°¢Ð ¢&—fFRfö–B6VæDFG&W74vVö6öFR…7G&–ærÆ÷D–BÂ7G&–ærVW'’ÂFG&W72FG&W72’°¢¥4ôäö&¦V7B&W7VÇBÒæWr¥4ôäö&¦V7B‚“°¢G'’°¢&W7VÇBçWB‚'Æ÷D–B"ÂÆ÷D–B“°¢&W7VÇBçWB‚'VW'’"ÂVW'’“°¢&W7VÇBçWB‚&f÷VæB"ÂFG&W72ÒçVÆÂbbFG&W72æ†4ÆF—GVFR‚’bbFG&W72æ†4Æöæv—GVFR‚’“°¢–b†FG&W72ÒçVÆÂbbFG&W72æ†4ÆF—GVFR‚’bbFG&W72æ†4Æöæv—GVFR‚’’°¢&W7VÇBçWB‚&ÆF—GVFR"ÂFG&W72ævWDÆF—GVFR‚’“°¢&W7VÇBçWB‚&Æöæv—GVFR"ÂFG&W72ævWDÆöæv—GVFR‚’“°¢&W7VÇBçWB‚&Æ&VÂ"ÂFG&W72ævWDFG&W74Æ–æRƒ’ÓÒçVÆÂòVW'’¢FG&W72ævWDFG&W74Æ–æRƒ’“°¢Ð¢Ò6F6‚„W†6WF–öâ–væ÷&VB’²Ð¢7G&–ær§6öâÒ&W7VÇBçFõ7G&–ær‚“°¢'VäöåV•F‡&VB‚‚’Óâ°¢–b‡vV"ÒçVÆÂ’vV"æWfÇVFT¦f67&—B‚'v–æF÷ræöåÆ÷DFG&W74vVö6öFVBbbv–æF÷ræöåÆ÷DFG&W74vVö6öFVB‚"²§6öâ²"“²"ÂçVÆÂ“°¢Ò“°¢Ð ¢&—fFR7G&–ærvWDFö7VÖVçEF„Æ&VÂ…W&’G&VUW&’Â7G&–ærFö7VÖVçD–B’°¢7G&–ær&÷f–FW"ÒvWE7F÷&vTÆ&VÂ‡G&VUW&’“°¢Æ—7CÅ7G&–æsâæÖW2ÒæWr'&”Æ—7CÃâ‚“°¢–b„'V–ÆBådU%4”ôâå4Dµô”åBãÒ#b’°¢G'’°¢W&’Fö7VÖVçEW&’ÒFö7VÖVçG46öçG&7Bæ'V–ÆDFö7VÖVçEW&•W6–æuG&VR‡G&VUW&’ÂFö7VÖVçD–B“°¢Fö7VÖVçG46öçG&7BåF‚F‚ÒFö7VÖVçG46öçG&7Bæf–æDFö7VÖVçEF‚†vWD6öçFVçE&W6öÇfW"‚’ÂFö7VÖVçEW&’“°¢–b‡F‚ÒçVÆÂbbF‚ævWEF‚‚’ÒçVÆÂ’°¢f÷"…7G&–ær–B¢F‚ævWEF‚‚’’°¢7G&–æræÖRÒvWDFö7VÖVçDæÖR„Fö7VÖVçG46öçG&7Bæ'V–ÆDFö7VÖVçEW&•W6–æuG&VR‡G&VUW&’Â–B’“°¢–b†æÖRÒçVÆÂbbæÖRæ—4V×G’‚’bb%6VÆV7FVBföÆFW""æWVÇ2†æÖR’’æÖW2æFB†æÖR“°¢Ð¢Ð¢Ò6F6‚„W†6WF–öâ–væ÷&VB’²Ð¢Ð¢–b†æÖW2æ—4V×G’‚’’°¢7G&–ær&ö÷DæÖRÒvWDFö7VÖVçDæÖR‡G&VUW&’“°¢–b‚$vöövÆRG&—fR"æWVÇ2‡&÷f–FW"’’°¢–b‚$w&÷uÆ÷B"æWVÇ4–væ÷&T66R‡&ö÷DæÖR’’°¢æÖW2æFB‚$×’G&—fR"“²æÖW2æFB‚%&ö¦V7G2"“²æÖW2æFB‡&ö÷DæÖR“°¢ÒVÇ6R°¢æÖW2æFB‚$×’G&—fR"“²æÖW2æFB‡&ö÷DæÖR“°¢Ð¢ÒVÇ6RæÖW2æFB‡&ö÷DæÖR“°¢Ð¢7G&–æt'V–ÆFW"F‚ÒæWr7G&–æt'V–ÆFW"‚“°¢f÷"…7G&–æræÖR¢æÖW2’F‚æVæB‚ròr’æVæB†æÖR“°¢–b‡F‚æÆVæwF‚‚’ÓÒ’F‚æVæB‚ròr’æVæB†vWDFö7VÖVçDæÖR‡G&VUW&’’“°¢&WGW&â$vöövÆRG&—fR"æWVÇ2‡&÷f–FW"’ò$vöövÆRG&—fS¢"²F‚¢&÷f–FW"²#¢"²Fƒ°¢Ð ¢&—fFR7G&–ærf–æD÷$7&VFT6†–ÆDföÆFW"…W&’G&VUW&’Â7G&–ær&VçDFö7VÖVçD–BÂ7G&–ærföÆFW$æÖR’F‡&÷w2W†6WF–öâ°¢W&’6†–ÆG&VåW&’ÒFö7VÖVçG46öçG&7Bæ'V–ÆD6†–ÆDFö7VÖVçG5W&•W6–æuG&VR‡G&VUW&’Â&VçDFö7VÖVçD–B“°¢7G&–æuµÒ6öÇVÖç2Ò´Fö7VÖVçG46öçG&7BäFö7VÖVçBä4ôÅTÔåôDô5TÔTåEô”BÀ¢Fö7VÖVçG46öçG&7BäFö7VÖVçBä4ôÅTÔåôD•5Ä•ôäÔRÀ¢Fö7VÖVçG46öçG&7BäFö7VÖVçBä4ôÅTÔåôÔ”ÔUõE•WÓ°¢G'’„7W'6÷"7W'6÷"ÒvWD6öçFVçE&W6öÇfW"‚’çVW'’†6†–ÆG&VåW&’Â6öÇVÖç2ÂçVÆÂÂçVÆÂÂçVÆÂ’’°¢–b†7W'6÷"ÓÒçVÆÂ’F‡&÷ræWr–ÆÆVvÅ7FFTW†6WF–öâ‚$föÆFW"&÷f–FW"6ææ÷BÆ—7BF†—2Æö6F–öâ"“°¢–çB–D6öÇVÖâÒ7W'6÷"ævWD6öÇVÖä–æFW‚„Fö7VÖVçG46öçG&7BäFö7VÖVçBä4ôÅTÔåôDô5TÔTåEô”B“°¢–çBæÖT6öÇVÖâÒ7W'6÷"ævWD6öÇVÖä–æFW‚„Fö7VÖVçG46öçG&7BäFö7VÖVçBä4ôÅTÔåôD•5Ä•ôäÔR“°¢–çBÖ–ÖT6öÇVÖâÒ7W'6÷"ævWD6öÇVÖä–æFW‚„Fö7VÖVçG46öçG&7BäFö7VÖVçBä4ôÅTÔåôÔ”ÔUõE•R“°¢v†–ÆR†7W'6÷"æÖ÷fUFôæW‡B‚’’°¢–b†–D6öÇVÖâÂÇÂæÖT6öÇVÖâÂÇÂÖ–ÖT6öÇVÖâÂ’6öçF–çVS°¢–b†föÆFW$æÖRæWVÇ2†7W'6÷"ævWE7G&–ær†æÖT6öÇVÖâ’¢bbFö7VÖVçG46öçG&7BäFö7VÖVçBäÔ”ÔUõE•UôD•"æWVÇ2†7W'6÷"ævWE7G&–ær†Ö–ÖT6öÇVÖâ’’’°¢&WGW&â7W'6÷"ævWE7G&–ær†–D6öÇVÖâ“°¢Ð¢Ð¢Ð¢W&’&VçEW&’ÒFö7VÖVçG46öçG&7Bæ'V–ÆDFö7VÖVçEW&•W6–æuG&VR‡G&VUW&’Â&VçDFö7VÖVçD–B“°¢W&’7&VFVBÒFö7VÖVçG46öçG&7Bæ7&VFTFö7VÖVçB†vWD6öçFVçE&W6öÇfW"‚’Â&VçEW&’À¢Fö7VÖVçG46öçG&7BäFö7VÖVçBäÔ”ÔUõE•UôD•"ÂföÆFW$æÖR“°¢–b†7&VFVBÓÒçVÆÂ’F‡&÷ræWr–ÆÆVvÅ7FFTW†6WF–öâ‚$föÆFW"&÷f–FW"&VgW6VBFò7&VFR"²föÆFW$æÖR“°¢&WGW&âFö7VÖVçG46öçG&7BævWDFö7VÖVçD–B†7&VFVB“°¢Ð ¢&—fFR7G&–ær6fTföÆFW$æÖR…7G&–ærfÇVR’°¢7G&–ær6fRÒfÇVRÓÒçVÆÂò""¢fÇVRçG&–Ò‚’ç&WÆ6TÆÂ‚%µäÕ¦×£Ó•òÕÒ²"Â%ò"“°¢&WGW&â6fRæ—4V×G’‚’ò#"¢6fRç7V'7G&–ærƒÂÖF‚æÖ–âƒ3"Â6fRæÆVæwF‚‚’’“°¢Ð ¢&—fFR7G&–ær6fUÆ÷D–B…7G&–ærÆ÷D–B’°¢&WGW&âÆ÷D–BÒçVÆÂbbÆ÷D–BæÖF6†W2‚%´Õ¦×£Ó•òÕ×³ÃcGÒ"’òÆ÷D–B¢DTdTÅEõÄõEô”C°¢Ð ¢&—fFR7G&–ær7W'&VçDfVVEW6W$¶W’‚’°¢6öÒævöövÆRæf—&V&6RæWF‚äf—&V&6UW6W"W6W"Ð¢6öÒævöövÆRæf—&V&6RæWF‚äf—&V&6TWF‚ævWD–ç7Fæ6R‚’ævWD7W'&VçEW6W"‚“°¢&WGW&âW6W"ÓÒçVÆÂò'6–væVEö÷WB"¢W6W"ævWEV–B‚’ç&WÆ6TÆÂ‚%µäÕ¦×£Ó•òÕÒ"Â%ò"“°¢Ð ¢&—fFRf–ÆRW6W%Æ÷DF—&V7F÷'’…7G&–ær&ö÷BÂ7G&–ærÆ÷D–B’°¢&WGW&âæWrf–ÆR†æWrf–ÆR†æWrf–ÆR†vWDf–ÆW4F—"‚’Â&ö÷B’Â7W'&VçDfVVEW6W$¶W’‚’’Â6fUÆ÷D–B‡Æ÷D–B’“°¢Ð ¢&—fFR7G&–ærfVVEG&VT¶W’…7G&–ærÆ÷D–B’²&WGW&â&FFöfVVE÷G&VU÷W&•ò"²7W'&VçDfVVEW6W$¶W’‚’²%ò"²6fUÆ÷D–B‡Æ÷D–B“²Ð ¢&—fFR7G&–ærfVVDföÆFW$Fö7VÖVçD¶W’…7G&–ærÆ÷D–B’²&WGW&â&FFöfVVEöföÆFW%öFö7VÖVçEò"²7W'&VçDfVVEW6W$¶W’‚’²%ò"²6fUÆ÷D–B‡Æ÷D–B“²Ð ¢&—fFR7G&–ærfVVDÆö6F–öä¶W’…7G&–ærÆ÷D–B’²&WGW&â&FFöfVVEöÆö6F–öåöÆ&VÅò"²7W'&VçDfVVEW6W$¶W’‚’²%ò"²6fUÆ÷D–B‡Æ÷D–B“²Ð ¢&—fFR7G&–ærW‡V7FVDfVVEF„Æ&VÂ…7G&–ærÆ÷D–B’°¢7G&–ærW6W$föÆFW#°¢G'’²W6W$föÆFW"Ò6–væVD–äVÖ–ÄföÆFW$æÖR‚“²Ð¢6F6‚„W†6WF–öâW'&÷"’²&WGW&â$vöövÆRG&—fS¢õ&ö¦V7G2ôw&÷uÆ÷Bô–ÖvUôfVVBóÇ6–væVBÖ–â×W6W#âóÇÆ÷Câ#²Ð¢7G&–ærÆ÷BÒ6fTföÆFW$æÖR‡–6¶W$FVfVÇDföÆFW$æÖR“°¢&WGW&â$vöövÆRG&—fS¢õ&ö¦V7G2ôw&÷uÆ÷Bô–ÖvUôfVVBò"²W6W$föÆFW"²"ò"²Æ÷C°¢Ð ¢&—fFR7G&–ærfVVDÆö6F–öäÆ&VÂ…7G&–ærÆ÷D–B’°¢7G&–ær–BÒ6fUÆ÷D–B‡Æ÷D–B“°¢7G&–ærÆ&VÂÒvWE&Vg2‚’ævWE7G&–ær†fVVDÆö6F–öä¶W’†–B’Â""“°¢–b†Æ&VÂÒçVÆÂbbÆ&VÂæ6öçF–ç2‚#¢ò"’’&WGW&âÆ&VÃ°¢–b‡–6¶W$7&VFW4FVfVÇDfVVBbb–BæWVÇ2‡6fUÆ÷D–B‡–6¶W%Æ÷D–B’’¢&WGW&âW‡V7FVDfVVEF„Æ&VÂ†–B“°¢–b†Æ&VÂÒçVÆÂbbÆ&VÂæ—4V×G’‚’’°¢–b†Æ&VÂç7F'G5v—F‚‚$vöövÆRG&—fRò"’’°¢7G&–ær7Vff—‚ÒÆ&VÂç7V'7G&–ær‚$vöövÆRG&—fRò"æÆVæwF‚‚’“°¢&WGW&â$vöövÆRG&—fS¢ò"²7Vff—ƒ°¢Ð¢–çB6W&F÷"ÒÆ&VÂæ–æFW„öb‚ròr“°¢–b‡6W&F÷"â’&WGW&âÆ&VÂç7V'7G&–ærƒÂ6W&F÷"’²#¢ò"²Æ&VÂç7V'7G&–ær‡6W&F÷"²“°¢&WGW&âÆ&VÃ°¢Ð¢7G&–ærG&VRÒvWE&Vg2‚’ævWE7G&–ær†fVVEG&VT¶W’†–B’ÂçVÆÂ“°¢7G&–ærFö7VÖVçD–BÒvWE&Vg2‚’ævWE7G&–ær†fVVDföÆFW$Fö7VÖVçD¶W’†–B’ÂçVÆÂ“°¢–b‡G&VRÒçVÆÂbbFö7VÖVçD–BÒçVÆÂ’&WGW&âvWDFö7VÖVçEF„Æ&VÂ…W&’ç'6R‡G&VR’ÂFö7VÖVçD–B“°¢&WGW&âG&VRÓÒçVÆÂò""¢vWE7F÷&vTÆ&VÂ…W&’ç'6R‡G&VR’’²#¢ò"²vWDFö7VÖVçDæÖR…W&’ç'6R‡G&VR’“°¢Ð ¢&—fFRÆöær†÷Fôg&W6†æW72…†÷Fò†÷Fò’°¢òò&æ²6GW&W2'’v†VâF†W’vW&RF¶VâÂæ÷Bv†VâG&—fR7–æ6VB÷"ÖöF–f–VBF†Rf–ÆRà¢&WGW&â†÷Fòæ6GW&VDC°¢Ð ¢&—fFR¥4ôäö&¦V7B6ö×&T6ÖW&g&ÖW2…†÷Fò7W'&VçBÂ†÷Fò&Wf–÷W2’F‡&÷w2¥4ôäW†6WF–öâ°¢¥4ôäö&¦V7B&W7VÇBÒæWr¥4ôäö&¦V7B‚“°¢G'’°¢7G&–ær7W'&VçD&6†—fRÒ&6†—fU†÷Fò†7W'&VçB“°¢7G&–ær&Wf–÷W4&6†—fRÒ&6†—fU†÷Fò‡&Wf–÷W2“°¢f–ÆR†—7F÷'”F—&V7F÷'’ÒW6W%Æ÷DF—&V7F÷'’‚'†÷Fõö†—7F÷'’"Â7W'&VçBçÆ÷D–B“°¢g&ÖTfVGW&W2æ÷rÒæÇ—¦Tg&ÖT6öÆ÷'2†7W'&VçD&6†—fRÓÒçVÆÂò7W'&VçBçW&¢¢W&’æg&öÔf–ÆR†æWrf–ÆR††—7F÷'”F—&V7F÷'’Â7W'&VçD&6†—fR’’“°¢g&ÖTfVGW&W2&Vf÷&RÒæÇ—¦Tg&ÖT6öÆ÷'2‡&Wf–÷W4&6†—fRÓÒçVÆÂò&Wf–÷W2çW&¢¢W&’æg&öÔf–ÆR†æWrf–ÆR††—7F÷'”F—&V7F÷'’Â&Wf–÷W4&6†—fR’’“°¢F÷V&ÆRw&VVäFVÇFÒæ÷ræw&VVåW&6VçBÒ&Vf÷&Ræw&VVåW&6VçC°¢F÷V&ÆR'&–v‡FæW74FVÇFÒæ÷ræ'&–v‡FæW72Ò&Vf÷&Ræ'&–v‡FæW73°¢F÷V&ÆRÖvæ—GVFRÒÖF‚æ'2†w&VVäFVÇF“°¢7G&–ær6†ævS°¢–b†w&VVäFVÇFãÒBã’°¢6†ævRÒ7G&–æræf÷&ÖB„Æö6ÆRåU2Â$Ö÷&Rw&VVâ—2f—6–&ÆR‚²RãbW&6VçFvRö–çG2’â"Âw&VVäFVÇF“°¢ÒVÇ6R–b†w&VVäFVÇFÃÒÓBã’°¢6†ævRÒ7G&–æræf÷&ÖB„Æö6ÆRåU2Â$ÆW72w&VVâ—2f—6–&ÆRŽ(‰"RãbW&6VçFvRö–çG2’â"ÂÖvæ—GVFR“°¢ÒVÇ6R°¢6†ævRÒ7G&–æræf÷&ÖB„Æö6ÆRåU2Â%f—6–&ÆRw&VVâ—26–Ö–Æ"‚R²ãbW&6VçFvRö–çG2’â"Âw&VVäFVÇF“°¢Ð¢7G&–ærÆ–v‡F–æs°¢–b„ÖF‚æ'2†'&–v‡FæW74FVÇF’ãÒ"ã’°¢Æ–v‡F–ærÒ7G&–æræf÷&ÖB„Æö6ÆRåU2Â"g&ÖR'&–v‡FæW72Ç6ò6†ævVB'’R²ãbRRÂv†–6‚6âffV7BF†R6öÆ÷"W7F–ÖFRâ"Â'&–v‡FæW74FVÇF“°¢ÒVÇ6R°¢Æ–v‡F–ærÒ"g&ÖR'&–v‡FæW72v2'&öFÇ’6–Ö–Æ"â#°¢Ð¢7G&–ær7VÖÖ'’Ò6†ævR²Æ–v‡F–æs°¢7G&–ærW‡ÆæF–öâÒ7G&–æræf÷&ÖB„Æö6ÆRåU2À¢$6ö×&VBW2v—F‚W2âW7F–ÖFVBw&VVâ—†VÇ3¢RãbRRæ÷rg2RãbRR&Vf÷&S²fW&vR'&–v‡FæW73¢RãbRRg2RãbRRâF†—2—2&÷Vv‚—†VÂÖ6öÆ÷"6ö×&—6öâÂæ÷B&ööböbw&÷wF‚÷"F—6V6RF–væ÷6—3²g&Ö–ærÂ6†F÷w2ÂæBÆ–v‡F–ær6â6†ævRF†R&W7VÇBâ"À¢f÷&ÖD6Æö6²‡&Wf–÷W2æ6GW&VDB’Âf÷&ÖD6Æö6²†7W'&VçBæ6GW&VDB’Âæ÷ræw&VVåW&6VçBÀ¢&Vf÷&Ræw&VVåW&6VçBÂæ÷ræ'&–v‡FæW72Â&Vf÷&Ræ'&–v‡FæW72“°¢&W7VÇBçWB‚&g&ÖT–ç6–v‡B"Â7VÖÖ'’“°¢&W7VÇBçWB‚&g&ÖTW‡ÆæF–öâ"ÂW‡ÆæF–öâ“°¢&W7VÇBçWB‚&w&VVä6†ævUW&6VçEö–çG2"Âw&VVäFVÇF“°¢&W7VÇBçWB‚&7W'&VçDw&VVåW&6VçB"Âæ÷ræw&VVåW&6VçB“°¢&W7VÇBçWB‚'&Wf–÷W4w&VVåW&6VçB"Â&Vf÷&Ræw&VVåW&6VçB“°¢&W7VÇBçWB‚&7W'&VçD'&–v‡FæW75W&6VçB"Âæ÷ræ'&–v‡FæW72“°¢&W7VÇBçWB‚'&Wf–÷W4'&–v‡FæW75W&6VçB"Â&Vf÷&Ræ'&–v‡FæW72“°¢&W7VÇBçWB‚&6ö×&VD7W'&VçDB"Â7W'&VçBæ6GW&VDB“°¢&W7VÇBçWB‚&6ö×&VE&Wf–÷W4B"Â&Wf–÷W2æ6GW&VDB“°¢Ò6F6‚„W†6WF–öâW'&÷"’°¢&W7VÇBçWB‚&g&ÖT–ç6–v‡B"Â$6÷VÆBæ÷B6ö×&RF†W6RGvò6æ6†÷G2â"“°¢&W7VÇBçWB‚&g&ÖTW‡ÆæF–öâ"Â$6†V6²F†B&÷F‚6fVB†÷F÷26â7F–ÆÂ&R&VBg&öÒF†R6VÆV7FVB–ÖvRÖfVVBföÆFW"â"“°¢Ð¢&WGW&â&W7VÇC°¢Ð ¢&—fFRg&ÖTfVGW&W2æÇ—¦Tg&ÖT6öÆ÷'2…W&’W&’’F‡&÷w2W†6WF–öâ°¢&—FÖf7F÷'’ä÷F–öç2&÷VæG2ÒæWr&—FÖf7F÷'’ä÷F–öç2‚“°¢&÷VæG2æ–ä§W7DFV6öFT&÷VæG2ÒG'VS°¢G'’„–çWE7G&VÒ–çWBÒvWD6öçFVçE&W6öÇfW"‚’æ÷Vä–çWE7G&VÒ‡W&’’’°¢–b†–çWBÓÒçVÆÂ’F‡&÷ræWr–ÆÆVvÅ7FFTW†6WF–öâ‚%†÷Fò—2Væf–Æ&ÆR"“°¢&—FÖf7F÷'’æFV6öFU7G&VÒ†–çWBÂçVÆÂÂ&÷VæG2“°¢Ð¢–b†&÷VæG2æ÷WEv–GF‚ÃÒÇÂ&÷VæG2æ÷WD†V–v‡BÃÒ’F‡&÷ræWr–ÆÆVvÅ7FFTW†6WF–öâ‚%†÷Fò—2Vç&VF&ÆR"“°¢–çB6×ÆU6—¦RÒ°¢v†–ÆR„ÖF‚æÖ‚†&÷VæG2æ÷WEv–GF‚Â&÷VæG2æ÷WD†V–v‡B’ò6×ÆU6—¦Râ#‚’6×ÆU6—¦R£Ò#°¢&—FÖf7F÷'’ä÷F–öç2÷F–öç2ÒæWr&—FÖf7F÷'’ä÷F–öç2‚“°¢÷F–öç2æ–å6×ÆU6—¦RÒ6×ÆU6—¦S°¢&—FÖFV6öFVC°¢G'’„–çWE7G&VÒ–çWBÒvWD6öçFVçE&W6öÇfW"‚’æ÷Vä–çWE7G&VÒ‡W&’’’°¢–b†–çWBÓÒçVÆÂ’F‡&÷ræWr–ÆÆVvÅ7FFTW†6WF–öâ‚%†÷Fò—2Væf–Æ&ÆR"“°¢FV6öFVBÒ&—FÖf7F÷'’æFV6öFU7G&VÒ†–çWBÂçVÆÂÂ÷F–öç2“°¢Ð¢–b†FV6öFVBÓÒçVÆÂ’F‡&÷ræWr–ÆÆVvÅ7FFTW†6WF–öâ‚%†÷Fò—2Vç&VF&ÆR"“°¢g&ÖTfVGW&W2fVGW&W2ÒæWrg&ÖTfVGW&W2‚“°¢Æöærw&VVâÒ°¢Æöær'&–v‡FæW72Ò°¢–çBF÷FÂÒFV6öFVBævWEv–GF‚‚’¢FV6öFVBævWD†V–v‡B‚“°¢–çEµÒ—†VÇ2ÒæWr–çE·F÷FÅÓ°¢FV6öFVBævWE—†VÇ2‡—†VÇ2ÂÂFV6öFVBævWEv–GF‚‚’ÂÂÂFV6öFVBævWEv–GF‚‚’ÂFV6öFVBævWD†V–v‡B‚’“°¢f÷"†–çB6öÆ÷"¢—†VÇ2’°¢–çB&VBÒ6öÆ÷"ç&VB†6öÆ÷"’ÂrÒ6öÆ÷"æw&VVâ†6öÆ÷"’Â&ÇVRÒ6öÆ÷"æ&ÇVR†6öÆ÷"“°¢'&–v‡FæW72³Ò†–çB’ÖF‚ç&÷VæBƒã#“’¢&VB²ãSƒr¢r²ãB¢&ÇVR“°¢–b†rãÒCRbbrâ&VB¢ã"bbrâ&ÇVR¢ãbbbrÒ&VBãÒ"’w&VVâ²³°¢Ð¢fVGW&W2æw&VVåW&6VçBÒF÷FÂÓÒò¢w&VVâ¢ãòF÷FÃ°¢fVGW&W2æ'&–v‡FæW72ÒF÷FÂÓÒò¢'&–v‡FæW72¢ãò‡F÷FÂ¢#SRã“°¢FV6öFVBç&V7–6ÆR‚“°¢&WGW&âfVGW&W3°¢Ð ¢&—fFRfö–B66å6VÆV7FVD–ÖvW2„Æ—7CÄfVVDFö7VÖVçCâ6VÆV7FVEW&—2Â&ööÆVâföÆFW%6÷W&6RÂ7G&–ærÆ÷D–B’F‡&÷w2W†6WF–öâ°¢Æ—7CÅ†÷Fóâ†÷F÷2ÒæWr'&”Æ—7CÃâ‚“°¢ÖÄ–çFVvW"Â†÷FóâÆFW7D'”6ÖW&ÒæWr†6„ÖÃâ‚“°¢–çB–ÖvT6÷VçBÒ°¢–çBVæÖF6†VD6÷VçBÒ°¢f÷"„fVVDFö7VÖVçBFö7VÖVçB¢6VÆV7FVEW&—2’°¢W&’f–ÆUW&’ÒFö7VÖVçBçW&“°¢7G&–æræÖRÒFö7VÖVçBææÖRÓÒçVÆÂòvWDF—7Æ”æÖR†f–ÆUW&’’¢Fö7VÖVçBææÖS°¢7G&–ærÖ–ÖRÒvWD6öçFVçE&W6öÇfW"‚’ævWEG—R†f–ÆUW&’“°¢–b†æÖRÓÒçVÆÂÇÂ‚&–ÖvRö§Vr"æWVÇ4–væ÷&T66R†Ö–ÖR¢ÇÂæÖRçFôÆ÷vW$66R„Æö6ÆRåU2’æVæG5v—F‚‚"æ§r"¢ÇÂæÖRçFôÆ÷vW$66R„Æö6ÆRåU2’æVæG5v—F‚‚"æ§Vr"’’’6öçF–çVS°¢–ÖvT6÷VçB²³°¢–çB6ÖW&Ò6ÖW&çVÖ&W"†æÖR“°¢–b†6ÖW&ÓÒ’6ÖW&ÒFö7VÖVçBæ6ÖW&†–çC°¢–b†6ÖW&ÓÒ’6ÖW&Ò¶æ÷våF–ÖW7F×6ÖW&†æÖR“°¢–b†6ÖW&ÓÒ’VæÖF6†VD6÷VçB²³°¢Æöær6—¦RÒvWDFö7VÖVçE6—¦R†f–ÆUW&’“°¢ÆöærÖöF–f–VDBÒvWDFö7VÖVçDÆ7DÖöF–f–VB†f–ÆUW&’“°¢7G&–ær6÷W&6T¶W’Òf–ÆUW&’²'Â"²6—¦R²'Â"²ÖöF–f–VDC°¢†÷Fò†÷Fó°¢G'’°¢†÷FòÒ&VE†÷FôÖWFFF†f–ÆUW&’ÂæÖRÂ6ÖW&ÂÖöF–f–VDBÂ6÷W&6T¶W’“°¢Ò6F6‚„W†6WF–öâVæf–Æ&ÆU†÷Fò’°¢6öçF–çVS°¢Ð¢†÷FòçÆ÷D–BÒÆ÷D–C°¢†÷F÷2æFB‡†÷Fò“°¢–b†6ÖW&â’°¢†÷Fò7W'&VçBÒÆFW7D'”6ÖW&ævWB†6ÖW&“°¢–b†7W'&VçBÓÒçVÆÂÇÂ†÷Fôg&W6†æW72‡†÷Fò’â†÷Fôg&W6†æW72†7W'&VçB’’ÆFW7D'”6ÖW&çWB†6ÖW&Â†÷Fò“°¢Ð¢Ð ¢f–ÆRÆFW7DF—&V7F÷'’ÒW6W%Æ÷DF—&V7F÷'’‚&ÆFW7Eö–ÖvW2"ÂÆ÷D–B“°¢–b‚ÆFW7DF—&V7F÷'’æW†—7G2‚’bbÆFW7DF—&V7F÷'’æÖ¶F—'2‚’’F‡&÷ræWr–ÆÆVvÅ7FFTW†6WF–öâ‚$6ææ÷B7&VFR–ÖvR66†R"“°¢f÷"„ÖäVçG'“Ä–çFVvW"Â†÷FóâVçG'’¢ÆFW7D'”6ÖW&æVçG'•6WB‚’’°¢†÷Fò†÷FòÒVçG'’ævWEfÇVR‚“°¢6÷•Fõ&—fFT66†R‡†÷FòçW&’ÂæWrf–ÆR†ÆFW7DF—&V7F÷'’Â6ÖW&f–ÆTæÖR†VçG'’ævWD¶W’‚’’’“°¢Ð ¢¥4ôäö&¦V7B7FGW2ÒæWr¥4ôäö&¦V7B‚“°¢7FGW2çWB‚&6öææV7FVB"ÂG'VR“°¢7FGW2çWB‚'Æ÷D–B"ÂÆ÷D–B“°¢7FGW2çWB‚&fVVDÆö6F–öâ"ÂfVVDÆö6F–öäÆ&VÂ‡Æ÷D–B’“°¢ÖÄ–çFVvW"ÂÆ—7CÅ†÷Fóãâ†÷F÷4'”6ÖW&ÒæWr†6„ÖÃâ‚“°¢f÷"…†÷Fò†÷Fò¢†÷F÷2’°¢–b‡†÷Fòæ6ÖW&â’°¢–b‚†÷F÷4'”6ÖW&æ6öçF–ç4¶W’‡†÷Fòæ6ÖW&’’†÷F÷4'”6ÖW&çWB‡†÷Fòæ6ÖW&ÂæWr'&”Æ—7CÃâ‚’“°¢†÷F÷4'”6ÖW&ævWB‡†÷Fòæ6ÖW&’æFB‡†÷Fò“°¢Ð¢Ð¢7FGW2çWB‚&–çFW'fÄÖ–çWFW2"Â&Vg&W6„–çFW'fÄÖ–çWFW2“°¢7FGW2çWB‚&6†V6¶VDB"Âf÷&ÖD6Æö6²…7—7FVÒæ7W'&VçEF–ÖTÖ–ÆÆ—2‚’’“°¢7FGW2çWB‚'VæÖF6†VE†÷Fô6÷VçB"ÂVæÖF6†VD6÷VçB“°¢–çBWFFVD6ÖW&6÷VçBÒÆFW7D'”6ÖW&ç6—¦R‚“°¢7G&–ær7FGW5FW‡C°¢–b†–ÖvT6÷VçBÓÒ’°¢7FGW5FW‡BÒföÆFW%6÷W&6Rò%6VÆV7FVBFFfVVBföÆFW"—26öææV7FVBÂ'WBæò¥Tr†÷F÷2vW&Rf÷VæBâ ¢¢$æò¥Tr†÷F÷2–âF†R6fVB†÷Fò6VÆV7F–öââ#°¢ÒVÇ6R–b‡WFFVD6ÖW&6÷VçBÓÒ’°¢7FGW5FW‡BÒ$f÷VæB"²–ÖvT6÷VçB²"¥r†÷F÷2Â'WBæöæRÖF6†VB6ÖW&âFB45Ec(	445EcbÂ4Ó(	44ÓbÂ(	5bÂ÷"VG&çB(	3bFòV6‚f–ÆVæÖR÷"föÆFW"æÖRâ#°¢ÒVÇ6R°¢7FGW5FW‡BÒ†föÆFW%6÷W&6Rò%66ææVBF†—2Æ÷N(	—2FFfVVB"¢$6†V6¶VB6fVB†÷F÷2"¢²"æBWFFVB"²WFFVD6ÖW&6÷VçB²"VG&çBfVVB‡2’f÷"F†—2Æ÷Bâ#°¢–b‡VæÖF6†VD6÷VçBâ’7FGW5FW‡B³Ò"–væ÷&VB"²VæÖF6†VD6÷Vç@¢²"¥r†÷Fò‡2’v—F†÷WB6ÖW&Ö–ærâFB45Ec(	445EcbÂ4Ó(	44ÓbÂ(	5bÂ÷"VG&çB(	3bFòF†Rf–ÆVæÖR÷"föÆFW"â#°¢–b‚föÆFW%6÷W&6R’7FGW5FW‡B³Ò"F6öææV7BFòföÆFW"&÷fRFòF—66÷fW"æWrWÆöG2â#°¢Ð¢7FGW2çWB‚'7FGW5FW‡B"Â7FGW5FW‡B“°¢¥4ôä'&’7W'&VçE†÷F÷2ÒæWr¥4ôä'&’‚“°¢f÷"†–çB6ÖW&Ò²6ÖW&ÃÒc²6ÖW&²²’°¢†÷Fò†÷FòÒÆFW7D'”6ÖW&ævWB†6ÖW&“°¢–b‡†÷FòÓÒçVÆÂ’6öçF–çVS°¢¥4ôäö&¦V7B—FVÒÒæWr¥4ôäö&¦V7B‚“°¢—FVÒçWB‚&6ÖW&"Â6ÖW&“°¢—FVÒçWB‚&æÖR"Â†÷FòææÖR“°¢—FVÒçWB‚'F–ÖW7F×"Â†÷Fòæ6GW&VDB“°¢—FVÒçWB‚&F—7Æ•F–ÖR"Â†÷FòæF—7Æ•F–ÖR“°¢—FVÒçWB‚&66†T¶W’"ÂÆöærçFõ7G&–ær‡†÷Fòæ6GW&VDB’²"Ò"²ÆöærçFõ7G&–ær…7—7FVÒæ7W'&VçEF–ÖTÖ–ÆÆ—2‚’’“°¢7W'&VçE†÷F÷2çWB†—FVÒ“°¢Ð¢7FGW2çWB‚&7W'&VçE†÷F÷2"Â7W'&VçE†÷F÷2“° ¢¥4ôä'&’6ÖW&7FG2ÒæWr¥4ôä'&’‚“°¢f÷"†–çB6ÖW&Ò²6ÖW&ÃÒc²6ÖW&²²’°¢Æ—7CÅ†÷Fóâw&÷WÒ†÷F÷4'”6ÖW&ævWB†6ÖW&“°¢¥4ôäö&¦V7B—FVÒÒæWr¥4ôäö&¦V7B‚“°¢—FVÒçWB‚&6ÖW&"Â6ÖW&“°¢–çB6÷VçBÒw&÷WÓÒçVÆÂò¢w&÷Wç6—¦R‚“°¢—FVÒçWB‚'†÷Fô6÷VçB"Â6÷VçB“°¢—FVÒçWB‚'6–Ö–Æ%†÷Fô6÷VçB"Â6÷VçBâò6÷VçB¢“°¢—FVÒçWB‚&g&ÖT–ç6–v‡B"Â6÷VçBâ¢ò$æòF—7F–æ7B&Wf–÷W26æ6†÷B—2f–Æ&ÆRFò6ö×&Râ ¢¢6÷VçBÓÒò%v—F–ærf÷"6V6öæB6æ6†÷BFò6ö×&Râ"¢$æò6æ6†÷G2&Rf–Æ&ÆRFò6ö×&Râ"“°¢—FVÒçWB‚&g&ÖTW‡ÆæF–öâ"Â%F†R6ö×&—6öâW7F–ÖFW2f—6–&ÆRw&VVâ—†VÇ2æB'&–v‡FæW72â—B6ææ÷B6öæf—&Òw&÷wF‚÷"F–væ÷6RÆçB†VÇF‚â"“°¢–b†6÷VçBÓÒ’°¢—FVÒçWB‚&V&Æ–W7EF–ÖR"Â.(	B"“°¢—FVÒçWB‚&ÆFW7EF–ÖR"Â.(	B"“°¢—FVÒçWB‚&V&Æ–W7EF–ÖW7F×"ÂÂ“°¢—FVÒçWB‚&ÆFW7EF–ÖW7F×"ÂÂ“°¢—FVÒçWB‚&VÆ6VDF—2"Â“°¢—FVÒçWB‚&VÆ6VD†÷W'2"Â“°¢—FVÒçWB‚&VÆ6VE&VÖ–æFW""Â.(	B"“°¢ÒVÇ6R°¢†÷FòV&Æ–W7BÒw&÷WævWBƒ“°¢†÷FòÆFW7BÒw&÷WævWBƒ“°¢f÷"…†÷Fò†÷Fò¢w&÷W’°¢–b‡†÷Fòæ6GW&VDBÂV&Æ–W7Bæ6GW&VDB’V&Æ–W7BÒ†÷Fó°¢–b‡†÷Fòæ6GW&VDBâÆFW7Bæ6GW&VDB’ÆFW7BÒ†÷Fó°¢Ð¢–b†6÷VçBâ’°¢Æ—7CÅ†÷Fóâ÷&FW&VBÒæWr'&”Æ—7CÃâ†w&÷W“°¢÷&FW&VBç6÷'B‚†Â"’Óâ°¢–çB'”6GW&RÒÆöæræ6ö×&R‡†÷Fôg&W6†æW72†"’Â†÷Fôg&W6†æW72†’“°¢&WGW&â'”6GW&RÒò'”6GW&R¢7G&–ærçfÇVTöb†"ææÖR’æ6ö×&UFò…7G&–ærçfÇVTöb†ææÖR’“°¢Ò“°¢†÷Fò7W'&VçBÒ÷&FW&VBævWBƒ“°¢†÷Fò&Wf–÷W2ÒçVÆÃ°¢f÷"†–çB’Ò²’Â÷&FW&VBç6—¦R‚“²’²²’°¢–b‚÷&FW&VBævWB†’’çW&’æWVÇ2†7W'&VçBçW&’’’°¢&Wf–÷W2Ò÷&FW&VBævWB†’“°¢'&V³°¢Ð¢Ð¢–b‡&Wf–÷W2ÒçVÆÂ’°¢¥4ôäö&¦V7B6ö×&—6öâÒ6ö×&T6ÖW&g&ÖW2†7W'&VçBÂ&Wf–÷W2“°¢—FVÒçWB‚&g&ÖT–ç6–v‡B"Â6ö×&—6öâæ÷E7G&–ær‚&g&ÖT–ç6–v‡B"’“°¢—FVÒçWB‚&g&ÖTW‡ÆæF–öâ"Â6ö×&—6öâæ÷E7G&–ær‚&g&ÖTW‡ÆæF–öâ"’“°¢—FVÒçWB‚&g&ÖT7W'&VçDw&VVåW&6VçB"Â6ö×&—6öâæ÷DF÷V&ÆR‚&7W'&VçDw&VVåW&6VçB"Â’“°¢—FVÒçWB‚&g&ÖU&Wf–÷W4w&VVåW&6VçB"Â6ö×&—6öâæ÷DF÷V&ÆR‚'&Wf–÷W4w&VVåW&6VçB"Â’“°¢—FVÒçWB‚&g&ÖT7W'&VçD'&–v‡FæW75W&6VçB"Â6ö×&—6öâæ÷DF÷V&ÆR‚&7W'&VçD'&–v‡FæW75W&6VçB"Â’“°¢—FVÒçWB‚&g&ÖU&Wf–÷W4'&–v‡FæW75W&6VçB"Â6ö×&—6öâæ÷DF÷V&ÆR‚'&Wf–÷W4'&–v‡FæW75W&6VçB"Â’“°¢Ð¢Ð¢ÆöærVÆ6VBÒÖF‚æÖ‚ƒÂÆFW7Bæ6GW&VDBÒV&Æ–W7Bæ6GW&VDB’ò°¢—FVÒçWB‚&V&Æ–W7EF–ÖR"ÂV&Æ–W7BæF—7Æ•F–ÖR“°¢—FVÒçWB‚&ÆFW7EF–ÖR"ÂÆFW7BæF—7Æ•F–ÖR“°¢—FVÒçWB‚&V&Æ–W7EF–ÖW7F×"ÂV&Æ–W7Bæ6GW&VDB“°¢—FVÒçWB‚&ÆFW7EF–ÖW7F×"ÂÆFW7Bæ6GW&VDB“°¢—FVÒçWB‚&VÆ6VDF—2"ÂVÆ6VBòƒcC“°¢—FVÒçWB‚&VÆ6VD†÷W'2"Â†VÆ6VBRƒcC’ò3c“°¢—FVÒçWB‚&VÆ6VE&VÖ–æFW""Â‚†VÆ6VBR3c’òc’²"Ö–â"²†VÆ6VBRc’²"6V2"“°¢Ð¢6ÖW&7FG2çWB†—FVÒ“°¢Ð¢7FGW2çWB‚&6ÖW&7FG2"Â6ÖW&7FG2“°¢7FGW2çWB‚'F–ÖVÆ–æU†÷F÷2"ÂÖ¶UF–ÖVÆ–æU†÷F÷2‡†÷F÷4'”6ÖW&’“°¢V&Æ—6…7FGW2‡7FGW2“°¢Ð ¢&—fFR¥4ôä'&’Ö¶UF–ÖVÆ–æU†÷F÷2„ÖÄ–çFVvW"ÂÆ—7CÅ†÷Fóãâ†÷F÷4'”6ÖW&’F‡&÷w2W†6WF–öâ°¢¥4ôä'&’F–ÖVÆ–æW2ÒæWr¥4ôä'&’‚“°¢òòF†R66ææW"†2Ç&VG’Æ–Ö—FVB†÷F÷4'”6ÖW&FòF†R6–væVBÖ–âW6W"w26VÆV7FVBÆ÷BfVVBà¢òò6†÷rF†Rf—'7BæBÆFW7B6GW&VB–ÖvRf÷"V6‚45Eb7&÷72F†B6ö×ÆWFRfVVB†—7F÷'’à¢f÷"†–çB6ÖW&Ò²6ÖW&ÃÒc²6ÖW&²²’°¢Æ—7CÅ†÷Fóâw&÷WÒ†÷F÷4'”6ÖW&ævWB†6ÖW&“°¢Æ—7CÅ†÷Fóâ÷&FW&VBÒæWr'&”Æ—7CÃâ‚“°¢–b†w&÷WÒçVÆÂ’°¢f÷"…†÷Fò†÷Fò¢w&÷W’–b‡†÷FòÒçVÆÂbb†÷Fòæ6GW&VDBâ’÷&FW&VBæFB‡†÷Fò“°¢Ð¢÷&FW&VBç6÷'B„6ö×&F÷"æ6ö×&–ætÆöær‡†÷FòÓâ†÷Fòæ6GW&VDB’“° ¢¥4ôäö&¦V7BF–ÖVÆ–æRÒæWr¥4ôäö&¦V7B‚“°¢F–ÖVÆ–æRçWB‚&6ÖW&"Â6ÖW&“°¢F–ÖVÆ–æRçWB‚&–çFW'fÂ"Â&f—'7DÆFW7B"“°¢¥4ôä'&’6Æ÷G2ÒæWr¥4ôä'&’‚“°¢6Æ÷G2çWB†Ö¶UF–ÖVÆ–æU†÷Fõ6Æ÷B‚$f—'7B†÷Fò"Â÷&FW&VBæ—4V×G’‚’òçVÆÂ¢÷&FW&VBævWBƒ’’“°¢6Æ÷G2çWB†Ö¶UF–ÖVÆ–æU†÷Fõ6Æ÷B‚$Ö÷7B&V6VçB†÷Fò"Â÷&FW&VBæ—4V×G’‚’òçVÆÂ¢÷&FW&VBævWB†÷&FW&VBç6—¦R‚’Ò’’“°¢F–ÖVÆ–æRçWB‚'6Æ÷G2"Â6Æ÷G2“°¢F–ÖVÆ–æW2çWB‡F–ÖVÆ–æR“°¢Ð¢&WGW&âF–ÖVÆ–æW3°¢Ð ¢&—fFR¥4ôäö&¦V7BÖ¶UF–ÖVÆ–æU†÷Fõ6Æ÷B…7G&–ærÆ&VÂÂ†÷Fò†÷Fò’F‡&÷w2W†6WF–öâ°¢¥4ôäö&¦V7B6Æ÷BÒæWr¥4ôäö&¦V7B‚“°¢6Æ÷BçWB‚&Æ&VÂ"ÂÆ&VÂ“°¢6Æ÷BçWB‚&W‡V7FVDFFR"Â""“°¢6Æ÷BçWB‚&f–Æ&ÆR"ÂfÇ6R“°¢–b‡†÷FòÒçVÆÂ’°¢–b‡†÷Fòæ†—7F÷'”f–ÆRÓÒçVÆÂ’†÷Fòæ†—7F÷'”f–ÆRÒ&6†—fU†÷Fò‡†÷Fò“°¢&ööÆVâf–Æ&ÆRÒ†÷Fòæ†—7F÷'”f–ÆRÒçVÆÃ°¢6Æ÷BçWB‚&f–Æ&ÆR"Âf–Æ&ÆR“°¢–b†f–Æ&ÆR’°¢6Æ÷BçWB‚'F–ÖW7F×"Â†÷Fòæ6GW&VDB“°¢6Æ÷BçWB‚&6GW&VDB"Â†÷FòæF—7Æ•F–ÖR“°¢6Æ÷BçWB‚&–ÖvUW&Â"Â&‡GG3¢òö76WG2ææG&ö–GÆFf÷&ÒææWBö76WG2ö†—7F÷'’ò"²7W'&VçDfVVEW6W$¶W’‚¢²"ò"²6fUÆ÷D–B‡†÷FòçÆ÷D–B’²"ò"²†÷Fòæ†—7F÷'”f–ÆR“°¢Ð¢Ð¢&WGW&â6Æ÷C°¢Ð ¢&—fFRÆöær7F'DödÆö6ÄF’†ÆöærF–ÖW7F×’°¢6ÆVæF"6ÆVæF"Ò6ÆVæF"ævWD–ç7Fæ6R…F–ÖU¦öæRævWEF–ÖU¦öæR‚$6–ô·VÆôÇV×W""’ÂÆö6ÆRåU2“°¢6ÆVæF"ç6WEF–ÖT–äÖ–ÆÆ—2‡F–ÖW7F×“°¢6ÆVæF"ç6WB„6ÆVæF"ä„õU%ôôeôD’Â“°¢6ÆVæF"ç6WB„6ÆVæF"äÔ”åUDRÂ“°¢6ÆVæF"ç6WB„6ÆVæF"å4T4ôäBÂ“°¢6ÆVæF"ç6WB„6ÆVæF"äÔ”ÄÄ•4T4ôäBÂ“°¢&WGW&â6ÆVæF"ævWEF–ÖT–äÖ–ÆÆ—2‚“°¢Ð ¢&—fFR7G&–ærf÷&ÖDF’†ÆöærF–ÖW7F×’°¢6–×ÆTFFTf÷&ÖBf÷&ÖBÒæWr6–×ÆTFFTf÷&ÖB‚&FBÔÔÒ———’"ÂÆö6ÆRåU2“°¢f÷&ÖBç6WEF–ÖU¦öæR…F–ÖU¦öæRævWEF–ÖU¦öæR‚$6–ô·VÆôÇV×W""’“°¢&WGW&âf÷&ÖBæf÷&ÖB†æWrFFR‡F–ÖW7F×’“°¢Ð ¢&—fFR7G&–ærvWDF—7Æ”æÖR…W&’W&’’°¢G'’„7W'6÷"7W'6÷"ÒvWD6öçFVçE&W6öÇfW"‚’çVW'’‡W&’ÂæWr7G&–æuµ×´÷Væ&ÆT6öÇVÖç2äD•5Ä•ôäÔWÒÂçVÆÂÂçVÆÂÂçVÆÂ’’°¢–b†7W'6÷"ÒçVÆÂbb7W'6÷"æÖ÷fUFôf—'7B‚’’°¢–çB6öÇVÖâÒ7W'6÷"ævWD6öÇVÖä–æFW‚„÷Væ&ÆT6öÇVÖç2äD•5Ä•ôäÔR“°¢–b†6öÇVÖâãÒbb7W'6÷"æ—4çVÆÂ†6öÇVÖâ’’&WGW&â7W'6÷"ævWE7G&–ær†6öÇVÖâ“°¢Ð¢Ò6F6‚„W†6WF–öâ–væ÷&VB’²Ð¢7G&–ær6VvÖVçBÒW&’ævWDÆ7EF…6VvÖVçB‚“°¢&WGW&â6VvÖVçBÓÒçVÆÂòçVÆÂ¢W&’æFV6öFR‡6VvÖVçB“°¢Ð ¢&—fFRÆöærvWDFö7VÖVçE6—¦R…W&’W&’’°¢G'’„7W'6÷"7W'6÷"ÒvWD6öçFVçE&W6öÇfW"‚’çVW'’‡W&’ÂæWr7G&–æuµ×´÷Væ&ÆT6öÇVÖç2å4•¤WÒÂçVÆÂÂçVÆÂÂçVÆÂ’’°¢–b†7W'6÷"ÒçVÆÂbb7W'6÷"æÖ÷fUFôf—'7B‚’’°¢–çB6öÇVÖâÒ7W'6÷"ævWD6öÇVÖä–æFW‚„÷Væ&ÆT6öÇVÖç2å4•¤R“°¢–b†6öÇVÖâãÒbb7W'6÷"æ—4çVÆÂ†6öÇVÖâ’’&WGW&â7W'6÷"ævWDÆöær†6öÇVÖâ“°¢Ð¢Ò6F6‚„W†6WF–öâ–væ÷&VB’²Ð¢&WGW&âÃ°¢Ð ¢&—fFRÆöærvWDFö7VÖVçDÆ7DÖöF–f–VB…W&’W&’’°¢G'’„7W'6÷"7W'6÷"ÒvWD6öçFVçE&W6öÇfW"‚’çVW'’‡W&’À¢æWr7G&–æuµ×²&Æ7EöÖöF–f–VB'ÒÂçVÆÂÂçVÆÂÂçVÆÂ’’°¢–b†7W'6÷"ÒçVÆÂbb7W'6÷"æÖ÷fUFôf—'7B‚’’°¢–çB6öÇVÖâÒ7W'6÷"ævWD6öÇVÖä–æFW‚‚&Æ7EöÖöF–f–VB"“°¢–b†6öÇVÖâãÒbb7W'6÷"æ—4çVÆÂ†6öÇVÖâ’’°¢ÆöærfÇVRÒ7W'6÷"ævWDÆöær†6öÇVÖâ“°¢òò6öÖRæG&ö–BFö7VÖVçB&÷f–FW'2W‡÷6RWö6‚6V6öæG2&F†W"F†âÖ–ÆÆ—6V6öæG2à¢&WGW&âfÇVRâbbfÇVRÂóóóÂòfÇVR¢Â¢fÇVS°¢Ð¢Ð¢Ò6F6‚„W†6WF–öâ–væ÷&VB’²Ð¢&WGW&âÃ°¢Ð ¢&—fFR†÷Fò&VE†÷FôÖWFFF…W&’W&’Â7G&–æræÖRÂ–çB6ÖW&ÂÆöærÖöF–f–VBÂ7G&–ær6÷W&6T¶W’’F‡&÷w2W†6WF–öâ°¢†÷Fò†÷FòÒæWr†÷Fò‚“°¢†÷FòçW&’ÒW&“°¢†÷FòææÖRÒæÖS°¢†÷Fòæ6ÖW&Ò6ÖW&°¢†÷FòæÖöF–f–VDBÒÖöF–f–VC°¢†÷Fòç6÷W&6T¶W’Ò6÷W&6T¶W“°¢†÷Fòæ6GW&VDBÒÖöF–f–VBâòÖöF–f–VB¢7—7FVÒæ7W'&VçEF–ÖTÖ–ÆÆ—2‚“°¢&ööÆVâ†4W†–d6GW&UF–ÖRÒfÇ6S°¢G'’„–çWE7G&VÒ–çWBÒvWD6öçFVçE&W6öÇfW"‚’æ÷Vä–çWE7G&VÒ‡W&’’’°¢–b†–çWBÒçVÆÂ’°¢W†–d–çFW&f6RW†–bÒæWrW†–d–çFW&f6R†–çWB“°¢7G&–ær&rÒW†–bævWDGG&–'WFR„W†–d–çFW&f6RåDuôDDUD”ÔUôõ$”t”äÂ“°¢–b‡&rÓÒçVÆÂ’&rÒW†–bævWDGG&–'WFR„W†–d–çFW&f6RåDuôDDUD”ÔR“°¢7G&–æröfg6WBÒW†–bævWDGG&–'WFR‚$öfg6WEF–ÖT÷&–v–æÂ"“°¢–b‡&rÒçVÆÂ’°¢6–×ÆTFFTf÷&ÖB'6W"ÒæWr6–×ÆTFFTf÷&ÖB‚'———“¤ÔÓ¦FB„ƒ¦ÖÓ§72"ÂÆö6ÆRåU2“°¢'6W"ç6WEF–ÖU¦öæR…F–ÖU¦öæRævWEF–ÖU¦öæR†öfg6WBÓÒçVÆÂò$6–ô·VÆôÇV×W""¢$tÕB"²öfg6WB’“°¢FFR'6VBÒ'6W"ç'6R‡&r“°¢–b‡'6VBÒçVÆÂ’°¢†÷Fòæ6GW&VDBÒ'6VBævWEF–ÖR‚“°¢†4W†–d6GW&UF–ÖRÒG'VS°¢Ð¢Ð¢Ð¢Ò6F6‚…'6TW†6WF–öâ–væ÷&VB’²Ð¢–b‚†4W†–d6GW&UF–ÖR’°¢Æöærg&öÔæÖRÒF–ÖW7F×g&öÔf–ÆTæÖR†æÖR“°¢–b†g&öÔæÖRâ’†÷Fòæ6GW&VDBÒg&öÔæÖS°¢VÇ6R–b†ÖöF–f–VBÃÒ’°¢òòÆVv7’6ÖW&ÖöæÇ’æÖW2†fRæòVÖ&VFFVBF–ÖRâW6RF†R¶æ÷vâ&6VÆ–æRöæÇ¢òòv†VâF†R&÷f–FW"Ç6ò7WÆ–VBæòW6&ÆRÖöF–f–6F–öâF–ÖW7F×à¢Æöær¶æ÷våF–ÖRÒ¶æ÷vä6ÖW&F–ÖW7F×†æÖR“°¢–b†¶æ÷våF–ÖRâ’†÷Fòæ6GW&VDBÒ¶æ÷våF–ÖS°¢Ð¢Ð¢†÷FòæF—7Æ•F–ÖRÒf÷&ÖDFFUF–ÖR‡†÷Fòæ6GW&VDB“°¢&WGW&â†÷Fó°¢Ð ¢&—fFR7G&–ær&6†—fU†÷Fò…†÷Fò†÷Fò’°¢7G&–ær&6RÒ7G&–æræf÷&ÖB„Æö6ÆRåU2Â&67GeòS&EòVEòW2æ§r"Â†÷Fòæ6ÖW&À¢†÷Fòæ6GW&VDBÂ–çFVvW"çFô†W…7G&–ær‡†÷Fòç6÷W&6T¶W’æ†6„6öFR‚’’“°¢f–ÆRF—&V7F÷'’ÒW6W%Æ÷DF—&V7F÷'’‚'†÷Fõö†—7F÷'’"Â†÷FòçÆ÷D–B“°¢f–ÆRFW7F–æF–öâÒæWrf–ÆR†F—&V7F÷'’Â&6R“°¢–b†FW7F–æF–öâæ—4f–ÆR‚’bbFW7F–æF–öâæÆVæwF‚‚’â’&WGW&â&6S°¢&—FÖ&—FÖÒçVÆÃ°¢&—FÖ÷&–VçFVBÒçVÆÃ°¢G'’°¢–b‚F—&V7F÷'’æW†—7G2‚’bbF—&V7F÷'’æÖ¶F—'2‚’’&WGW&âçVÆÃ°¢&—FÖf7F÷'’ä÷F–öç2&÷VæG2ÒæWr&—FÖf7F÷'’ä÷F–öç2‚“°¢&÷VæG2æ–ä§W7DFV6öFT&÷VæG2ÒG'VS°¢G'’„–çWE7G&VÒ–çWBÒvWD6öçFVçE&W6öÇfW"‚’æ÷Vä–çWE7G&VÒ‡†÷FòçW&’’’°¢–b†–çWBÓÒçVÆÂ’&WGW&âçVÆÃ°¢&—FÖf7F÷'’æFV6öFU7G&VÒ†–çWBÂçVÆÂÂ&÷VæG2“°¢Ð¢&—FÖf7F÷'’ä÷F–öç2FV6öFRÒæWr&—FÖf7F÷'’ä÷F–öç2‚“°¢FV6öFRæ–å6×ÆU6—¦RÒ°¢v†–ÆR†&÷VæG2æ÷WEv–GF‚òFV6öFRæ–å6×ÆU6—¦RâCC ¢ÇÂ&÷VæG2æ÷WD†V–v‡BòFV6öFRæ–å6×ÆU6—¦RâCC’FV6öFRæ–å6×ÆU6—¦R£Ò#°¢G'’„–çWE7G&VÒ–çWBÒvWD6öçFVçE&W6öÇfW"‚’æ÷Vä–çWE7G&VÒ‡†÷FòçW&’’’°¢–b†–çWBÓÒçVÆÂ’&WGW&âçVÆÃ°¢&—FÖÒ&—FÖf7F÷'’æFV6öFU7G&VÒ†–çWBÂçVÆÂÂFV6öFR“°¢Ð¢–b†&—FÖÓÒçVÆÂ’&WGW&âçVÆÃ°¢–çB÷&–VçFF–öâÒW†–d–çFW&f6Räõ$”TåDD”ôåôäõ$ÔÃ°¢G'’„–çWE7G&VÒ–çWBÒvWD6öçFVçE&W6öÇfW"‚’æ÷Vä–çWE7G&VÒ‡†÷FòçW&’’’°¢–b†–çWBÒçVÆÂ’÷&–VçFF–öâÒæWrW†–d–çFW&f6R†–çWB’ævWDGG&–'WFT–çB€¢W†–d–çFW&f6RåDuôõ$”TåDD”ôâÂW†–d–çFW&f6Räõ$”TåDD”ôåôäõ$ÔÂ“°¢Ð¢fÆöB&÷FF–öâÒ÷&–VçFF–öâÓÒW†–d–çFW&f6Räõ$”TåDD”ôåõ$õDDUó“ò“`¢¢÷&–VçFF–öâÓÒW†–d–çFW&f6Räõ$”TåDD”ôåõ$õDDUóƒòƒ`¢¢÷&–VçFF–öâÓÒW†–d–çFW&f6Räõ$”TåDD”ôåõ$õDDUó#sò#sb¢c°¢–b‡&÷FF–öâÒb’°¢ÖG&—‚ÖG&—‚ÒæWrÖG&—‚‚“°¢ÖG&—‚ç÷7E&÷FFR‡&÷FF–öâ“°¢÷&–VçFVBÒ&—FÖæ7&VFT&—FÖ†&—FÖÂÂÂ&—FÖævWEv–GF‚‚’Â&—FÖævWD†V–v‡B‚’ÂÖG&—‚ÂG'VR“°¢ÒVÇ6R÷&–VçFVBÒ&—FÖ°¢G'’„f–ÆT÷WGWE7G&VÒ÷WGWBÒæWrf–ÆT÷WGWE7G&VÒ†FW7F–æF–öâ’’°¢–b‚÷&–VçFVBæ6ö×&W72„&—FÖä6ö×&W74f÷&ÖBä¥TrÂƒ"Â÷WGWB’’&WGW&âçVÆÃ°¢÷WGWBæfÇW6‚‚“°¢Ð¢&WGW&âFW7F–æF–öâæÆVæwF‚‚’âò&6R¢çVÆÃ°¢Ò6F6‚„W†6WF–öâ–væ÷&VB’°¢–b†FW7F–æF–öâæW†—7G2‚’’FW7F–æF–öâæFVÆWFR‚“°¢&WGW&âçVÆÃ°¢Òf–æÆÇ’°¢–b†÷&–VçFVBÒçVÆÂbb÷&–VçFVBÒ&—FÖ’÷&–VçFVBç&V7–6ÆR‚“°¢–b†&—FÖÒçVÆÂbb&—FÖæ—5&V7–6ÆVB‚’’&—FÖç&V7–6ÆR‚“°¢Ð¢Ð ¢&—fFRÆöærF–ÖW7F×g&öÔf–ÆTæÖR…7G&–æræÖR’°¢7G&–ærf–ÆRÒæÖRÓÒçVÆÂò""¢æÖS°¢ÖF6†W"ÖF6†W"ÒGFW&âæ6ö×–ÆR‚"…ÅÆG³‡Ò•µòÕÓò…ÅÆG³gÒ’"’æÖF6†W"†f–ÆR“°¢7G&–ær6GW&S°¢–b†ÖF6†W"æf–æB‚’’°¢6GW&RÒÖF6†W"æw&÷Wƒ’²ÖF6†W"æw&÷Wƒ"“°¢ÒVÇ6R°¢òòöÆFW"Æ÷CöFVÖòWÆöG2W6VB•••”ÔÔDD„‚v—F†÷WBÖ–çWFW2÷6V6öæG2à¢ÖF6†W"†÷W$öæÇ’ÒGFW&âæ6ö×–ÆR‚"…ÅÆG³‡Ò•µòÕÓò…ÅÆG³'Ò’ƒòÅÆB’"’æÖF6†W"†f–ÆR“°¢–b‚†÷W$öæÇ’æf–æB‚’’&WGW&âÃ°¢6GW&RÒ†÷W$öæÇ’æw&÷Wƒ’²†÷W$öæÇ’æw&÷Wƒ"’²##°¢Ð¢G'’°¢6–×ÆTFFTf÷&ÖB'6W"ÒæWr6–×ÆTFFTf÷&ÖB‚'———”ÔÖFD„†Ö×72"ÂÆö6ÆRåU2“°¢'6W"ç6WDÆVæ–VçB†fÇ6R“°¢'6W"ç6WEF–ÖU¦öæR…F–ÖU¦öæRævWEF–ÖU¦öæR‚$6–ô·VÆôÇV×W""’“°¢FFR'6VBÒ'6W"ç'6R†6GW&R“°¢&WGW&â'6VBÓÒçVÆÂòÂ¢'6VBævWEF–ÖR‚“°¢Ò6F6‚…'6TW†6WF–öâ–væ÷&VB’²&WGW&âÃ²Ð¢Ð ¢&—fFRÆöær¶æ÷vä6ÖW&F–ÖW7F×…7G&–æræÖR’°¢ÖF6†W"ÖF6†W"Ò4ÔU$ôd”ÄRæÖF6†W"†æÖRÓÒçVÆÂò""¢æÖR“°¢–b‚ÖF6†W"æÖF6†W2‚’’&WGW&âÃ°¢G'’°¢–çB6ÖW&Ò–çFVvW"ç'6T–çB†ÖF6†W"æw&÷Wƒ’“°¢7G&–æuµÒ6GW&UF–ÖW2Ò²###c…ósS#S""Â###c…ósS3""Â###c…ósS3#R"À¢###c…ósS33r"Â###c…ósS3Cb"Â###c…ósS3SR'Ó°¢&WGW&âF–ÖW7F×g&öÔf–ÆTæÖR†6GW&UF–ÖW5¶6ÖW&ÒÒ“°¢Ò6F6‚„W†6WF–öâ–væ÷&VB’²&WGW&âÃ²Ð¢Ð ¢&—fFRfö–B6÷•Fõ&—fFT66†R…W&’6÷W&6RÂf–ÆRFW7F–æF–öâ’F‡&÷w2W†6WF–öâ°¢G'’„–çWE7G&VÒ–çWBÒvWD6öçFVçE&W6öÇfW"‚’æ÷Vä–çWE7G&VÒ‡6÷W&6R“°¢f–ÆT÷WGWE7G&VÒ÷WGWBÒæWrf–ÆT÷WGWE7G&VÒ†FW7F–æF–öâ’’°¢–b†–çWBÓÒçVÆÂ’F‡&÷ræWr–ÆÆVvÅ7FFTW†6WF–öâ‚$–ÖvR7G&VÒVæf–Æ&ÆR"“°¢'—FUµÒ'VffW"ÒæWr'—FU³3"¢#EÓ°¢–çB&VC°¢v†–ÆR‚‡&VBÒ–çWBç&VB†'VffW"’’ÒÓ’÷WGWBçw&—FR†'VffW"ÂÂ&VB“°¢÷WGWBæfÇW6‚‚“°¢Ð¢Ð ¢&—fFR–çB¶æ÷våF–ÖW7F×6ÖW&…7G&–æræÖR’°¢7G&–æræ÷&ÖÆ—¦VBÒæÖRÓÒçVÆÂò""¢æÖRç&WÆ6TÆÂ‚"ƒö’•ÅÂæ§SörB"Â""“°¢7v—F6‚†æ÷&ÖÆ—¦VB’°¢66R###c…óƒCc##¢&WGW&â°¢66R###c…óƒCc3r#¢&WGW&â#°¢66R###c…óƒCs#r#¢&WGW&â3°¢66R###c…óƒCcCB#¢&WGW&âC°¢66R###c…óƒCcS"#¢&WGW&âS°¢66R###c…óƒCsR#¢&WGW&âc°¢66R###c•óC#Sb#¢&WGW&â°¢66R###c•óC3R#¢&WGW&â#°¢66R###c•óC33#¢&WGW&âC°¢66R###c•óC3C#¢&WGW&âc°¢66R###c•óC3S’#¢&WGW&âS°¢66R###c•óCCb#¢&WGW&â3°¢FVfVÇC¢&WGW&â°¢Ð¢Ð ¢&—fFR–çB6ÖW&çVÖ&W"…7G&–ærf–ÆTæÖR’°¢7G&–ær6æF–FFRÒf–ÆTæÖRÓÒçVÆÂò""¢f–ÆTæÖS°¢ÖF6†W"ÖF6†W"Ò4ÔU$ôd”ÄRæÖF6†W"†6æF–FFR“°¢–b†ÖF6†W"æÖF6†W2‚’’°¢G'’²&WGW&â–çFVvW"ç'6T–çB†ÖF6†W"æw&÷Wƒ’“²Ð¢6F6‚„çVÖ&W$f÷&ÖDW†6WF–öâ–væ÷&VB’²&WGW&â²Ð¢Ð¢ÖF6†W"Ò4ÔU$ôÄ$TÂæÖF6†W"†6æF–FFR“°¢–b†ÖF6†W"æf–æB‚’’°¢G'’²&WGW&â–çFVvW"ç'6T–çB†ÖF6†W"æw&÷Wƒ’“²Ð¢6F6‚„çVÖ&W$f÷&ÖDW†6WF–öâ–væ÷&VB’²&WGW&â²Ð¢Ð¢7G&–æræ÷&ÖÆ—¦VBÒ6æF–FFRç&WÆ6TÆÂ‚"ƒö’•ÅÂæ§SörB"Â""“°¢7v—F6‚†æ÷&ÖÆ—¦VB’°¢òòF†W6R6—‚F–ÖW7F×ÖæÖVBWÆöG2vW&Rf—7VÆÇ’ÖF6†VBFòF†R6ÖR6—‚ÆçBVG&çG2à¢66R###c…óƒCc##¢&WGW&â²òòæFöærÖW&‚ò6÷&G–Æ–æP¢66R###c…óƒCc3r#¢&WGW&â#²òò6—G'W0¢66R###c…óƒCs#r#¢&WGW&â3²òò&VÆ–Ö&–ær'VÇV€¢66R###c…óƒCcCB#¢&WGW&âC²òòæFà¢66R###c…óƒCcS"#¢&WGW&âS²òò7W&7VÖfÖ–Ç’ÂFVçFF—fP¢66R###c…óƒCsR#¢&WGW&âc²òò676f¢òòf—7VÆÇ’ÖF6†VB’ö7B##bF–ÖW7F×ÖöæÇ’WÆöG2FòF†RW7F&Æ—6†VBVG&çG2à¢66R###c•óC#Sb#¢&WGW&â²òòæFöærÖW&‚ò6÷&G–Æ–æP¢66R###c•óC3R#¢&WGW&â#²òò6—G'W0¢66R###c•óC33#¢&WGW&âC²òòæFà¢66R###c•óC3C#¢&WGW&âc²òò676f¢66R###c•óC3S’#¢&WGW&âS²òò7W&7VÖfÖ–Ç’ÂFVçFF—fP¢66R###c•óCCb#¢&WGW&â3²òò&–Æ–Ö&¢FVfVÇC¢&WGW&â°¢Ð¢Ð ¢&—fFR7G&–ær6ÖW&f–ÆTæÖR†–çB6ÖW&’°¢&WGW&â7G&–æræf÷&ÖB„Æö6ÆRåU2Â&67GeòS&Bæ§r"Â6ÖW&“°¢Ð ¢&—fFR7G&–ær6÷W&6TÆ&VÂ…†÷Fò†÷Fò’°¢&WGW&â†÷Fòæ6ÖW&âò$45Eb"²7G&–æræf÷&ÖB„Æö6ÆRåU2Â"S&B"Â†÷Fòæ6ÖW&’¢†÷FòææÖS°¢Ð ¢&—fFR7G&–ærf÷&ÖDFFUF–ÖR†ÆöærF–ÖW7F×’°¢6–×ÆTFFTf÷&ÖBf÷&ÖBÒæWr6–×ÆTFFTf÷&ÖB‚&FBÔÔÒ———’+rƒ¦ÖÓ§72tÕ•Br"ÂÆö6ÆRåU2“°¢f÷&ÖBç6WEF–ÖU¦öæR…F–ÖU¦öæRævWEF–ÖU¦öæR‚$6–ô·VÆôÇV×W""’“°¢&WGW&âf÷&ÖBæf÷&ÖB†æWrFFR‡F–ÖW7F×’“°¢Ð ¢&—fFR7G&–ærf÷&ÖD6Æö6²†ÆöærF–ÖW7F×’°¢6–×ÆTFFTf÷&ÖBf÷&ÖBÒæWr6–×ÆTFFTf÷&ÖB‚&ƒ¦ÖÒtÕ•Br"ÂÆö6ÆRåU2“°¢f÷&ÖBç6WEF–ÖU¦öæR…F–ÖU¦öæRævWEF–ÖU¦öæR‚$6–ô·VÆôÇV×W""’“°¢&WGW&âf÷&ÖBæf÷&ÖB†æWrFFR‡F–ÖW7F×’“°¢Ð ¢&—fFR¥4ôäö&¦V7BÖ¶U7FGW2…7G&–ærÖW76vR’°¢¥4ôäö&¦V7B7FGW2ÒæWr¥4ôäö&¦V7B‚“°¢G'’°¢7FGW2çWB‚&6öææV7FVB"ÂfÇ6R“°¢7FGW2çWB‚&6ÖW&7FG2"ÂæWr¥4ôä'&’‚’“°¢7FGW2çWB‚'7FGW5FW‡B"ÂÖW76vR“°¢7FGW2çWB‚&–çFW'fÄÖ–çWFW2"Â&Vg&W6„–çFW'fÄÖ–çWFW2“°¢7G&–ær7F—fUÆ÷BÒ6fUÆ÷D–B†vWE&Vg2‚’ævWE7G&–ær…$Teô5D•dUõÄõEô”BÂDTdTÅEõÄõEô”B’“°¢7FGW2çWB‚'Æ÷D–B"Â7F—fUÆ÷B“°¢7FGW2çWB‚&fVVDÆö6F–öâ"ÂfVVDÆö6F–öäÆ&VÂ†7F—fUÆ÷B’“°¢Ò6F6‚„W†6WF–öâ–væ÷&VB’²Ð¢&WGW&â7FGW3°¢Ð ¢&—fFRfö–BV&Æ—6…7FGW2„¥4ôäö&¦V7B7FGW2’°¢f–æÂ7G&–ær§6öâÒ7FGW2çFõ7G&–ær‚“°¢'VäöåV•F‡&VB‚‚’Óâ°¢–b‚vU&VG’ÇÂvV"ÓÒçVÆÂ’VæF–æuvUWFFRÒ§6öã°¢VÇ6R6VæEFõvR†§6öâ“°¢Ò“°¢Ð ¢&—fFRfö–B6VæEFõvR…7G&–ær§6öâ’°¢–b‡vV"ÒçVÆÂ’vV"æWfÇVFT¦f67&—B‚'v–æF÷ræöå6æ6†÷E66âbbv–æF÷ræöå6æ6†÷E66â‚"²§6öâ²"“²"ÂçVÆÂ“°¢Ð§Ð
