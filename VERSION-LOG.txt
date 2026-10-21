@@ -1,3 +1,7 @@
+2026-10-21 | v0.7.00 Build 23 | versionCode 227 | com.growplot.farm
+Changes: Run Diagnosis now performs the shared real RGB-to-HSV pixel analysis, awaits foliage/basic CV and YOLO checks, and displays an hourglass with stage-by-stage status through both Pl@ntNet and Kindwise callbacks (with a 150-second provider timeout). A user-confirmed plant identity stays fixed for that plot/CCTV and displays its confirmation time. The HSV/basic-CV output is a heuristic image screen; YOLO detections require a deployed, configured diagnosis service.
+Validation: Plant HSV/identity/provider-progress and YOLO wiring regressions plus inline/asset JavaScript syntax checks passed. GitHub ARM64 build, service endpoint configuration, real YOLO inference, and tablet behavior remain to be verified.
+
 2026-10-21 | v0.7.00 Build 22 | versionCode 226 | com.growplot.farm
 Changes: Remove unreferenced legacy assets/index_old.html (4,945,337 bytes) from the Android package. Keep the active optimized index.html (238,785 bytes) and its six bundled sample JPEGs. Build 21 ARM64 APK succeeded with stable signing; this rebuild removes the stale duplicate page.
 Validation: Source reference scan found no index_old.html references. GitHub ARM64 build succeeded. APK is 68,319,081 bytes and the manifest confirms stable signing; target-tablet verification remains pending.

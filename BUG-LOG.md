@@ -1,3 +1,14 @@
+## BUG-085 — Run Diagnosis skipped HSV/CV or stayed in a preparation state
+
+**Reported:** 2026-10-21
+**Status:** Fixed in v0.7.00 Build 23 source (versionCode 227); GitHub ARM64 build pending. Real YOLO inference remains unavailable until the diagnosis proxy and model service are deployed and configured.
+
+**Cause:** The screen could skip the asynchronous CV engine while its script loaded. Its quick color summary used RGB threshold comparisons rather than the shared HSV analyzer. The user saw no clear stage tracker, and the Pl@ntNet callback could mark the overall diagnosis complete while Kindwise was still running.
+
+**Fix:** Run Diagnosis now awaits the shared real HSV transform, foliage/basic-CV analysis, and YOLO request in sequence. It displays a rotating hourglass and photo → HSV → foliage CV → YOLO → provider → final stages. The final stage waits for Pl@ntNet and Kindwise callbacks; a timeout ends the spinner and preserves the local results. Confirmed plant identities remain fixed for that plot/CCTV, without a change-selection control, and show their timestamp.
+
+**Verification / limits:** Focused HSV/identity/provider-progress and YOLO wiring regressions and JavaScript syntax checks pass. This build does not contain YOLO model inference and has no configured service URL/token; the UI reports that explicitly. GitHub ARM64 build, configured service inference, and tablet behavior remain pending.
+
 ## BUG-084 — Unused 4.95 MB legacy page remained in the APK
 
 **Reported:** 2026-10-21

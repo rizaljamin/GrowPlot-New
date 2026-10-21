@@ -8,8 +8,10 @@ const model = fs.readFileSync('backend/yolo/yolo_server.py', 'utf8');
 const docker = fs.readFileSync('backend/yolo/Dockerfile', 'utf8');
 const build = fs.readFileSync('tools/build-apk.sh', 'utf8');
 
-assert.match(index, /await window\.GrowPlotCV\.runYolo\(camera\)/,
+assert.match(index, /await engine\.runYolo\(camera\)/,
   'Run Diagnosis must trigger YOLO analysis automatically');
+assert.match(index, /setGrowPlotDiagnosisProgress\(camera,'yolo'/,
+  'Run Diagnosis must visibly show the YOLO stage and result state');
 assert.match(cv, /getDiagnosisApiConfig\(\)/,
   'YOLO analysis must use the configured diagnosis proxy');
 assert.match(cv, /Authorization:'Bearer '\+token/,

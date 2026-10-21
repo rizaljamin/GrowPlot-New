@@ -35,7 +35,7 @@ for(let camera=1;camera<=6;camera++)assert.ok(fs.existsSync(`app/src/main/assets
 assert.match(html,/const imageData=\['images\/cctv_01\.jpg'/,'sample-photo fallback should use relative bundled JPEG assets');
 assert.match(cv,/window\.screenDiagnosisImage=\(url\)=>ensureHSV\(\)\.then\(\(\)=>screenUrl\(url\)\)/,'Run Diagnosis image sampling must use HSV');
 assert.match(html,/screenDiagnosisImage\(sources\[i\]\.url\)/,'Run Diagnosis must sample each selected photo');
-assert.match(html,/GrowPlotCV\.analyze\(camera\)/,'Run Diagnosis must trigger the local image screen');
+assert.match(html,/await engine\.analyze\(camera\)/,'Run Diagnosis must await the local image screen before continuing');
 assert.match(cv,/No YOLO model is packaged in this build/,'do not claim YOLO inference without a packaged model');
 assert.match(cv,/window\.GrowPlotCV=\{analyze:localAnalyze/,'Run Diagnosis must always execute the local HSV stage first');
 assert.match(cv,/480\/Math\.max\(img\.naturalWidth,img\.naturalHeight\)/,'local analysis should downsample photos before running connected-component CV');
@@ -69,6 +69,10 @@ assert.match(html,/Visual review shortlist/,'manual visual candidates must be la
 assert.match(html,/function confirmSelectedDiagnosisSpecies\(camera\)/,'all species choices must use the separate confirmation action');
 assert.match(html,/type=\"radio\" name=\"speciesChoice\$\{camera\}\"/,'species choices must be presented as per-camera radio buttons');
 assert.match(html,/Confirm selected species for CCTV/,'the identity section must provide a separate explicit confirmation button');
+assert.match(html,/function diagnosisSpeciesCardMarkup\(camera,p,chosen,report\).*?if\(!verified\)return diagnosisSpeciesSelectionMarkup/s,'a confirmed plant must render as a fixed identity state without the candidate picker');
+assert.match(html,/Confirmation timestamp:/,'confirmed plant identity must display its confirmation timestamp');
+assert.match(html,/current\?\.confirmedAt&&current\?\.source!==\'plantnet_image\'/,'identity rechecks must preserve an existing user confirmation');
+assert.match(cv,/window\.confirmDiagnosisSpeciesChoice\(camera,choice\)/,'the secondary provider candidate action must use the same persistent confirmation record');
 assert.match(html,/radio\('manual','Enter another candidate'/,'manually entered alternatives must also be selectable before confirmation');
 assert.doesNotMatch(html,/onclick=\"confirmDiagnosisSpecies\(/,'provider options must not immediately confirm on selection');
 assert.doesNotMatch(html,/onclick=\"confirmVisualReviewCandidate\(/,'visual shortlist options must not immediately confirm on selection');
@@ -77,4 +81,13 @@ assert.doesNotMatch(identityUi,/camera\s*===?\s*2|camera\s*!==?\s*2/,'the same p
 assert.match(html,/diagnosisSpeciesKey\(camera,plotId=selectedPlotId\)/,'identity candidates must remain scoped to the active camera and plot');
 assert.match(html,/engine\.analyze\(camera\)/,'the CV analysis button must run the local image analysis engine');
 assert.match(html,/Basic CV and HSV analysis/,'the analysis modal must display local CV and HSV results');
+assert.match(html,/diagnosis-hourglass/,'the running diagnosis must display an hourglass indicator');
+assert.match(html,/RGB → HSV colour screening/,'the progress tracker must show the RGB-to-HSV transform stage');
+assert.match(html,/window\.screenDiagnosisImage\(sources\[i\]\.url\)/,'the diagnosis flow must calculate HSV metrics through the shared real HSV analyser');
+assert.match(cv,/window\.screenDiagnosisImage=.*ensureHSV\(\)/,'photo HSV analysis must load the HSV transform before classifying pixels');
+assert.match(html,/markGrowPlotDiagnosisProvider\(camera,plotId,'plantnet'\)/,'Pl@ntNet completion must be tracked as a provider stage');
+assert.match(html,/markGrowPlotDiagnosisProvider\(camera,plotId,'kindwise'\)/,'Kindwise completion must be tracked as a provider stage');
+assert.match(html,/150000/,'the progress indicator must reach a visible terminal state if providers time out');
+assert.match(html,/await engine\.analyze\(camera\)/,'the diagnosis flow must wait for foliage CV to finish');
+assert.match(html,/await engine\.runYolo\(camera\)/,'the diagnosis flow must await YOLO inference and report its status');
 console.log('Plant image identification, dual-provider results, and explicit identity validation checks passed.');
