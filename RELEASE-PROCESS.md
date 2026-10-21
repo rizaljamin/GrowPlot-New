@@ -26,7 +26,7 @@ The build manifest records source/APK hashes and whether the stable signing key 
 
 ## Source-of-truth gate
 
-Follow the golden-source governance in `AGENTS.md`. Copy the verified GitHub revision into the working source folder when required. Publish source changes back to GitHub and link installable artifacts to their exact source commit and SHA-256 checksum. Documentation-only changes do not require a new APK or version bump. Run `node tools/tests/timeline-persistence-regression.js` to verify saved photo timelines remain isolated by plot and interval across page reloads.
+Follow the golden-source governance in `AGENTS.md`. Copy the verified GitHub revision into the working source folder when required. Publish source changes back to GitHub and link installable artifacts to their exact source commit and SHA-256 checksum. Documentation-only changes do not require a new APK or version bump. Run `node tools/tests/feed-history-regression.js` and `node tools/tests/timeline-persistence-regression.js` to verify status-only scans retain photo cards, cached current photos fill the active period, and saved timelines remain isolated by plot and interval across page reloads.
 
 ## ARM64 build policy
 
