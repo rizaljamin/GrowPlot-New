@@ -72,6 +72,36 @@ async function plantNetCheck(images) {
   };
 }
 
+async function yoloCheck(images) {
+  const endpoint = (process.env.GROWPLOT_YOLO_SERVICE_URL || '').replace(/\/$/, '');
+  if (!endpoint) {
+    return { provider: 'YOLO-World', status: 'not_configured', message: 'The YOLO inference service is not configured on the diagnosis server.' };
+  }
+  const form = new FormData();
+  for (let i = 0; i < images.length; i++) {
+    const file = images[i];
+    form.append('photos', new Blob([file.buffer], { type: file.mimetype }), file.originalname || `plant-${i + 1}.jpg`);
+  }
+  const headers = {};
+  if (process.env.GROWPLOT_YOLO_SERVICE_TOKEN) headers.Authorization = `Bearer ${process.env.GROWPLOT_YOLO_SERVICE_TOKEN}`;
+  const response = await fetch(`${endpoint}/v1/yolo`, {
+    method: 'POST', headers, body: form, signal: AbortSignal.timeout(120000)
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(`YOLO service returned HTTP ${response.status}`);
+  return payload;
+}
+
+app.post('/v1/yolo', authorize, upload.array('photos', MAX_PHOTOS), async (req, res) => {
+  const images = req.files || [];
+  if (!images.length) return res.status(400).json({ error: 'Attach at least one photo.' });
+  try {
+    res.json(await yoloCheck(images));
+  } catch (error) {
+    res.status(502).json({ provider: 'YOLO-World', status: 'error', message: error.message || 'YOLO inference failed.' });
+  }
+});
+
 app.post('/v1/diagnose', authorize, upload.array('photos', MAX_PHOTOS), async (req, res) => {
   const images = req.files || [];
   if (!images.length) return res.status(400).json({ error: 'Attach at least one photo.' });
@@ -82,10 +112,10 @@ app.post('/v1/diagnose', authorize, upload.array('photos', MAX_PHOTOS), async (r
     return res.status(413).json({ error: 'Total photo size exceeds 50 MB.' });
   }
   const context = safeJson(req.body.context);
-  const checks = await Promise.allSettled([kindwiseCheck(images), plantNetCheck(images)]);
+  const checks = await Promise.allSettled([kindwiseCheck(images), plantNetCheck(images), yoloCheck(images)]);
   const providers = checks.map((item, index) => {
     if (item.status === 'fulfilled') return item.value;
-    return { provider: index === 0 ? 'Kindwise crop.health' : 'Pl@ntNet', status: 'error', message: item.reason?.message || 'Provider request failed.' };
+    return { provider: ['Kindwise crop.health', 'Pl@ntNet', 'YOLO-World'][index], status: 'error', message: item.reason?.message || 'Provider request failed.' };
   });
   res.json({
     generatedAt: new Date().toISOString(),

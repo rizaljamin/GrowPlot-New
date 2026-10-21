@@ -27,6 +27,12 @@ export GRADLE_USER_HOME="${GRADLE_USER_HOME:-$ROOT/.gradle-cache}"
 if [[ -n "${GROWPLOT_PLANTNET_API_KEY:-}" ]]; then
   export ORG_GRADLE_PROJECT_growplotPlantNetApiKey="$GROWPLOT_PLANTNET_API_KEY"
 fi
+if [[ -n "${GROWPLOT_DIAGNOSIS_API_URL:-}" ]]; then
+  export ORG_GRADLE_PROJECT_growplotDiagnosisApiUrl="$GROWPLOT_DIAGNOSIS_API_URL"
+fi
+if [[ -n "${GROWPLOT_DIAGNOSIS_PROXY_TOKEN:-}" ]]; then
+  export ORG_GRADLE_PROJECT_growplotDiagnosisProxyToken="$GROWPLOT_DIAGNOSIS_PROXY_TOKEN"
+fi
 
 IDENTITY="$ROOT/version.properties"
 VERSION_NAME="$(sed -n 's/^versionName=//p' "$IDENTITY" | head -n1)"
@@ -46,6 +52,7 @@ node "$ROOT/tools/tests/manage-farm-regression.js" || fail "Manage Farm regressi
 node "$ROOT/tools/tests/account-registration-regression.js" || fail "Account registration regression check failed"
 node "$ROOT/tools/tests/data-feed-ui-regression.js" || fail "Data-feed UI regression check failed"
 node "$ROOT/tools/tests/plant-hsv-regression.js" || fail "Plant HSV regression check failed"
+node "$ROOT/tools/tests/yolo-regression.js" || fail "YOLO integration regression check failed"
 
 cd "$ROOT"
 APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
@@ -95,10 +102,16 @@ if [[ -n "${GROWPLOT_PLANTNET_API_KEY:-}" ]]; then
 else
   PLANTNET_STATE="Pl@ntNet key is absent; Pl@ntNet diagnosis is disabled in this APK."
 fi
+if [[ -n "${GROWPLOT_DIAGNOSIS_API_URL:-}" && -n "${GROWPLOT_DIAGNOSIS_PROXY_TOKEN:-}" ]]; then
+  YOLO_STATE="Diagnosis proxy configured; YOLO-World requires its backend service to be deployed and configured."
+else
+  YOLO_STATE="Diagnosis proxy is not configured; YOLO-World inference is unavailable in this APK until configured."
+fi
 ZIP_OUT="$ROOT/release/v${SAFE_VERSION}-GrowPlot-source.zip"
 rm -f "$ZIP_OUT"
 zip -qr "$ZIP_OUT" . \
   -x '.git/*' './.git/*' '.gradle/*' './.gradle/*' '*/.gradle/*' \
+  '__pycache__/*' '*/__pycache__/*' '*.pyc' \
   '.gradle-cache/*' './.gradle-cache/*' '*/.gradle-cache/*' \
   '.android-sdk/*' './.android-sdk/*' '*/.android-sdk/*' \
   'local.properties' './local.properties' 'gradle.properties' './gradle.properties' \
@@ -118,6 +131,7 @@ Signing certificate SHA-256: $CERT
 Signing certificate SHA-1: $CERT_SHA1
 Signing status: $SIGNING_STATE
 Pl@ntNet status: $PLANTNET_STATE
+YOLO status: $YOLO_STATE
 Device verification: pending; install and test on the user's Android tablet.
 EOF
 printf 'Build outputs:\n%s\n%s\n' "$ARM64_OUT" "$ZIP_OUT"

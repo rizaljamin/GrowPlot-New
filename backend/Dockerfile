@@ -1,7 +1,8 @@
-FROM python:3.12-slim
+FROM node:22-slim
 WORKDIR /app
-COPY vision_server.py /app/vision_server.py
-ENV PYTHONUNBUFFERED=1 PORT=8080
+COPY package.json /app/package.json
+RUN npm install --omit=dev --no-audit --no-fund
+COPY server.js /app/server.js
+ENV NODE_ENV=production PORT=8080
 EXPOSE 8080
-USER 65532:65532
-CMD ["python","vision_server.py"]
+CMD ["npm", "start"]
