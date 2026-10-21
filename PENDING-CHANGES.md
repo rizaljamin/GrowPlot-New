@@ -1,3 +1,9 @@
+## Pending — Build 22 remove stale packaged HTML (2026-10-21)
+
+- APK inspection found unreferenced assets/index_old.html (4,945,337 bytes) still bundled beside the active 238,785-byte assets/index.html.
+- Removed the stale asset; no source references existed. Version: v0.7.00 Build 22 / versionCode 226.
+- Build 21 GitHub ARM64 workflow succeeded and its stable certificate matched. Build 22 GitHub compilation and package verification pending; Android tablet verification remains pending.
+
 ## Pending — Build 21 foliage CV/HSV and sample-photo size fix (2026-10-21)
 
 - Fix the standalone CV analysis action so it runs on the latest selected CCTV photo instead of opening a placeholder.

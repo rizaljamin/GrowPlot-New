@@ -1,3 +1,7 @@
+2026-10-21 | v0.7.00 Build 22 | versionCode 226 | com.growplot.farm
+Changes: Remove unreferenced legacy assets/index_old.html (4,945,337 bytes) from the Android package. Keep the active optimized index.html (238,785 bytes) and its six bundled sample JPEGs. Build 21 ARM64 APK succeeded with stable signing; this rebuild removes the stale duplicate page.
+Validation: Source reference scan found no index_old.html references. GitHub ARM64 build and APK inspection pending; target-tablet verification pending.
+
 2026-10-21 | v0.7.00 Build 21 | versionCode 225 | com.growplot.farm
 Changes: Restore working standalone CV analysis for the latest photo in every CCTV section. Bound processing to 480px, reuse HSV labels for connected-region segmentation, and show grayscale brightness, contrast, saturation, edge density, color shares, and annotated foliage-colour regions. Replace six duplicate base64 photo copies in `index.html` with bundled JPEG paths; reduce the file from 4,968,925 to 238,785 bytes (95.2%). CV measurements remain preliminary, not a validated health score, leaf count, species result, or disease diagnosis.
 Validation: HSV/basic-CV and connected-component fixtures plus inline/asset JavaScript syntax and YOLO, Kindwise, Data Feed, settings, farm, and account regression checks passed. External photo references and all six bundled assets verified in source. APK, signing, and tablet WebView verification pending.

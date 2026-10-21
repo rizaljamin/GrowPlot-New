@@ -1,18 +1,29 @@
+## BUG-084 — Unused 4.95 MB legacy page remained in the APK
+
+**Reported:** 2026-10-21
+**Status:** Removed in v0.7.00 Build 22 source (versionCode 226); GitHub ARM64 rebuild pending.
+
+**Cause:** assets/index_old.html was no longer referenced by the app but Android packaged all files in the assets directory. The Build 21 APK therefore contained both the optimized 238,785-byte assets/index.html and the stale 4,945,337-byte page.
+
+**Fix:** Deleted the unreferenced legacy page. Build 21 APK was 72,030,140 bytes; removing this asset should save approximately 4.7 MiB before archive effects. Other packaged dependencies, especially libvlc.so, remain major contributors to APK size.
+
+**Verification:** Confirmed the source contains no index_old.html references. Build 22 GitHub ARM64 APK and manifest are pending; installation and tablet behavior remain unverified.
+
 ## BUG-083 — Sample photos duplicated inside the 5 MB index.html
 
 **Reported:** 2026-10-21
-**Status:** Corrected in v0.7.00 Build 21 source (versionCode 225); GitHub ARM64 build pending.
+**Status:** Corrected in v0.7.00 Build 21 (versionCode 225); GitHub ARM64 APK built and stable signing verified, tablet verification pending.
 
 **Cause:** `index.html` embedded six sample photographs as base64 strings even though the same CCTV JPEGs were already bundled under `assets/images/`. A prior 28 KB revision was not a size optimization: commit `e468e8c` accidentally deleted most of `index.html` during a GitHub blob-transfer change. Commit `f0ba618` restored the page, including the duplicate base64 payload.
 
 **Fix:** The sample-photo fallback now points to the existing relative JPEG assets. `index.html` is 238,785 bytes (233.2 KiB), down from 4,968,925 bytes (4.74 MiB), a 95.2% reduction. The original, already-bundled images remain available to the app.
 
-**Verification:** Confirmed all six referenced JPEG assets exist; five are byte-identical to their previous base64 copies, and CCTV01's asset differs from the embedded copy by one byte but has the same dimensions. Added a regression check preventing base64 JPEGs from returning to `index.html`. Android WebView asset loading and GitHub ARM64 compilation remain pending.
+**Verification:** Confirmed all six referenced JPEG assets exist; five are byte-identical to their previous base64 copies, and CCTV01's asset differs from the embedded copy by one byte but has the same dimensions. Added a regression check preventing base64 JPEGs from returning to `index.html`. GitHub ARM64 compilation and signing succeeded for Build 21; Android WebView asset loading and tablet verification remain pending.
 
 ## BUG-082 — Foliage CV action stayed on a placeholder or stalled
 
 **Reported:** 2026-10-21
-**Status:** Corrected in v0.7.00 Build 21 source (versionCode 225); GitHub ARM64 build pending.
+**Status:** Corrected in v0.7.00 Build 21 (versionCode 225); GitHub ARM64 APK built and stable signing verified, tablet verification pending.
 
 **Cause:** The separate CV analysis action only opened a placeholder view. The local foliage scan also processed a 720-pixel image and allocated a neighbour list for every sampled pixel, which could stall Android WebView on large photos. It selected the first saved photo rather than the latest one.
 
