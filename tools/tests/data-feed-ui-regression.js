@@ -14,4 +14,10 @@ assert.match(elements.folderCheckStatus.textContent,/Connect to folder/,'explain
 const java=fs.readFileSync('app/src/main/java/com/growplot/farm/MainActivity.java','utf8');
 assert(!java.includes('Set it in Settings → Plot Management'),'do not direct users back to the panel they are viewing');
 assert(java.includes('Tap Connect to folder above to grant access'),'point to the visible folder action');
-console.log('Data-feed display regression checks passed.');
+const picker=java.slice(java.indexOf('private void connectDefaultFeedInSavedTree'),java.indexOf('private void loadMainPage'));
+assert(picker.includes('"Image_Feed"')&&picker.includes('signedInEmailFolderName()'),'create or reuse the signed-in user Image_Feed folder');
+assert(picker.includes('safeFolderName(pickerDefaultFolderName)'),'derive the target folder from the selected plot');
+assert(picker.includes('findOrCreateChildFolder'),'create each missing folder while reusing existing folders');
+assert(picker.includes('Choose the GrowPlot parent folder for '),'show plot-specific first-use guidance');
+assert(!picker.includes('Plot01_demo'),'avoid hard-coded demo-plot picker guidance');
+console.log('Data-feed display and connection regression checks passed.');
