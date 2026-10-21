@@ -969,3 +969,15 @@ Build 7 validation: Gradle ARM64 build, package version, signature, alignment, S
 
 
 **UI follow-up — Build 20:** Candidate cards are radio choices. Selecting a radio does not save a species identity; the user must press the separate “Confirm selected species” button. Manual “Other plant” entry uses the same explicit confirmation action.
+
+
+## BUG-070 — Interval photo timeline is empty beside supplied-photo diagnosis baseline
+
+**Reported:** 2026-10-21
+**Status:** Fixed in v0.7.00 Build 27 (versionCode 231); ARM64 build and tablet verification pending.
+
+**Finding:** The diagnosis baseline uses six bundled sample JPEGs, while interval history was populated only from the selected plot's Image_Feed scan or a cached current image. The timeline also compared cached captures against periods anchored to today, so older captures could remain invisible even though the image was saved.
+
+**Fix:** Put cached images into a four-period timeline anchored to their capture date when no saved history exists. When no plot-feed timeline or cached photo is available, show the bundled baseline photo in its actual day/week/month/year period and label it clearly as a supplied sample, not saved plot history. This keeps sample photos from being mistaken for real plot records.
+
+**Verification / limits:** Regression coverage checks date placement for daily, weekly, monthly, yearly intervals and sample-photo fallback for all six cameras. Android folder selection, feed scanning, actual history rendering and tablet behavior require device verification.
