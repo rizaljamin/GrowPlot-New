@@ -44,8 +44,13 @@ assert.match(java,/plantIdentityStatus\("Kindwise plant\.id", "not_configured"/,
 assert.match(html,/provider\?\.result\?\.classification\?\.suggestions/,'ranked suggestions from Plant.id must be displayed with Pl@ntNet candidates');
 assert.match(html,/if\(!chosen\?\.confirmedAt\|\|chosen\?\.source==='plantnet_image'\)chosen=null/,'legacy Pl@ntNet-only confirmations must not remain marked as verified');
 assert.match(html,/Plant identity unverified · <i>Species not confirmed<\/i>/,'identity must remain explicitly unverified until a new candidate is selected');
-assert.match(html,/source:choice\.provider/,'manual identity selection must retain its provider as provenance');
+assert.match(html,/source:choice\.provider\|\|'user_manual'/,'candidate selection must retain provider or manual-selection provenance');
 assert.match(html,/Kindwise plant\.id API key/,'Plant.id must have a separate API key setting');
+assert.match(html,/diagnosisVisualReviewShortlists=\{2:\[/,'the manually reviewed shortlist for the supplied CCTV02 photo must be present in the plant identity section');
+assert.match(html,/Ginger \/ Halia[\s\S]*?Zingiber officinale[\s\S]*?Galangal \/ Lengkuas[\s\S]*?Alpinia galanga[\s\S]*?Turmeric \/ Kunyit[\s\S]*?Curcuma longa/,'the visual-review shortlist must include ginger, galangal, and turmeric with scientific names');
+assert.match(html,/Visual review shortlist/,'manual visual candidates must be labeled as non-model suggestions');
+assert.match(html,/function confirmManualDiagnosisSpecies\(camera\)/,'users must be able to confirm a manually entered species when providers are not configured');
+assert.match(html,/Enter another candidate[\s\S]*?Confirm this plant for CCTV/,'every CCTV identity card must offer per-camera manual species entry and confirmation');
 const identityUi=html.slice(html.indexOf('function diagnosisSpeciesCandidates'),html.indexOf('function diagnosisAnalysisKey'));
 assert.doesNotMatch(identityUi,/camera\s*===?\s*2|camera\s*!==?\s*2/,'the same plant identity flow must apply to every CCTV camera');
 assert.match(html,/diagnosisSpeciesKey\(camera,plotId=selectedPlotId\)/,'identity candidates must remain scoped to the active camera and plot');
