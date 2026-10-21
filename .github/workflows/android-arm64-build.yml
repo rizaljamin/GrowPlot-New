@@ -153,3 +153,5 @@ jobs:
 # Build 07 (versionCode 220): CV loader fix c2de9e8 and version bump bdc06bf.
 
 # Trigger Build 07 APK after direct inline CV engine fix 061653b (2026-10-19).
+
+# Trigger v0.7.00 Build 24: diagnosis Image_Feed fallback and interval timeline retention.
