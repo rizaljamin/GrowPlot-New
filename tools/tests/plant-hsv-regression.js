@@ -49,8 +49,12 @@ assert.match(html,/Kindwise plant\.id API key/,'Plant.id must have a separate AP
 assert.match(html,/diagnosisVisualReviewShortlists=\{2:\[/,'the manually reviewed shortlist for the supplied CCTV02 photo must be present in the plant identity section');
 assert.match(html,/Ginger \/ Halia[\s\S]*?Zingiber officinale[\s\S]*?Galangal \/ Lengkuas[\s\S]*?Alpinia galanga[\s\S]*?Turmeric \/ Kunyit[\s\S]*?Curcuma longa/,'the visual-review shortlist must include ginger, galangal, and turmeric with scientific names');
 assert.match(html,/Visual review shortlist/,'manual visual candidates must be labeled as non-model suggestions');
-assert.match(html,/function confirmManualDiagnosisSpecies\(camera\)/,'users must be able to confirm a manually entered species when providers are not configured');
-assert.match(html,/Enter another candidate[\s\S]*?Confirm this plant for CCTV/,'every CCTV identity card must offer per-camera manual species entry and confirmation');
+assert.match(html,/function confirmSelectedDiagnosisSpecies\(camera\)/,'all species choices must use the separate confirmation action');
+assert.match(html,/type=\"radio\" name=\"speciesChoice\$\{camera\}\"/,'species choices must be presented as per-camera radio buttons');
+assert.match(html,/Confirm selected species for CCTV/,'the identity section must provide a separate explicit confirmation button');
+assert.match(html,/radio\('manual','Enter another candidate'/,'manually entered alternatives must also be selectable before confirmation');
+assert.doesNotMatch(html,/onclick=\"confirmDiagnosisSpecies\(/,'provider options must not immediately confirm on selection');
+assert.doesNotMatch(html,/onclick=\"confirmVisualReviewCandidate\(/,'visual shortlist options must not immediately confirm on selection');
 const identityUi=html.slice(html.indexOf('function diagnosisSpeciesCandidates'),html.indexOf('function diagnosisAnalysisKey'));
 assert.doesNotMatch(identityUi,/camera\s*===?\s*2|camera\s*!==?\s*2/,'the same plant identity flow must apply to every CCTV camera');
 assert.match(html,/diagnosisSpeciesKey\(camera,plotId=selectedPlotId\)/,'identity candidates must remain scoped to the active camera and plot');
