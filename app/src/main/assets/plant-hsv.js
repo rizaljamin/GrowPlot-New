@@ -20,24 +20,69 @@
     if(hue>=8&&hue<40&&value<=0.68)return 3;
     return 0;
   }
-  function analyzeRgba(data){
+  function analyzeRgba(data,width,height){
     const total=Math.floor((data&&data.length||0)/4);
-    let green=0,yellow=0,brown=0;
+    width=Math.max(0,Math.floor(Number(width)||0));
+    height=Math.max(0,Math.floor(Number(height)||0));
+    let green=0,yellow=0,brown=0,graySum=0,graySquareSum=0,saturationSum=0;
+    const labels=new Uint8Array(total),gray=new Uint8Array(total);
     for(let i=0;i<total;i++){
-      const k=i*4,category=classifyRgb(data[k],data[k+1],data[k+2]);
+      const k=i*4,r=data[k],g=data[k+1],b=data[k+2],category=classifyRgb(r,g,b);
+      const luminance=Math.round(.299*r+.587*g+.114*b),max=Math.max(r,g,b),min=Math.min(r,g,b);
+      labels[i]=category;gray[i]=luminance;graySum+=luminance;graySquareSum+=luminance*luminance;
+      saturationSum+=max?((max-min)/max):0;
       if(category===1)green++;else if(category===2)yellow++;else if(category===3)brown++;
     }
     const percent=n=>total?Math.round(n*1000/total)/10:0;
     const classified=green+yellow+brown;
+    let edgePixels=0,edgeTotal=0;
+    if(width>2&&height>2&&width*height<=total){
+      for(let y=0;y<height-1;y++)for(let x=0;x<width-1;x++){
+        const p=y*width+x;
+        const gx=Math.abs(gray[p+1]-gray[p]),gy=Math.abs(gray[p+width]-gray[p]);
+        if(Math.max(gx,gy)>=36)edgePixels++;
+        edgeTotal++;
+      }
+    }
+    const meanBrightness=total?graySum/total:0;
     return {totalPixels:total,greenPixels:green,yellowPixels:yellow,brownPixels:brown,
       otherPixels:Math.max(0,total-classified),green:total?green/total:0,
       yellow:total?yellow/total:0,brown:total?brown/total:0,
       other:total?Math.max(0,total-classified)/total:0,
       greenPercent:percent(green),yellowPercent:percent(yellow),
       brownPercent:percent(brown),otherPercent:percent(Math.max(0,total-classified)),
-      method:'HSV threshold screening'};
+      meanBrightness:Math.round(meanBrightness*10)/10,
+      brightnessContrast:Math.round((total?Math.sqrt(Math.max(0,graySquareSum/total-meanBrightness*meanBrightness)):0)*10)/10,
+      meanSaturationPercent:Math.round((total?saturationSum*100/total:0)*10)/10,
+      edgeDensityPercent:edgeTotal?Math.round(edgePixels*1000/edgeTotal)/10:0,
+      labels,
+      method:'HSV threshold screening with grayscale contrast and edge-density checks'};
   }
-  const api={classifyRgb,analyzeRgba};
+  function connectedComponents(labels,width,height,minArea,limit){
+    width=Math.max(0,Math.floor(Number(width)||0));height=Math.max(0,Math.floor(Number(height)||0));
+    const total=width*height;if(!labels||labels.length<total||!total)return [];
+    minArea=Math.max(1,Math.floor(Number(minArea)||1));limit=Math.max(1,Math.floor(Number(limit)||12));
+    const seen=new Uint8Array(total),queue=new Int32Array(total),regions=[];
+    for(let n=0;n<total;n++){
+      if(!labels[n]||seen[n])continue;
+      let head=0,tail=1,area=0,xmin=width,ymin=height,xmax=0,ymax=0,green=0,yellow=0,brown=0;
+      queue[0]=n;seen[n]=1;
+      while(head<tail){
+        const p=queue[head++],x=p%width,y=(p/width)|0,kind=labels[p];area++;
+        if(kind===1)green++;else if(kind===2)yellow++;else if(kind===3)brown++;
+        if(x<xmin)xmin=x;if(x>xmax)xmax=x;if(y<ymin)ymin=y;if(y>ymax)ymax=y;
+        let q;
+        if(x>0){q=p-1;if(labels[q]&&!seen[q]){seen[q]=1;queue[tail++]=q}}
+        if(x+1<width){q=p+1;if(labels[q]&&!seen[q]){seen[q]=1;queue[tail++]=q}}
+        if(y>0){q=p-width;if(labels[q]&&!seen[q]){seen[q]=1;queue[tail++]=q}}
+        if(y+1<height){q=p+width;if(labels[q]&&!seen[q]){seen[q]=1;queue[tail++]=q}}
+      }
+      if(area>=minArea)regions.push({area,xmin,ymin,xmax,ymax,green,yellow,brown});
+    }
+    regions.sort((a,b)=>b.area-a.area);
+    return regions.slice(0,limit);
+  }
+  const api={classifyRgb,analyzeRgba,connectedComponents};
   root.GrowPlotHSV=api;
   if(typeof module==='object'&&module.exports)module.exports=api;
 })(typeof window==='object'?window:globalThis);

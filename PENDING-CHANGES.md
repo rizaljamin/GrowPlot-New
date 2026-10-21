@@ -1,3 +1,12 @@
+## Pending — Build 21 foliage CV/HSV and sample-photo size fix (2026-10-21)
+
+- Fix the standalone CV analysis action so it runs on the latest selected CCTV photo instead of opening a placeholder.
+- Bound on-device image processing to a 480-pixel longest side and reuse HSV class labels for connected foliage-colour regions to avoid the WebView stall.
+- Show HSV colour shares and basic computer-vision measurements: grayscale brightness, contrast, saturation, edge density, and annotated candidate regions. Keep the result clearly labeled as preliminary image screening, not a health score, leaf count, or disease diagnosis.
+- Remove duplicate base64 photos from `index.html`; fallback views use the existing bundled JPEGs instead. File size fell from 4,968,925 bytes to 238,785 bytes (95.2% smaller, 233.2 KiB).
+- HSV/connected-region fixtures, inline and asset JavaScript syntax, and YOLO, Kindwise, data-feed, settings, farm, and account regressions passed. Feed-history regression fails on the unmodified Build 20 baseline (`emptyTimeline` is undefined in its harness).
+- Source baseline: v0.7.00 Build 20 / versionCode 224, commit `0a7c7a6d8aff85e509113add325c504f3160b56a`. Build 21 / versionCode 225 is prepared locally; GitHub ARM64 build and Android tablet verification remain pending.
+
 ## Pending — HSV screening and photo-based species ID (2026-10-21)
 
 - Run Diagnosis runs local HSV colour screening, then calls Pl@ntNet single-species identification and disease identification with the selected photos. Ranked species matches are displayed separately for user review.

@@ -1,3 +1,7 @@
+2026-10-21 | v0.7.00 Build 21 | versionCode 225 | com.growplot.farm
+Changes: Restore working standalone CV analysis for the latest photo in every CCTV section. Bound processing to 480px, reuse HSV labels for connected-region segmentation, and show grayscale brightness, contrast, saturation, edge density, color shares, and annotated foliage-colour regions. Replace six duplicate base64 photo copies in `index.html` with bundled JPEG paths; reduce the file from 4,968,925 to 238,785 bytes (95.2%). CV measurements remain preliminary, not a validated health score, leaf count, species result, or disease diagnosis.
+Validation: HSV/basic-CV and connected-component fixtures plus inline/asset JavaScript syntax and YOLO, Kindwise, Data Feed, settings, farm, and account regression checks passed. External photo references and all six bundled assets verified in source. APK, signing, and tablet WebView verification pending.
+
 2026-10-21 | v0.7.00 Build 20 | versionCode 224 | com.growplot.farm
 Changes: Plant identity candidates now use radio-button selection and a separate Confirm selected species action. Provider results, visual shortlist choices, and manually entered alternatives remain uncommitted until explicit confirmation; applies to CCTV01–CCTV06.
 Validation: Identity regression and HTML JavaScript syntax checks passed. ARM64 build and on-device UI verification pending.

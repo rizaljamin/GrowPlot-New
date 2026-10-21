@@ -1,3 +1,25 @@
+## BUG-083 — Sample photos duplicated inside the 5 MB index.html
+
+**Reported:** 2026-10-21
+**Status:** Corrected in v0.7.00 Build 21 source (versionCode 225); GitHub ARM64 build pending.
+
+**Cause:** `index.html` embedded six sample photographs as base64 strings even though the same CCTV JPEGs were already bundled under `assets/images/`. A prior 28 KB revision was not a size optimization: commit `e468e8c` accidentally deleted most of `index.html` during a GitHub blob-transfer change. Commit `f0ba618` restored the page, including the duplicate base64 payload.
+
+**Fix:** The sample-photo fallback now points to the existing relative JPEG assets. `index.html` is 238,785 bytes (233.2 KiB), down from 4,968,925 bytes (4.74 MiB), a 95.2% reduction. The original, already-bundled images remain available to the app.
+
+**Verification:** Confirmed all six referenced JPEG assets exist; five are byte-identical to their previous base64 copies, and CCTV01's asset differs from the embedded copy by one byte but has the same dimensions. Added a regression check preventing base64 JPEGs from returning to `index.html`. Android WebView asset loading and GitHub ARM64 compilation remain pending.
+
+## BUG-082 — Foliage CV action stayed on a placeholder or stalled
+
+**Reported:** 2026-10-21
+**Status:** Corrected in v0.7.00 Build 21 source (versionCode 225); GitHub ARM64 build pending.
+
+**Cause:** The separate CV analysis action only opened a placeholder view. The local foliage scan also processed a 720-pixel image and allocated a neighbour list for every sampled pixel, which could stall Android WebView on large photos. It selected the first saved photo rather than the latest one.
+
+**Fix:** The CV action now runs the local analysis on the latest selected photo. Analysis downsamples to a maximum 480-pixel longest side, reuses the HSV pixel labels for connected-component regions, and avoids per-pixel temporary neighbour arrays. It shows HSV green/yellow/brown/other percentages plus basic grayscale brightness, contrast, saturation, edge density, and an annotated image. The output explicitly describes these as image measurements, not a health score, disease diagnosis, or leaf count.
+
+**Verification:** HSV fixture and connected-component tests, JavaScript syntax checks, and the YOLO, Kindwise, data-feed, settings, farm, and account regression checks passed. The feed-history regression also fails on the unmodified Build 20 baseline because its test harness does not define `emptyTimeline`; that issue is unrelated. No APK or target-tablet test has been run for this change.
+
 ## BUG-081 — Run Diagnosis species label is only a preset estimate
 
 **Reported:** 2026-10-21
