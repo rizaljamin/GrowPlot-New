@@ -109,9 +109,9 @@ jobs:
               raise SystemExit('Firebase OAuth client does not include this APK signer SHA-1')
           print('Firebase Google OAuth SHA-1 matches the APK signer.')
           PY
-            if [[ "$SIGNING_STATUS" != "Matches the saved Build 30 certificate." ]]; then
-              grep -Fxq "Signing status: Signed with configured stable keystore; certificate differs from saved Build 30 certificate." release/*-build-manifest.txt
-              echo "::warning::APK uses the configured new stable key and cannot update an app signed with the previous certificate."
+            if [[ "$SIGNING_STATUS" != "Matches the current GrowPlot stable certificate." ]]; then
+              grep -Fxq "Signing status: Signed with configured stable keystore; certificate differs from current GrowPlot stable certificate." release/*-build-manifest.txt
+              echo "::warning::APK signer differs from the current GrowPlot stable certificate and may not update the installed app."
             fi
           else
             grep -Eq '^Arm64 APK: .*development-only\.apk$' release/*-build-manifest.txt

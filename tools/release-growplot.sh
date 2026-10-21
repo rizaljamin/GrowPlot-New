@@ -4,7 +4,6 @@ set -Eeuo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 IDENTITY="$ROOT/version.properties"
 OUT_DIR="${GROWPLOT_RELEASE_DIR:-$ROOT/release}"
-EXPECTED_CERT="${GROWPLOT_EXPECTED_CERT_SHA256:-d3da38540a84c06815beaec70f23d2c98dc927e5216bf83f49d3640760816466}"
 ENV_FILE="${GROWPLOT_ENV_FILE:-$HOME/.config/growplot/build.env}"
 
 # Per-user secrets and SDK settings persist across project sessions. Never keep this file in Drive or source control.
@@ -14,6 +13,7 @@ if [[ -f "$ENV_FILE" ]]; then
   source "$ENV_FILE"
   set +a
 fi
+EXPECTED_CERT="${GROWPLOT_EXPECTED_CERT_SHA256:-fc5edb30ece8df673c50aa907b61357bceb807eb843ef853d89c276e5501b204}"
 
 fail() { printf 'GrowPlot release stopped: %s\n' "$*" >&2; exit 1; }
 need() { command -v "$1" >/dev/null 2>&1 || fail "required command '$1' is missing"; }
@@ -52,7 +52,7 @@ if [[ -n "${GROWPLOT_DEBUG_KEYSTORE:-}" ]]; then
   [[ -f "$GROWPLOT_DEBUG_KEYSTORE" ]] || fail "GROWPLOT_DEBUG_KEYSTORE does not point to a file"
   [[ -n "${GROWPLOT_DEBUG_KEYSTORE_PASSWORD:-}" ]] || fail "GROWPLOT_DEBUG_KEYSTORE_PASSWORD is missing"
 else
-  [[ -f "$HOME/.android/debug.keystore" ]] || fail "stable GrowPlot signing key missing. Restore the Build 30 keystore as ~/.android/debug.keystore, or set GROWPLOT_DEBUG_KEYSTORE and its password variables. Do not generate a replacement key for an update build."
+  [[ -f "$HOME/.android/debug.keystore" ]] || fail "current GrowPlot signing key missing. Set GROWPLOT_DEBUG_KEYSTORE and its password variables to the configured stable keystore. Do not generate a replacement key for an update build."
 fi
 
 HTML="$ROOT/app/src/main/assets/index.html"
@@ -79,7 +79,7 @@ fi
 CERT="$("$APKSIGNER" verify --print-certs "$APK" | sed -n 's/.*certificate SHA-256 digest: //p' | head -n1 | tr '[:upper:]' '[:lower:]')"
 EXPECTED_CERT="$(printf '%s' "$EXPECTED_CERT" | tr '[:upper:]' '[:lower:]')"
 [[ -n "$CERT" ]] || fail "could not read APK signing certificate"
-[[ "$CERT" == "$EXPECTED_CERT" ]] || fail "APK is signed with $CERT, expected the existing GrowPlot certificate $EXPECTED_CERT. No release files were published."
+[[ "$CERT" == "$EXPECTED_CERT" ]] || fail "APK is signed with $CERT, expected the current GrowPlot stable certificate $EXPECTED_CERT. No release files were published."
 ZIPALIGN="$ANDROID_HOME/build-tools/35.0.0/zipalign"
 [[ -x "$ZIPALIGN" ]] || fail "zipalign not found under $ANDROID_HOME/build-tools/35.0.0"
 "$ZIPALIGN" -c -v 4 "$APK" >/dev/null || fail "APK alignment check failed"
