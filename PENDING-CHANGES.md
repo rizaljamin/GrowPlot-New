@@ -2,7 +2,7 @@
 
 - APK inspection found unreferenced assets/index_old.html (4,945,337 bytes) still bundled beside the active 238,785-byte assets/index.html.
 - Removed the stale asset; no source references existed. Version: v0.7.00 Build 22 / versionCode 226.
-- Build 21 GitHub ARM64 workflow succeeded and its stable certificate matched. Build 22 GitHub compilation and package verification pending; Android tablet verification remains pending.
+- Build 21 GitHub ARM64 workflow succeeded and its stable certificate matched. Build 22 GitHub ARM64 workflow succeeded. The APK is 68,319,081 bytes, the stale page is absent, and stable signing matches. Android tablet verification remains pending.
 
 ## Pending — Build 21 foliage CV/HSV and sample-photo size fix (2026-10-21)
 

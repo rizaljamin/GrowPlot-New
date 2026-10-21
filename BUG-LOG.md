@@ -1,13 +1,13 @@
 ## BUG-084 — Unused 4.95 MB legacy page remained in the APK
 
 **Reported:** 2026-10-21
-**Status:** Removed in v0.7.00 Build 22 source (versionCode 226); GitHub ARM64 rebuild pending.
+**Status:** Removed in v0.7.00 Build 22 (versionCode 226); GitHub ARM64 build succeeded and stable signing verified, tablet verification pending.
 
 **Cause:** assets/index_old.html was no longer referenced by the app but Android packaged all files in the assets directory. The Build 21 APK therefore contained both the optimized 238,785-byte assets/index.html and the stale 4,945,337-byte page.
 
 **Fix:** Deleted the unreferenced legacy page. Build 21 APK was 72,030,140 bytes; removing this asset should save approximately 4.7 MiB before archive effects. Other packaged dependencies, especially libvlc.so, remain major contributors to APK size.
 
-**Verification:** Confirmed the source contains no index_old.html references. Build 22 GitHub ARM64 APK and manifest are pending; installation and tablet behavior remain unverified.
+**Verification:** Confirmed the source contains no index_old.html references. Build 22 APK is 68,319,081 bytes; its manifest confirms versionCode 226 and the current stable signing certificate. The APK contains the active 238,785-byte page and no legacy page. Installation and tablet behavior remain unverified.
 
 ## BUG-083 — Sample photos duplicated inside the 5 MB index.html
 
