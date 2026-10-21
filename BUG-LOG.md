@@ -1,3 +1,14 @@
+## BUG-079 — Connect to folder shows a hard-coded demo path
+
+**Reported:** 2026-10-21
+**Status:** Fixed in v0.7.00 Build 12 source (versionCode 216); ARM64 workflow/device verification pending.
+
+**Cause:** The first-use Drive picker and wrong-folder guidance named `Plot01_demo` even when a different plot was selected. The underlying connection already created or reused the selected user/plot folders.
+
+**Fix:** Picker guidance now names the selected plot and explains that GrowPlot creates or reuses `Image_Feed/<signed-in email>/<selected plot folder>` under `Projects/GrowPlot`. Added regression assertions for dynamic plot targeting and missing-folder creation.
+
+**Verification:** Focused connection regression and ARM64 build pending. Google Drive provider behavior still requires testing on the user's Android device.
+
 ## BUG-078 — Data Feed shows a stale interval and redundant connection instructions
 
 **Reported:** 2026-10-21
