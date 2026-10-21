@@ -2041,7 +2041,8 @@ public class MainActivity extends Activity {
                     .putString(PREF_DIAGNOSIS_ROOT_DOCUMENT_ID, diagnosisId)
                     .putString(PREF_DIAGNOSIS_FOLDER_LABEL, getDocumentPathLabel(treeUri, diagnosisId)).apply();
             JSONObject feeds = config.optJSONObject("imageFeeds");
-            if (feeds != null) {
+            // Bundled paths are examples, not a user's selected plot feed.
+            if (!createDriveConfig && feeds != null) {
                 java.util.Iterator<String> plotIds = feeds.keys();
                 while (plotIds.hasNext()) {
                     String plotId = plotIds.next();
@@ -2053,13 +2054,14 @@ public class MainActivity extends Activity {
                     boolean found = true;
                     for (String segment : path.split("/")) {
                         if (segment.isEmpty() || ".".equals(segment) || "..".equals(segment)) { found = false; break; }
-                        documentId = findOrCreateChildFolder(treeUri, documentId, segment);
+                        documentId = findExistingChildFolder(treeUri, documentId, segment);
+                        if (documentId == null) { found = false; break; }
                     }
                     if (!found) continue;
                     String safeId = safePlotId(plotId);
-                    // Drive config is authoritative for the default plot paths. Refresh local
-                    // document IDs from it on launch so a stale but still-valid folder selection
-                    // cannot keep pointing at yesterday's image_feed location.
+                    String localTree = getPrefs().getString(feedTreeKey(safeId), null);
+                    String localFolder = getPrefs().getString(feedFolderDocumentKey(safeId), null);
+                    if (localTree != null && localFolder != null && hasPersistedReadWriteGrant(Uri.parse(localTree))) continue;
                     getPrefs().edit().putString(feedTreeKey(safeId), treeUri.toString())
                             .putString(feedFolderDocumentKey(safeId), documentId)
                             .putString(feedLocationKey(safeId), getDocumentPathLabel(treeUri, documentId)).apply();
@@ -2089,7 +2091,7 @@ public class MainActivity extends Activity {
             if (config.length() == 0) config = readBundledStorageConfig();
             JSONObject feeds = config.optJSONObject("imageFeeds");
             if (feeds == null) feeds = new JSONObject();
-            String labelPrefix = "data_feed_location_label_";
+            String labelPrefix = "data_feed_location_label_" + currentFeedUserKey() + "_";
             for (Map.Entry<String, ?> pref : getPrefs().getAll().entrySet()) {
                 String key = pref.getKey();
                 if (!key.startsWith(labelPrefix) || !(pref.getValue() instanceof String)) continue;
@@ -2276,6 +2278,7 @@ public class MainActivity extends Activity {
                     .putString(feedTreeKey(plotId), folderUri.toString())
                     .putString(feedFolderDocumentKey(plotId), targetDocumentId)
                     .putString(feedLocationKey(plotId), locationLabel)
+                    .putBoolean(feedCustomFolderKey(plotId), !pickerCreatesDefaultFeed)
                     .putString("data_feed_config_" + plotId, config.toString())
                     .putString(PREF_ACTIVE_PLOT_ID, plotId)
                     .apply();
@@ -3309,7 +3312,8 @@ public class MainActivity extends Activity {
         @JavascriptInterface public void chooseImageFolder(String plotId) {
             pickerPlotId = safePlotId(plotId);
             pickerCreatesDefaultFeed = false;
-            getPrefs().edit().putString(PREF_ACTIVE_PLOT_ID, pickerPlotId).apply();
+            getPrefs().edit().putString(PREF_ACTIVE_PLOT_ID, pickerPlotId)
+                    .putBoolean(feedCustomFolderKey(pickerPlotId), true).apply();
             runOnUiThread(MainActivity.this::openImageFeedFolderPicker);
         }
 
@@ -3317,7 +3321,9 @@ public class MainActivity extends Activity {
             pickerPlotId = safePlotId(plotId);
             pickerDefaultFolderName = safeFolderName(folderName);
             pickerCreatesDefaultFeed = true;
-            getPrefs().edit().putString(PREF_ACTIVE_PLOT_ID, pickerPlotId).apply();
+            getPrefs().edit().putString(PREF_ACTIVE_PLOT_ID, pickerPlotId)
+                    .putString(feedExpectedFolderKey(pickerPlotId), pickerDefaultFolderName)
+                    .putBoolean(feedCustomFolderKey(pickerPlotId), false).apply();
             runOnUiThread(MainActivity.this::openImageFeedFolderPicker);
         }
 
@@ -3431,15 +3437,21 @@ public class MainActivity extends Activity {
         @JavascriptInterface public void setActiveStreamingContext(String plotId, String greenhouseId) {
             runOnUiThread(() -> MainActivity.this.loadAssignedStreams(safePlotId(plotId), greenhouseId, false));
         }
-        @JavascriptInterface public void setActivePlot(String plotId) {
+        @JavascriptInterface public void setActivePlot(String plotId, String expectedFolderName) {
             String id = safePlotId(plotId);
-            getPrefs().edit().putString(PREF_ACTIVE_PLOT_ID, id).apply();
+            SharedPreferences.Editor edit = getPrefs().edit().putString(PREF_ACTIVE_PLOT_ID, id);
+            if (expectedFolderName != null && !expectedFolderName.trim().isEmpty())
+                edit.putString(feedExpectedFolderKey(id), safeFolderName(expectedFolderName));
+            edit.apply();
             // Home selector supplies the matching greenhouse; do not overwrite it with greenhouse-1.
             scanSnapshotFolder();
         }
 
-        @JavascriptInterface public void checkNow(String plotId) {
-            scanSnapshotFolder(safePlotId(plotId));
+        @JavascriptInterface public void checkNow(String plotId, String expectedFolderName) {
+            String id = safePlotId(plotId);
+            if (expectedFolderName != null && !expectedFolderName.trim().isEmpty())
+                getPrefs().edit().putString(feedExpectedFolderKey(id), safeFolderName(expectedFolderName)).apply();
+            scanSnapshotFolder(id);
         }
 
         @JavascriptInterface public void captureFeedPhoto(int camera, String plotId) {
@@ -4388,6 +4400,8 @@ public class MainActivity extends Activity {
                 .putString(feedTreeKey(plotId), treeUri.toString())
                 .putString(feedFolderDocumentKey(plotId), plotFolderId)
                 .putString(feedLocationKey(plotId), locationLabel)
+                .putString(feedExpectedFolderKey(plotId), plotFolder)
+                .putBoolean(feedCustomFolderKey(plotId), false)
                 .putString("data_feed_config_" + plotId, config.toString())
                 .putString(PREF_ACTIVE_PLOT_ID, plotId)
                 .apply();
@@ -4489,8 +4503,9 @@ public class MainActivity extends Activity {
                 ? getPrefs().getString(PREF_ACTIVE_PLOT_ID, DEFAULT_PLOT_ID) : requestedPlotId);
         String savedTree = getPrefs().getString(feedTreeKey(plotId), null);
         if (savedTree == null) {
-            JSONObject status = makeStatus("No Google Drive folder is connected for this plot on this device. Tap Connect to folder above to grant access.");
-            try { status.put("plotId", plotId); } catch (Exception ignored) { }
+            String expectedPath = isCustomFeedFolder(plotId) ? feedLocationLabel(plotId) : expectedFeedPathLabel(plotId);
+            JSONObject status = makeStatus("No Google Drive folder is connected for this plot on this device. Expected folder: " + expectedPath + ". Tap Connect to folder above to grant access.");
+            try { status.put("plotId", plotId); status.put("scannedFolder", expectedPath); status.put("imageCount", 0); } catch (Exception ignored) { }
             publishStatus(status);
             return;
         }
@@ -4499,16 +4514,25 @@ public class MainActivity extends Activity {
         scanWorker.execute(() -> {
             try {
                 List<FeedDocument> images = new ArrayList<>();
-                String rootDocumentId = getPrefs().getString(feedFolderDocumentKey(plotId), null);
-                if (rootDocumentId == null || rootDocumentId.isEmpty()) rootDocumentId = DocumentsContract.getTreeDocumentId(treeUri);
+                String rootDocumentId = resolveFeedFolderForScan(treeUri, plotId);
+                String scannedFolder = getDocumentPathLabel(treeUri, rootDocumentId);
+                getPrefs().edit().putString(feedFolderDocumentKey(plotId), rootDocumentId)
+                        .putString(feedLocationKey(plotId), scannedFolder).apply();
                 images.addAll(queryImageFeedFolder(treeUri, rootDocumentId));
-                scanSelectedImages(images, true, plotId);
+                scanSelectedImages(images, true, plotId, scannedFolder);
             } catch (Exception error) {
-                String message = treeUri != null
-                        ? "Could not scan this plot's data feed. Tap Connect to folder above and grant access again."
-                        : "Could not read the previously selected photos. Tap Connect to folder above and choose the data feed folder.";
+                String attemptedFolder = !isCustomFeedFolder(plotId)
+                        ? expectedFeedPathLabel(plotId) : feedLocationLabel(plotId);
+                String reason = error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage();
+                String message = "Could not scan Google Drive folder " + attemptedFolder + ": " + reason
+                        + ". Check the folder access and selected plot path.";
                 JSONObject status = makeStatus(message);
-                try { status.put("error", error.getClass().getSimpleName()); status.put("plotId", plotId); } catch (Exception ignored) { }
+                try {
+                    status.put("error", error.getClass().getSimpleName());
+                    status.put("plotId", plotId);
+                    status.put("scannedFolder", attemptedFolder);
+                    status.put("imageCount", 0);
+                } catch (Exception ignored) { }
                 publishStatus(status);
             } finally {
                 scanInProgress = false;
@@ -4518,6 +4542,49 @@ public class MainActivity extends Activity {
                 }
             }
         });
+    }
+
+    /** Resolve the saved display path inside the persisted Drive grant on every scan.
+     * A stale document ID can remain valid while pointing at a different plot folder,
+     * so the path chosen for this user and plot is authoritative when it is available.
+     */
+    private String resolveFeedFolderForScan(Uri treeUri, String plotId) throws Exception {
+        String savedDocumentId = getPrefs().getString(feedFolderDocumentKey(plotId), null);
+        String location = getPrefs().getString(feedLocationKey(plotId), "");
+        String relativePath = relativePathFromGrowPlot(location);
+        if (!isCustomFeedFolder(plotId)) {
+            String expectedFolder = getPrefs().getString(feedExpectedFolderKey(plotId), "");
+            if (!expectedFolder.isEmpty()) {
+                relativePath = "Image_Feed/" + signedInEmailFolderName() + "/" + safeFolderName(expectedFolder);
+            }
+        }
+        if (relativePath == null || !relativePath.regionMatches(true, 0, "Image_Feed/", 0, 11)) {
+            if (savedDocumentId != null && !savedDocumentId.isEmpty()) return savedDocumentId;
+            return DocumentsContract.getTreeDocumentId(treeUri);
+        }
+
+        String rootId = DocumentsContract.getTreeDocumentId(treeUri);
+        String rootName = getDocumentName(treeUri);
+        if ("Projects".equalsIgnoreCase(rootName)) {
+            rootId = findExistingChildFolder(treeUri, rootId, "GrowPlot");
+            if (rootId == null) throw new IllegalStateException("Projects/GrowPlot was not found in the granted Drive folder");
+        } else if ("My Drive".equalsIgnoreCase(rootName) || "Drive".equalsIgnoreCase(rootName)) {
+            rootId = findExistingChildFolder(treeUri, rootId, "Projects");
+            if (rootId != null) rootId = findExistingChildFolder(treeUri, rootId, "GrowPlot");
+            if (rootId == null) throw new IllegalStateException("My Drive/Projects/GrowPlot was not found in the granted Drive folder");
+        } else if (!"GrowPlot".equalsIgnoreCase(rootName)) {
+            // Custom folders selected directly in the picker keep their tree document ID.
+            if (savedDocumentId != null && !savedDocumentId.isEmpty()) return savedDocumentId;
+            throw new IllegalStateException("The granted Drive folder is not the GrowPlot root");
+        }
+
+        for (String segment : relativePath.split("/")) {
+            if (segment.isEmpty() || ".".equals(segment) || "..".equals(segment))
+                throw new IllegalStateException("The saved Drive path is invalid: " + location);
+            rootId = findExistingChildFolder(treeUri, rootId, segment);
+            if (rootId == null) throw new IllegalStateException("Folder not found at " + location);
+        }
+        return rootId;
     }
 
     private List<FeedDocument> queryImageFeedFolder(Uri treeUri, String rootDocumentId) throws Exception {
@@ -4808,12 +4875,24 @@ public class MainActivity extends Activity {
     private String feedFolderDocumentKey(String plotId) { return "data_feed_folder_document_" + currentFeedUserKey() + "_" + safePlotId(plotId); }
 
     private String feedLocationKey(String plotId) { return "data_feed_location_label_" + currentFeedUserKey() + "_" + safePlotId(plotId); }
+    private String feedExpectedFolderKey(String plotId) { return "data_feed_expected_folder_" + currentFeedUserKey() + "_" + safePlotId(plotId); }
+
+    private String feedCustomFolderKey(String plotId) { return "data_feed_custom_folder_" + currentFeedUserKey() + "_" + safePlotId(plotId); }
+
+    private boolean isCustomFeedFolder(String plotId) {
+        SharedPreferences preferences = getPrefs();
+        String key = feedCustomFolderKey(plotId);
+        if (preferences.contains(key)) return preferences.getBoolean(key, false);
+        String label = preferences.getString(feedLocationKey(plotId), "");
+        return !label.isEmpty() && relativePathFromGrowPlot(label) == null;
+    }
 
     private String expectedFeedPathLabel(String plotId) {
         String userFolder;
         try { userFolder = signedInEmailFolderName(); }
         catch (Exception error) { return "Google Drive: /Projects/GrowPlot/Image_Feed/<signed-in-user>/<plot>"; }
-        String plot = safeFolderName(pickerDefaultFolderName);
+        String expected = getPrefs().getString(feedExpectedFolderKey(plotId), "");
+        String plot = expected.isEmpty() ? safeFolderName(pickerDefaultFolderName) : safeFolderName(expected);
         return "Google Drive: /Projects/GrowPlot/Image_Feed/" + userFolder + "/" + plot;
     }
 
@@ -4926,7 +5005,7 @@ public class MainActivity extends Activity {
         return features;
     }
 
-    private void scanSelectedImages(List<FeedDocument> selectedUris, boolean folderSource, String plotId) throws Exception {
+    private void scanSelectedImages(List<FeedDocument> selectedUris, boolean folderSource, String plotId, String scannedFolder) throws Exception {
         List<Photo> photos = new ArrayList<>();
         Map<Integer, Photo> latestByCamera = new HashMap<>();
         int imageCount = 0;
@@ -4971,6 +5050,9 @@ public class MainActivity extends Activity {
         status.put("connected", true);
         status.put("plotId", plotId);
         status.put("feedLocation", feedLocationLabel(plotId));
+        status.put("scannedFolder", scannedFolder);
+        status.put("imageCount", imageCount);
+        status.put("matchedPhotoCount", photos.size());
         Map<Integer, List<Photo>> photosByCamera = new HashMap<>();
         for (Photo photo : photos) {
             if (photo.camera > 0) {

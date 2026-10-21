@@ -31,4 +31,10 @@ const selector=java.slice(java.indexOf('private JSONArray makeTimelinePhotos('),
 assert(selector.includes('ordered.sort(Comparator.comparingLong(photo -> photo.capturedAt))'),'photos must be ordered by capture time');
 assert(selector.includes('ordered.get(0)')&&selector.includes('ordered.get(ordered.size() - 1)'),'the selector must use the oldest and newest photos');
 assert(selector.includes('currentFeedUserKey()')&&selector.includes('safePlotId(photo.plotId)'),'photo history URLs must remain scoped to the signed-in user and selected plot');
+const scanPath=java.slice(java.indexOf('private String resolveFeedFolderForScan('),java.indexOf('private List<FeedDocument> queryImageFeedFolder'));
+assert(scanPath.includes('feedExpectedFolderKey(plotId)')&&scanPath.includes('signedInEmailFolderName()'),'default scans must resolve the current account and selected plot folder instead of trusting an old document ID');
+assert(scanPath.includes('findExistingChildFolder')&&scanPath.includes('Folder not found at'),'scan must verify every folder segment and report the missing exact path');
+assert(java.includes('putBoolean(feedCustomFolderKey(plotId), !pickerCreatesDefaultFeed)'),'manually selected folders must remain the active scan target');
+assert(java.includes('status.put("scannedFolder", scannedFolder)')&&java.includes('status.put("imageCount", imageCount)'),'scan results must return the folder read and number of JPG files');
+assert(html.includes("Google Drive folder scanned")&&html.includes("matched to CCTV cameras")&&html.includes("CCTV ${String(i+1).padStart(2,\'0\')}: ${Number(item?.photoCount)||0}"),"health report must show the exact Drive path and per-camera counts");
 console.log('PASS: each CCTV timeline selects the first and most recent image from the user’s selected plot only.');

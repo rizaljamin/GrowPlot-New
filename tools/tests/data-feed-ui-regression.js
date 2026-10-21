@@ -27,4 +27,7 @@ assert(ui.includes("addEventListener('mouseenter'"),'show setup guidance on hove
 assert(ui.includes("addEventListener('click'"),'show setup guidance on tap');
 assert(!ui.includes('Expected folder path is based on the signed-in user and selected plot'),'remove the long inline explanation');
 assert(!picker.includes('Plot01_demo'),'avoid hard-coded demo-plot picker guidance');
+assert(java.includes('String labelPrefix = "data_feed_location_label_" + currentFeedUserKey() + "_"'),'save the signed-in user plot folder under the correct Drive config plot ID');
+assert(java.includes('if (!createDriveConfig && feeds != null)'),'bundled example paths must not replace the selected user feed');
+assert(java.includes('findExistingChildFolder(treeUri, documentId, segment)'),'restore paths only when each exact Drive folder already exists');
 console.log('Data-feed display, folder creation, picker return, and info-tooltip regression checks passed.');
