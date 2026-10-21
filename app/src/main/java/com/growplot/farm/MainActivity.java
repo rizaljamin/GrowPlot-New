@@ -3520,10 +3520,12 @@ public class MainActivity extends Activity {
                             species, symptom, pixelMetrics, "quadrant_photos",
                             "Diagnosis/" + diagnosisPlotFolder(id) + "/Quadrant_" + String.format(Locale.US, "%02d", camera),
                             "Selected the clearest available quadrant photos using approximate sharpness, exposure, and visible-plant-area checks.");
+                    // Request species identification first so a slower disease check cannot delay the
+                    // crop identity the user needs before interpreting disease candidates.
+                    JSONObject speciesIdentification = identifyPlantSpeciesWithPlantNet(selectedImages);
                     response = identifyWithPlantNet(selectedImages);
-                    // Species identification is a distinct Pl@ntNet endpoint and quota from disease identification.
-                    // Keep its failure independent so a species-service issue does not hide the disease response.
-                    response.put("speciesIdentification", identifyPlantSpeciesWithPlantNet(selectedImages));
+                    // Keep species and disease outcomes separate so either provider can fail independently.
+                    response.put("speciesIdentification", speciesIdentification);
                     response.put("speciesContext", species == null ? "" : species);
                     response.put("symptomContext", symptom == null ? "" : symptom);
                     response.put("pixelContext", pixelMetrics == null ? "" : pixelMetrics);
@@ -3882,7 +3884,7 @@ public class MainActivity extends Activity {
         try {
             String boundary = "GrowPlotSpecies" + System.currentTimeMillis();
             URL url = new URL("https://my-api.plantnet.org/v2/identify/all?api-key="
-                    + URLEncoder.encode(key, "UTF-8") + "&lang=en&nb-results=5");
+                    + URLEncoder.encode(key, "UTF-8") + "&lang=en&nb-results=5&type=kt");
             connection = (HttpURLConnection) url.openConnection();
             connection.setRequestMethod("POST"); connection.setConnectTimeout(15000); connection.setReadTimeout(30000);
             connection.setDoOutput(true); connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);

@@ -15,7 +15,7 @@ requireMatch(/requestKindwiseDiagnosis\(camera,\s*id,\s*selectedImages/, java, '
 requireMatch(/requestKindwiseDiagnosis\(camera,\s*plotId,\s*selectedImages/, java, 'Video diagnosis must call Kindwise with the selected frames and photos.');
 requireMatch(/window\.onKindwiseDiagnosis=function/, html, 'Kindwise result callback is missing.');
 requireMatch(/diagnosisKindwiseProviderKey\(camera,plotId\)/, html, 'Kindwise result must be stored separately by plot and section.');
-requireMatch(/diagnosisProviderResultsMarkup\(providerReport,kindwiseReport\)/, html, 'Diagnosis screen must render both provider reports.');
+requireMatch(/diagnosisProviderResultsMarkup\(providerReport,kindwiseReport,camera,selectedPlotId\)/, html, 'Diagnosis screen must render both provider reports.');
 requireMatch(/d\.treatment/, html, 'Kindwise treatment details must be available in the result card.');
 
 console.log('PASS: encrypted Kindwise key, selected photo/video requests, separate result storage, and treatment display.');

@@ -26,9 +26,17 @@ assert.match(cv,/No YOLO model is packaged in this build/,'do not claim YOLO inf
 assert.match(cv,/window\.GrowPlotCV=\{analyze:localAnalyze/,'Run Diagnosis must always execute the local HSV stage first');
 assert.match(cv,/openCVAnalysisButton.*remove\(\)/,'remove the redundant manual CV action from diagnosis');
 assert.match(java,/v2\/identify\/all\?api-key=/,'Run Diagnosis must call Pl@ntNet image-based species identification');
-assert.match(java,/speciesIdentification", identifyPlantSpeciesWithPlantNet\(selectedImages\)/,'include the species identification response with the diagnosis result');
+assert.match(java,/response\.put\("speciesIdentification", speciesIdentification\)/,'include the species identification response with the diagnosis result');
 assert.match(cv,/Plant species · Pl@ntNet image identification/,'show ranked species candidates separately from disease results');
 assert.match(cv,/confirmSpecies\(camera,plotId,index\)/,'allow the user to select a returned species candidate');
 assert.match(cv,/Preset estimate for this CCTV section only; it is not based on this photo\./,'replace the preset estimate with an explicit label when the diagnosis flow starts');
 assert.match(cv,/confirmDiagnosisEstimate.*remove\(\)/,'remove the action that falsely confirms a preset camera estimate');
-console.log('HSV screening, image-based Pl@ntNet species identification, and Run Diagnosis wiring checks passed.');
+
+assert.match(java,/JSONObject speciesIdentification = identifyPlantSpeciesWithPlantNet\(selectedImages\);\s*response = identifyWithPlantNet\(selectedImages\);/,'species recognition must run before disease matching');
+assert.match(java,/v2\/identify\/all\?api-key=[\s\S]*?type=kt/,'species identification must use the current Pl@ntNet flora model');
+assert.match(html,/diagnosisProviderResultsMarkup\(plantNet,kindwise,camera,plotId\)/,'species candidate actions must keep the correct camera and plot context');
+assert.match(cv,/plantSpeciesMarkup\(report,Number\(camera\)\|\|0,String\(plotId\|\|/,'reopened species results must use the current diagnosis context');
+assert.match(cv,/no Pl@ntNet API key is configured on this device/,'missing species API key must be explicit');
+assert.match(cv,/openPlantNetSettings/,'species recognition must provide a direct path to API-key settings');
+assert.match(html,/Pl@ntNet key needed for species ID/,'show missing species key before diagnosis is submitted');
+console.log('HSV screening, Pl@ntNet image species identification, result context, and setup wiring checks passed.');
