@@ -1,3 +1,7 @@
+2026-10-21 | v0.7.00 Build 12 | versionCode 216 | com.growplot.farm
+Changes: Data Feed first-use and error guidance now uses the selected plot instead of the hard-coded demo path. Connect creates or reuses the per-user/per-plot folder hierarchy under Projects/GrowPlot.
+Validation: Folder creation logic is covered by a focused regression check. ARM64 workflow pending; Drive provider behavior awaits tablet verification.
+
 2026-10-21 | v0.7.00 Build 11 | versionCode 215 | com.growplot.farm
 Changes: Data Feed timer status now reflects the saved device interval. Disconnected-folder and scan instructions direct users to Connect to folder within the current panel; the expected signed-in-account/plot path remains visible independently of Drive connection.
 Validation: Focused data-feed UI regression and GitHub Actions ARM64 build pending. Tablet verification pending.
