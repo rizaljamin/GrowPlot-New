@@ -3544,6 +3544,31 @@ public class MainActivity extends Activity {
             });
         }
 
+        @JavascriptInterface public void identifyPlantSpeciesFromPhotos(int camera, String plotId) {
+            final String id = safePlotId(plotId);
+            diagnosisWorker.execute(() -> {
+                JSONObject response;
+                try {
+                    List<PlantNetImageCandidate> candidates;
+                    try { candidates = loadDiagnosisPhotosFromDrive(camera, id); }
+                    catch (Exception driveError) {
+                        candidates = loadDiagnosisPhotosFromDeviceIndex(camera, id);
+                        if (candidates.isEmpty()) throw driveError;
+                    }
+                    List<PlantNetImageCandidate> selected = selectBestPlantNetImages(candidates);
+                    response = identifyPlantSpeciesWithPlantNet(candidateBytes(selected));
+                    response.put("candidateImageCount", candidates.size());
+                    response.put("selectedSources", candidateSources(selected));
+                    response.put("selectionNote", "Species candidates are based on the clearest saved photos for this quadrant.");
+                } catch (Exception error) {
+                    response = plantNetError(error);
+                    try { response.put("provider", "Pl@ntNet species identification"); }
+                    catch (Exception ignored) { }
+                }
+                sendPlantSpeciesResult(camera, id, response);
+            });
+        }
+
         @JavascriptInterface public void chooseDiagnosisDriveFolder() {
             runOnUiThread(() -> requestDiagnosisFolderAuthorization());
         }
@@ -3762,6 +3787,31 @@ public class MainActivity extends Activity {
             if (jpeg != null && jpeg.length > 0) candidates.add(new PlantNetImageCandidate(jpeg, "Drive photo: " + photo.displayName, scorePlantNetImage(jpeg)));
         }
         if (candidates.isEmpty()) throw new IllegalStateException("Photos exist in the quadrant folder, but none could be read by GrowPlot");
+        return candidates;
+    }
+
+    private List<PlantNetImageCandidate> loadDiagnosisPhotosFromDeviceIndex(int camera, String plotId) throws Exception {
+        if (camera < 1 || camera > 6) throw new IllegalArgumentException("Invalid quadrant number");
+        String id = safePlotId(plotId);
+        String quadrant = String.format(Locale.US, "cctv_%02d", camera);
+        JSONArray index = new JSONArray(readDiagnosisMediaIndex(camera, id));
+        List<PlantNetImageCandidate> candidates = new ArrayList<>();
+        for (int i = 0; i < index.length(); i++) {
+            JSONObject item = index.optJSONObject(i);
+            if (item == null) continue;
+            String name = item.optString("fileName", "");
+            if (!name.matches("[A-Za-z0-9_-]{1,100}\\.(jpg|jpeg|png)")) continue;
+            File localDir = new File(new File(new File(getFilesDir(), "diagnosis_media"), id), quadrant).getCanonicalFile();
+            File cacheDir = new File(new File(new File(getCacheDir(), "diagnosis_drive_cache"), id), quadrant).getCanonicalFile();
+            File local = new File(localDir, name).getCanonicalFile();
+            File cached = new File(cacheDir, name).getCanonicalFile();
+            File photo = local.getParentFile().equals(localDir) && local.isFile() ? local
+                    : (cached.getParentFile().equals(cacheDir) && cached.isFile() ? cached : null);
+            if (photo == null) continue;
+            byte[] jpeg = readPlantNetImage(Uri.fromFile(photo));
+            if (jpeg != null && jpeg.length > 0) candidates.add(new PlantNetImageCandidate(jpeg,
+                    "Saved device photo: " + name, scorePlantNetImage(jpeg)));
+        }
         return candidates;
     }
 
@@ -4074,6 +4124,13 @@ public class MainActivity extends Activity {
         runOnUiThread(() -> {
             if (web == null) return;
             web.evaluateJavascript("window.onPlantNetDiagnosis&&window.onPlantNetDiagnosis(" + camera + "," + JSONObject.quote(plotId) + "," + JSONObject.quote(result.toString()) + ")", null);
+        });
+    }
+
+    private void sendPlantSpeciesResult(int camera, String plotId, JSONObject result) {
+        runOnUiThread(() -> {
+            if (web == null) return;
+            web.evaluateJavascript("window.onPlantSpeciesIdentification&&window.onPlantSpeciesIdentification(" + camera + "," + JSONObject.quote(plotId) + "," + JSONObject.quote(result.toString()) + ")", null);
         });
     }
 

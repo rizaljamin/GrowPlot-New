@@ -897,3 +897,13 @@ Build 7 validation: Gradle ARM64 build, package version, signature, alignment, S
 - 2026-10-17 | v0.6.04 Build 04 | Demo Plot streaming: added VLC error retry for CCTV01/02 IP Webcam and transient RTSP retry for VIGI CCTV03. Device network, stream playback and snapshot capture remain unverified.
 
 - 2026-10-18 | v0.7.00 Build 02 | CCTV02 VIGI snapshot cadence: fixed overlapping saves and scheduler drift; checks derive remaining delay from last successful saved frame. Default 15 minutes; stored user preference overrides it. Verify JPEG timestamps and Google Drive history on PP5 tablet; compilation/signature and live test pending.
+
+
+## BUG-069 — CCTV02 plant identity incorrectly shown as confirmed Citrus
+
+**Reported:** 2026-10-21
+**Status:** Fixed in v0.7.00 Build 17 (versionCode 221); GitHub ARM64 build and target-device verification pending.
+
+**Fix:** Removed the prefilled Pokok limau/Citrus identity and species-specific summary from CCTV02. Identity now stays unverified until saved photos produce Pl@ntNet candidates and the user selects a candidate.
+
+**Verification / limits:** Inline JavaScript syntax and plant identity confirmation regressions pass. Recognition requires a configured Pl@ntNet API key and readable saved photos; no species is asserted when either is unavailable. GitHub ARM64 build and target-device validation remain pending.
