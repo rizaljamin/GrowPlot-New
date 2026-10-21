@@ -1,3 +1,10 @@
+## Build 29 candidate — user/plot feed isolation
+
+- Stop injecting bundled Demo photos into non-Demo plot timelines and stop showing Demo health findings for user plots.
+- Key Drive feed access, latest photo caches, archived snapshots, and interval histories by signed-in Firebase user and selected plot.
+- Scan only the folder configured for the selected user and plot; remove the global saved-photo and root-folder fallback.
+- All JS regression suites pass. GitHub ARM64 compilation and APK checks pending.
+
 ## Completed — Build 28 broken bundled-photo URL fix
 
 - Build 27 displayed correct interval dates but the bundled-image URL resolved to the wrong path under the appassets WebView base URL.
