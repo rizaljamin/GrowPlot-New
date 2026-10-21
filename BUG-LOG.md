@@ -902,10 +902,13 @@ Build 7 validation: Gradle ARM64 build, package version, signature, alignment, S
 ## BUG-069 — CCTV plant identity incorrectly shown as confirmed Citrus
 
 **Reported:** 2026-10-21
-**Status:** Fixed in v0.7.00 Build 19 (versionCode 223); ARM64 build and target-device verification pending. Applies to CCTV01–CCTV06.
+**Status:** Fixed in v0.7.00 Build 19 (versionCode 223); selection confirmation workflow corrected in Build 20 (versionCode 224). ARM64 build and target-device verification pending. Applies to CCTV01–CCTV06.
 
 **Fix:** Removed unverified default identities from the diagnosis identity card for every CCTV. Saved photos can be compared with Pl@ntNet and Kindwise plant.id, and the user must select a candidate before it becomes the section identity. Older Pl@ntNet-only selections are no longer treated as verified.
 
 **Verification / limits:** JavaScript syntax and regression checks cover provider candidate rendering, plot/camera scoping, and explicit selection. Each provider needs its own configured key. The screenshot itself remains insufficient for exact species confirmation; no automatic species is asserted. ARM64 build and target-device validation remain pending.
 
 **UI follow-up:** Build 19 puts the ginger/galangal/turmeric photo-review shortlist in the CCTV02 Plant identity card, labeled as manual visual review rather than an AI result. It also adds manual species entry to all six CCTV identity cards, with confirmation saved per plot and camera. Users can use that path when provider keys are missing.
+
+
+**UI follow-up — Build 20:** Candidate cards are radio choices. Selecting a radio does not save a species identity; the user must press the separate “Confirm selected species” button. Manual “Other plant” entry uses the same explicit confirmation action.
