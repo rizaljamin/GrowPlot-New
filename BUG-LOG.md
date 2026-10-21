@@ -1,13 +1,13 @@
 ## BUG-088 — User plot timeline showed Demo baseline images and reused plot-only feed paths
 
 **Reported:** 2026-10-21
-**Status:** Fix prepared for v0.7.00 Build 29 (versionCode 233); GitHub ARM64 build pending.
+**Status:** Fixed in v0.7.00 Build 29 (versionCode 233); GitHub Actions ARM64 run #401 succeeded with stable signing. APK SHA-256: `8aaf3fd20dc5f9091268fcd61f27826ded3dca1148e31c64cf3ad13209f3c823`. Tablet verification pending.
 
 **Cause:** When a plot had no matching feed photos, the timeline injected bundled Demo photos. The health overview and care advice also described those sample images for every plot. Android saved Drive folder grants and local snapshot/history files by plot ID alone, so two signed-in accounts with the same plot ID could share the saved location or cached image.
 
 **Fix:** Scan only the active user’s selected plot folder at `/Projects/GrowPlot/Image_Feed/<signed-in-email>/<selected-plot>`. Scope Drive-folder grants, cached snapshots, archived timeline images, feed summaries, and interval timeline storage to Firebase user ID plus plot ID. Remove Demo photo fallback for user plots; show the supplied sample report only when the actual Demo plot is selected. Remove the global photo-selection/root-folder scan fallback.
 
-**QC:** Added regression coverage for user/plot isolation and empty timelines. All JavaScript regression suites and inline script syntax checks pass. Tablet rendering and account-switch behavior remain to be verified after install.
+**QC:** Added regression coverage for user/plot isolation and empty timelines. All nine JavaScript regression suites and inline script syntax checks passed; GitHub Actions run #401 passed the Android ARM64 package and signature checks. Tablet rendering and account-switch behavior remain to be verified after install.
 
 Warning: truncated output (original token count: 25522)
 Total output lines: 989
