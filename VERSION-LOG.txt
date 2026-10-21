@@ -1,3 +1,7 @@
+2026-10-21 | v0.7.00 Build 24 | versionCode 228 | com.growplot.farm
+Changes: Run Diagnosis and the foliage CV analyzer now fall back to the latest cached Image_Feed snapshot when a selected diagnosis photo cannot be read. Scan status updates without timeline data preserve the last successful four-period timeline. A regression test checks that behavior.
+Validation: GitHub ARM64 build and Android tablet verification pending.
+
 2026-10-21 | v0.7.00 Build 23 | versionCode 227 | com.growplot.farm
 Changes: Run Diagnosis now performs the shared real RGB-to-HSV pixel analysis, awaits foliage/basic CV and YOLO checks, and displays an hourglass with stage-by-stage status through both Pl@ntNet and Kindwise callbacks (with a 150-second provider timeout). A user-confirmed plant identity stays fixed for that plot/CCTV and displays its confirmation time. The HSV/basic-CV output is a heuristic image screen; YOLO detections require a deployed, configured diagnosis service.
 Validation: Focused HSV/identity/provider-progress and YOLO wiring regressions and inline/asset JavaScript syntax checks passed. GitHub Actions run #393 succeeded; ARM64 APK is 68,321,469 bytes, stable signature matches, and SHA-256 is c03ad2ec562cbf41eaab4b021cdfb666699ffb341ea2b987d1a64c3feb47ad53. APK source commit: fdd03705447b4b366a44e273a8b0ce0274a4c47e. Pl@ntNet is disabled and YOLO proxy is not configured in this build; Android tablet verification remains pending.
