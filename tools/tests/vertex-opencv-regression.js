@@ -17,14 +17,14 @@ assert(cvAt >= 0 && vertexAt > cvAt,
   'Run Diagnosis must complete OpenCV before triggering Vertex with that report');
 assert.match(index, /window\.GrowPlotVertex\.analyze\(requestId,imageData,cvReport\.vertexMimeType/,
   'The selected OpenCV photo must be submitted through the Android Firebase bridge');
-assert.match(index, /OpenCV completed\. Sending the same photo to Vertex AI/,
+assert.match(index, /OpenCV completed\\. Sending the same photo to Vertex AI/,
+  'The UI must show that Vertex starts after OpenCV completes');
 assert.match(index, /vertex-processing-icon/,
   'The Vertex result subsection must show an animated hourglass while the API is pending');
 assert.match(index, /vertexHourglassSpin/,
   'The pending Vertex hourglass must have a visible animation');
 assert.match(index, /aria-busy="true"/,
   'The pending Vertex subsection must expose its busy state accessibly');
-  'The UI must show that Vertex starts after OpenCV completes');
 assert.match(cv, /vertexCanvas\.toDataURL\('image\/jpeg',0\.84\)/,
   'The Vertex photo must be derived from the same loaded source photo as OpenCV');
 assert.match(cv, /vertexImageBase64=vertexCanvas\.toDataURL/,
