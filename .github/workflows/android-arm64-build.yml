@@ -79,8 +79,6 @@ jobs:
       - name: Build and verify ARM64
         env:
           GROWPLOT_PLANTNET_API_KEY: ${{ secrets.GROWPLOT_PLANTNET_API_KEY }}
-          GROWPLOT_DIAGNOSIS_API_URL: ${{ secrets.GROWPLOT_DIAGNOSIS_API_URL }}
-          GROWPLOT_DIAGNOSIS_PROXY_TOKEN: ${{ secrets.GROWPLOT_DIAGNOSIS_PROXY_TOKEN }}
         run: |
           chmod +x gradlew tools/*.sh
           ./tools/build-apk.sh
