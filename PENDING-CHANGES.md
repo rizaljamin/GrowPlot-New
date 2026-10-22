@@ -1,7 +1,7 @@
 ## Build 31 — show the saved Drive API connection state
 - The Data Feed settings now checks whether the assigned Drive API folder is saved for the current signed-in email. If connected, it clears the old “No Google Drive folder is connected” notice and displays “Google Drive connected to the assigned folder.”
 - Updated the info icon help to explain login connection and the retry button.
-- Build 31 / versionCode 235. GitHub ARM64 build and tablet verification pending.
+- GitHub ARM64 run #411 passed from source commit `9800d5eeb6482eb800064bf226952906dc291fc8`; stable signing matched. APK SHA-256: `3361bfbb3bfbd18b69a6a0d2faac95bc7195a2678b2aaeff7a920e14ac25f1d5`. The real tablet OAuth, connection, and scan behavior still need verification.
 
 ## Build 30 — direct Google Drive API Image_Feed connection
 - Firebase login requests Google Drive authorization for the matching Firebase email and resolves the assigned path through Drive API; login no longer launches Android's folder picker.
