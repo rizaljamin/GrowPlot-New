@@ -94,9 +94,11 @@ assert.doesNotMatch(html,/diagnosis-hourglass|RGB → HSV colour screening|Analy
 assert.match(html,/diagnosisVertexMarkup\(vertexReport\)/,'the Run diagnosis section must render the saved Vertex image output');
 assert.match(html,/window\.onVertexDiagnosis=function/,'Vertex output must be rendered when the Android callback returns');
 assert.match(java,/requestVertexImageAnalysis\(selectedImages, species, symptom, pixelMetrics\)/,'Run diagnosis must send the selected image set to Vertex');
-assert.match(java,/BuildConfig\.VERTEX_API_KEY/,'the APK must receive the configured Vertex API key at build time');
-assert.match(java,/setRequestProperty\("x-goog-api-key", apiKey\)/,'Run diagnosis must authenticate directly to Vertex with the API key');
-assert.match(java,/projects\/growplot\/locations\/global\/publishers\/google\/models\//,'Run diagnosis must target the standard Vertex project endpoint');
+assert.match(java,/BuildConfig\.DIAGNOSIS_API_URL/,'the APK must use the configured diagnosis backend for Vertex');
+assert.match(java,/BuildConfig\.DIAGNOSIS_PROXY_TOKEN/,'the APK must authenticate to the diagnosis backend');
+assert.match(java,/\/v1\/vertex/,'Run diagnosis must send photos to the Vertex-only backend route');
+assert.match(java,/Authorization.*Bearer.*proxyToken/,'Run diagnosis must authorize the backend request');
+assert.doesNotMatch(java,/VERTEX_API_KEY|x-goog-api-key/,'the APK must not embed a Vertex API key');
 assert.match(proxy,/app\.post\('\/v1\/vertex', authorize/,'the diagnosis backend must expose an authenticated Vertex-only image endpoint');
 assert.match(html,/Vertex AI image result/,'the diagnosis page must identify the returned Vertex image result');
 assert.doesNotMatch(html,/id=\"openCVAnalysisButton\"/,'the diagnosis section must not offer a second CV-only action instead of the Vertex result');

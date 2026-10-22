@@ -33,9 +33,6 @@ fi
 if [[ -n "${GROWPLOT_DIAGNOSIS_PROXY_TOKEN:-}" ]]; then
   export ORG_GRADLE_PROJECT_growplotDiagnosisProxyToken="$GROWPLOT_DIAGNOSIS_PROXY_TOKEN"
 fi
-if [[ -n "${GROWPLOT_VERTEX_API_KEY:-}" ]]; then
-  export ORG_GRADLE_PROJECT_growplotVertexApiKey="$GROWPLOT_VERTEX_API_KEY"
-fi
 
 IDENTITY="$ROOT/version.properties"
 VERSION_NAME="$(sed -n 's/^versionName=//p' "$IDENTITY" | head -n1)"
@@ -112,10 +109,10 @@ if [[ -n "${GROWPLOT_DIAGNOSIS_API_URL:-}" && -n "${GROWPLOT_DIAGNOSIS_PROXY_TOK
 else
   YOLO_STATE="Diagnosis proxy is not configured; YOLO-World inference is unavailable in this APK until configured."
 fi
-if [[ -n "${GROWPLOT_VERTEX_API_KEY:-}" ]]; then
-  VERTEX_STATE="Direct Vertex AI API key included in this APK."
+if [[ -n "${GROWPLOT_DIAGNOSIS_API_URL:-}" && -n "${GROWPLOT_DIAGNOSIS_PROXY_TOKEN:-}" ]]; then
+  VERTEX_STATE="Vertex image requests use the diagnosis backend; Google credentials come from its Cloud Run runtime identity (no Vertex API key in APK)."
 else
-  VERTEX_STATE="Vertex AI API key is absent; direct Vertex image analysis is disabled in this APK."
+  VERTEX_STATE="Diagnosis backend URL or app-to-backend token is not configured in this APK."
 fi
 ZIP_OUT="$ROOT/release/v${SAFE_VERSION}-GrowPlot-source.zip"
 rm -f "$ZIP_OUT"

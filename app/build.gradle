@@ -31,7 +31,6 @@ android {
         debug {
             buildConfigField 'String', 'DIAGNOSIS_API_URL', buildConfigLiteral(project.findProperty('growplotDiagnosisApiUrl') ?: '')
             buildConfigField 'String', 'DIAGNOSIS_PROXY_TOKEN', buildConfigLiteral(project.findProperty('growplotDiagnosisProxyToken') ?: '')
-            buildConfigField 'String', 'VERTEX_API_KEY', buildConfigLiteral(project.findProperty('growplotVertexApiKey') ?: '')
             buildConfigField 'String', 'PLANTNET_API_KEY', buildConfigLiteral(project.findProperty('growplotPlantNetApiKey') ?: '')
         }
         release {
