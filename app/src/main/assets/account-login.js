@@ -218,6 +218,42 @@ function saveNotice(message,success){
  if(!el){el=document.createElement('div');el.id='growplotSaveNotice';el.setAttribute('role','status');el.style.cssText='position:fixed;bottom:18px;left:16px;right:16px;z-index:100001;padding:14px;border-radius:10px;box-shadow:0 3px 14px #0003;font-weight:600;text-align:center';document.body.appendChild(el);}
  el.style.background=success?'#d8f4df':'#ffe5df';el.style.color=success?'#164b2a':'#782319';el.textContent=message;
 }
+function connectAssignedImageFeed(data){
+ const plotsForUser=Array.isArray(data&&data.plots)?data.plots.filter(p=>p&&p.id&&String(p.id)!=='plot-1'):[];
+ const plot=plotsForUser.find(p=>String(p.id)===String(data.selectedPlotId||''));
+ if(!plot){saveNotice('Image Feed not connected: this account has no assigned plot selected.',false);return;}
+ const user=window.GrowPlotCurrentUser||currentUser;
+ const attempt=String(user&&(user.uid||user.id)||'')+'|'+String(plot.id);
+ if(window.__growPlotImageFeedLoginAttempt===attempt)return;
+ window.__growPlotImageFeedLoginAttempt=attempt;
+ const number=String(parseInt(plot.number,10)||1).padStart(2,'0');
+ const rawName=String(plot.name||plot.plotName||'').trim();
+ const slug=!rawName||/^Add plot name$|^New plot$/i.test(rawName)?'plot':rawName.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'').slice(0,26);
+ const folderName=typeof window.defaultFeedFolder==='function'?window.defaultFeedFolder(plot):(plot.id==='plot-1'&&slug==='demo'?'Plot01_demo':'plot'+number+'_'+(slug||'plot'));
+ let expected='your assigned Google Drive Image_Feed directory';
+ try{if(window.GrowPlotBridge&&typeof GrowPlotBridge.getExpectedFeedPath==='function')expected=GrowPlotBridge.getExpectedFeedPath(plot.id,folderName)||expected;}catch(error){}
+ window.GrowPlotLoginImageFeedPending={plotId:String(plot.id),expected:expected};
+ saveNotice('Connecting Image Feed: '+expected,true);
+ try{
+  if(!window.GrowPlotBridge||typeof GrowPlotBridge.createDefaultDataFeed!=='function')throw new Error('Drive connection is unavailable in this app session.');
+  GrowPlotBridge.createDefaultDataFeed(String(plot.id),folderName);
+ }catch(error){
+  window.GrowPlotLoginImageFeedStatus({plotId:String(plot.id),connected:false,final:true,message:String(error&&error.message||error)});
+ }
+}
+window.GrowPlotLoginImageFeedStatus=function(result){
+ const pending=window.GrowPlotLoginImageFeedPending;
+ if(!pending||!result||String(result.plotId||'')!==pending.plotId)return;
+ if(result.connected===true){
+  saveNotice('Image Feed connected: '+String(result.path||pending.expected),true);
+  window.GrowPlotLoginImageFeedPending=null;
+  return;
+ }
+ if(result.final===true||/unavailable|cancelled|select Projects|lasting access|permission|picker|could not be opened|did not grant/i.test(String(result.message||''))){
+  saveNotice('Image Feed not connected: '+String(result.message||'Google Drive access is unavailable.'),false);
+  window.GrowPlotLoginImageFeedPending=null;
+ }
+}
 window.GrowPlotReloadOwnedDevices=function(){if(window.GrowPlotCurrentUser&&!window.GrowPlotCurrentUser.developmentOnly&&api?.configured())request('loadOwnedDevices',{});};
 window.GrowPlotAccountResponse=function(response){
  if(response&&response.action==='listAccessUsers'){
@@ -283,6 +319,7 @@ window.GrowPlotAccountResponse=function(response){
    window.GrowPlotReloadOwnedDevices();
    setTimeout(syncAuthorizedHomePlots,0);
    setTimeout(()=>window.dispatchEvent(new Event('growplot-plot-profile-updated')),0);
+   setTimeout(()=>connectAssignedImageFeed(data),900);
    // Never replace the Demo Plot with a stale device-local user record.
    if(Array.isArray(data.plots)&&data.plots.length){
      if(typeof plots!=='undefined'&&Array.isArray(plots)){
