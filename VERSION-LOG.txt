@@ -1,3 +1,7 @@
+2026-10-22 | v0.7.01 Build 08 | versionCode 243 | com.growplot.farm
+Changes: Run Diagnosis runs only the first OpenCV analysis section. Android OpenCV reads the selected/latest feed photo, reports image-read or HSV success/failure in that section, shows the HSV-converted image plus H/S/V channels and yellow/green/brown/other pixel counts and percentages. Vertex and Pl@ntNet/Kindwise are not invoked by this button.
+Validation: Pending ARM64 GitHub Actions build and Android device verification.
+
 2026-10-22 | v0.7.01 Build 07 | versionCode 242 | com.growplot.farm
 Changes: The OpenCV/HSV panel now identifies and displays the latest saved photo for the selected CCTV (falling back to its latest Image_Feed snapshot), renders the input plus Hue, Saturation, and Value channel images, and reports yellow/green/brown/other pixel counts and percentages with the sampled-pixel total. The HSV classifier output remains a colour measurement, not a health score or disease diagnosis.
 Validation: HSV channel fixtures and all JavaScript regression tests passed against the Build 06 source; changed JavaScript files pass syntax checks. ARM64 GitHub Actions build and Android tablet visual verification pending.
