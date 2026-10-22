@@ -33,6 +33,9 @@ fi
 if [[ -n "${GROWPLOT_DIAGNOSIS_PROXY_TOKEN:-}" ]]; then
   export ORG_GRADLE_PROJECT_growplotDiagnosisProxyToken="$GROWPLOT_DIAGNOSIS_PROXY_TOKEN"
 fi
+if [[ -n "${GROWPLOT_VERTEX_API_KEY:-}" ]]; then
+  export ORG_GRADLE_PROJECT_growplotVertexApiKey="$GROWPLOT_VERTEX_API_KEY"
+fi
 
 IDENTITY="$ROOT/version.properties"
 VERSION_NAME="$(sed -n 's/^versionName=//p' "$IDENTITY" | head -n1)"
@@ -109,6 +112,11 @@ if [[ -n "${GROWPLOT_DIAGNOSIS_API_URL:-}" && -n "${GROWPLOT_DIAGNOSIS_PROXY_TOK
 else
   YOLO_STATE="Diagnosis proxy is not configured; YOLO-World inference is unavailable in this APK until configured."
 fi
+if [[ -n "${GROWPLOT_VERTEX_API_KEY:-}" ]]; then
+  VERTEX_STATE="Direct Vertex AI API key included in this APK."
+else
+  VERTEX_STATE="Vertex AI API key is absent; direct Vertex image analysis is disabled in this APK."
+fi
 ZIP_OUT="$ROOT/release/v${SAFE_VERSION}-GrowPlot-source.zip"
 rm -f "$ZIP_OUT"
 zip -qr "$ZIP_OUT" . \
@@ -134,6 +142,7 @@ Signing certificate SHA-1: $CERT_SHA1
 Signing status: $SIGNING_STATE
 Pl@ntNet status: $PLANTNET_STATE
 YOLO status: $YOLO_STATE
+Vertex status: $VERTEX_STATE
 Device verification: pending; install and test on the user's Android tablet.
 EOF
 printf 'Build outputs:\n%s\n%s\n' "$ARM64_OUT" "$ZIP_OUT"
