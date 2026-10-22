@@ -1,4 +1,4 @@
-# GrowPlot — v0.7.01 Build 03
+# GrowPlot — v0.7.01 Build 05
 
 GrowPlot is an Android farm-management application with CCTV monitoring, Google Drive image feeds, A.I Plant Health, diagnosis workflows and plot management.
 
@@ -6,7 +6,7 @@ GrowPlot is an Android farm-management application with CCTV monitoring, Google 
 
 ## Vertex image assessment
 
-Build 04 sends selected diagnosis photos from Android to the authenticated `/v1/vertex` diagnosis-backend route. The Cloud Run runtime identity supplies Google Application Default Credentials; no Vertex API key or service-account JSON is packaged in the APK. Configure the existing diagnosis backend URL and app-to-backend token in GitHub Actions. The backend service identity needs Vertex AI access, and the Vertex API must be enabled. YOLO remains a separate backend inference service.
+Build 05 calls Vertex AI directly from Android. When the user runs a diagnosis, GrowPlot requests the Google Cloud `cloud-platform` OAuth scope through Android's Google AuthorizationClient, then sends the selected photos and context to the regional Vertex `generateContent` endpoint for project `growplot`, location `us-central1`, model `gemini-3.8-flash`. No GrowPlot Vertex proxy, API key, or service-account JSON is used. The signed-in Google user must grant the scope, have Vertex AI permissions on the project, and the Vertex AI API must be enabled. The user's short-lived access token remains in app memory and is not sent to the WebView. YOLO is a separate optional service.
 
 ## Verified app baseline
 
