@@ -56,6 +56,10 @@ android {
         buildTypes.getByName('debug').signingConfig = signingConfigs.getByName('stableDebug')
     }
 
+    packaging {
+        jniLibs { pickFirsts += ['**/libc++_shared.so'] }
+    }
+
 }
 
 dependencies {
