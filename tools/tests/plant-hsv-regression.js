@@ -97,7 +97,7 @@ assert.match(java,/requestVertexImageAnalysis\(selectedImages, species, symptom,
 assert.match(java,/VERTEX_API_SCOPE = "https:\/\/www\.googleapis\.com\/auth\/cloud-platform"/,"Vertex must use the signed-in user's Google OAuth authorization");
 assert.match(java,/Identity\.getAuthorizationClient\(this\)\.authorize/,'request Vertex authorization through Android Google Identity when diagnosis runs');
 assert.match(java,/https:\/\/" \+ location \+ "-aiplatform\.googleapis\.com/,'derive the Vertex regional endpoint from the configured location');
-assert.match(java,/\/publishers\/google\/models\/.*:generateContent/,'send the photo request directly to Vertex generateContent');
+assert.match(java,/\/publishers\/google\/models\/[\s\S]*?:generateContent/,'send the photo request directly to Vertex generateContent');
 assert.match(java,/Authorization", "Bearer " \+ token/,"authenticate the direct Vertex request with the user's OAuth access token");
 assert.match(java,/BuildConfig\.VERTEX_PROJECT_ID/,'configure the Google Cloud project for direct Vertex requests');
 assert.match(java,/BuildConfig\.VERTEX_LOCATION/,'configure the Vertex request location in the APK');
