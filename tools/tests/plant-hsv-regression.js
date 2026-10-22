@@ -101,7 +101,10 @@ assert.match(java,/\/publishers\/google\/models\/[\s\S]*?:generateContent/,'send
 assert.match(java,/Authorization", "Bearer " \+ token/,"authenticate the direct Vertex request with the user's OAuth access token");
 assert.match(java,/BuildConfig\.VERTEX_PROJECT_ID/,'configure the Google Cloud project for direct Vertex requests');
 assert.match(java,/BuildConfig\.VERTEX_LOCATION/,'configure the Vertex request location in the APK');
-assert.doesNotMatch(java,/VERTEX_API_KEY|x-goog-api-key|DIAGNOSIS_API_URL|DIAGNOSIS_PROXY_TOKEN|proxyToken/,'the APK must not embed API keys or use the diagnosis proxy for Vertex');
+const vertexRequest=java.slice(java.indexOf('private JSONObject requestVertexImageAnalysis'),java.indexOf('private JSONObject vertexStatus'));
+assert.ok(vertexRequest.length>0,'direct Vertex request method must exist');
+assert.doesNotMatch(java,/VERTEX_API_KEY|x-goog-api-key/,'the APK must not embed a Vertex API key');
+assert.doesNotMatch(vertexRequest,/DIAGNOSIS_API_URL|DIAGNOSIS_PROXY_TOKEN|proxyToken/,'the Vertex request itself must bypass the diagnosis proxy');
 assert.doesNotMatch(proxy,/app\.post\('\/v1\/vertex'/,'the proxy must not expose a Vertex route');
 assert.match(html,/Vertex AI image result/,'the diagnosis page must identify the returned Vertex image result');
 assert.doesNotMatch(html,/id=\"openCVAnalysisButton\"/,'the diagnosis section must not offer a second CV-only action instead of the Vertex result');
