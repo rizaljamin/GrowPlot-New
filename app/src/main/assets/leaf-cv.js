@@ -68,14 +68,11 @@
   if(!window.GrowPlotOpenCV||typeof window.GrowPlotOpenCV.analyzeImage!=='function')throw Error('OpenCV native bridge is missing from this APK. Install the latest GrowPlot build.');
   const report=JSON.parse(window.GrowPlotOpenCV.analyzeImage(pixels)||'{}');if(!report.ok)throw Error(report.error||'OpenCV returned no analysis result.');
   const src=k=>'data:image/png;base64,'+report[k],name=esc(item.fileName||'Latest Image_Feed snapshot');
-  result.innerHTML='<p class="cv-note">Photo reading succeeded for <b>'+name+'</b>. OpenCV converted the image to HSV. The preview is converted back for display; grayscale images show H, S and V channels.</p>'+
-  '<article class="cv-hsv-card"><b>HSV photo and channels · '+report.width+' × '+report.height+' sampled pixels</b><div class="cv-hsv-grid">'+
+  result.innerHTML='<p class="cv-note">Photo reading succeeded for <b>'+name+'</b>. OpenCV converted the photo to HSV. The magenta outline estimates foliage; colour percentages are calculated inside that boundary.</p>'+
+  '<article class="cv-hsv-card"><b>OpenCV outputs · '+report.width+' × '+report.height+' sampled pixels</b><div class="cv-hsv-grid">'+
   '<figure class="cv-hsv-channel"><b>HSV-converted photo</b><img alt="Photo converted to HSV with OpenCV and back for display" src="'+src('preview')+'"></figure>'+
   '<figure class="cv-hsv-channel"><b>Estimated plant boundary · '+report.plantPercentOfPhoto+'% of photo</b><img alt="Estimated plant foliage boundary outlined in magenta" src="'+src('boundary')+'"></figure>'+
-  '<figure class="cv-hsv-channel"><b>Hue (H)</b><img alt="OpenCV Hue channel" src="'+src('hue')+'"></figure>'+
-  '<figure class="cv-hsv-channel"><b>Saturation (S)</b><img alt="OpenCV Saturation channel" src="'+src('saturation')+'"></figure>'+
-  '<figure class="cv-hsv-channel"><b>Value (V)</b><img alt="OpenCV Value channel" src="'+src('value')+'"></figure>'+
-  '<figure class="cv-hsv-channel"><b>Yellow, green and brown mask</b><img alt="OpenCV HSV colour mask" src="'+src('mask')+'"></figure>'+
+  '<figure class="cv-hsv-channel"><b>YGB colour mask</b><img alt="OpenCV HSV colour mask" src="'+src('mask')+'"></figure>'+
   '<div class="cv-hsv-channel"><b>Colour pixels inside plant boundary</b><div class="cv-metrics cv-pixel-metrics">'+
   '<span><b>'+report.yellowPercent+'%</b>Yellow<span class="cv-pixel-count">'+Number(report.yellowPixels).toLocaleString()+' pixels</span></span>'+
   '<span><b>'+report.greenPercent+'%</b>Green<span class="cv-pixel-count">'+Number(report.greenPixels).toLocaleString()+' pixels</span></span>'+

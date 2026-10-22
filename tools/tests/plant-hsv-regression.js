@@ -57,10 +57,11 @@ assert.match(native,/mask\.setTo\(new Scalar\(255,213,55\),ym\)/,'OpenCV mask mu
 assert.match(native,/mask\.setTo\(new Scalar\(169,103,57\),bm\)/,'OpenCV mask must render brown-classified pixels');
 assert.match(cv,/src\('mask'\)/,'the diagnosis output must show the HSV mask, not only compute its metrics');
 assert.match(cv,/const item=findPhoto\(camera\)/,'OpenCV HSV should analyze one identified latest photo for the selected CCTV');
-assert.match(cv,/HSV photo and channels/,'the result should display the HSV photo and its channels');
-assert.match(cv,/src\('hue'\)/,'the result should render the hue channel');
-assert.match(cv,/src\('saturation'\)/,'the result should render the saturation channel');
-assert.match(cv,/src\('value'\)/,'the result should render the value channel');
+assert.match(cv,/OpenCV outputs/,'the result should group the requested OpenCV image outputs');
+assert.match(cv,/src\('preview'\)/,'show the HSV-converted photo');
+assert.match(cv,/src\('boundary'\)/,'show the estimated plant boundary');
+assert.match(cv,/src\('mask'\)/,'show the YGB colour mask');
+assert.doesNotMatch(cv,/src\('(hue|saturation|value)'\)/,'do not render separate H, S or V channel tiles');
 assert.match(cv,/report\.yellowPixels/,'the result should show yellow pixel counts');
 assert.match(cv,/report\.greenPixels/,'the result should show green pixel counts');
 assert.match(cv,/report\.brownPixels/,'the result should show brown pixel counts');
@@ -138,7 +139,7 @@ assert.doesNotMatch(html,/await engine\.runYolo\(camera\)/,'Run Diagnosis must n
 assert.doesNotMatch(html,/runPlantNetDiseaseCheck\(camera,plotId\)/,'Run Diagnosis must not invoke provider analysis from Section 1');
 assert.match(native,/OpenCVLoader\.initLocal\(\)/,'initialize the Android OpenCV library');
 assert.match(native,/Imgproc\.cvtColor\(rgb,hsv,Imgproc\.COLOR_RGB2HSV\)/,'perform HSV conversion with OpenCV');
-assert.match(native,/Imgproc\.findContours\(/,'derive an estimated foliage boundary from HSV candidate regions');
+assert.match(native,/Imgproc\.findContours\(/,'derive an estimated foliage boundary from broadened HSV candidate regions');
 assert.match(native,/r\.put\("plantPixels",plantPixels\)/,'report the number of pixels inside the estimated boundary');
 assert.match(native,/r\.put\("boundary",png\(boundary\)\)/,'return an image with the plant boundary visibly outlined');
 assert.match(cv,/src\('boundary'\)/,'display the estimated plant boundary image in the OpenCV section');
