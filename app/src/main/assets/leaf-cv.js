@@ -23,6 +23,7 @@
   const modal=document.getElementById('diagnosisModal'),analysis=modal&&modal.querySelector('#diagnosisAnalysis');if(!analysis)return;
   if(analysis.dataset.subsectionsReady==='1')return;
   const description=analysis.querySelector('#diagnosisDescription'),vertex=analysis.querySelector('#diagnosisVertexAnalysis'),providers=analysis.querySelector('#diagnosisProviderAnalysis'),inline=analysis.querySelector('#growplotInlineCV');
+  if(vertex&&/GROWPLOT_VERTEX_API_KEY|Vertex API key is not included/i.test(vertex.textContent||'')){try{localStorage.removeItem(diagnosisVertexKey(camera))}catch(e){}vertex.innerHTML=diagnosisVertexMarkup({status:'pending',message:'The previous API-key warning is obsolete. Run diagnosis to request Vertex directly with Google Cloud authorization.'})}
   const section=document.createElement('div');section.className='diagnosis-results-grid';section.id='diagnosisResultsGrid';
   const make=(title,id)=>{const box=document.createElement('section');box.className='diagnosis-result-subsection';box.setAttribute('aria-live','polite');const h=document.createElement('h4');h.textContent=title;box.appendChild(h);const body=document.createElement('div');body.id=id;box.appendChild(body);return {box,body}};
   const cv=make('OpenCV analysis','opencvAnalysisOutput'),vx=make('Vertex Analysis','vertexAnalysisOutput'),pk=make('Pl@ntNet / Kindwise Analysis','plantNetKindwiseOutput');

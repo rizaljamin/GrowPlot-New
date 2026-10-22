@@ -50,6 +50,7 @@ assert.ok(cv.includes('else if(k===3){out[p]=169;out[p+1]=103;out[p+2]=57}'),'HS
 assert.ok(cv.includes("mask.toDataURL('image/png')"),'the diagnosis output must show the HSV mask, not only compute its metrics');
 assert.match(cv,/Combined pixel share across/,'the HSV result should show combined yellow, green and brown pixel percentages');
 assert.ok(cv.includes("make('OpenCV analysis'")&&cv.includes("make('Vertex Analysis'")&&cv.includes("make('Pl@ntNet / Kindwise Analysis'"),'diagnosis results must be split into three provider/technique subsections');
+assert.match(cv,/GROWPLOT_VERTEX_API_KEY\|Vertex API key is not included/,'remove obsolete saved API-key warning from the Vertex panel');
 assert.match(cv,/HSV image and colour-pixel analysis/,'the OpenCV subsection should focus on the HSV image and pixel colour analysis');
 
 
