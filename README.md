@@ -1,12 +1,12 @@
-# GrowPlot — v0.7.01 Build 05
+# GrowPlot — v0.7.01 Build 09
 
 GrowPlot is an Android farm-management application with CCTV monitoring, Google Drive image feeds, A.I Plant Health, diagnosis workflows and plot management.
 
-**Current source version:** v0.7.01 Build 05 (`versionCode=238`, Android package `com.growplot.farm`). This identity is recorded in `version.properties`. A version number in source does not by itself confirm that a matching APK has been built; check the GitHub Actions run and its build manifest before distributing an APK.
+**Current source version:** v0.7.01 Build 09 (`versionCode=244`, Android package `com.growplot.farm`). This identity is recorded in `version.properties`. A version number in source does not by itself confirm that a matching APK has been built; check the GitHub Actions run and its build manifest before distributing an APK.
 
 ## Vertex image assessment
 
-Build 05 calls Vertex AI directly from Android. When the user runs a diagnosis, GrowPlot requests the Google Cloud `cloud-platform` OAuth scope through Android's Google AuthorizationClient, then sends the selected photos and context to the regional Vertex `generateContent` endpoint for project `growplot`, location `us-central1`, model `gemini-3.8-flash`. No GrowPlot Vertex proxy, API key, or service-account JSON is used. The signed-in Google user must grant the scope, have Vertex AI permissions on the project, and the Vertex AI API must be enabled. The user's short-lived access token remains in app memory and is not sent to the WebView. YOLO is a separate optional service.
+Vertex integration code requests Google Cloud authorization and calls the regional Vertex endpoint. In Build 09, the Run Diagnosis button intentionally stops after OpenCV HSV boundary and pixel analysis; it does not invoke Vertex, YOLO, Pl@ntNet, or Kindwise.
 
 ## Verified app baseline
 
@@ -18,11 +18,11 @@ The following behavior was documented as device-verified for v0.7.00 Build 02:
 - The Build 14 source adds on-demand photo-based Pl@ntNet species candidates when Run Diagnosis is tapped. The pre-run species shown for a CCTV section is only a preset visual estimate. HSV colour cues remain preliminary; YOLO, validated leaf counts and image-based maturity estimates are not included. Plant age needs a planting date.
 - A dedicated per-CCTV count summary in A.I Health remains an enhancement; the existing Java image counting works. Do not claim the summary UI is complete without Android verification.
 
-## Diagnosis species identification (Build 14 source)
+## OpenCV plant boundary (Build 09)
 
-When the user taps **Run diagnosis**, GrowPlot first runs its local HSV pixel screen, then sends up to five selected photos of the same plant to Pl@ntNet single-species identification. It separately submits those images to Pl@ntNet disease identification and Kindwise crop.health where configured. Pl@ntNet species matches are ranked candidates with confidence scores; the user chooses a match. The API key stays in Android native storage. Species identification is a separate Pl@ntNet request and consumes its own quota. A trained YOLO model is not packaged.
+OpenCV thresholds green/yellow HSV foliage candidates, groups the dominant central cluster with nearby regions, draws a magenta boundary, and reports colour counts and percentages within that estimated region. The boundary is a colour-based approximation: soil or background may still be included, and leaves may be missed. The output is not validated plant detection, a health score, or disease diagnosis. Run Diagnosis currently stops after this OpenCV stage; provider integrations are not called by that button.
 
-The APK and live provider behavior still require verification before these source changes can be called device-tested.
+The APK build and boundary accuracy still require verification on an Android device.
 
 ## Source and release workflow
 

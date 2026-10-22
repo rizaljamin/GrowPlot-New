@@ -71,17 +71,18 @@
   result.innerHTML='<p class="cv-note">Photo reading succeeded for <b>'+name+'</b>. OpenCV converted the image to HSV. The preview is converted back for display; grayscale images show H, S and V channels.</p>'+
   '<article class="cv-hsv-card"><b>HSV photo and channels · '+report.width+' × '+report.height+' sampled pixels</b><div class="cv-hsv-grid">'+
   '<figure class="cv-hsv-channel"><b>HSV-converted photo</b><img alt="Photo converted to HSV with OpenCV and back for display" src="'+src('preview')+'"></figure>'+
+  '<figure class="cv-hsv-channel"><b>Estimated plant boundary · '+report.plantPercentOfPhoto+'% of photo</b><img alt="Estimated plant foliage boundary outlined in magenta" src="'+src('boundary')+'"></figure>'+
   '<figure class="cv-hsv-channel"><b>Hue (H)</b><img alt="OpenCV Hue channel" src="'+src('hue')+'"></figure>'+
   '<figure class="cv-hsv-channel"><b>Saturation (S)</b><img alt="OpenCV Saturation channel" src="'+src('saturation')+'"></figure>'+
   '<figure class="cv-hsv-channel"><b>Value (V)</b><img alt="OpenCV Value channel" src="'+src('value')+'"></figure>'+
   '<figure class="cv-hsv-channel"><b>Yellow, green and brown mask</b><img alt="OpenCV HSV colour mask" src="'+src('mask')+'"></figure>'+
-  '<div class="cv-hsv-channel"><b>Colour-pixel analysis</b><div class="cv-metrics cv-pixel-metrics">'+
+  '<div class="cv-hsv-channel"><b>Colour pixels inside plant boundary</b><div class="cv-metrics cv-pixel-metrics">'+
   '<span><b>'+report.yellowPercent+'%</b>Yellow<span class="cv-pixel-count">'+Number(report.yellowPixels).toLocaleString()+' pixels</span></span>'+
   '<span><b>'+report.greenPercent+'%</b>Green<span class="cv-pixel-count">'+Number(report.greenPixels).toLocaleString()+' pixels</span></span>'+
   '<span><b>'+report.brownPercent+'%</b>Brown<span class="cv-pixel-count">'+Number(report.brownPixels).toLocaleString()+' pixels</span></span>'+
-  '<span><b>'+report.otherPercent+'%</b>Other<span class="cv-pixel-count">'+Number(report.otherPixels).toLocaleString()+' pixels</span></span></div><small>'+Number(report.totalPixels).toLocaleString()+' total pixels</small></div></div></article>'+
-  '<small class="cv-caution">Counts include soil and background. These are colour measurements, not a plant-health score or disease diagnosis.</small>';
-  if(status)status.textContent='OpenCV HSV analysis succeeded: '+Number(report.totalPixels).toLocaleString()+' pixels counted.';return report;
+  '<span><b>'+report.otherPercent+'%</b>Other<span class="cv-pixel-count">'+Number(report.otherPixels).toLocaleString()+' pixels</span></span></div><small>'+Number(report.plantPixels).toLocaleString()+' boundary pixels measured · '+Number(report.totalPixels).toLocaleString()+' photo pixels</small></div></div></article>'+
+  '<small class="cv-caution">The magenta outline is estimated from HSV foliage-colour clusters. Check that it follows the plant; colour percentages use pixels inside this estimated boundary and are not a health score or disease diagnosis.</small>';
+  if(status)status.textContent='HSV analysis succeeded. Estimated plant boundary: '+Number(report.plantPercentOfPhoto)+'% of photo; '+Number(report.plantPixels).toLocaleString()+' boundary pixels measured.';return report;
  }catch(e){const m=e&&e.message?e.message:String(e||'Unknown image-processing error');if(status)status.textContent='HSV analysis failed: '+m;result.innerHTML='<p class="cv-caution" role="status">OpenCV analysis failed: '+esc(m)+'</p>';return {ok:false,error:m}}
 }
  // Explicit API: invoked by runDiagnosisScreen, not by a second click listener.

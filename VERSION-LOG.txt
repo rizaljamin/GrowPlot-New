@@ -1,3 +1,7 @@
+2026-10-22 | v0.7.01 Build 09 | versionCode 244 | com.growplot.farm
+Changes: OpenCV estimates a foliage boundary from the dominant central green/yellow HSV cluster, shows a magenta outline, and calculates yellow/green/brown/other pixel counts and percentages within the estimated region. It reports a specific failure if it cannot find a sufficiently large foliage region. This is colour-based segmentation, not validated plant detection or health diagnosis.
+Validation: Source regression and ARM64 build pending; boundary accuracy still needs Android photo testing.
+
 2026-10-22 | v0.7.01 Build 08 | versionCode 243 | com.growplot.farm
 Changes: Run Diagnosis runs only the first OpenCV analysis section. Android OpenCV reads the selected/latest feed photo, reports image-read or HSV success/failure in that section, shows the HSV-converted image plus H/S/V channels and yellow/green/brown/other pixel counts and percentages. Vertex and Pl@ntNet/Kindwise are not invoked by this button.
 Validation: Pending ARM64 GitHub Actions build and Android device verification.

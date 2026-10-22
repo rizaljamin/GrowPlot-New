@@ -138,6 +138,11 @@ assert.doesNotMatch(html,/await engine\.runYolo\(camera\)/,'Run Diagnosis must n
 assert.doesNotMatch(html,/runPlantNetDiseaseCheck\(camera,plotId\)/,'Run Diagnosis must not invoke provider analysis from Section 1');
 assert.match(native,/OpenCVLoader\.initLocal\(\)/,'initialize the Android OpenCV library');
 assert.match(native,/Imgproc\.cvtColor\(rgb,hsv,Imgproc\.COLOR_RGB2HSV\)/,'perform HSV conversion with OpenCV');
+assert.match(native,/Imgproc\.findContours\(/,'derive an estimated foliage boundary from HSV candidate regions');
+assert.match(native,/r\.put\("plantPixels",plantPixels\)/,'report the number of pixels inside the estimated boundary');
+assert.match(native,/r\.put\("boundary",png\(boundary\)\)/,'return an image with the plant boundary visibly outlined');
+assert.match(cv,/src\('boundary'\)/,'display the estimated plant boundary image in the OpenCV section');
+assert.match(cv,/Colour pixels inside plant boundary/,'label colour percentages as boundary-only measurements');
 assert.match(cv,/Photo reading succeeded:/,'show successful image-read status in Section 1');
 assert.match(cv,/HSV analysis failed:/,'show image or HSV failure reason in Section 1');
 console.log('Plant image identification, dual-provider results, and explicit identity validation checks passed.');
