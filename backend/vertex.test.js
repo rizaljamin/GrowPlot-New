@@ -26,7 +26,7 @@ test('Vertex provider authenticates with Cloud Run metadata and returns visible-
   process.env.GROWPLOT_VERTEX_ENABLED = 'true';
   process.env.GOOGLE_CLOUD_PROJECT = 'growplot';
   process.env.GOOGLE_CLOUD_LOCATION = 'global';
-  process.env.VERTEX_MODEL_ID = 'gemini-3.5-flash';
+  process.env.VERTEX_MODEL_ID = 'gemini-3.8-flash';
 
   let requestBody;
   globalThis.fetch = async (url, options = {}) => {
@@ -34,7 +34,7 @@ test('Vertex provider authenticates with Cloud Run metadata and returns visible-
       assert.equal(options.headers['Metadata-Flavor'], 'Google');
       return Response.json({ access_token: 'unit-test-token' });
     }
-    assert.match(String(url), /projects\/growplot\/locations\/global\/publishers\/google\/models\/gemini-3\.5-flash:generateContent$/);
+    assert.match(String(url), /projects\/growplot\/locations\/global\/publishers\/google\/models\/gemini-3\.8-flash:generateContent$/);
     assert.equal(options.headers.Authorization, 'Bearer unit-test-token');
     requestBody = JSON.parse(options.body);
     return Response.json({
@@ -59,7 +59,7 @@ test('Vertex provider authenticates with Cloud Run metadata and returns visible-
     const image = { mimetype: 'image/jpeg', buffer: Buffer.from('photo-bytes') };
     const response = await vertexCheck([image], { species: 'unconfirmed', symptoms: 'leaf edges brown' });
     assert.equal(response.status, 'ok');
-    assert.equal(response.model, 'gemini-3.5-flash');
+    assert.equal(response.model, 'gemini-3.8-flash');
     assert.equal(response.imageCountSubmitted, 1);
     assert.ok(response.candidates.some(item => item.type === 'visual summary'));
     assert.ok(requestBody.contents[0].parts.some(part => part.inlineData?.data === image.buffer.toString('base64')));
