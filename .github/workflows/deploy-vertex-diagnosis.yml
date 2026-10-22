@@ -1,0 +1,38 @@
+name: Deploy GrowPlot Vertex callable
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'functions/index.js'
+      - 'functions/package.json'
+      - 'firebase.json'
+      - '.github/workflows/deploy-vertex-diagnosis.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: growplot-vertex-diagnosis
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: firebase-production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GROWPLOT_FIREBASE_DEPLOY_SERVICE_ACCOUNT }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install and check Firebase function
+        working-directory: functions
+        run: |
+          npm install --ignore-scripts
+          npm run lint
+      - name: Deploy Vertex callable to GrowPlot Firebase project
+        run: npx --yes firebase-tools@14 deploy --only functions:vertexImageDiagnosis --project growplot --non-interactive
