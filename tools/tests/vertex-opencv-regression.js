@@ -19,7 +19,6 @@ assert.match(index, /window\.GrowPlotVertex\.analyze\(requestId,imageData,cvRepo
   'The selected OpenCV photo must be submitted through the Android Firebase bridge');
 assert.ok(index.includes('OpenCV completed. Sending the same photo to Vertex AI'),
   'The UI must show that Vertex starts after OpenCV completes');
-  'The UI must show that Vertex starts after OpenCV completes');
 assert.match(index, /vertex-processing-icon/,
   'The Vertex result subsection must show an animated hourglass while the API is pending');
 assert.match(index, /vertexHourglassSpin/,
