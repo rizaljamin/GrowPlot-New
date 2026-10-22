@@ -55,11 +55,24 @@
    try{localStorage.setItem('growplotLeafCv:'+report.plotId+':cctv'+camera,JSON.stringify(report))}catch(e){}
    const annotated=document.createElement('canvas');annotated.width=w;annotated.height=h;
    const annotatedCtx=annotated.getContext('2d');annotatedCtx.drawImage(canvas,0,0);
+   const hsvMask=document.createElement('canvas');hsvMask.width=w;hsvMask.height=h;
+   const maskCtx=hsvMask.getContext('2d'),maskImage=maskCtx.createImageData(w,h),maskPixels=maskImage.data;
+   for(let i=0;i<labels.length;i++){
+    const p=i*4,kind=labels[i];
+    if(kind===1){maskPixels[p]=34;maskPixels[p+1]=205;maskPixels[p+2]=94}
+    else if(kind===2){maskPixels[p]=255;maskPixels[p+1]=213;maskPixels[p+2]=55}
+    else if(kind===3){maskPixels[p]=169;maskPixels[p+1]=103;maskPixels[p+2]=57}
+    else{maskPixels[p]=24;maskPixels[p+1]=35;maskPixels[p+2]=29}
+    maskPixels[p+3]=255;
+   }
+   maskCtx.putImageData(maskImage,0,0);
    annotatedCtx.lineWidth=Math.max(1,Math.round(w/240));annotatedCtx.font='bold '+Math.max(12,Math.round(w/34))+'px sans-serif';
    top.forEach((r,i)=>{annotatedCtx.strokeStyle='#f9e55c';annotatedCtx.strokeRect(r.xmin,r.ymin,r.xmax-r.xmin+1,r.ymax-r.ymin+1);annotatedCtx.fillStyle='#103f2b';annotatedCtx.fillRect(r.xmin,r.ymin,26,22);annotatedCtx.fillStyle='#fff';annotatedCtx.fillText(String(i+1),r.xmin+7,r.ymin+17)});
    const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
    const cards=top.map((r,i)=>{const sum=r.green+r.yellow+r.brown||1,g=Math.round(r.green*100/sum),y=Math.round(r.yellow*100/sum),b=Math.round(r.brown*100/sum);return '<article class="cv-leaf-card"><p><b>Region '+(i+1)+'</b> · '+g+'% green · '+y+'% yellow · '+b+'% brown</p><p>'+(b>=20?'Brown-like pixels prominent':y>=25?'Yellow-like pixels prominent':g>=70?'Mostly green-like pixels':'Mixed colour cues')+'</p></article>'}).join('');
-   result.innerHTML='<img class="cv-preview" alt="Photo annotated with candidate foliage regions" src="'+annotated.toDataURL('image/jpeg',.82)+'">'+
+   result.innerHTML='<h4>HSV colour mask</h4><img class="cv-preview" alt="HSV mask: green, yellow and brown classified pixels; dark pixels are unclassified" src="'+hsvMask.toDataURL('image/png')+'">'+
+    '<p class="cv-note">Green, yellow and brown show pixels matched by GrowPlot HSV thresholds; dark pixels are unclassified. Background, shadows and pot/soil colours can also match.</p><div class="cv-thumbnails"><span>🟩 Green-like</span><span>🟨 Yellow-like</span><span>🟫 Brown-like</span><span>⬛ Unclassified</span></div>'+
+    '<h4>Connected-region overview</h4>'+'<img class="cv-preview" alt="Photo annotated with candidate foliage regions" src="'+annotated.toDataURL('image/jpeg',.82)+'">'+
     '<div class="cv-metrics"><span><b>'+report.greenPercent+'%</b>HSV green</span><span><b>'+report.yellowPercent+'%</b>HSV yellow</span><span><b>'+report.brownPercent+'%</b>HSV brown</span><span><b>'+report.otherPercent+'%</b>Other</span></div>'+
     '<h4>Basic CV measurements</h4><div class="cv-metrics"><span><b>'+report.meanBrightness+'</b>Mean brightness / 255</span><span><b>'+report.brightnessContrast+'</b>Brightness contrast</span><span><b>'+report.meanSaturationPercent+'%</b>Mean saturation</span><span><b>'+report.edgeDensityPercent+'%</b>Edge density</span></div>'+
     '<p><b>'+top.length+' connected foliage-colour regions highlighted</b> at '+w+' × '+h+' analysis resolution. Regions can merge or split and are not a leaf count.</p>'+
