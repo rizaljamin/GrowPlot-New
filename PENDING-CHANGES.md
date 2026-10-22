@@ -1,3 +1,9 @@
+## Build 30 — direct Google Drive API Image_Feed connection
+- Firebase login requests Google Drive authorization for the matching Firebase email and resolves the assigned path through Drive API; login no longer launches Android's folder picker.
+- Image-feed scans/downloads and CCTV snapshot uploads use the resolved Drive folder ID. Manual folder selection remains available in Settings.
+- The user enabled Drive API and configured the scope. The first Google OAuth grant may require consent; later logins should reuse it.
+- Build 30 / versionCode 234. Build and real-device consent, path, scan, shared-folder permission, and upload checks pending.
+
 ## Completed — Build 29 Image_Feed login connection
 
 - Firebase profile login now connects the selected assigned plot to its default Image_Feed path and displays connection progress/result.

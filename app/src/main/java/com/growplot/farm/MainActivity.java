@@ -54,6 +54,11 @@ import android.webkit.WebViewClient;
 import android.util.Base64;
 import android.text.Html;
 import android.text.InputType;
+import android.accounts.Account;
+import com.google.android.gms.auth.api.identity.AuthorizationRequest;
+import com.google.android.gms.auth.api.identity.AuthorizationResult;
+import com.google.android.gms.auth.api.identity.Identity;
+import com.google.android.gms.common.api.Scope;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -108,6 +113,11 @@ public class MainActivity extends Activity {
     private static final int REQUEST_DIAGNOSIS_FOLDER = 415;
     private static final int REQUEST_FEED_CAMERA = 416;
     private static final int REQUEST_FEED_PICKER = 417;
+    private static final int REQUEST_DRIVE_AUTHORIZATION = 418;
+    private static final String DRIVE_API_SCOPE = "https://www.googleapis.com/auth/drive";
+    private static final String DRIVE_API_FOLDER_KEY_PREFIX = "data_feed_drive_api_folder_";
+    private static final String DRIVE_API_EMAIL_KEY_PREFIX = "data_feed_drive_api_email_";
+    private static final String DRIVE_API_FOLDER_NAME_KEY_PREFIX = "data_feed_drive_api_folder_name_";
     private static final String PREFS = "growplot_snapshot_settings";
     private static final String PREF_SELECTED_URIS = "selected_image_uris";
     private static final String PREF_IMAGE_FEED_TREE_URI = "image_feed_tree_uri";
@@ -133,6 +143,11 @@ public class MainActivity extends Activity {
     private volatile String pickerPlotId = DEFAULT_PLOT_ID;
     private volatile boolean pickerCreatesDefaultFeed;
     private volatile String pickerDefaultFolderName = "Demo_plot";
+    private volatile String googleDriveAccessToken;
+    private volatile long googleDriveTokenIssuedAt;
+    private volatile boolean driveAuthorizationInProgress;
+    private volatile String pendingDriveAuthPlotId = DEFAULT_PLOT_ID;
+    private volatile String pendingDriveAuthFolderName = "Demo_plot";
     private volatile String locationPermissionPlotId = DEFAULT_PLOT_ID;
     private volatile String locationLookupPlotId = DEFAULT_PLOT_ID;
     private volatile boolean locationRequestInFlight;
@@ -2213,6 +2228,22 @@ public class MainActivity extends Activity {
 
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_DRIVE_AUTHORIZATION) {
+            if (resultCode != RESULT_OK || data == null) {
+                driveAuthorizationInProgress = false;
+                notifyLoginDriveStatus(pendingDriveAuthPlotId, false, true, "Google Drive authorization was cancelled.");
+                return;
+            }
+            try {
+                AuthorizationResult authorization = Identity.getAuthorizationClient(this).getAuthorizationResultFromIntent(data);
+                completeDriveAuthorization(authorization);
+            } catch (Exception error) {
+                driveAuthorizationInProgress = false;
+                notifyLoginDriveStatus(pendingDriveAuthPlotId, false, true,
+                        "Google Drive authorization failed: " + safeErrorMessage(error));
+            }
+            return;
+        }
         if (requestCode == REQUEST_FEED_CAMERA || requestCode == REQUEST_FEED_PICKER) {
             handleFeedPhotoResult(requestCode, resultCode, data);
             return;
@@ -2404,6 +2435,8 @@ public class MainActivity extends Activity {
 
     private boolean isFeedFolderReady(String plotId) {
         String id = safePlotId(plotId);
+        String apiFolder = driveApiFolderForSignedInUser(id);
+        if (apiFolder != null && !apiFolder.isEmpty()) return true;
         String tree = getPrefs().getString(feedTreeKey(id), null);
         String folder = getPrefs().getString(feedFolderDocumentKey(id), null);
         return tree != null && folder != null && hasPersistedReadWriteGrant(Uri.parse(tree));
@@ -2412,11 +2445,15 @@ public class MainActivity extends Activity {
     private void saveFeedPhotoToDrive(Uri source, Bitmap thumbnail, String plotId, int camera,
                                       boolean portraitCapture) throws Exception {
         String id = safePlotId(plotId);
+        String apiFolderId = driveApiFolderForSignedInUser(id);
         String treeText = getPrefs().getString(feedTreeKey(id), null);
         String folderId = getPrefs().getString(feedFolderDocumentKey(id), null);
-        if (treeText == null || folderId == null) throw new IllegalStateException("The image-feed folder is not configured for this plot");
-        Uri treeUri = Uri.parse(treeText);
-        if (!hasPersistedReadWriteGrant(treeUri)) throw new IllegalStateException("Saved Google Drive folder access is unavailable; reconnect the feed in Settings");
+        if ((apiFolderId == null || apiFolderId.isEmpty()) && (treeText == null || folderId == null))
+            throw new IllegalStateException("The image-feed folder is not configured for this plot");
+        Uri treeUri = treeText == null ? null : Uri.parse(treeText);
+        if ((apiFolderId == null || apiFolderId.isEmpty())
+                && (treeUri == null || !hasPersistedReadWriteGrant(treeUri)))
+            throw new IllegalStateException("Saved Google Drive folder access is unavailable; reconnect the feed in Settings");
         Bitmap bitmap = thumbnail;
         Bitmap decodedBitmap = null;
         Bitmap orientedBitmap = null;
@@ -2458,6 +2495,16 @@ public class MainActivity extends Activity {
         snapshotClock.setTimeZone(TimeZone.getTimeZone("Asia/Kuala_Lumpur"));
         String fileName = "CCTV" + String.format(Locale.US, "%02d", camera) + "_"
                 + snapshotClock.format(new Date()) + ".jpg";
+        if (apiFolderId != null && !apiFolderId.isEmpty()) {
+            try {
+                uploadDriveApiPhoto(apiFolderId, fileName, bitmap);
+            } finally {
+                if (orientedBitmap != null && orientedBitmap != decodedBitmap
+                        && orientedBitmap != thumbnail && !orientedBitmap.isRecycled()) orientedBitmap.recycle();
+                if (decodedBitmap != null && decodedBitmap != thumbnail && !decodedBitmap.isRecycled()) decodedBitmap.recycle();
+            }
+            return;
+        }
         Uri folderUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, folderId);
         Uri destination = DocumentsContract.createDocument(getContentResolver(), folderUri, "image/jpeg", fileName);
         if (destination == null) throw new IllegalStateException("Google Drive could not create the photo in the image-feed folder");
@@ -3323,7 +3370,7 @@ public class MainActivity extends Activity {
             pickerDefaultFolderName = safeFolderName(folderName);
             pickerCreatesDefaultFeed = true;
             getPrefs().edit().putString(PREF_ACTIVE_PLOT_ID, pickerPlotId).apply();
-            runOnUiThread(MainActivity.this::openImageFeedFolderPicker);
+            runOnUiThread(() -> authorizeAndConnectDriveFeed(pickerPlotId, pickerDefaultFolderName));
         }
 
         @JavascriptInterface public String getFeedLocation(String plotId) {
@@ -4383,6 +4430,301 @@ public class MainActivity extends Activity {
         return safe;
     }
 
+    private String driveApiFolderKey(String plotId) {
+        return DRIVE_API_FOLDER_KEY_PREFIX + safePlotId(plotId);
+    }
+
+    private String driveApiFolderForSignedInUser(String plotId) {
+        String id = safePlotId(plotId);
+        String folderId = getPrefs().getString(driveApiFolderKey(id), null);
+        String savedEmailFolder = getPrefs().getString(DRIVE_API_EMAIL_KEY_PREFIX + id, null);
+        if (folderId == null || savedEmailFolder == null) return null;
+        try { return savedEmailFolder.equals(signedInEmailFolderName()) ? folderId : null; }
+        catch (Exception ignored) { return null; }
+    }
+
+    private void authorizeAndConnectDriveFeed(String plotId, String folderName) {
+        pendingDriveAuthPlotId = safePlotId(plotId);
+        pendingDriveAuthFolderName = safeFolderName(folderName);
+        if (driveAuthorizationInProgress) return;
+        driveAuthorizationInProgress = true;
+        notifyLoginDriveStatus(pendingDriveAuthPlotId, false, false,
+                "Requesting Google Drive access for the assigned plot folder…");
+        try {
+            AuthorizationRequest.Builder requestBuilder = new AuthorizationRequest.Builder()
+                    .setRequestedScopes(Collections.singletonList(new Scope(DRIVE_API_SCOPE)));
+            com.google.firebase.auth.FirebaseUser firebaseUser =
+                    com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+            String email = firebaseUser == null ? null : firebaseUser.getEmail();
+            if (email != null && !email.trim().isEmpty()) {
+                requestBuilder.setAccount(new Account(email.trim(), "com.google"));
+            }
+            Identity.getAuthorizationClient(this).authorize(requestBuilder.build())
+                    .addOnSuccessListener(this, this::completeDriveAuthorization)
+                    .addOnFailureListener(this, error -> {
+                        driveAuthorizationInProgress = false;
+                        notifyLoginDriveStatus(pendingDriveAuthPlotId, false, true,
+                                "Google Drive authorization failed: " + safeErrorMessage(error));
+                    });
+        } catch (Exception error) {
+            driveAuthorizationInProgress = false;
+            notifyLoginDriveStatus(pendingDriveAuthPlotId, false, true,
+                    "Google Drive authorization could not start: " + safeErrorMessage(error));
+        }
+    }
+
+    private void completeDriveAuthorization(AuthorizationResult authorization) {
+        if (authorization == null) {
+            driveAuthorizationInProgress = false;
+            notifyLoginDriveStatus(pendingDriveAuthPlotId, false, true, "Google Drive returned no authorization result.");
+            return;
+        }
+        if (authorization.hasResolution()) {
+            try {
+                startIntentSenderForResult(authorization.getPendingIntent().getIntentSender(),
+                        REQUEST_DRIVE_AUTHORIZATION, null, 0, 0, 0);
+            } catch (Exception error) {
+                driveAuthorizationInProgress = false;
+                notifyLoginDriveStatus(pendingDriveAuthPlotId, false, true,
+                        "Google Drive consent could not be opened: " + safeErrorMessage(error));
+            }
+            return;
+        }
+        String token = authorization.getAccessToken();
+        if (token == null || token.trim().isEmpty()) {
+            driveAuthorizationInProgress = false;
+            notifyLoginDriveStatus(pendingDriveAuthPlotId, false, true,
+                    "Google Drive authorization returned no access token. Check the Drive scope in Google Auth Platform.");
+            return;
+        }
+        googleDriveAccessToken = token;
+        googleDriveTokenIssuedAt = System.currentTimeMillis();
+        driveAuthorizationInProgress = false;
+        final String plotId = safePlotId(pendingDriveAuthPlotId);
+        final String folderName = safeFolderName(pendingDriveAuthFolderName);
+        farmDataWorker.execute(() -> {
+            try {
+                connectDefaultFeedWithDriveApi(plotId, folderName);
+            } catch (Exception error) {
+                notifyLoginDriveStatus(plotId, false, true,
+                        "Google Drive folder connection failed: " + safeErrorMessage(error));
+            }
+        });
+    }
+
+    private void connectDefaultFeedWithDriveApi(String plotId, String folderName) throws Exception {
+        String projectsId = findDriveFolderByName(null, "Projects");
+        if (projectsId == null) {
+            throw new IllegalStateException("Could not find the shared Projects folder in the authorized Google Drive account.");
+        }
+        String growPlotId = findDriveFolderByName(projectsId, "GrowPlot");
+        if (growPlotId == null) {
+            throw new IllegalStateException("Could not find Projects/GrowPlot in the authorized Google Drive account.");
+        }
+        String imageFeedId = findOrCreateDriveFolder(growPlotId, "Image_Feed");
+        String userFolder = signedInEmailFolderName();
+        String userFolderId = findOrCreateDriveFolder(imageFeedId, userFolder);
+        String plotFolderId = findOrCreateDriveFolder(userFolderId, folderName);
+        listDriveFiles("'" + plotFolderId.replace("'", "\\'") + "' in parents and trashed=false");
+        String path = "Google Drive: /Projects/GrowPlot/Image_Feed/" + userFolder + "/" + folderName;
+        JSONObject config = new JSONObject(getPrefs().getString("data_feed_config_" + plotId, "{}"));
+        config.put("plotId", plotId);
+        config.put("enabled", true);
+        config.put("driveApiFolderId", plotFolderId);
+        getPrefs().edit()
+                .putString(driveApiFolderKey(plotId), plotFolderId)
+                .putString(DRIVE_API_EMAIL_KEY_PREFIX + plotId, userFolder)
+                .putString(DRIVE_API_FOLDER_NAME_KEY_PREFIX + plotId, folderName)
+                .putString(feedLocationKey(plotId), path)
+                .putString("data_feed_config_" + plotId, config.toString())
+                .putString(PREF_ACTIVE_PLOT_ID, plotId)
+                .apply();
+        String relative = "Image_Feed/" + userFolder + "/" + folderName;
+        if (accountApiBridge != null) accountApiBridge.saveImageFeedPath(plotId, path, relative);
+        pickerCreatesDefaultFeed = false;
+        notifyFeedSettingsSaved(plotId, path);
+        notifyLoginDriveStatus(plotId, true, true, path);
+        scanSnapshotFolder(plotId);
+    }
+
+    private void notifyLoginDriveStatus(String plotId, boolean connected, boolean isFinal, String messageOrPath) {
+        JSONObject result = new JSONObject();
+        try {
+            result.put("plotId", safePlotId(plotId));
+            result.put("connected", connected);
+            result.put("final", isFinal);
+            if (connected) result.put("path", messageOrPath);
+            else result.put("message", messageOrPath);
+        } catch (Exception ignored) { }
+        String json = result.toString();
+        runOnUiThread(() -> {
+            if (web != null) web.evaluateJavascript(
+                    "window.GrowPlotLoginImageFeedStatus&&window.GrowPlotLoginImageFeedStatus(" + json + ")", null);
+        });
+    }
+
+    private String safeErrorMessage(Exception error) {
+        String message = error == null ? null : error.getMessage();
+        return message == null || message.trim().isEmpty() ? "Unknown error" : message;
+    }
+
+    private JSONObject driveApiJsonRequest(String method, String path, JSONObject body) throws Exception {
+        byte[] response = driveApiRequest(method, path,
+                body == null ? null : body.toString().getBytes(StandardCharsets.UTF_8),
+                body == null ? null : "application/json; charset=utf-8");
+        return new JSONObject(new String(response, StandardCharsets.UTF_8));
+    }
+
+    private byte[] driveApiRequest(String method, String path, byte[] requestBody, String contentType) throws Exception {
+        String token = googleDriveAccessToken;
+        if (token == null || token.trim().isEmpty())
+            throw new IllegalStateException("Google Drive authorization is not active. Sign in again to reconnect.");
+        HttpURLConnection connection = null;
+        try {
+            connection = (HttpURLConnection) new URL("https://www.googleapis.com" + path).openConnection();
+            connection.setRequestMethod(method);
+            connection.setRequestProperty("Authorization", "Bearer " + token);
+            connection.setRequestProperty("Accept", "application/json");
+            connection.setConnectTimeout(15000);
+            connection.setReadTimeout(30000);
+            connection.setUseCaches(false);
+            if (requestBody != null) {
+                connection.setDoOutput(true);
+                connection.setRequestProperty("Content-Type", contentType);
+                connection.setFixedLengthStreamingMode(requestBody.length);
+                try (OutputStream output = connection.getOutputStream()) {
+                    output.write(requestBody);
+                    output.flush();
+                }
+            }
+            int responseCode = connection.getResponseCode();
+            InputStream stream = responseCode >= 400 ? connection.getErrorStream() : connection.getInputStream();
+            ByteArrayOutputStream output = new ByteArrayOutputStream();
+            if (stream != null) {
+                try (InputStream input = stream) {
+                    byte[] buffer = new byte[8192];
+                    int count;
+                    while ((count = input.read(buffer)) != -1) output.write(buffer, 0, count);
+                }
+            }
+            byte[] response = output.toByteArray();
+            if (responseCode < 200 || responseCode >= 300) {
+                String details = new String(response, StandardCharsets.UTF_8);
+                if (details.length() > 500) details = details.substring(0, 500);
+                throw new IllegalStateException("Drive API HTTP " + responseCode + (details.isEmpty() ? "" : ": " + details));
+            }
+            return response;
+        } finally {
+            if (connection != null) connection.disconnect();
+        }
+    }
+
+    private JSONArray listDriveFiles(String query) throws Exception {
+        JSONArray files = new JSONArray();
+        String pageToken = null;
+        do {
+            String path = "/drive/v3/files?q=" + URLEncoder.encode(query, "UTF-8")
+                    + "&pageSize=1000&fields=nextPageToken,files(id,name,mimeType,modifiedTime,size,parents)"
+                    + "&supportsAllDrives=true&includeItemsFromAllDrives=true"
+                    + (pageToken == null ? "" : "&pageToken=" + URLEncoder.encode(pageToken, "UTF-8"));
+            JSONObject response = driveApiJsonRequest("GET", path, null);
+            JSONArray page = response.optJSONArray("files");
+            if (page != null) for (int i = 0; i < page.length(); i++) files.put(page.opt(i));
+            pageToken = response.optString("nextPageToken", null);
+        } while (pageToken != null && !pageToken.isEmpty() && files.length() < MAX_FEED_FILES);
+        return files;
+    }
+
+    private String findDriveFolderByName(String parentId, String name) throws Exception {
+        String escapedName = name.replace("\\", "\\\\").replace("'", "\\'");
+        String query = "name='" + escapedName + "' and mimeType='application/vnd.google-apps.folder' and trashed=false";
+        if (parentId != null) query += " and '" + parentId.replace("'", "\\'") + "' in parents";
+        JSONArray files = listDriveFiles(query);
+        for (int i = 0; i < files.length(); i++) {
+            JSONObject file = files.optJSONObject(i);
+            if (file != null && name.equals(file.optString("name"))) return file.optString("id", null);
+        }
+        return null;
+    }
+
+    private String findOrCreateDriveFolder(String parentId, String name) throws Exception {
+        String existing = findDriveFolderByName(parentId, name);
+        if (existing != null && !existing.isEmpty()) return existing;
+        JSONObject metadata = new JSONObject();
+        metadata.put("name", name);
+        metadata.put("mimeType", "application/vnd.google-apps.folder");
+        JSONArray parents = new JSONArray();
+        parents.put(parentId);
+        metadata.put("parents", parents);
+        JSONObject created = driveApiJsonRequest("POST", "/drive/v3/files?fields=id", metadata);
+        String id = created.optString("id", "");
+        if (id.isEmpty()) throw new IllegalStateException("Google Drive did not return the new folder ID for " + name);
+        return id;
+    }
+
+    private List<FeedDocument> queryDriveImageFeed(String folderId, String plotId) throws Exception {
+        List<FeedDocument> images = new ArrayList<>();
+        Set<String> visited = new HashSet<>();
+        collectDriveImageFeed(folderId, plotId, images, visited, 0, 0);
+        return images;
+    }
+
+    private void collectDriveImageFeed(String parentId, String plotId, List<FeedDocument> images,
+                                       Set<String> visited, int depth, int inheritedCamera) throws Exception {
+        if (depth > 6 || images.size() >= MAX_FEED_FILES || !visited.add(parentId)) return;
+        String query = "'" + parentId.replace("'", "\\'") + "' in parents and trashed=false";
+        JSONArray children = listDriveFiles(query);
+        for (int i = 0; i < children.length() && images.size() < MAX_FEED_FILES; i++) {
+            JSONObject item = children.optJSONObject(i);
+            if (item == null) continue;
+            String id = item.optString("id", "");
+            String name = item.optString("name", "");
+            String mime = item.optString("mimeType", "");
+            if (id.isEmpty() || name.isEmpty()) continue;
+            int cameraHint = cameraNumber(name);
+            if (cameraHint == 0) cameraHint = quadrantNumber(name);
+            if (cameraHint == 0) cameraHint = inheritedCamera;
+            if ("application/vnd.google-apps.folder".equals(mime)) {
+                collectDriveImageFeed(id, plotId, images, visited, depth + 1, cameraHint);
+            } else if ("image/jpeg".equalsIgnoreCase(mime)
+                    || name.toLowerCase(Locale.US).endsWith(".jpg")
+                    || name.toLowerCase(Locale.US).endsWith(".jpeg")) {
+                String modified = item.optString("modifiedTime", "0").replaceAll("[^0-9]", "");
+                File cacheDirectory = new File(new File(getCacheDir(), "drive_image_feed"), plotId);
+                if (!cacheDirectory.exists() && !cacheDirectory.mkdirs())
+                    throw new IllegalStateException("Cannot create the Drive image cache");
+                File cached = new File(cacheDirectory,
+                        id.replaceAll("[^A-Za-z0-9_-]", "_") + "_" + modified + ".jpg");
+                if (!cached.isFile() || cached.length() == 0) {
+                    byte[] photo = driveApiRequest("GET",
+                            "/drive/v3/files/" + URLEncoder.encode(id, "UTF-8") + "?alt=media", null, null);
+                    try (OutputStream output = new FileOutputStream(cached)) { output.write(photo); }
+                }
+                images.add(new FeedDocument(Uri.fromFile(cached), name, cameraHint));
+            }
+        }
+    }
+
+    private void uploadDriveApiPhoto(String folderId, String fileName, Bitmap bitmap) throws Exception {
+        ByteArrayOutputStream photo = new ByteArrayOutputStream();
+        if (!bitmap.compress(Bitmap.CompressFormat.JPEG, 92, photo))
+            throw new IllegalStateException("Could not convert the snapshot to JPEG");
+        String boundary = "growplot-" + System.currentTimeMillis();
+        JSONObject metadata = new JSONObject();
+        metadata.put("name", fileName);
+        JSONArray parents = new JSONArray();
+        parents.put(folderId);
+        metadata.put("parents", parents);
+        ByteArrayOutputStream body = new ByteArrayOutputStream();
+        body.write(("--" + boundary + "\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n"
+                + metadata.toString() + "\r\n--" + boundary + "\r\nContent-Type: image/jpeg\r\n\r\n")
+                .getBytes(StandardCharsets.UTF_8));
+        photo.writeTo(body);
+        body.write(("\r\n--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8));
+        driveApiRequest("POST", "/upload/drive/v3/files?uploadType=multipart&fields=id",
+                body.toByteArray(), "multipart/related; boundary=" + boundary);
+    }
+
     private void connectDefaultFeedInSavedTree(String plotId, Uri treeUri) throws Exception {
         String growPlotId = resolveGrowPlotDocumentId(treeUri);
         if (growPlotId == null) throw new IllegalStateException("The saved Drive permission no longer points to Projects or GrowPlot");
@@ -4500,9 +4842,20 @@ public class MainActivity extends Activity {
         }
         final String plotId = safePlotId(requestedPlotId == null
                 ? getPrefs().getString(PREF_ACTIVE_PLOT_ID, DEFAULT_PLOT_ID) : requestedPlotId);
+        String savedApiFolder = driveApiFolderForSignedInUser(plotId);
+        if (savedApiFolder != null && !savedApiFolder.isEmpty()
+                && (googleDriveAccessToken == null || System.currentTimeMillis() - googleDriveTokenIssuedAt > 45 * 60_000L)
+                && com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser() != null) {
+            if (!driveAuthorizationInProgress) {
+                String savedName = getPrefs().getString(DRIVE_API_FOLDER_NAME_KEY_PREFIX + plotId, pickerDefaultFolderName);
+                authorizeAndConnectDriveFeed(plotId, savedName);
+            }
+            return;
+        }
         String savedTree = getPrefs().getString(feedTreeKey(plotId), null);
         if (savedTree == null && DEFAULT_PLOT_ID.equals(plotId)) savedTree = getPrefs().getString(PREF_IMAGE_FEED_TREE_URI, null);
         String savedFiles = getPrefs().getString(PREF_SELECTED_URIS, null);
+        final String apiFolderId = driveApiFolderForSignedInUser(plotId);
         final Uri treeUri = savedTree == null ? null : Uri.parse(savedTree);
         final List<Uri> selected = new ArrayList<>();
         if (treeUri == null && savedFiles != null) {
@@ -4511,7 +4864,7 @@ public class MainActivity extends Activity {
                 for (int i = 0; i < array.length(); i++) selected.add(Uri.parse(array.getString(i)));
             } catch (Exception ignored) { }
         }
-        if (treeUri == null && selected.isEmpty()) {
+        if ((apiFolderId == null || apiFolderId.isEmpty()) && treeUri == null && selected.isEmpty()) {
             JSONObject status = makeStatus("No Google Drive folder is connected for this plot on this device. Tap Connect to folder above to grant access.");
             try { status.put("plotId", plotId); } catch (Exception ignored) { }
             publishStatus(status);
@@ -4520,9 +4873,11 @@ public class MainActivity extends Activity {
         scanInProgress = true;
         scanWorker.execute(() -> {
             try {
-                boolean folderSource = treeUri != null;
+                boolean folderSource = treeUri != null || (apiFolderId != null && !apiFolderId.isEmpty());
                 List<FeedDocument> images = new ArrayList<>();
-                if (folderSource) {
+                if (apiFolderId != null && !apiFolderId.isEmpty()) {
+                    images.addAll(queryDriveImageFeed(apiFolderId, plotId));
+                } else if (treeUri != null) {
                     String rootDocumentId = getPrefs().getString(feedFolderDocumentKey(plotId), null);
                     if (rootDocumentId == null || rootDocumentId.isEmpty()) rootDocumentId = DocumentsContract.getTreeDocumentId(treeUri);
                     images.addAll(queryImageFeedFolder(treeUri, rootDocumentId));
@@ -4530,7 +4885,9 @@ public class MainActivity extends Activity {
                 else for (Uri uri : selected) images.add(new FeedDocument(uri, getDisplayName(uri), 0));
                 scanSelectedImages(images, folderSource, plotId);
             } catch (Exception error) {
-                String message = treeUri != null
+                String message = apiFolderId != null && !apiFolderId.isEmpty()
+                        ? "Could not scan this plot's Google Drive feed. Sign in again or check the Drive API authorization."
+                        : treeUri != null
                         ? "Could not scan this plot's data feed. Tap Connect to folder above and grant access again."
                         : "Could not read the previously selected photos. Tap Connect to folder above and choose the data feed folder.";
                 JSONObject status = makeStatus(message);

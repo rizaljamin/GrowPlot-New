@@ -838,3 +838,5 @@ Signing / provider keys: This APK's certificate does not match the saved Build 3
 
 
 2026-10-22 | v0.7.00 Build 29 (versionCode 233) | Firebase login now automatically attempts the selected assigned plot's default Image_Feed path (Image_Feed/<signed-in email>/<plot folder>) and displays connection status. Existing Android SAF tree grants are reused; first use still requires the user to grant the folder once in the system picker. Diagnosis/farm paths unchanged. Source commit ea0ab972a4e45be8c27caed5bd8bb927e7dae363. GitHub Actions ARM64 run #409 passed with the stable signing certificate. APK SHA-256: 0ec169b52323a14482df4ba7496f539209aef2df79bbd0ba25c2ba14e8ba68df. Device verification pending.
+
+2026-10-22 | v0.7.00 Build 30 (versionCode 234) | On Firebase login, request Google Drive OAuth for the Firebase email, resolve Projects/GrowPlot/Image_Feed/<email>/<plot> through Drive API, show connection status, scan/download feed photos, and upload CCTV snapshots through Drive API. ARM64 build and device verification pending.

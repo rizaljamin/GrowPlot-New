@@ -64,6 +64,7 @@ dependencies {
     implementation 'androidx.credentials:credentials:1.3.0'
     implementation 'androidx.credentials:credentials-play-services-auth:1.3.0'
     implementation 'com.google.android.libraries.identity.googleid:googleid:1.1.1'
+    implementation 'com.google.android.gms:play-services-auth:22.0.0'
 }
 
 // The package task otherwise may reuse an APK built for the previous version identity.

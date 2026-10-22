@@ -1,3 +1,13 @@
+## BUG-071 — Image_Feed login still depends on Android folder picker
+**Reported:** 2026-10-22  
+**Status:** Source implementation staged for v0.7.00 Build 30 / versionCode 234; ARM64 build and Android Drive verification pending.
+
+**Fix:** Firebase login requests Google Drive OAuth for the matching Firebase account, resolves Projects/GrowPlot/Image_Feed/<email>/<plot> through Drive API, reports connection status, and uses Drive API for image-feed scans and CCTV snapshot uploads. Login no longer launches Android's folder picker.
+
+**Verification / limits:** Requires an Android OAuth client matching the app package and signing certificate, and editor access to the base Projects/GrowPlot folder. A real tablet test is needed for consent, folder lookup, scans, and snapshot uploads.
+
+---
+
 Warning: truncated output (original token count: 25522)
 Total output lines: 989
 
