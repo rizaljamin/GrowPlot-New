@@ -109,12 +109,14 @@ public class MainActivity extends Activity {
     private static final int REQUEST_FEED_CAMERA = 416;
     private static final int REQUEST_FEED_PICKER = 417;
     private static final String PREFS = "growplot_snapshot_settings";
+    private static final String PREF_SELECTED_URIS = "selected_image_uris";
     private static final String PREF_IMAGE_FEED_TREE_URI = "image_feed_tree_uri";
     private static final String PREF_INTERVAL = "refresh_interval_minutes";
     private static final String PREF_CCTV_SNAPSHOT_INTERVAL_MILLIS = "cctv_snapshot_interval_millis";
     private static final String PREF_CCTV_IP_PREFIX = "cctv_ip_plot-1_";
     private static final String PREF_VIGI_CCTV03_CREDENTIALS = "vigi_cctv03_credentials_encrypted";
     private static final String VIGI_CCTV03_KEY_ALIAS = "GrowPlotVigiCctv03";
+    private static final String PREF_TIMELINE_INTERVAL = "photo_timeline_interval";
     private static final String PREF_ACTIVE_PLOT_ID = "active_plot_id";
     private static final String PREF_WEB_STORAGE_MIGRATED = "web_storage_migrated_to_appassets";
     private static final String PREF_DIAGNOSIS_TREE_URI = "diagnosis_tree_uri";
@@ -138,7 +140,6 @@ public class MainActivity extends Activity {
     private LocationListener locationListener;
     private static final int MAX_FEED_FILES = 1500;
     private static final String APP_ASSET_PREFIX = "/assets/images/";
-    private static final String APP_BASELINE_PREFIX = "/assets/baseline/";
     private static final String APP_HISTORY_PREFIX = "/assets/history/";
     private static final String APP_DIAGNOSIS_PREFIX = "/assets/diagnosis/";
     private static final Pattern CAMERA_FILE = Pattern.compile("(?i)^cctv[_ -]?0?([1-6])(?:[_ -].*)?\\.(jpe?g|png)$");
@@ -213,6 +214,7 @@ public class MainActivity extends Activity {
     private volatile boolean rescanRequested;
     private String pendingPageUpdate;
     private volatile int refreshIntervalMinutes = 5;
+    private volatile String timelineInterval = "daily";
 
     private final Runnable scheduledScan = new Runnable() {
         @Override public void run() {
@@ -249,20 +251,12 @@ public class MainActivity extends Activity {
         Uri uri = Uri.parse(url);
         String path = uri.getPath();
         if (path == null) return null;
-        if (path.startsWith(APP_BASELINE_PREFIX)) {
-            String name = path.substring(APP_BASELINE_PREFIX.length());
-            if (!name.matches("cctv_0[1-6]\\.jpg")) return null;
-            try {
-                return new WebResourceResponse("image/jpeg", null, getAssets().open("images/" + name));
-            } catch (Exception ignored) { return null; }
-        }
         if (path.startsWith(APP_HISTORY_PREFIX)) {
             String relative = path.substring(APP_HISTORY_PREFIX.length());
-            if (!relative.matches("[A-Za-z0-9_-]{1,128}/[A-Za-z0-9_-]{1,64}/cctv_0[1-6]_\\d+_[0-9a-f]+\\.jpg")) return null;
-            String[] pieces = relative.split("/", 3);
-            if (!pieces[0].equals(currentFeedUserKey())) return null;
+            if (!relative.matches("[A-Za-z0-9_-]{1,64}/cctv_0[1-6]_\\d+_[0-9a-f]+\\.jpg")) return null;
+            String[] pieces = relative.split("/", 2);
             try {
-                File archived = new File(new File(new File(new File(getFilesDir(), "photo_history"), pieces[0]), pieces[1]), pieces[2]);
+                File archived = new File(new File(new File(getFilesDir(), "photo_history"), pieces[0]), pieces[1]);
                 if (!archived.isFile()) return null;
                 return new WebResourceResponse("image/jpeg", null, new FileInputStream(archived));
             } catch (Exception ignored) { return null; }
@@ -272,7 +266,7 @@ public class MainActivity extends Activity {
         if (!relative.matches("[A-Za-z0-9_-]{1,64}/cctv_0[1-6]\\.jpg")) return null;
         String[] pieces = relative.split("/", 2);
         try {
-            File latest = new File(userPlotDirectory("latest_images", pieces[0]), pieces[1]);
+            File latest = new File(new File(new File(getFilesDir(), "latest_images"), pieces[0]), pieces[1]);
             if (!latest.isFile() && !DEFAULT_PLOT_ID.equals(pieces[0])) return null;
             InputStream input = latest.isFile() ? new FileInputStream(latest) : getAssets().open("images/" + pieces[1]);
             return new WebResourceResponse("image/jpeg", null, input);
@@ -353,15 +347,15 @@ public class MainActivity extends Activity {
             pendingDiagnosisPlotName = safeFolderName(state.getString("diagnosis_plot_name", "Plot_1"));
             pendingDiagnosisCamera = state.getInt("diagnosis_camera", 0);
             pendingDiagnosisOutput = state.getParcelable("diagnosis_output");
-            pickerPlotId = safePlotId(state.getString("feed_picker_plot", DEFAULT_PLOT_ID));
-            pickerDefaultFolderName = safeFolderName(state.getString("feed_picker_folder", "Demo_plot"));
-            pickerCreatesDefaultFeed = state.getBoolean("feed_picker_creates_default", false);
         }
         refreshIntervalMinutes = getPrefs().getInt(PREF_INTERVAL, 5);
         cctvSnapshotIntervalMillis = getPrefs().getLong(PREF_CCTV_SNAPSHOT_INTERVAL_MILLIS, 900_000L);
         if (cctvSnapshotIntervalMillis < 30_000L || cctvSnapshotIntervalMillis > 86_400_000L) {
             cctvSnapshotIntervalMillis = 900_000L;
         }
+        timelineInterval = getPrefs().getString(PREF_TIMELINE_INTERVAL, "daily");
+        if (!"daily".equals(timelineInterval) && !"weekly".equals(timelineInterval) && !"monthly".equals(timelineInterval)
+                && !"yearly".equals(timelineInterval)) timelineInterval = "daily";
         web = new WebView(this);
         WebSettings settings = web.getSettings();
         settings.setJavaScriptEnabled(true);
@@ -381,15 +375,6 @@ public class MainActivity extends Activity {
         web.addJavascriptInterface(accountApiBridge, "GrowPlotAccount");
         web.setWebViewClient(new WebViewClient() {
             @Override public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
-      String requestedUrl = request.getUrl().toString();
-      if ("https://appassets.androidplatform.net/leaf-cv.js".equals(requestedUrl)) {
-          try {
-              return new WebResourceResponse("application/javascript", "UTF-8", getAssets().open("leaf-cv.js"));
-          } catch (Exception error) {
-              android.util.Log.e("GrowPlotCV", "Failed to serve bundled leaf-cv.js", error);
-          }
-      }
-
                 WebResourceResponse diagnosis = localDiagnosisMediaResponse(request.getUrl().toString(), request.getRequestHeaders());
                 if (diagnosis != null) return diagnosis;
                 WebResourceResponse image = localImageResponse(request.getUrl().toString());
@@ -422,22 +407,12 @@ public class MainActivity extends Activity {
                     while ((accountRead = accountInput.read(accountBuffer)) != -1) accountBytes.write(accountBuffer, 0, accountRead);
                     view.evaluateJavascript(accountBytes.toString(StandardCharsets.UTF_8.name()), null);
                 } catch (Exception accountError) { android.util.Log.e("GrowPlot", "Account login UI could not load", accountError); }
-                try (InputStream dataFeedUiInput = getAssets().open("data-feed-ui.js");
-                     ByteArrayOutputStream dataFeedUiBytes = new ByteArrayOutputStream()) {
-                    byte[] dataFeedUiBuffer = new byte[4096];
-                    int dataFeedUiRead;
-                    while ((dataFeedUiRead = dataFeedUiInput.read(dataFeedUiBuffer)) != -1)
-                        dataFeedUiBytes.write(dataFeedUiBuffer, 0, dataFeedUiRead);
-                    view.evaluateJavascript(dataFeedUiBytes.toString(StandardCharsets.UTF_8.name()), null);
-                } catch (Exception dataFeedUiError) {
-                    android.util.Log.e("GrowPlot", "Data feed UI could not load", dataFeedUiError);
-                }
                 if (pendingPageUpdate != null) {
                     String update = pendingPageUpdate;
                     pendingPageUpdate = null;
                     sendToPage(update);
                 } else {
-                    JSONObject initial = makeStatus("Checking this plot’s Google Drive data feed connection.");
+                    JSONObject initial = makeStatus("Set this plot’s data feed location in Settings → Plot Management.");
                     try { initial.put("plotId", safePlotId(getPrefs().getString(PREF_ACTIVE_PLOT_ID, DEFAULT_PLOT_ID))); } catch (Exception ignored) { }
                     publishStatus(initial);
                 }
@@ -491,9 +466,6 @@ public class MainActivity extends Activity {
         outState.putString("diagnosis_plot_name", pendingDiagnosisPlotName);
         outState.putInt("diagnosis_camera", pendingDiagnosisCamera);
         if (pendingDiagnosisOutput != null) outState.putParcelable("diagnosis_output", pendingDiagnosisOutput);
-        outState.putString("feed_picker_plot", pickerPlotId);
-        outState.putString("feed_picker_folder", pickerDefaultFolderName);
-        outState.putBoolean("feed_picker_creates_default", pickerCreatesDefaultFeed);
         super.onSaveInstanceState(outState);
     }
 
@@ -715,7 +687,7 @@ public class MainActivity extends Activity {
     private boolean savePluginApiKeys(String payload) {
         try {
             JSONObject updates = new JSONObject(payload), keys = new JSONObject();
-            for (String provider : new String[]{"plantnet", "plantid", "kindwise"}) {
+            for (String provider : new String[]{"plantnet", "kindwise"}) {
                 String entered = updates.optString(provider, "").trim();
                 keys.put(provider, entered.isEmpty() ? pluginApiKey(provider) : entered);
             }
@@ -1573,9 +1545,6 @@ public class MainActivity extends Activity {
     }
     private long nextSnapshotCheckDelay(int camera) {
         String plotId=safePlotId(getPrefs().getString(PREF_ACTIVE_PLOT_ID,DEFAULT_PLOT_ID));
-        // A missing plot folder is a configuration problem, not a frame-timing problem.
-        // Back off to the configured interval rather than retrying PixelCopy every 5 seconds.
-        if (!isFeedFolderReady(plotId)) return cctvSnapshotIntervalMillis;
         long last=getPrefs().getLong(snapshotLastSuccessKey(camera,plotId),0L);
         if (snapshotInFlight.contains(snapshotFlightKey(camera,plotId))) return 5000L;
         if (last<=0) return 5000L;
@@ -1591,16 +1560,6 @@ public class MainActivity extends Activity {
         org.videolan.libvlc.MediaPlayer player = camera == 1 ? ipWebcamVlcPlayer
                 : camera == 2 ? ipWebcam2VlcPlayer : ipWebcam3VlcPlayer;
         if (!activityResumed || !ready || !cctvVlcFeedsAllowedOnActiveScreen || !player.isPlaying() || !snapshotDue(camera)) return;
-        String activePlot = safePlotId(getPrefs().getString(PREF_ACTIVE_PLOT_ID, DEFAULT_PLOT_ID));
-        if (!isFeedFolderReady(activePlot)) {
-            String warningKey = "feed_folder_not_ready_" + activePlot + "_" + camera;
-            if (!getPrefs().getBoolean(warningKey, false)) {
-                getPrefs().edit().putBoolean(warningKey, true).apply();
-                notifyFeedCaptureStatus("CCTV" + String.format(Locale.US, "%02d", camera)
-                        + " is live, but this plot has no connected image-feed folder. Connect the plot folder in Settings to save snapshots.");
-            }
-            return;
-        }
         // RTSP is already decoded by VLC. Do not probe it as an HTTP MJPEG feed.
         String streamUrl = cctvStreamUrl(camera);
         boolean rtsp = streamUrl.regionMatches(true, 0, "rtsp://", 0, 7)
@@ -2041,8 +2000,7 @@ public class MainActivity extends Activity {
                     .putString(PREF_DIAGNOSIS_ROOT_DOCUMENT_ID, diagnosisId)
                     .putString(PREF_DIAGNOSIS_FOLDER_LABEL, getDocumentPathLabel(treeUri, diagnosisId)).apply();
             JSONObject feeds = config.optJSONObject("imageFeeds");
-            // Bundled paths are examples, not a user's selected plot feed.
-            if (!createDriveConfig && feeds != null) {
+            if (feeds != null) {
                 java.util.Iterator<String> plotIds = feeds.keys();
                 while (plotIds.hasNext()) {
                     String plotId = plotIds.next();
@@ -2054,14 +2012,13 @@ public class MainActivity extends Activity {
                     boolean found = true;
                     for (String segment : path.split("/")) {
                         if (segment.isEmpty() || ".".equals(segment) || "..".equals(segment)) { found = false; break; }
-                        documentId = findExistingChildFolder(treeUri, documentId, segment);
-                        if (documentId == null) { found = false; break; }
+                        documentId = findOrCreateChildFolder(treeUri, documentId, segment);
                     }
                     if (!found) continue;
                     String safeId = safePlotId(plotId);
-                    String localTree = getPrefs().getString(feedTreeKey(safeId), null);
-                    String localFolder = getPrefs().getString(feedFolderDocumentKey(safeId), null);
-                    if (localTree != null && localFolder != null && hasPersistedReadWriteGrant(Uri.parse(localTree))) continue;
+                    // Drive config is authoritative for the default plot paths. Refresh local
+                    // document IDs from it on launch so a stale but still-valid folder selection
+                    // cannot keep pointing at yesterday's image_feed location.
                     getPrefs().edit().putString(feedTreeKey(safeId), treeUri.toString())
                             .putString(feedFolderDocumentKey(safeId), documentId)
                             .putString(feedLocationKey(safeId), getDocumentPathLabel(treeUri, documentId)).apply();
@@ -2091,7 +2048,7 @@ public class MainActivity extends Activity {
             if (config.length() == 0) config = readBundledStorageConfig();
             JSONObject feeds = config.optJSONObject("imageFeeds");
             if (feeds == null) feeds = new JSONObject();
-            String labelPrefix = "data_feed_location_label_" + currentFeedUserKey() + "_";
+            String labelPrefix = "data_feed_location_label_";
             for (Map.Entry<String, ?> pref : getPrefs().getAll().entrySet()) {
                 String key = pref.getKey();
                 if (!key.startsWith(labelPrefix) || !(pref.getValue() instanceof String)) continue;
@@ -2223,21 +2180,12 @@ public class MainActivity extends Activity {
             handleDiagnosisFolderResult(resultCode, data);
             return;
         }
-        if (requestCode != REQUEST_IMAGE_FOLDER) return;
-        if (resultCode != RESULT_OK || data == null) {
-            if (pickerCreatesDefaultFeed) {
-                pickerCreatesDefaultFeed = false;
-                publishStatus(makeStatus("Google Drive selection was cancelled. Tap Connect to folder to try again."));
-            }
-            return;
-        }
+        if (requestCode != REQUEST_IMAGE_FOLDER || resultCode != RESULT_OK || data == null) return;
         Uri folderUri = data.getData();
         if (folderUri == null) return;
         String plotId = safePlotId(pickerPlotId);
-        String selectedFolderName = getDocumentName(folderUri);
-        if (pickerCreatesDefaultFeed && !("Projects".equalsIgnoreCase(selectedFolderName)
-                || "GrowPlot".equalsIgnoreCase(selectedFolderName))) {
-            publishStatus(makeStatus("Select Projects or GrowPlot, then tap Use this folder. GrowPlot creates the missing folders for " + safeFolderName(pickerDefaultFolderName) + "."));
+        if (pickerCreatesDefaultFeed && !"GrowPlot".equalsIgnoreCase(getDocumentName(folderUri))) {
+            publishStatus(makeStatus("Choose Google Drive → GrowPlot once. GrowPlot will use Image_Feed/Plot01_demo and the shared config folder inside it."));
             return;
         }
         int grantFlags = data.getFlags() & (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
@@ -2258,18 +2206,14 @@ public class MainActivity extends Activity {
             String targetDocumentId = DocumentsContract.getTreeDocumentId(folderUri);
             String defaultRelativePath = null;
             if (pickerCreatesDefaultFeed) {
-                targetDocumentId = resolveGrowPlotDocumentId(folderUri);
-                if (targetDocumentId == null) throw new IllegalStateException("Select the Projects or GrowPlot folder in Google Drive");
-                String emailFolder = signedInEmailFolderName();
                 String imageFeedId = findOrCreateChildFolder(folderUri, targetDocumentId, "Image_Feed");
-                String userFolderId = findOrCreateChildFolder(folderUri, imageFeedId, emailFolder);
                 String plotFolder = safeFolderName(pickerDefaultFolderName);
-                targetDocumentId = findOrCreateChildFolder(folderUri, userFolderId, plotFolder);
-                defaultRelativePath = "Image_Feed/" + emailFolder + "/" + plotFolder;
+                targetDocumentId = findOrCreateChildFolder(folderUri, imageFeedId, plotFolder);
+                defaultRelativePath = "Image_Feed/" + plotFolder;
             }
             locationLabel = defaultRelativePath == null
                     ? getDocumentPathLabel(folderUri, targetDocumentId)
-                    : "Google Drive: /Projects/GrowPlot/" + defaultRelativePath;
+                    : getDocumentPathLabel(folderUri, DocumentsContract.getTreeDocumentId(folderUri)) + "/" + defaultRelativePath;
             JSONObject config = new JSONObject(getPrefs().getString("data_feed_config_" + plotId, "{}"));
             config.put("plotId", plotId);
             config.put("enabled", true);
@@ -2278,20 +2222,15 @@ public class MainActivity extends Activity {
                     .putString(feedTreeKey(plotId), folderUri.toString())
                     .putString(feedFolderDocumentKey(plotId), targetDocumentId)
                     .putString(feedLocationKey(plotId), locationLabel)
-                    .putBoolean(feedCustomFolderKey(plotId), !pickerCreatesDefaultFeed)
                     .putString("data_feed_config_" + plotId, config.toString())
                     .putString(PREF_ACTIVE_PLOT_ID, plotId)
                     .apply();
             rememberGrowPlotTreeIfScoped(folderUri);
             storageConfigSaved = saveDriveStorageConfig(folderUri);
-            if (accountApiBridge != null) {
-                accountApiBridge.saveImageFeedPath(plotId, locationLabel, relativePathFromGrowPlot(locationLabel));
-            }
         } catch (Exception error) {
-            String reason = error.getMessage() == null ? "Drive could not create or open the folder." : error.getMessage();
             publishStatus(makeStatus(pickerCreatesDefaultFeed
-                    ? "Could not create the selected plot's Google Drive folder: " + reason
-                    : "Could not save this plot's data feed: " + reason));
+                    ? "Could not use the default Image_Feed folder here. Choose a writable GrowPlot folder, or choose an existing image feed folder."
+                    : "Could not save this plot's data feed. Choose the folder again."));
             return;
         }
         pickerCreatesDefaultFeed = false;
@@ -2348,7 +2287,7 @@ public class MainActivity extends Activity {
 
     private void launchFeedPhotoCapture(int camera, String plotId) {
         if (!isFeedFolderReady(plotId)) {
-            notifyFeedCaptureStatus("Connect this plot’s image folder first using Connect to folder in this panel.");
+            notifyFeedCaptureStatus("Connect this plot’s image folder first in Settings → Plot Management → Data Feed.");
             return;
         }
         pendingFeedCamera = camera;
@@ -2387,7 +2326,7 @@ public class MainActivity extends Activity {
 
     private void launchFeedPhotoPicker(int camera, String plotId) {
         if (!isFeedFolderReady(plotId)) {
-            notifyFeedCaptureStatus("Connect this plot’s image folder first using Connect to folder in this panel.");
+            notifyFeedCaptureStatus("Connect this plot’s image folder first in Settings → Plot Management → Data Feed.");
             return;
         }
         pendingFeedCamera = camera;
@@ -3238,7 +3177,6 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface public String getPluginApiKeyStatus() {
             try { return new JSONObject().put("plantnet", !pluginApiKey("plantnet").isEmpty() || !BuildConfig.PLANTNET_API_KEY.isEmpty())
-                    .put("plantid", !pluginApiKey("plantid").isEmpty())
                     .put("kindwise", !pluginApiKey("kindwise").isEmpty()).toString(); }
             catch (Exception error) { return "{}"; }
         }
@@ -3247,7 +3185,6 @@ public class MainActivity extends Activity {
         }
         @JavascriptInterface public void openPluginKeyPortal(String provider) {
             final String url = "plantnet".equals(provider) ? "https://my.plantnet.org/settings/api-key"
-                    : "plantid".equals(provider) ? "https://admin.kindwise.com/login"
                     : "kindwise".equals(provider) ? "https://admin.kindwise.com/login" : "";
             if (!url.isEmpty()) runOnUiThread(() -> { try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); } catch (Exception ignored) { } });
         }
@@ -3312,8 +3249,7 @@ public class MainActivity extends Activity {
         @JavascriptInterface public void chooseImageFolder(String plotId) {
             pickerPlotId = safePlotId(plotId);
             pickerCreatesDefaultFeed = false;
-            getPrefs().edit().putString(PREF_ACTIVE_PLOT_ID, pickerPlotId)
-                    .putBoolean(feedCustomFolderKey(pickerPlotId), true).apply();
+            getPrefs().edit().putString(PREF_ACTIVE_PLOT_ID, pickerPlotId).apply();
             runOnUiThread(MainActivity.this::openImageFeedFolderPicker);
         }
 
@@ -3321,30 +3257,13 @@ public class MainActivity extends Activity {
             pickerPlotId = safePlotId(plotId);
             pickerDefaultFolderName = safeFolderName(folderName);
             pickerCreatesDefaultFeed = true;
-            getPrefs().edit().putString(PREF_ACTIVE_PLOT_ID, pickerPlotId)
-                    .putString(feedExpectedFolderKey(pickerPlotId), pickerDefaultFolderName)
-                    .putBoolean(feedCustomFolderKey(pickerPlotId), false).apply();
+            getPrefs().edit().putString(PREF_ACTIVE_PLOT_ID, pickerPlotId).apply();
             runOnUiThread(MainActivity.this::openImageFeedFolderPicker);
         }
 
         @JavascriptInterface public String getFeedLocation(String plotId) {
             String id = safePlotId(plotId);
             return feedLocationLabel(id);
-        }
-
-        @JavascriptInterface public String getFeedUserScope() {
-            com.google.firebase.auth.FirebaseUser user =
-                    com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
-            return user == null ? "signed-out" : user.getUid();
-        }
-
-        @JavascriptInterface public String getExpectedFeedPath(String plotId, String folderName) {
-            try {
-                return "Google Drive: /Projects/GrowPlot/Image_Feed/" + signedInEmailFolderName()
-                        + "/" + safeFolderName(folderName);
-            } catch (Exception error) {
-                return "";
-            }
         }
 
         @JavascriptInterface public void openIpWebcam() {
@@ -3437,21 +3356,15 @@ public class MainActivity extends Activity {
         @JavascriptInterface public void setActiveStreamingContext(String plotId, String greenhouseId) {
             runOnUiThread(() -> MainActivity.this.loadAssignedStreams(safePlotId(plotId), greenhouseId, false));
         }
-        @JavascriptInterface public void setActivePlot(String plotId, String expectedFolderName) {
+        @JavascriptInterface public void setActivePlot(String plotId) {
             String id = safePlotId(plotId);
-            SharedPreferences.Editor edit = getPrefs().edit().putString(PREF_ACTIVE_PLOT_ID, id);
-            if (expectedFolderName != null && !expectedFolderName.trim().isEmpty())
-                edit.putString(feedExpectedFolderKey(id), safeFolderName(expectedFolderName));
-            edit.apply();
+            getPrefs().edit().putString(PREF_ACTIVE_PLOT_ID, id).apply();
             // Home selector supplies the matching greenhouse; do not overwrite it with greenhouse-1.
             scanSnapshotFolder();
         }
 
-        @JavascriptInterface public void checkNow(String plotId, String expectedFolderName) {
-            String id = safePlotId(plotId);
-            if (expectedFolderName != null && !expectedFolderName.trim().isEmpty())
-                getPrefs().edit().putString(feedExpectedFolderKey(id), safeFolderName(expectedFolderName)).apply();
-            scanSnapshotFolder(id);
+        @JavascriptInterface public void checkNow(String plotId) {
+            scanSnapshotFolder(safePlotId(plotId));
         }
 
         @JavascriptInterface public void captureFeedPhoto(int camera, String plotId) {
@@ -3505,6 +3418,20 @@ public class MainActivity extends Activity {
             });
         }
 
+        @JavascriptInterface public String getTimelineInterval() {
+            return timelineInterval;
+        }
+
+        @JavascriptInterface public void setTimelineInterval(String interval) {
+            if (!"daily".equals(interval) && !"weekly".equals(interval) && !"monthly".equals(interval)
+                    && !"yearly".equals(interval)) return;
+            runOnUiThread(() -> {
+                timelineInterval = interval;
+                getPrefs().edit().putString(PREF_TIMELINE_INTERVAL, interval).apply();
+                scanSnapshotFolder();
+            });
+        }
+
         @JavascriptInterface public void captureDiagnosisPhoto(int camera, String plotId, String plotName) {
             runOnUiThread(() -> launchDiagnosisCapture("photo", camera, plotId, plotName));
         }
@@ -3522,7 +3449,7 @@ public class MainActivity extends Activity {
             diagnosisWorker.execute(() -> {
                 JSONObject response;
                 try {
-                    File feedImage = new File(userPlotDirectory("latest_images", id), cameraFileName(camera));
+                    File feedImage = new File(new File(new File(getFilesDir(), "latest_images"), id), cameraFileName(camera));
                     List<PlantNetImageCandidate> candidates = new ArrayList<>();
                     try { candidates.addAll(loadDiagnosisPhotosFromDrive(camera, id)); }
                     catch (Exception driveError) { if (!feedImage.isFile()) throw driveError; }
@@ -3542,12 +3469,7 @@ public class MainActivity extends Activity {
                             species, symptom, pixelMetrics, "quadrant_photos",
                             "Diagnosis/" + diagnosisPlotFolder(id) + "/Quadrant_" + String.format(Locale.US, "%02d", camera),
                             "Selected the clearest available quadrant photos using approximate sharpness, exposure, and visible-plant-area checks.");
-                    // Request species identification first so a slower disease check cannot delay the
-                    // crop identity the user needs before interpreting disease candidates.
-                    JSONObject speciesIdentification = identifyPlantSpeciesWithPlantNet(selectedImages);
                     response = identifyWithPlantNet(selectedImages);
-                    // Keep species and disease outcomes separate so either provider can fail independently.
-                    response.put("speciesIdentification", speciesIdentification);
                     response.put("speciesContext", species == null ? "" : species);
                     response.put("symptomContext", symptom == null ? "" : symptom);
                     response.put("pixelContext", pixelMetrics == null ? "" : pixelMetrics);
@@ -3563,45 +3485,6 @@ public class MainActivity extends Activity {
                     response = plantNetError(error);
                 }
                 sendPlantNetResult(camera, id, response);
-            });
-        }
-
-        @JavascriptInterface public void identifyPlantSpeciesFromPhotos(int camera, String plotId) {
-            final String id = safePlotId(plotId);
-            diagnosisWorker.execute(() -> {
-                JSONObject response;
-                try {
-                    List<PlantNetImageCandidate> candidates;
-                    try { candidates = loadDiagnosisPhotosFromDrive(camera, id); }
-                    catch (Exception driveError) {
-                        candidates = loadDiagnosisPhotosFromDeviceIndex(camera, id);
-                        if (candidates.isEmpty()) throw driveError;
-                    }
-                    List<PlantNetImageCandidate> selected = selectBestPlantNetImages(candidates);
-                    List<byte[]> images = candidateBytes(selected);
-                    JSONArray providerResults = new JSONArray();
-                    providerResults.put(identifyPlantSpeciesWithPlantNet(images));
-                    providerResults.put(identifyPlantSpeciesWithPlantId(images));
-                    response = new JSONObject();
-                    boolean anyOk = false, allNotConfigured = providerResults.length() > 0;
-                    for (int i = 0; i < providerResults.length(); i++) {
-                        String status = providerResults.getJSONObject(i).optString("status");
-                        anyOk |= "ok".equals(status);
-                        allNotConfigured &= "not_configured".equals(status);
-                    }
-                    response.put("status", anyOk ? "ok" : "error");
-                    if (!anyOk && allNotConfigured) response.put("status", "not_configured");
-                    response.put("providers", providerResults);
-                    response.put("candidateImageCount", candidates.size());
-                    response.put("imageCountSubmitted", images.size());
-                    response.put("selectedSources", candidateSources(selected));
-                    response.put("selectionNote", "Both services received the same clearest saved photos. Their scores are separate model rankings, not proof of identity.");
-                } catch (Exception error) {
-                    response = plantNetError(error);
-                    try { response.put("provider", "Pl@ntNet species identification"); }
-                    catch (Exception ignored) { }
-                }
-                sendPlantSpeciesResult(camera, id, response);
             });
         }
 
@@ -3826,31 +3709,6 @@ public class MainActivity extends Activity {
         return candidates;
     }
 
-    private List<PlantNetImageCandidate> loadDiagnosisPhotosFromDeviceIndex(int camera, String plotId) throws Exception {
-        if (camera < 1 || camera > 6) throw new IllegalArgumentException("Invalid quadrant number");
-        String id = safePlotId(plotId);
-        String quadrant = String.format(Locale.US, "cctv_%02d", camera);
-        JSONArray index = new JSONArray(readDiagnosisMediaIndex(camera, id));
-        List<PlantNetImageCandidate> candidates = new ArrayList<>();
-        for (int i = 0; i < index.length(); i++) {
-            JSONObject item = index.optJSONObject(i);
-            if (item == null) continue;
-            String name = item.optString("fileName", "");
-            if (!name.matches("[A-Za-z0-9_-]{1,100}\\.(jpg|jpeg|png)")) continue;
-            File localDir = new File(new File(new File(getFilesDir(), "diagnosis_media"), id), quadrant).getCanonicalFile();
-            File cacheDir = new File(new File(new File(getCacheDir(), "diagnosis_drive_cache"), id), quadrant).getCanonicalFile();
-            File local = new File(localDir, name).getCanonicalFile();
-            File cached = new File(cacheDir, name).getCanonicalFile();
-            File photo = local.getParentFile().equals(localDir) && local.isFile() ? local
-                    : (cached.getParentFile().equals(cacheDir) && cached.isFile() ? cached : null);
-            if (photo == null) continue;
-            byte[] jpeg = readPlantNetImage(Uri.fromFile(photo));
-            if (jpeg != null && jpeg.length > 0) candidates.add(new PlantNetImageCandidate(jpeg,
-                    "Saved device photo: " + name, scorePlantNetImage(jpeg)));
-        }
-        return candidates;
-    }
-
     private byte[] plantNetJpeg(Bitmap source) {
         Bitmap scaled = source;
         try {
@@ -3959,104 +3817,6 @@ public class MainActivity extends Activity {
             return result;
         } catch (Exception error) { return plantNetStatus("error", error.getMessage() == null ? "Network request failed." : error.getMessage()); }
         finally { if (connection != null) connection.disconnect(); }
-    }
-
-    private JSONObject identifyPlantSpeciesWithPlantNet(List<byte[]> images) {
-        String key = pluginApiKey("plantnet");
-        if (key.isEmpty()) key = BuildConfig.PLANTNET_API_KEY;
-        if (key == null || key.trim().isEmpty()) return plantNetStatus("not_configured", "Add the Pl@ntNet API key in Settings → Plugins · API Keys.");
-        if (images == null || images.isEmpty()) return plantNetStatus("error", "No readable photos were available for species identification.");
-        HttpURLConnection connection = null;
-        try {
-            String boundary = "GrowPlotSpecies" + System.currentTimeMillis();
-            URL url = new URL("https://my-api.plantnet.org/v2/identify/all?api-key="
-                    + URLEncoder.encode(key, "UTF-8") + "&lang=en&nb-results=5&type=kt");
-            connection = (HttpURLConnection) url.openConnection();
-            connection.setRequestMethod("POST"); connection.setConnectTimeout(15000); connection.setReadTimeout(30000);
-            connection.setDoOutput(true); connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
-            try (OutputStream out = connection.getOutputStream()) {
-                for (int i = 0; i < Math.min(5, images.size()); i++) {
-                    out.write(("--" + boundary + "\r\nContent-Disposition: form-data; name=\"images\"; filename=\"growplot-species-" + (i + 1) + ".jpg\"\r\nContent-Type: image/jpeg\r\n\r\n").getBytes(StandardCharsets.UTF_8));
-                    out.write(images.get(i)); out.write("\r\n".getBytes(StandardCharsets.UTF_8));
-                    out.write(("--" + boundary + "\r\nContent-Disposition: form-data; name=\"organs\"\r\n\r\nauto\r\n").getBytes(StandardCharsets.UTF_8));
-                }
-                out.write(("--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8));
-            }
-            int status = connection.getResponseCode();
-            InputStream stream = status >= 200 && status < 300 ? connection.getInputStream() : connection.getErrorStream();
-            StringBuilder body = new StringBuilder();
-            if (stream != null) try (InputStream input = stream) { byte[] buffer = new byte[8192]; int count; while ((count = input.read(buffer)) != -1) body.append(new String(buffer, 0, count, StandardCharsets.UTF_8)); }
-            if (status < 200 || status >= 300) {
-                JSONObject error = plantNetStatus("error", "Pl@ntNet species identification returned HTTP " + status
-                        + (body.length() > 0 ? ": " + body.substring(0, Math.min(body.length(), 300)) : ""));
-                int remaining = remainingPlantNetQuota(connection.getHeaderField("RateLimit"));
-                if (status == 429 && remaining < 0) remaining = 0;
-                if (remaining >= 0) error.put("remainingIdentificationRequests", remaining);
-                return error;
-            }
-            JSONObject result = new JSONObject(body.toString());
-            if (!result.has("remainingIdentificationRequests")) {
-                int remaining = remainingPlantNetQuota(connection.getHeaderField("RateLimit"));
-                if (remaining >= 0) result.put("remainingIdentificationRequests", remaining);
-            }
-            result.put("provider", "Pl@ntNet species identification"); result.put("status", "ok");
-            result.put("imageCountSubmitted", Math.min(5, images.size()));
-            return result;
-        } catch (Exception error) {
-            return plantNetStatus("error", error.getMessage() == null ? "Species identification request failed." : error.getMessage());
-        } finally { if (connection != null) connection.disconnect(); }
-    }
-
-    private JSONObject identifyPlantSpeciesWithPlantId(List<byte[]> images) {
-        String key = pluginApiKey("plantid");
-        if (key == null || key.trim().isEmpty())
-            return plantIdentityStatus("Kindwise plant.id", "not_configured", "Add a separate Kindwise plant.id API key in Settings → Plugins · API Keys.");
-        if (images == null || images.isEmpty())
-            return plantIdentityStatus("Kindwise plant.id", "error", "No readable photos were available for plant.id identification.");
-        HttpURLConnection connection = null;
-        try {
-            JSONArray encodedImages = new JSONArray();
-            for (int i = 0; i < Math.min(5, images.size()); i++)
-                encodedImages.put(Base64.encodeToString(images.get(i), Base64.NO_WRAP));
-            JSONObject request = new JSONObject().put("images", encodedImages);
-            URL url = new URL("https://api.plant.id/v3/identification?details=common_names,url");
-            connection = (HttpURLConnection) url.openConnection();
-            connection.setRequestMethod("POST"); connection.setConnectTimeout(15000); connection.setReadTimeout(45000);
-            connection.setDoOutput(true);
-            connection.setRequestProperty("Api-Key", key);
-            connection.setRequestProperty("Content-Type", "application/json");
-            try (OutputStream out = connection.getOutputStream()) {
-                out.write(request.toString().getBytes(StandardCharsets.UTF_8));
-            }
-            int status = connection.getResponseCode();
-            InputStream stream = status >= 200 && status < 300 ? connection.getInputStream() : connection.getErrorStream();
-            StringBuilder body = new StringBuilder();
-            if (stream != null) try (InputStream input = stream) {
-                byte[] buffer = new byte[8192]; int count;
-                while ((count = input.read(buffer)) != -1) body.append(new String(buffer, 0, count, StandardCharsets.UTF_8));
-            }
-            if (status < 200 || status >= 300)
-                return plantIdentityStatus("Kindwise plant.id", "error", "plant.id returned HTTP " + status
-                        + (body.length() > 0 ? ": " + body.substring(0, Math.min(body.length(), 300)) : ""));
-            JSONObject result = new JSONObject(body.toString());
-            result.put("provider", "Kindwise plant.id");
-            result.put("status", "ok");
-            result.put("imageCountSubmitted", Math.min(5, images.size()));
-            return result;
-        } catch (Exception error) {
-            return plantIdentityStatus("Kindwise plant.id", "error", error.getMessage() == null ? "plant.id request failed." : error.getMessage());
-        } finally { if (connection != null) connection.disconnect(); }
-    }
-
-    private JSONObject plantIdentityStatus(String provider, String status, String message) {
-        JSONObject result = new JSONObject();
-        try {
-            result.put("provider", provider);
-            result.put("status", status);
-            result.put("message", message);
-            result.put("results", new JSONArray());
-        } catch (Exception ignored) { }
-        return result;
     }
 
     private void requestKindwiseDiagnosis(int camera, String plotId, List<byte[]> images, int candidateCount,
@@ -4215,13 +3975,6 @@ public class MainActivity extends Activity {
         });
     }
 
-    private void sendPlantSpeciesResult(int camera, String plotId, JSONObject result) {
-        runOnUiThread(() -> {
-            if (web == null) return;
-            web.evaluateJavascript("window.onPlantSpeciesIdentification&&window.onPlantSpeciesIdentification(" + camera + "," + JSONObject.quote(plotId) + "," + JSONObject.quote(result.toString()) + ")", null);
-        });
-    }
-
     private void sendKindwiseResult(int camera, String plotId, JSONObject result) {
         runOnUiThread(() -> {
             if (web == null) return;
@@ -4370,87 +4123,24 @@ public class MainActivity extends Activity {
         }
     }
 
-    private String signedInEmailFolderName() {
-        com.google.firebase.auth.FirebaseUser user =
-                com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
-        String email = user == null ? null : user.getEmail();
-        if (email == null || email.trim().isEmpty())
-            throw new IllegalStateException("Sign in to connect this plot's Google Drive folder.");
-        String safe = email.trim().toLowerCase(Locale.ROOT)
-                .replaceAll("[^a-z0-9@._+-]+", "_");
-        if (safe.length() > 100) safe = safe.substring(0, 100);
-        return safe;
-    }
-
-    private void connectDefaultFeedInSavedTree(String plotId, Uri treeUri) throws Exception {
-        String growPlotId = resolveGrowPlotDocumentId(treeUri);
-        if (growPlotId == null) throw new IllegalStateException("The saved Drive permission no longer points to Projects or GrowPlot");
-        String imageFeedId = findOrCreateChildFolder(treeUri, growPlotId, "Image_Feed");
-        String userFolder = signedInEmailFolderName();
-        String userFolderId = findOrCreateChildFolder(treeUri, imageFeedId, userFolder);
-        String plotFolder = safeFolderName(pickerDefaultFolderName);
-        String plotFolderId = findOrCreateChildFolder(treeUri, userFolderId, plotFolder);
-        String relativePath = "Image_Feed/" + userFolder + "/" + plotFolder;
-        String locationLabel = "Google Drive: /Projects/GrowPlot/" + relativePath;
-        JSONObject config = new JSONObject(getPrefs().getString("data_feed_config_" + plotId, "{}"));
-        config.put("plotId", plotId);
-        config.put("enabled", true);
-        config.put("folderUri", treeUri.toString());
-        getPrefs().edit()
-                .putString(feedTreeKey(plotId), treeUri.toString())
-                .putString(feedFolderDocumentKey(plotId), plotFolderId)
-                .putString(feedLocationKey(plotId), locationLabel)
-                .putString(feedExpectedFolderKey(plotId), plotFolder)
-                .putBoolean(feedCustomFolderKey(plotId), false)
-                .putString("data_feed_config_" + plotId, config.toString())
-                .putString(PREF_ACTIVE_PLOT_ID, plotId)
-                .apply();
-        rememberGrowPlotTreeIfScoped(treeUri);
-        saveDriveStorageConfig(treeUri);
-        if (accountApiBridge != null)
-            accountApiBridge.saveImageFeedPath(plotId, locationLabel, relativePath);
-        pickerCreatesDefaultFeed = false;
-        notifyFeedSettingsSaved(plotId, locationLabel);
-        scanSnapshotFolder(plotId);
-    }
-
     private void openImageFeedFolderPicker() {
         if (isFinishing()) return;
         if (pickerCreatesDefaultFeed) {
             String savedTree = getPrefs().getString(feedTreeKey(pickerPlotId), null);
             String savedFolder = getPrefs().getString(feedFolderDocumentKey(pickerPlotId), null);
-            // Reuse any previously granted GrowPlot/Projects tree even when this plot
-            // has no per-plot folder mapping yet; connectDefaultFeed creates that path.
-            if (savedTree == null || savedFolder == null) {
-                Uri scopedTree = findGrowPlotScopedTreeUri();
-                if (scopedTree != null) {
-                    try {
-                        connectDefaultFeedInSavedTree(pickerPlotId, scopedTree);
-                    } catch (Exception error) {
-                        String reason = error.getMessage() == null ? "Drive folder could not be created" : error.getMessage();
-                        publishStatus(makeStatus("Expected Google Drive path: " + expectedFeedPathLabel(pickerPlotId)
-                                + " | Folder status: unavailable — " + reason));
-                    }
-                    return;
-                }
-            }
             if (savedTree != null && savedFolder != null) {
                 Uri savedTreeUri = Uri.parse(savedTree);
                 if (hasPersistedReadWriteGrant(savedTreeUri)) {
-                    try {
-                        connectDefaultFeedInSavedTree(pickerPlotId, savedTreeUri);
-                    } catch (Exception error) {
-                        String reason = error.getMessage() == null ? "Drive folder could not be created" : error.getMessage();
-                        publishStatus(makeStatus("Expected Google Drive path: " + expectedFeedPathLabel(pickerPlotId)
-                                + " | Folder status: unavailable — " + reason));
-                    }
+                    getPrefs().edit().putString(PREF_ACTIVE_PLOT_ID, pickerPlotId).apply();
+                    publishStatus(makeStatus("Using the saved Google Drive folder: " + feedLocationLabel(pickerPlotId)));
+                    scanSnapshotFolder(pickerPlotId);
                     return;
                 }
             }
         }
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
         intent.putExtra(Intent.EXTRA_TITLE, pickerCreatesDefaultFeed
-                ? "Select Projects or GrowPlot for " + pickerDefaultFolderName : "Choose this plot's image feed folder");
+                ? "Choose GrowPlot once to connect Image_Feed/Plot01_demo" : "Choose this plot's image feed folder");
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
                 | Intent.FLAG_GRANT_WRITE_URI_PERMISSION
                 | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
@@ -4469,18 +4159,6 @@ public class MainActivity extends Activity {
             while ((read = input.read(buffer)) != -1) output.write(buffer, 0, read);
             String html = output.toString(StandardCharsets.UTF_8.name())
                     .replace("{{GROWPLOT_VERSION}}", "v" + BuildConfig.VERSION_NAME);
-            // Inline the packaged CV engine so WebView never needs to fetch leaf-cv.js.
-            try (InputStream cvInput = getAssets().open("leaf-cv.js");
-                 ByteArrayOutputStream cvOutput = new ByteArrayOutputStream()) {
-                byte[] cvBuffer = new byte[8192];
-                int cvRead;
-                while ((cvRead = cvInput.read(cvBuffer)) != -1) cvOutput.write(cvBuffer, 0, cvRead);
-                String cvScript = cvOutput.toString(StandardCharsets.UTF_8.name());
-                String cvTag = "<script>" + cvScript + "</script>";
-                if (html.contains("</head>")) html = html.replace("</head>", cvTag + "</head>");
-                else if (html.contains("</body>")) html = html.replace("</body>", cvTag + "</body>");
-                else throw new IllegalStateException("Dashboard HTML missing head/body closing tag");
-            }
             web.loadDataWithBaseURL("https://appassets.androidplatform.net/", html,
                     "text/html", "UTF-8", null);
         } catch (Exception error) {
@@ -4502,37 +4180,40 @@ public class MainActivity extends Activity {
         final String plotId = safePlotId(requestedPlotId == null
                 ? getPrefs().getString(PREF_ACTIVE_PLOT_ID, DEFAULT_PLOT_ID) : requestedPlotId);
         String savedTree = getPrefs().getString(feedTreeKey(plotId), null);
-        if (savedTree == null) {
-            String expectedPath = isCustomFeedFolder(plotId) ? feedLocationLabel(plotId) : expectedFeedPathLabel(plotId);
-            JSONObject status = makeStatus("No Google Drive folder is connected for this plot on this device. Expected folder: " + expectedPath + ". Tap Connect to folder above to grant access.");
-            try { status.put("plotId", plotId); status.put("scannedFolder", expectedPath); status.put("imageCount", 0); } catch (Exception ignored) { }
+        if (savedTree == null && DEFAULT_PLOT_ID.equals(plotId)) savedTree = getPrefs().getString(PREF_IMAGE_FEED_TREE_URI, null);
+        String savedFiles = getPrefs().getString(PREF_SELECTED_URIS, null);
+        final Uri treeUri = savedTree == null ? null : Uri.parse(savedTree);
+        final List<Uri> selected = new ArrayList<>();
+        if (treeUri == null && savedFiles != null) {
+            try {
+                JSONArray array = new JSONArray(savedFiles);
+                for (int i = 0; i < array.length(); i++) selected.add(Uri.parse(array.getString(i)));
+            } catch (Exception ignored) { }
+        }
+        if (treeUri == null && selected.isEmpty()) {
+            JSONObject status = makeStatus("No data feed folder is connected for this plot. Set it in Settings → Plot Management.");
+            try { status.put("plotId", plotId); } catch (Exception ignored) { }
             publishStatus(status);
             return;
         }
-        final Uri treeUri = Uri.parse(savedTree);
         scanInProgress = true;
         scanWorker.execute(() -> {
             try {
+                boolean folderSource = treeUri != null;
                 List<FeedDocument> images = new ArrayList<>();
-                String rootDocumentId = resolveFeedFolderForScan(treeUri, plotId);
-                String scannedFolder = getDocumentPathLabel(treeUri, rootDocumentId);
-                getPrefs().edit().putString(feedFolderDocumentKey(plotId), rootDocumentId)
-                        .putString(feedLocationKey(plotId), scannedFolder).apply();
-                images.addAll(queryImageFeedFolder(treeUri, rootDocumentId));
-                scanSelectedImages(images, true, plotId, scannedFolder);
+                if (folderSource) {
+                    String rootDocumentId = getPrefs().getString(feedFolderDocumentKey(plotId), null);
+                    if (rootDocumentId == null || rootDocumentId.isEmpty()) rootDocumentId = DocumentsContract.getTreeDocumentId(treeUri);
+                    images.addAll(queryImageFeedFolder(treeUri, rootDocumentId));
+                }
+                else for (Uri uri : selected) images.add(new FeedDocument(uri, getDisplayName(uri), 0));
+                scanSelectedImages(images, folderSource, plotId);
             } catch (Exception error) {
-                String attemptedFolder = !isCustomFeedFolder(plotId)
-                        ? expectedFeedPathLabel(plotId) : feedLocationLabel(plotId);
-                String reason = error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage();
-                String message = "Could not scan Google Drive folder " + attemptedFolder + ": " + reason
-                        + ". Check the folder access and selected plot path.";
+                String message = treeUri != null
+                        ? "Could not scan this plot's data feed. Re-select it in Settings → Plot Management to restore access."
+                        : "Could not read the previously selected photos. Choose a data feed folder in Settings → Plot Management.";
                 JSONObject status = makeStatus(message);
-                try {
-                    status.put("error", error.getClass().getSimpleName());
-                    status.put("plotId", plotId);
-                    status.put("scannedFolder", attemptedFolder);
-                    status.put("imageCount", 0);
-                } catch (Exception ignored) { }
+                try { status.put("error", error.getClass().getSimpleName()); status.put("plotId", plotId); } catch (Exception ignored) { }
                 publishStatus(status);
             } finally {
                 scanInProgress = false;
@@ -4542,49 +4223,6 @@ public class MainActivity extends Activity {
                 }
             }
         });
-    }
-
-    /** Resolve the saved display path inside the persisted Drive grant on every scan.
-     * A stale document ID can remain valid while pointing at a different plot folder,
-     * so the path chosen for this user and plot is authoritative when it is available.
-     */
-    private String resolveFeedFolderForScan(Uri treeUri, String plotId) throws Exception {
-        String savedDocumentId = getPrefs().getString(feedFolderDocumentKey(plotId), null);
-        String location = getPrefs().getString(feedLocationKey(plotId), "");
-        String relativePath = relativePathFromGrowPlot(location);
-        if (!isCustomFeedFolder(plotId)) {
-            String expectedFolder = getPrefs().getString(feedExpectedFolderKey(plotId), "");
-            if (!expectedFolder.isEmpty()) {
-                relativePath = "Image_Feed/" + signedInEmailFolderName() + "/" + safeFolderName(expectedFolder);
-            }
-        }
-        if (relativePath == null || !relativePath.regionMatches(true, 0, "Image_Feed/", 0, 11)) {
-            if (savedDocumentId != null && !savedDocumentId.isEmpty()) return savedDocumentId;
-            return DocumentsContract.getTreeDocumentId(treeUri);
-        }
-
-        String rootId = DocumentsContract.getTreeDocumentId(treeUri);
-        String rootName = getDocumentName(treeUri);
-        if ("Projects".equalsIgnoreCase(rootName)) {
-            rootId = findExistingChildFolder(treeUri, rootId, "GrowPlot");
-            if (rootId == null) throw new IllegalStateException("Projects/GrowPlot was not found in the granted Drive folder");
-        } else if ("My Drive".equalsIgnoreCase(rootName) || "Drive".equalsIgnoreCase(rootName)) {
-            rootId = findExistingChildFolder(treeUri, rootId, "Projects");
-            if (rootId != null) rootId = findExistingChildFolder(treeUri, rootId, "GrowPlot");
-            if (rootId == null) throw new IllegalStateException("My Drive/Projects/GrowPlot was not found in the granted Drive folder");
-        } else if (!"GrowPlot".equalsIgnoreCase(rootName)) {
-            // Custom folders selected directly in the picker keep their tree document ID.
-            if (savedDocumentId != null && !savedDocumentId.isEmpty()) return savedDocumentId;
-            throw new IllegalStateException("The granted Drive folder is not the GrowPlot root");
-        }
-
-        for (String segment : relativePath.split("/")) {
-            if (segment.isEmpty() || ".".equals(segment) || "..".equals(segment))
-                throw new IllegalStateException("The saved Drive path is invalid: " + location);
-            rootId = findExistingChildFolder(treeUri, rootId, segment);
-            if (rootId == null) throw new IllegalStateException("Folder not found at " + location);
-        }
-        return rootId;
     }
 
     private List<FeedDocument> queryImageFeedFolder(Uri treeUri, String rootDocumentId) throws Exception {
@@ -4860,48 +4498,16 @@ public class MainActivity extends Activity {
         return plotId != null && plotId.matches("[A-Za-z0-9_-]{1,64}") ? plotId : DEFAULT_PLOT_ID;
     }
 
-    private String currentFeedUserKey() {
-        com.google.firebase.auth.FirebaseUser user =
-                com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
-        return user == null ? "signed_out" : user.getUid().replaceAll("[^A-Za-z0-9_-]", "_");
-    }
+    private String feedTreeKey(String plotId) { return "data_feed_tree_uri_" + safePlotId(plotId); }
 
-    private File userPlotDirectory(String root, String plotId) {
-        return new File(new File(new File(getFilesDir(), root), currentFeedUserKey()), safePlotId(plotId));
-    }
+    private String feedFolderDocumentKey(String plotId) { return "data_feed_folder_document_" + safePlotId(plotId); }
 
-    private String feedTreeKey(String plotId) { return "data_feed_tree_uri_" + currentFeedUserKey() + "_" + safePlotId(plotId); }
-
-    private String feedFolderDocumentKey(String plotId) { return "data_feed_folder_document_" + currentFeedUserKey() + "_" + safePlotId(plotId); }
-
-    private String feedLocationKey(String plotId) { return "data_feed_location_label_" + currentFeedUserKey() + "_" + safePlotId(plotId); }
-    private String feedExpectedFolderKey(String plotId) { return "data_feed_expected_folder_" + currentFeedUserKey() + "_" + safePlotId(plotId); }
-
-    private String feedCustomFolderKey(String plotId) { return "data_feed_custom_folder_" + currentFeedUserKey() + "_" + safePlotId(plotId); }
-
-    private boolean isCustomFeedFolder(String plotId) {
-        SharedPreferences preferences = getPrefs();
-        String key = feedCustomFolderKey(plotId);
-        if (preferences.contains(key)) return preferences.getBoolean(key, false);
-        String label = preferences.getString(feedLocationKey(plotId), "");
-        return !label.isEmpty() && relativePathFromGrowPlot(label) == null;
-    }
-
-    private String expectedFeedPathLabel(String plotId) {
-        String userFolder;
-        try { userFolder = signedInEmailFolderName(); }
-        catch (Exception error) { return "Google Drive: /Projects/GrowPlot/Image_Feed/<signed-in-user>/<plot>"; }
-        String expected = getPrefs().getString(feedExpectedFolderKey(plotId), "");
-        String plot = expected.isEmpty() ? safeFolderName(pickerDefaultFolderName) : safeFolderName(expected);
-        return "Google Drive: /Projects/GrowPlot/Image_Feed/" + userFolder + "/" + plot;
-    }
+    private String feedLocationKey(String plotId) { return "data_feed_location_label_" + safePlotId(plotId); }
 
     private String feedLocationLabel(String plotId) {
         String id = safePlotId(plotId);
         String label = getPrefs().getString(feedLocationKey(id), "");
         if (label != null && label.contains(": /")) return label;
-        if (pickerCreatesDefaultFeed && id.equals(safePlotId(pickerPlotId)))
-            return expectedFeedPathLabel(id);
         if (label != null && !label.isEmpty()) {
             if (label.startsWith("Google Drive/")) {
                 String suffix = label.substring("Google Drive/".length());
@@ -4912,6 +4518,7 @@ public class MainActivity extends Activity {
             return label;
         }
         String tree = getPrefs().getString(feedTreeKey(id), null);
+        if (tree == null && DEFAULT_PLOT_ID.equals(id)) tree = getPrefs().getString(PREF_IMAGE_FEED_TREE_URI, null);
         String documentId = getPrefs().getString(feedFolderDocumentKey(id), null);
         if (tree != null && documentId != null) return getDocumentPathLabel(Uri.parse(tree), documentId);
         return tree == null ? "" : getStorageLabel(Uri.parse(tree)) + ": /" + getDocumentName(Uri.parse(tree));
@@ -4927,7 +4534,7 @@ public class MainActivity extends Activity {
         try {
             String currentArchive = archivePhoto(current);
             String previousArchive = archivePhoto(previous);
-            File historyDirectory = userPlotDirectory("photo_history", current.plotId);
+            File historyDirectory = new File(new File(getFilesDir(), "photo_history"), safePlotId(current.plotId));
             FrameFeatures now = analyzeFrameColors(currentArchive == null ? current.uri
                     : Uri.fromFile(new File(historyDirectory, currentArchive)));
             FrameFeatures before = analyzeFrameColors(previousArchive == null ? previous.uri
@@ -5005,7 +4612,7 @@ public class MainActivity extends Activity {
         return features;
     }
 
-    private void scanSelectedImages(List<FeedDocument> selectedUris, boolean folderSource, String plotId, String scannedFolder) throws Exception {
+    private void scanSelectedImages(List<FeedDocument> selectedUris, boolean folderSource, String plotId) throws Exception {
         List<Photo> photos = new ArrayList<>();
         Map<Integer, Photo> latestByCamera = new HashMap<>();
         int imageCount = 0;
@@ -5039,7 +4646,7 @@ public class MainActivity extends Activity {
             }
         }
 
-        File latestDirectory = userPlotDirectory("latest_images", plotId);
+        File latestDirectory = new File(new File(getFilesDir(), "latest_images"), plotId);
         if (!latestDirectory.exists() && !latestDirectory.mkdirs()) throw new IllegalStateException("Cannot create image cache");
         for (Map.Entry<Integer, Photo> entry : latestByCamera.entrySet()) {
             Photo photo = entry.getValue();
@@ -5050,9 +4657,6 @@ public class MainActivity extends Activity {
         status.put("connected", true);
         status.put("plotId", plotId);
         status.put("feedLocation", feedLocationLabel(plotId));
-        status.put("scannedFolder", scannedFolder);
-        status.put("imageCount", imageCount);
-        status.put("matchedPhotoCount", photos.size());
         Map<Integer, List<Photo>> photosByCamera = new HashMap<>();
         for (Photo photo : photos) {
             if (photo.camera > 0) {
@@ -5075,7 +4679,7 @@ public class MainActivity extends Activity {
                     + " and updated " + updatedCameraCount + " quadrant feed(s) for this plot.";
             if (unmatchedCount > 0) statusText += " Ignored " + unmatchedCount
                     + " JPG photo(s) without a camera mapping. Add CCTV01–CCTV06, CAM1–CAM6, Q1–Q6, or Quadrant 1–6 to the filename or folder.";
-            if (!folderSource) statusText += " Tap Connect to folder above to discover new uploads.";
+            if (!folderSource) statusText += " Choose a folder in Settings → Plot Management to discover new uploads.";
         }
         status.put("statusText", statusText);
         JSONArray currentPhotos = new JSONArray();
@@ -5155,51 +4759,47 @@ public class MainActivity extends Activity {
             cameraStats.put(item);
         }
         status.put("cameraStats", cameraStats);
+        status.put("timelineInterval", timelineInterval);
         status.put("timelinePhotos", makeTimelinePhotos(photosByCamera));
         publishStatus(status);
     }
 
     private JSONArray makeTimelinePhotos(Map<Integer, List<Photo>> photosByCamera) throws Exception {
         JSONArray timelines = new JSONArray();
-        // The scanner has already limited photosByCamera to the signed-in user's selected plot feed.
-        // Show the first and latest captured image for each CCTV across that complete feed history.
+        List<TimelineBuckets.Period> periods = TimelineBuckets.latestFour(timelineInterval, System.currentTimeMillis());
+        String periodName = "daily".equals(timelineInterval) ? "Day" : "monthly".equals(timelineInterval) ? "Month"
+                : "yearly".equals(timelineInterval) ? "Year" : "daily".equals(timelineInterval) ? "Day" : "Week";
         for (int camera = 1; camera <= 6; camera++) {
             List<Photo> group = photosByCamera.get(camera);
-            List<Photo> ordered = new ArrayList<>();
-            if (group != null) {
-                for (Photo photo : group) if (photo != null && photo.capturedAt > 0) ordered.add(photo);
-            }
-            ordered.sort(Comparator.comparingLong(photo -> photo.capturedAt));
-
             JSONObject timeline = new JSONObject();
             timeline.put("camera", camera);
-            timeline.put("interval", "firstLatest");
+            timeline.put("interval", timelineInterval);
             JSONArray slots = new JSONArray();
-            slots.put(makeTimelinePhotoSlot("First photo", ordered.isEmpty() ? null : ordered.get(0)));
-            slots.put(makeTimelinePhotoSlot("Most recent photo", ordered.isEmpty() ? null : ordered.get(ordered.size() - 1)));
+            List<Long> captureTimes = new ArrayList<>();
+            if (group != null) for (Photo photo : group) captureTimes.add(photo.capturedAt);
+            int[] selectedPhoto = TimelineBuckets.earliestPhotoIndices(periods, captureTimes);
+            timeline.put("baselineDate", formatDay(periods.get(0).startMillis));
+            for (int slotIndex = 0; slotIndex < periods.size(); slotIndex++) {
+                TimelineBuckets.Period period = periods.get(slotIndex);
+                String startDate = formatDay(period.startMillis);
+                JSONObject slot = new JSONObject();
+                slot.put("day", period.index);
+                slot.put("label", periodName + " " + period.index + " (start " + startDate + ")");
+                slot.put("expectedDate", startDate);
+                Photo best = selectedPhoto[slotIndex] >= 0 ? group.get(selectedPhoto[slotIndex]) : null;
+                if (best != null && best.historyFile == null) best.historyFile = archivePhoto(best);
+                slot.put("available", best != null && best.historyFile != null);
+                if (best != null && best.historyFile != null) {
+                    slot.put("timestamp", best.capturedAt);
+                    slot.put("capturedAt", best.displayTime);
+                    slot.put("imageUrl", "https://appassets.androidplatform.net/assets/history/" + safePlotId(best.plotId) + "/" + best.historyFile);
+                }
+                slots.put(slot);
+            }
             timeline.put("slots", slots);
             timelines.put(timeline);
         }
         return timelines;
-    }
-
-    private JSONObject makeTimelinePhotoSlot(String label, Photo photo) throws Exception {
-        JSONObject slot = new JSONObject();
-        slot.put("label", label);
-        slot.put("expectedDate", "");
-        slot.put("available", false);
-        if (photo != null) {
-            if (photo.historyFile == null) photo.historyFile = archivePhoto(photo);
-            boolean available = photo.historyFile != null;
-            slot.put("available", available);
-            if (available) {
-                slot.put("timestamp", photo.capturedAt);
-                slot.put("capturedAt", photo.displayTime);
-                slot.put("imageUrl", "https://appassets.androidplatform.net/assets/history/" + currentFeedUserKey()
-                        + "/" + safePlotId(photo.plotId) + "/" + photo.historyFile);
-            }
-        }
-        return slot;
     }
 
     private long startOfLocalDay(long timestamp) {
@@ -5297,7 +4897,7 @@ public class MainActivity extends Activity {
     private String archivePhoto(Photo photo) {
         String base = String.format(Locale.US, "cctv_%02d_%d_%s.jpg", photo.camera,
                 photo.capturedAt, Integer.toHexString(photo.sourceKey.hashCode()));
-        File directory = userPlotDirectory("photo_history", photo.plotId);
+        File directory = new File(new File(getFilesDir(), "photo_history"), safePlotId(photo.plotId));
         File destination = new File(directory, base);
         if (destination.isFile() && destination.length() > 0) return base;
         Bitmap bitmap = null;
