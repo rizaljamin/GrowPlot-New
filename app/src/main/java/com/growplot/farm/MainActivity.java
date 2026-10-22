@@ -409,6 +409,7 @@ public class MainActivity extends Activity {
         settings.setBlockNetworkImage(false);
         settings.setUserAgentString(settings.getUserAgentString() + " GrowPlot/" + BuildConfig.VERSION_NAME.replace(' ', '-'));
         web.addJavascriptInterface(new SnapshotBridge(), "GrowPlotBridge");
+        web.addJavascriptInterface(new OpenCvHsvBridge(), "GrowPlotOpenCV");
         accountApiBridge = new AccountApiBridge(this, web);
         web.addJavascriptInterface(accountApiBridge, "GrowPlotAccount");
         web.setWebViewClient(new WebViewClient() {
