@@ -29,6 +29,7 @@ assert.deepEqual(components,[{area:3,xmin:0,ymin:0,xmax:1,ymax:1,green:3,yellow:
 const html=fs.readFileSync('app/src/main/assets/index.html','utf8');
 const cv=fs.readFileSync('app/src/main/assets/leaf-cv.js','utf8');
 const java=fs.readFileSync('app/src/main/java/com/growplot/farm/MainActivity.java','utf8');
+const proxy=fs.readFileSync('backend/server.js','utf8');
 assert.doesNotMatch(html,/data:image\/jpeg;base64,/,'sample JPEGs must not be duplicated as base64 inside index.html');
 assert.ok(Buffer.byteLength(html,'utf8')<300_000,'index.html should remain below 300 KB so sample photos stay external');
 for(let camera=1;camera<=6;camera++)assert.ok(fs.existsSync(`app/src/main/assets/images/cctv_${String(camera).padStart(2,'0')}.jpg`),`bundled fallback photo for CCTV ${camera} must exist`);
@@ -89,8 +90,13 @@ assert.doesNotMatch(identityUi,/camera\s*===?\s*2|camera\s*!==?\s*2/,'the same p
 assert.match(html,/diagnosisSpeciesKey\(camera,plotId=selectedPlotId\)/,'identity candidates must remain scoped to the active camera and plot');
 assert.match(html,/engine\.analyze\(camera\)/,'the CV analysis button must run the local image analysis engine');
 assert.match(html,/Basic CV and HSV analysis/,'the analysis modal must display local CV and HSV results');
-assert.match(html,/diagnosis-hourglass/,'the running diagnosis must display an hourglass indicator');
-assert.match(html,/RGB → HSV colour screening/,'the progress tracker must show the RGB-to-HSV transform stage');
+assert.doesNotMatch(html,/diagnosis-hourglass|RGB → HSV colour screening|Analysis stages/,'the diagnosis result area must not show the generic six-stage progress card');
+assert.match(html,/diagnosisVertexMarkup\(vertexReport\)/,'the Run diagnosis section must render the saved Vertex image output');
+assert.match(html,/window\.onVertexDiagnosis=function/,'Vertex output must be rendered when the Android callback returns');
+assert.match(java,/requestVertexImageAnalysis\(selectedImages, species, symptom, pixelMetrics\)/,'Run diagnosis must send the selected image set to Vertex');
+assert.match(proxy,/app\.post\('\/v1\/vertex', authorize/,'the diagnosis backend must expose an authenticated Vertex-only image endpoint');
+assert.match(html,/Vertex AI image result/,'the diagnosis page must identify the returned Vertex image result');
+assert.doesNotMatch(html,/id=\"openCVAnalysisButton\"/,'the diagnosis section must not offer a second CV-only action instead of the Vertex result');
 assert.match(html,/window\.screenDiagnosisImage\(sources\[i\]\.url\)/,'the diagnosis flow must calculate HSV metrics through the shared real HSV analyser');
 assert.match(cv,/window\.screenDiagnosisImage=.*ensureHSV\(\)/,'photo HSV analysis must load the HSV transform before classifying pixels');
 assert.match(html,/markGrowPlotDiagnosisProvider\(camera,plotId,'plantnet'\)/,'Pl@ntNet completion must be tracked as a provider stage');
