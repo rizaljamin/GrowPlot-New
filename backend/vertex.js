@@ -40,7 +40,7 @@ export async function vertexCheck(images, context = {}) {
 
   const projectId = process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT || 'growplot';
   const location = process.env.GOOGLE_CLOUD_LOCATION || 'global';
-  const model = process.env.VERTEX_MODEL_ID || 'gemini-3.5-flash';
+  const model = process.env.VERTEX_MODEL_ID || 'gemini-3.8-flash';
   const locationPart = encodeURIComponent(location);
   const modelPart = encodeURIComponent(model);
   const projectPart = encodeURIComponent(projectId);
@@ -86,7 +86,7 @@ export async function vertexCheck(images, context = {}) {
       },
       body: JSON.stringify({
         contents: [{ role: 'user', parts }],
-        generationConfig: { temperature: 0.2, responseMimeType: 'application/json' }
+        generationConfig: { responseMimeType: 'application/json' }
       }),
       signal: AbortSignal.timeout(60000)
     });
