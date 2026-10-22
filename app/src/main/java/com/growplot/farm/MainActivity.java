@@ -114,6 +114,8 @@ public class MainActivity extends Activity {
     private static final int REQUEST_FEED_CAMERA = 416;
     private static final int REQUEST_FEED_PICKER = 417;
     private static final int REQUEST_DRIVE_AUTHORIZATION = 418;
+    private static final int REQUEST_VERTEX_AUTHORIZATION = 419;
+    private static final String VERTEX_API_SCOPE = "https://www.googleapis.com/auth/cloud-platform";
     private static final String DRIVE_API_SCOPE = "https://www.googleapis.com/auth/drive";
     private static final String DRIVE_API_FOLDER_KEY_PREFIX = "data_feed_drive_api_folder_";
     private static final String DRIVE_API_EMAIL_KEY_PREFIX = "data_feed_drive_api_email_";
@@ -145,6 +147,15 @@ public class MainActivity extends Activity {
     private volatile String pickerDefaultFolderName = "Demo_plot";
     private volatile String googleDriveAccessToken;
     private volatile long googleDriveTokenIssuedAt;
+    private volatile String vertexAccessToken;
+    private volatile long vertexTokenIssuedAt;
+    private volatile boolean vertexAuthorizationInProgress;
+    private volatile boolean vertexAuthorizationFailedOnce;
+    private volatile int pendingVertexCamera;
+    private volatile String pendingVertexPlotId = DEFAULT_PLOT_ID;
+    private volatile String pendingVertexSpecies = "";
+    private volatile String pendingVertexSymptom = "";
+    private volatile String pendingVertexPixelMetrics = "";
     private volatile boolean driveAuthorizationInProgress;
     private volatile String pendingDriveAuthPlotId = DEFAULT_PLOT_ID;
     private volatile String pendingDriveAuthFolderName = "Demo_plot";
@@ -2228,6 +2239,19 @@ public class MainActivity extends Activity {
 
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_VERTEX_AUTHORIZATION) {
+            if (resultCode != RESULT_OK || data == null) {
+                finishVertexAuthorization(null, "Google Cloud access was cancelled. Tap Run diagnosis and grant access to Vertex AI.");
+                return;
+            }
+            try {
+                AuthorizationResult authorization = Identity.getAuthorizationClient(this).getAuthorizationResultFromIntent(data);
+                finishVertexAuthorization(authorization, null);
+            } catch (Exception error) {
+                finishVertexAuthorization(null, "Google Cloud authorization failed: " + safeErrorMessage(error));
+            }
+            return;
+        }
         if (requestCode == REQUEST_DRIVE_AUTHORIZATION) {
             if (resultCode != RESULT_OK || data == null) {
                 driveAuthorizationInProgress = false;
@@ -3571,6 +3595,19 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface public void diagnosePhotosWithPlantNet(int camera, String plotId, String species, String symptom, String pixelMetrics) {
+            if (!hasVertexAccessToken() && !vertexAuthorizationFailedOnce) {
+                pendingVertexCamera = camera;
+                pendingVertexPlotId = safePlotId(plotId);
+                pendingVertexSpecies = species == null ? "" : species;
+                pendingVertexSymptom = symptom == null ? "" : symptom;
+                pendingVertexPixelMetrics = pixelMetrics == null ? "" : pixelMetrics;
+                if (!vertexAuthorizationInProgress) {
+                    vertexAuthorizationInProgress = true;
+                    runOnUiThread(this::authorizeVertexForPendingDiagnosis);
+                }
+                return;
+            }
+            vertexAuthorizationFailedOnce = false;
             final String id = safePlotId(plotId);
             diagnosisWorker.execute(() -> {
                 JSONObject response;
@@ -3673,9 +3710,13 @@ public class MainActivity extends Activity {
         @JavascriptInterface public String getDiagnosisApiConfig() {
             JSONObject config = new JSONObject();
             try {
-                config.put("url", BuildConfig.DIAGNOSIS_API_URL);
-                config.put("proxyToken", BuildConfig.DIAGNOSIS_PROXY_TOKEN);
-                config.put("vertexConfigured", BuildConfig.DIAGNOSIS_API_URL != null && !BuildConfig.DIAGNOSIS_API_URL.trim().isEmpty() && BuildConfig.DIAGNOSIS_PROXY_TOKEN != null && !BuildConfig.DIAGNOSIS_PROXY_TOKEN.trim().isEmpty());
+                config.put("url", "");
+                config.put("proxyToken", "");
+                config.put("vertexConfigured", true);
+                config.put("vertexDirect", true);
+                config.put("project", BuildConfig.VERTEX_PROJECT_ID);
+                config.put("location", BuildConfig.VERTEX_LOCATION);
+                config.put("model", BuildConfig.VERTEX_MODEL_ID);
             } catch (Exception ignored) { }
             return config.toString();
         }
@@ -4267,42 +4308,53 @@ public class MainActivity extends Activity {
 
     private JSONObject requestVertexImageAnalysis(List<byte[]> images, String species, String symptom, String pixelMetrics) {
         if (images == null || images.isEmpty()) return vertexStatus("error", "No readable photos were available for Vertex image analysis.");
-        final String configuredUrl = BuildConfig.DIAGNOSIS_API_URL == null ? "" : BuildConfig.DIAGNOSIS_API_URL.trim();
-        final String proxyToken = BuildConfig.DIAGNOSIS_PROXY_TOKEN == null ? "" : BuildConfig.DIAGNOSIS_PROXY_TOKEN.trim();
-        if (configuredUrl.isEmpty() || proxyToken.isEmpty()) return vertexStatus("not_configured", "Vertex backend is not configured in this APK. Configure the diagnosis backend URL and app-to-backend token. The backend uses Google runtime credentials; no Vertex API key is needed in the APK.");
-        String endpoint;
-        if (configuredUrl.endsWith("/v1/diagnose")) endpoint = configuredUrl.substring(0, configuredUrl.length() - "/v1/diagnose".length()) + "/v1/vertex";
-        else if (configuredUrl.endsWith("/v1/vertex")) endpoint = configuredUrl;
-        else endpoint = configuredUrl.replaceAll("/+$", "") + "/v1/vertex";
+        final String token = hasVertexAccessToken() ? vertexAccessToken : "";
+        if (token.isEmpty()) return vertexStatus("not_authorized",
+                "Google Cloud access was not granted. Tap Run diagnosis and approve the Google Cloud permission prompt.");
+        final String project = BuildConfig.VERTEX_PROJECT_ID;
+        final String location = BuildConfig.VERTEX_LOCATION;
+        final String model = BuildConfig.VERTEX_MODEL_ID;
+        final String host = "global".equals(location) ? "https://aiplatform.googleapis.com"
+                : "https://" + location + "-aiplatform.googleapis.com";
+        final String endpoint = host + "/v1/projects/" + Uri.encode(project)
+                + "/locations/" + Uri.encode(location) + "/publishers/google/models/"
+                + Uri.encode(model) + ":generateContent";
         HttpURLConnection connection = null;
         try {
-            final String boundary = "----GrowPlotVertex" + System.currentTimeMillis();
+            JSONArray parts = new JSONArray();
+            for (int i = 0; i < Math.min(5, images.size()); i++) {
+                byte[] image = images.get(i);
+                if (image == null || image.length == 0) continue;
+                JSONObject inlineData = new JSONObject();
+                inlineData.put("mimeType", "image/jpeg");
+                inlineData.put("data", Base64.encodeToString(image, Base64.NO_WRAP));
+                parts.put(new JSONObject().put("inlineData", inlineData));
+            }
+            String prompt = "Assess the visible plant in these farm-monitoring photos. Return JSON only with keys: "
+                    + "summary (string), speciesCandidates (array of objects with commonName, scientificName, confidence 0 to 1), "
+                    + "visibleFindings (string array), possibleCauses (string array), nextChecks (string array), limitations (string array). "
+                    + "Describe only visible evidence. Do not confirm species, disease, or treatment. "
+                    + "GrowPlot's separate pixel screen reports these sampled colour metrics: "
+                    + (pixelMetrics == null ? "not available" : pixelMetrics)
+                    + ". Treat those values as supplied measurements; do not claim to calculate them yourself. "
+                    + "User-supplied species context: " + (species == null || species.trim().isEmpty() ? "none" : species)
+                    + ". User-reported symptom: " + (symptom == null || symptom.trim().isEmpty() ? "none" : symptom);
+            parts.put(new JSONObject().put("text", prompt));
+            JSONObject request = new JSONObject()
+                    .put("contents", new JSONArray().put(new JSONObject()
+                            .put("role", "user").put("parts", parts)))
+                    .put("generationConfig", new JSONObject()
+                            .put("responseMimeType", "application/json")
+                            .put("temperature", 0.2));
             connection = (HttpURLConnection) new URL(endpoint).openConnection();
             connection.setRequestMethod("POST");
             connection.setConnectTimeout(20000);
             connection.setReadTimeout(90000);
             connection.setDoOutput(true);
-            connection.setRequestProperty("Authorization", "Bearer " + proxyToken);
-            connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
+            connection.setRequestProperty("Authorization", "Bearer " + token);
+            connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
             try (OutputStream out = connection.getOutputStream()) {
-                for (int i = 0; i < Math.min(5, images.size()); i++) {
-                    byte[] image = images.get(i);
-                    if (image == null || image.length == 0) continue;
-                    writeVertexUtf8(out, "--" + boundary + "\r\n");
-                    writeVertexUtf8(out, "Content-Disposition: form-data; name=\"photos\"; filename=\"plant-" + (i + 1) + ".jpg\"\r\n");
-                    writeVertexUtf8(out, "Content-Type: image/jpeg\r\n\r\n");
-                    out.write(image);
-                    writeVertexUtf8(out, "\r\n");
-                }
-                JSONObject context = new JSONObject();
-                context.put("species", species == null ? "" : species);
-                context.put("symptoms", symptom == null ? "" : symptom);
-                context.put("pixelAnalysis", pixelMetrics == null ? "" : pixelMetrics);
-                writeVertexUtf8(out, "--" + boundary + "\r\n");
-                writeVertexUtf8(out, "Content-Disposition: form-data; name=\"context\"\r\n");
-                writeVertexUtf8(out, "Content-Type: application/json; charset=UTF-8\r\n\r\n");
-                writeVertexUtf8(out, context.toString());
-                writeVertexUtf8(out, "\r\n--" + boundary + "--\r\n");
+                out.write(request.toString().getBytes(StandardCharsets.UTF_8));
             }
             int status = connection.getResponseCode();
             InputStream stream = status >= 200 && status < 300 ? connection.getInputStream() : connection.getErrorStream();
@@ -4312,15 +4364,44 @@ public class MainActivity extends Activity {
                 while ((count = input.read(buffer)) != -1) body.append(new String(buffer, 0, count, StandardCharsets.UTF_8));
             }
             if (status < 200 || status >= 300) {
-                String detail = body.length() > 0 ? body.substring(0, Math.min(body.length(), 500)) : "";
-                return vertexStatus("error", "Vertex backend returned HTTP " + status + ". " + detail);
+                String detail = "Vertex AI returned HTTP " + status + ".";
+                try {
+                    JSONObject error = new JSONObject(body.toString()).optJSONObject("error");
+                    if (error != null && !error.optString("message", "").isEmpty())
+                        detail += " " + error.optString("message");
+                } catch (Exception ignored) { }
+                return vertexStatus("error", detail);
             }
-            JSONObject response = new JSONObject(body.toString());
-            if (!response.has("status")) response.put("status", "ok");
-            return response;
+            JSONObject payload = new JSONObject(body.toString());
+            JSONArray candidates = payload.optJSONArray("candidates");
+            String responseText = "";
+            if (candidates != null && candidates.length() > 0) {
+                JSONObject first = candidates.optJSONObject(0);
+                JSONObject content = first == null ? null : first.optJSONObject("content");
+                JSONArray responseParts = content == null ? null : content.optJSONArray("parts");
+                if (responseParts != null) {
+                    StringBuilder combined = new StringBuilder();
+                    for (int i = 0; i < responseParts.length(); i++) {
+                        JSONObject part = responseParts.optJSONObject(i);
+                        if (part != null) combined.append(part.optString("text", ""));
+                    }
+                    responseText = combined.toString().trim();
+                }
+            }
+            if (responseText.isEmpty()) return vertexStatus("error", "Vertex AI returned no readable image analysis.");
+            JSONObject analysis;
+            try { analysis = new JSONObject(responseText); }
+            catch (Exception ignored) { analysis = new JSONObject().put("summary", responseText); }
+            JSONObject result = vertexStatus("ok", "");
+            result.put("model", model);
+            result.put("analysis", analysis);
+            result.put("imageCountSubmitted", Math.min(5, images.size()));
+            result.put("project", project);
+            result.put("location", location);
+            return result;
         } catch (Exception error) {
             String detail = error.getMessage() == null ? "connection failed" : error.getMessage();
-            return vertexStatus("error", "Vertex backend request failed: " + detail);
+            return vertexStatus("error", "Direct Vertex AI request failed: " + detail);
         } finally {
             if (connection != null) connection.disconnect();
         }
@@ -4332,7 +4413,7 @@ public class MainActivity extends Activity {
 
     private JSONObject vertexStatus(String status, String message) {
         JSONObject result = new JSONObject();
-        try { result.put("provider", "Gemini on Agent Platform"); result.put("status", status); result.put("message", message); }
+        try { result.put("provider", "Gemini on Vertex AI"); result.put("status", status); if (message != null && !message.isEmpty()) result.put("message", message); }
         catch (Exception ignored) { }
         return result;
     }
@@ -4598,6 +4679,63 @@ public class MainActivity extends Activity {
                         "Google Drive folder connection failed: " + safeErrorMessage(error));
             }
         });
+    }
+
+    private boolean hasVertexAccessToken() {
+        String token = vertexAccessToken;
+        return token != null && !token.trim().isEmpty()
+                && System.currentTimeMillis() - vertexTokenIssuedAt < 50L * 60L * 1000L;
+    }
+
+    private void authorizeVertexForPendingDiagnosis() {
+        try {
+            AuthorizationRequest.Builder requestBuilder = new AuthorizationRequest.Builder()
+                    .setRequestedScopes(Collections.singletonList(new Scope(VERTEX_API_SCOPE)));
+            com.google.firebase.auth.FirebaseUser firebaseUser =
+                    com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+            String email = firebaseUser == null ? null : firebaseUser.getEmail();
+            if (email != null && !email.trim().isEmpty()) {
+                requestBuilder.setAccount(new Account(email.trim(), "com.google"));
+            }
+            Identity.getAuthorizationClient(this).authorize(requestBuilder.build())
+                    .addOnSuccessListener(this, authorization -> finishVertexAuthorization(authorization, null))
+                    .addOnFailureListener(this, error -> finishVertexAuthorization(null,
+                            "Google Cloud authorization failed: " + safeErrorMessage(error)));
+        } catch (Exception error) {
+            finishVertexAuthorization(null, "Google Cloud authorization could not start: " + safeErrorMessage(error));
+        }
+    }
+
+    private void finishVertexAuthorization(AuthorizationResult authorization, String failureMessage) {
+        if (authorization != null && authorization.hasResolution()) {
+            try {
+                startIntentSenderForResult(authorization.getPendingIntent().getIntentSender(),
+                        REQUEST_VERTEX_AUTHORIZATION, null, 0, 0, 0);
+            } catch (Exception error) {
+                finishVertexAuthorization(null, "Google Cloud permission prompt could not open: " + safeErrorMessage(error));
+            }
+            return;
+        }
+        String token = authorization == null ? null : authorization.getAccessToken();
+        if (token == null || token.trim().isEmpty()) {
+            vertexAuthorizationFailedOnce = true;
+            if (failureMessage != null && !failureMessage.trim().isEmpty()) {
+                final int camera = pendingVertexCamera;
+                final String plot = pendingVertexPlotId;
+                if (camera > 0) sendVertexResult(camera, plot, vertexStatus("not_authorized", failureMessage));
+            }
+        } else {
+            vertexAccessToken = token;
+            vertexTokenIssuedAt = System.currentTimeMillis();
+            vertexAuthorizationFailedOnce = false;
+        }
+        vertexAuthorizationInProgress = false;
+        final int camera = pendingVertexCamera;
+        final String plotId = pendingVertexPlotId;
+        final String species = pendingVertexSpecies;
+        final String symptom = pendingVertexSymptom;
+        final String metrics = pendingVertexPixelMetrics;
+        if (camera > 0) diagnosePhotosWithPlantNet(camera, plotId, species, symptom, metrics);
     }
 
     private void connectDefaultFeedWithDriveApi(String plotId, String folderName) throws Exception {
