@@ -1,9 +1,9 @@
-## Pending — next Build 29 Image_Feed login connection
+## Completed — Build 29 Image_Feed login connection
 
-- After Firebase login, use the account's selected assigned plot and attempt its default Image_Feed/<signed-in email>/<plot folder> Google Drive directory.
-- Reuse an existing Android folder permission automatically. When no saved permission is available, Android's folder picker requests the one-time grant.
-- Show connection progress, success, and failure notices for this Image_Feed flow. Diagnosis and farm storage paths are unchanged.
-- JavaScript syntax checks passed. Android build and real-device Drive permission/login checks remain pending.
+- Firebase profile login now connects the selected assigned plot to its default Image_Feed path and displays connection progress/result.
+- Existing Android folder grants are reused. The first connection on a device opens Android's picker for the user to grant read/write access.
+- GitHub ARM64 Actions run #409 passed; stable signing matches. APK SHA-256: 0ec169b52323a14482df4ba7496f539209aef2df79bbd0ba25c2ba14e8ba68df.
+- Device login and Drive permission behavior still need a real tablet check.
 
 ## Pending — Build 28 broken bundled-photo URL fix
 
