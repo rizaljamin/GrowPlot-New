@@ -31,6 +31,9 @@ android {
         buildConfigField 'String', 'VERTEX_PROJECT_ID', buildConfigLiteral(project.findProperty('growplotVertexProjectId') ?: 'growplot')
         buildConfigField 'String', 'VERTEX_LOCATION', buildConfigLiteral(project.findProperty('growplotVertexLocation') ?: 'us-central1')
         buildConfigField 'String', 'VERTEX_MODEL_ID', buildConfigLiteral(project.findProperty('growplotVertexModelId') ?: 'gemini-3.8-flash')
+        // Optional authenticated diagnosis proxy settings are retained for YOLO only; Vertex calls bypass them.
+        buildConfigField 'String', 'DIAGNOSIS_API_URL', buildConfigLiteral(project.findProperty('growplotDiagnosisApiUrl') ?: '')
+        buildConfigField 'String', 'DIAGNOSIS_PROXY_TOKEN', buildConfigLiteral(project.findProperty('growplotDiagnosisProxyToken') ?: '')
     }
     buildTypes {
         debug {
