@@ -9,7 +9,7 @@ const docker = fs.readFileSync('backend/yolo/Dockerfile', 'utf8');
 const build = fs.readFileSync('tools/build-apk.sh', 'utf8');
 
 assert.doesNotMatch(index, /await engine\.runYolo\(camera\)/,
-  'Run Diagnosis must stop after the OpenCV HSV analysis');
+  'Run Diagnosis must not launch YOLO automatically');
 assert.match(index, /await engine\.analyze\(camera\)/,
   'Run Diagnosis must wait for the OpenCV HSV result before completing');
 assert.doesNotMatch(index, /Analysis stages|growPlotDiagnosisStages|diagnosis-hourglass/,
