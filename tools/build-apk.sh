@@ -52,6 +52,7 @@ node "$ROOT/tools/tests/account-registration-regression.js" || fail "Account reg
 node "$ROOT/tools/tests/data-feed-ui-regression.js" || fail "Data-feed UI regression check failed"
 node "$ROOT/tools/tests/plant-hsv-regression.js" || fail "Plant HSV regression check failed"
 node "$ROOT/tools/tests/yolo-regression.js" || fail "YOLO integration regression check failed"
+node "$ROOT/tools/tests/vertex-opencv-regression.js" || fail "OpenCV and Vertex wiring regression check failed"
 node "$ROOT/tools/tests/feed-history-regression.js" || fail "Feed-history regression check failed"
 node "$ROOT/tools/tests/timeline-persistence-regression.js" || fail "Timeline persistence regression check failed"
 
@@ -108,7 +109,7 @@ if [[ -n "${GROWPLOT_DIAGNOSIS_API_URL:-}" && -n "${GROWPLOT_DIAGNOSIS_PROXY_TOK
 else
   YOLO_STATE="Diagnosis proxy is not configured; YOLO-World inference is unavailable in this APK."
 fi
-VERTEX_STATE="Direct Vertex AI request configured for project growplot, location us-central1, model gemini-3.8-flash; Android requests the signed-in user's OAuth access when diagnosis runs. Vertex uses no API key or diagnosis proxy."
+VERTEX_STATE="Run Diagnosis performs OpenCV HSV first, then calls the authenticated Firebase vertexImageDiagnosis callable in us-central1 with the same selected photo; no Vertex API key is embedded."
 ZIP_OUT="$ROOT/release/v${SAFE_VERSION}-GrowPlot-source.zip"
 rm -f "$ZIP_OUT"
 zip -qr "$ZIP_OUT" . \
