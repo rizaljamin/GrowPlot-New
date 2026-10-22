@@ -1,3 +1,15 @@
+## BUG-072 — Stale “not connected” notice remains after Drive API login connection
+**Reported:** 2026-10-22  
+**Status:** Source fix prepared for v0.7.00 Build 31 / versionCode 235; ARM64 build and tablet verification pending.
+
+**Cause:** The Data Feed settings notice used the older Android folder-grant state and did not check the Drive API folder mapping created during login.
+
+**Fix:** Expose a signed-in-user-scoped Drive API folder check to the settings UI. When the assigned API folder is saved, replace the stale disconnected notice with “Google Drive connected to the assigned folder.” Update the info tip to describe the login-based connection.
+
+**Verification / limits:** Focused bridge and UI checks, GitHub ARM64 build, and a real tablet check of login authorization and feed scanning are pending.
+
+---
+
 ## BUG-071 — Image_Feed login still depends on Android folder picker
 **Reported:** 2026-10-22  
 **Status:** Source implementation staged for v0.7.00 Build 30 / versionCode 234; ARM64 build and Android Drive verification pending.
