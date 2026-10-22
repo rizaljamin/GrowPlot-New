@@ -3710,7 +3710,8 @@ public class MainActivity extends Activity {
         @JavascriptInterface public String getDiagnosisApiConfig() {
             JSONObject config = new JSONObject();
             try {
-                config.put("url", "");
+                config.put("url", BuildConfig.DIAGNOSIS_API_URL == null ? "" : BuildConfig.DIAGNOSIS_API_URL);
+                config.put("proxyToken", BuildConfig.DIAGNOSIS_PROXY_TOKEN == null ? "" : BuildConfig.DIAGNOSIS_PROXY_TOKEN);
                 config.put("vertexConfigured", true);
                 config.put("vertexDirect", true);
                 config.put("project", BuildConfig.VERTEX_PROJECT_ID);
