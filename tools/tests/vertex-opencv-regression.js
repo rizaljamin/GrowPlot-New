@@ -33,6 +33,15 @@ assert.match(bridge, /getHttpsCallable\("vertexImageDiagnosis"\)/,
   'The bridge must call the deployed Firebase function');
 assert.match(bridge, /FirebaseFunctions\.getInstance\(REGION\)/,
   'The callable must use the us-central1 Firebase Functions region');
+const vertexContextStart = index.indexOf('function vertexDiagnosisContext(camera){');
+const vertexContextEnd = index.indexOf('\nfunction updateVertexDiagnosisResult', vertexContextStart);
+const vertexContext = index.slice(vertexContextStart, vertexContextEnd);
+assert.match(vertexContext, /return \{symptoms\}/,
+  'Vertex should receive symptom context without a pre-confirmed species name');
+assert.doesNotMatch(vertexContext, /species|scientific|chosen/,
+  'A saved plant identity must not be sent as Vertex context');
+assert.doesNotMatch(cv, /plantSpeciesMarkup\(report/,
+  'The Pl@ntNet/Kindwise provider area must not duplicate the saved identity card');
 assert.match(index, /color_breakdown_percent/,
   'The Vertex result UI must display the response fields returned by the callable');
 console.log('OpenCV then Vertex callable wiring regression checks passed.');
