@@ -3591,6 +3591,8 @@ public class MainActivity extends Activity {
                     if (candidates.isEmpty()) throw new IllegalStateException("No readable photos are available for this quadrant");
                     List<PlantNetImageCandidate> selected = selectBestPlantNetImages(candidates);
                     List<byte[]> selectedImages = candidateBytes(selected);
+                    diagnosisCvWorker.execute(() -> sendVertexResult(camera, id,
+                            requestVertexImageAnalysis(selectedImages, species, symptom, pixelMetrics)));
                     requestKindwiseDiagnosis(camera, id, selectedImages, candidates.size(), selected,
                             species, symptom, pixelMetrics, "quadrant_photos",
                             "Diagnosis/" + diagnosisPlotFolder(id) + "/Quadrant_" + String.format(Locale.US, "%02d", camera),
@@ -3614,6 +3616,7 @@ public class MainActivity extends Activity {
                     response.put("selectedSources", candidateSources(selected));
                 } catch (Exception error) {
                     response = plantNetError(error);
+                    sendVertexResult(camera, id, vertexStatus("error", error.getMessage() == null ? "No readable photos were available for Vertex image analysis." : error.getMessage()));
                 }
                 sendPlantNetResult(camera, id, response);
             });
@@ -4259,6 +4262,70 @@ public class MainActivity extends Activity {
             response.put("selectedSources", candidateSources(selected));
         } catch (Exception error) { response = plantNetError(error); }
         return response;
+    }
+
+    private JSONObject requestVertexImageAnalysis(List<byte[]> images, String species, String symptom, String pixelMetrics) {
+        String configuredUrl = BuildConfig.DIAGNOSIS_API_URL == null ? "" : BuildConfig.DIAGNOSIS_API_URL.trim();
+        String token = BuildConfig.DIAGNOSIS_PROXY_TOKEN == null ? "" : BuildConfig.DIAGNOSIS_PROXY_TOKEN.trim();
+        if (configuredUrl.isEmpty() || token.isEmpty()) {
+            return vertexStatus("not_configured", "Vertex image analysis is not connected in this APK. Configure the diagnosis HTTPS URL and app-to-proxy token in the Android build workflow.");
+        }
+        if (images == null || images.isEmpty()) return vertexStatus("error", "No readable photos were available for Vertex image analysis.");
+        HttpURLConnection connection = null;
+        try {
+            URL configured = new URL(configuredUrl);
+            if (!"https".equalsIgnoreCase(configured.getProtocol())) return vertexStatus("error", "Vertex diagnosis service URL must use HTTPS.");
+            String path = configured.getPath() == null ? "" : configured.getPath().replaceAll("/+$", "");
+            path = path.replaceFirst("/v1/(diagnose|yolo|vertex)$", "");
+            URL url = new URL(configured.getProtocol(), configured.getHost(), configured.getPort(), path + "/v1/vertex");
+            String boundary = "GrowPlotVertex" + System.currentTimeMillis();
+            connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("POST");
+            connection.setConnectTimeout(15000);
+            connection.setReadTimeout(75000);
+            connection.setDoOutput(true);
+            connection.setRequestProperty("Authorization", "Bearer " + token);
+            connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
+            try (OutputStream out = connection.getOutputStream()) {
+                for (int i = 0; i < Math.min(5, images.size()); i++) {
+                    out.write(("--" + boundary + "\r\nContent-Disposition: form-data; name=\"photos\"; filename=\"growplot-" + (i + 1) + ".jpg\"\r\nContent-Type: image/jpeg\r\n\r\n").getBytes(StandardCharsets.UTF_8));
+                    out.write(images.get(i));
+                    out.write("\r\n".getBytes(StandardCharsets.UTF_8));
+                }
+                JSONObject context = new JSONObject();
+                context.put("species", species == null ? "" : species);
+                context.put("symptoms", symptom == null ? "" : symptom);
+                context.put("pixelAnalysis", pixelMetrics == null ? "" : pixelMetrics);
+                out.write(("--" + boundary + "\r\nContent-Disposition: form-data; name=\"context\"\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n").getBytes(StandardCharsets.UTF_8));
+                out.write(context.toString().getBytes(StandardCharsets.UTF_8));
+                out.write(("\r\n--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8));
+            }
+            int status = connection.getResponseCode();
+            InputStream stream = status >= 200 && status < 300 ? connection.getInputStream() : connection.getErrorStream();
+            StringBuilder body = new StringBuilder();
+            if (stream != null) try (InputStream input = stream) {
+                byte[] buffer = new byte[8192]; int count;
+                while ((count = input.read(buffer)) != -1) body.append(new String(buffer, 0, count, StandardCharsets.UTF_8));
+            }
+            if (status < 200 || status >= 300) return vertexStatus("error", "Vertex image request failed (HTTP " + status + "). " + (body.length() > 0 ? body.substring(0, Math.min(body.length(), 240)) : ""));
+            return new JSONObject(body.toString());
+        } catch (Exception error) {
+            return vertexStatus("error", error.getMessage() == null ? "Vertex image analysis request failed." : error.getMessage());
+        } finally { if (connection != null) connection.disconnect(); }
+    }
+
+    private JSONObject vertexStatus(String status, String message) {
+        JSONObject result = new JSONObject();
+        try { result.put("provider", "Gemini on Agent Platform"); result.put("status", status); result.put("message", message); }
+        catch (Exception ignored) { }
+        return result;
+    }
+
+    private void sendVertexResult(int camera, String plotId, JSONObject result) {
+        runOnUiThread(() -> {
+            if (web == null) return;
+            web.evaluateJavascript("window.onVertexDiagnosis&&window.onVertexDiagnosis(" + camera + "," + JSONObject.quote(plotId) + "," + JSONObject.quote(result.toString()) + ")", null);
+        });
     }
 
     private void sendPlantNetResult(int camera, String plotId, JSONObject result) {
