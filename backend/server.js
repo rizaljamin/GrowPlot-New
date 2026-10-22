@@ -1,6 +1,6 @@
 import express from 'express';
 import multer from 'multer';
-import {vertexCheck} from './vertex.js';
+
 
 const app = express();
 const port = Number(process.env.PORT || 8080);
@@ -103,22 +103,6 @@ app.post('/v1/yolo', authorize, upload.array('photos', MAX_PHOTOS), async (req, 
   }
 });
 
-app.post('/v1/vertex', authorize, upload.array('photos', MAX_PHOTOS), async (req, res) => {
-  const images = req.files || [];
-  if (!images.length) return res.status(400).json({ error: 'Attach at least one photo.' });
-  if (images.some(file => !['image/jpeg', 'image/png'].includes(file.mimetype))) {
-    return res.status(415).json({ error: 'Photos must be JPEG or PNG.' });
-  }
-  if (images.reduce((n, file) => n + file.size, 0) > 50 * 1024 * 1024) {
-    return res.status(413).json({ error: 'Total photo size exceeds 50 MB.' });
-  }
-  try {
-    res.json(await vertexCheck(images, safeJson(req.body.context)));
-  } catch (error) {
-    res.status(502).json({ provider: 'Gemini on Agent Platform', status: 'error', message: error.message || 'Vertex image analysis failed.' });
-  }
-});
-
 app.post('/v1/diagnose', authorize, upload.array('photos', MAX_PHOTOS), async (req, res) => {
   const images = req.files || [];
   if (!images.length) return res.status(400).json({ error: 'Attach at least one photo.' });
@@ -132,13 +116,12 @@ app.post('/v1/diagnose', authorize, upload.array('photos', MAX_PHOTOS), async (r
   const checks = await Promise.allSettled([
     kindwiseCheck(images),
     plantNetCheck(images),
-    yoloCheck(images),
-    vertexCheck(images, context)
+    yoloCheck(images)
   ]);
   const providers = checks.map((item, index) => {
     if (item.status === 'fulfilled') return item.value;
     return {
-      provider: ['Kindwise crop.health', 'Pl@ntNet', 'YOLO-World', 'Gemini on Agent Platform'][index],
+      provider: ['Kindwise crop.health', 'Pl@ntNet', 'YOLO-World'][index],
       status: 'error',
       message: item.reason?.message || 'Provider request failed.'
     };
@@ -147,7 +130,7 @@ app.post('/v1/diagnose', authorize, upload.array('photos', MAX_PHOTOS), async (r
     generatedAt: new Date().toISOString(),
     context: { species: context.species || '', symptoms: context.symptoms || '', pixelAnalysis: context.pixelAnalysis || null },
     providers,
-    note: 'Provider models were queried with photos. Context fields are included for the app report and are not represented as model inputs.'
+    note: 'Diagnosis proxy handles only configured crop-health and YOLO providers. Vertex image requests are made directly by the Android app.'
   });
 });
 
