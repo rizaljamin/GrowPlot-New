@@ -1,3 +1,10 @@
+## Pending — remove confirmed plant identity from Vertex and provider output
+
+- Remove the duplicated “Plant identity confirmed” cards from the Pl@ntNet/Kindwise provider section.
+- Send the selected image and optional reported symptom to Vertex, without the stored species name, so Vertex assesses the image independently.
+- Keep Pl@ntNet-to-diagnosis input as a later enhancement.
+- JavaScript syntax and wiring regression checks passed; APK packaging is deferred until the next enhancement batch.
+
 ## Build 31 — show the saved Drive API connection state
 - The Data Feed settings now checks whether the assigned Drive API folder is saved for the current signed-in email. If connected, it clears the old “No Google Drive folder is connected” notice and displays “Google Drive connected to the assigned folder.”
 - Updated the info icon help to explain login connection and the retry button.
