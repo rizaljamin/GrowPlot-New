@@ -82,7 +82,7 @@ assert.match(cv,/confirmDiagnosisEstimate.*remove\(\)/,'remove the action that f
 assert.match(java,/JSONObject speciesIdentification = identifyPlantSpeciesWithPlantNet\(selectedImages\);\s*response = identifyWithPlantNet\(selectedImages\);/,'species recognition must run before disease matching');
 assert.match(java,/v2\/identify\/all\?api-key=[\s\S]*?type=kt/,'species identification must use the current Pl@ntNet flora model');
 assert.match(html,/diagnosisProviderResultsMarkup\(plantNet,kindwise,camera,plotId\)/,'species candidate actions must keep the correct camera and plot context');
-assert.match(cv,/plantSpeciesMarkup\(report,Number\(camera\)\|\|0,String\(plotId\|\|/,'reopened species results must use the current diagnosis context');
+assert.doesNotMatch(cv,/plantSpeciesMarkup\(report,Number\(camera\)\|\|0,String\(plotId\|\|/,'saved species confirmation must not be injected into the Pl@ntNet/Kindwise results section');
 assert.match(cv,/no Pl@ntNet API key is configured on this device/,'missing species API key must be explicit');
 assert.match(cv,/openPlantNetSettings/,'species recognition must provide a direct path to API-key settings');
 assert.match(html,/Pl@ntNet key needed for species ID/,'show missing species key before diagnosis is submitted');
