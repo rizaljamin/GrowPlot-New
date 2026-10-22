@@ -27,13 +27,6 @@ export GRADLE_USER_HOME="${GRADLE_USER_HOME:-$ROOT/.gradle-cache}"
 if [[ -n "${GROWPLOT_PLANTNET_API_KEY:-}" ]]; then
   export ORG_GRADLE_PROJECT_growplotPlantNetApiKey="$GROWPLOT_PLANTNET_API_KEY"
 fi
-if [[ -n "${GROWPLOT_DIAGNOSIS_API_URL:-}" ]]; then
-  export ORG_GRADLE_PROJECT_growplotDiagnosisApiUrl="$GROWPLOT_DIAGNOSIS_API_URL"
-fi
-if [[ -n "${GROWPLOT_DIAGNOSIS_PROXY_TOKEN:-}" ]]; then
-  export ORG_GRADLE_PROJECT_growplotDiagnosisProxyToken="$GROWPLOT_DIAGNOSIS_PROXY_TOKEN"
-fi
-
 IDENTITY="$ROOT/version.properties"
 VERSION_NAME="$(sed -n 's/^versionName=//p' "$IDENTITY" | head -n1)"
 VERSION_CODE="$(sed -n 's/^versionCode=//p' "$IDENTITY" | head -n1)"
@@ -104,16 +97,8 @@ if [[ -n "${GROWPLOT_PLANTNET_API_KEY:-}" ]]; then
 else
   PLANTNET_STATE="Pl@ntNet key is absent; Pl@ntNet diagnosis is disabled in this APK."
 fi
-if [[ -n "${GROWPLOT_DIAGNOSIS_API_URL:-}" && -n "${GROWPLOT_DIAGNOSIS_PROXY_TOKEN:-}" ]]; then
-  YOLO_STATE="Diagnosis proxy configured; YOLO-World requires its backend service to be deployed and configured."
-else
-  YOLO_STATE="Diagnosis proxy is not configured; YOLO-World inference is unavailable in this APK until configured."
-fi
-if [[ -n "${GROWPLOT_DIAGNOSIS_API_URL:-}" && -n "${GROWPLOT_DIAGNOSIS_PROXY_TOKEN:-}" ]]; then
-  VERTEX_STATE="Vertex image requests use the diagnosis backend; Google credentials come from its Cloud Run runtime identity (no Vertex API key in APK)."
-else
-  VERTEX_STATE="Diagnosis backend URL or app-to-backend token is not configured in this APK."
-fi
+YOLO_STATE="YOLO-World inference requires its separate inference service and is not provided by direct Vertex calls."
+VERTEX_STATE="Direct Vertex AI request configured for project growplot, location us-central1, model gemini-3.8-flash; OAuth access is requested from the signed-in Google user when diagnosis runs (no API key or proxy token in APK)."
 ZIP_OUT="$ROOT/release/v${SAFE_VERSION}-GrowPlot-source.zip"
 rm -f "$ZIP_OUT"
 zip -qr "$ZIP_OUT" . \
