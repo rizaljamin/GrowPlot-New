@@ -1,3 +1,7 @@
+2026-10-22 | v0.7.01 Build 13 | versionCode 248 | com.growplot.farm
+Changes: The Vertex Analysis subsection now shows an animated hourglass and accessible busy status while the authenticated Vertex request is processing. The indicator is replaced when the Vertex result or error arrives.
+Validation: Vertex/OpenCV wiring regression and ARM64 packaging passed in GitHub Actions run #475; stable signing matched. Device verification pending.
+
 2026-10-22 | v0.7.01 Build 12 | versionCode 247 | com.growplot.farm
 Changes: Run Diagnosis now completes the OpenCV HSV analysis first, then submits the same readable photo to the authenticated Firebase Vertex callable and displays a pending, success, or failure status with the returned visual assessment. No Vertex API key is embedded and the photo is not persisted by the app.
 Validation: Source JavaScript regression and syntax checks passed before packaging. ARM64 build and Android device verification pending.
