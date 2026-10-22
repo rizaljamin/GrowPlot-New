@@ -42,14 +42,14 @@ assert.match(html,/await engine\.analyze\(camera\)/,'Run Diagnosis must await th
 assert.match(cv,/This OpenCV subsection is limited to HSV colour output/,'keep YOLO out of the requested HSV-only OpenCV subsection');
 assert.match(cv,/window\.GrowPlotCV=\{analyze:localAnalyze/,'Run Diagnosis must always execute the local HSV stage first');
 assert.match(cv,/480\/Math\.max\(img\.naturalWidth,img\.naturalHeight\)/,'local analysis should downsample photos before running connected-component CV');
-assert.match(cv,/const pixels=ctx.getImageData\\(0,0,w,h\\)\\.data,color=window\\.GrowPlotHSV\\.analyzeRgba\\(pixels,w,h\\),labels=color\\.labels/,'local HSV output should reuse the classifier results for the image');
-assert.match(cv,/const mask=document\\.createElement\\('canvas'\\)/,'local analysis must render the HSV classifications as a visible mask');
-assert.match(cv,/if\\(k===1\\)\\{out\\[p\\]=34;out\\[p\\+1\\]=205;out\\[p\\+2\\]=94\\}/,'HSV mask must render green-classified pixels');
-assert.match(cv,/else if\\(k===2\\)\\{out\\[p\\]=255;out\\[p\\+1\\]=213;out\\[p\\+2\\]=55\\}/,'HSV mask must render yellow-classified pixels');
-assert.match(cv,/else if\\(k===3\\)\\{out\\[p\\]=169;out\\[p\\+1\\]=103;out\\[p\\+2\\]=57\\}/,'HSV mask must render brown-classified pixels');
-assert.match(cv,/mask\\.toDataURL\\('image\\/png'\\)/,'the diagnosis output must show the HSV mask, not only compute its metrics');
+assert.ok(cv.includes('const pixels=ctx.getImageData(0,0,w,h).data,color=window.GrowPlotHSV.analyzeRgba(pixels,w,h),labels=color.labels'),'local HSV output should reuse the classifier results for the image');
+assert.ok(cv.includes("const mask=document.createElement('canvas')"),'local analysis must render the HSV classifications as a visible mask');
+assert.ok(cv.includes('if(k===1){out[p]=34;out[p+1]=205;out[p+2]=94}'),'HSV mask must render green-classified pixels');
+assert.ok(cv.includes('else if(k===2){out[p]=255;out[p+1]=213;out[p+2]=55}'),'HSV mask must render yellow-classified pixels');
+assert.ok(cv.includes('else if(k===3){out[p]=169;out[p+1]=103;out[p+2]=57}'),'HSV mask must render brown-classified pixels');
+assert.ok(cv.includes("mask.toDataURL('image/png')"),'the diagnosis output must show the HSV mask, not only compute its metrics');
 assert.match(cv,/Combined pixel share across/,'the HSV result should show combined yellow, green and brown pixel percentages');
-assert.match(cv,/OpenCV analysis[\\s\\S]*?Vertex Analysis[\\s\\S]*?Pl@ntNet \\/ Kindwise Analysis/,'diagnosis results must be split into three provider/technique subsections');
+assert.ok(cv.includes("make('OpenCV analysis'")&&cv.includes("make('Vertex Analysis'")&&cv.includes("make('Pl@ntNet / Kindwise Analysis'"),'diagnosis results must be split into three provider/technique subsections');
 assert.match(cv,/HSV image and colour-pixel analysis/,'the OpenCV subsection should focus on the HSV image and pixel colour analysis');
 
 
