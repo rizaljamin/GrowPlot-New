@@ -11,7 +11,9 @@ const build = fs.readFileSync('tools/build-apk.sh', 'utf8');
 assert.match(index, /await engine\.runYolo\(camera\)/,
   'Run Diagnosis must trigger YOLO analysis automatically');
 assert.match(index, /setGrowPlotDiagnosisProgress\(camera,'yolo'/,
-  'Run Diagnosis must visibly show the YOLO stage and result state');
+  'Run Diagnosis must track the YOLO request status');
+assert.doesNotMatch(index, /Analysis stages|growPlotDiagnosisStages|diagnosis-hourglass/,
+  'Run Diagnosis must not show the generic six-stage analysis card');
 assert.match(cv, /getDiagnosisApiConfig\(\)/,
   'YOLO analysis must use the configured diagnosis proxy');
 assert.match(cv, /Authorization:'Bearer '\+token/,
