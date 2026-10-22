@@ -58,9 +58,9 @@ assert.match(native,/mask\.setTo\(new Scalar\(169,103,57\),bm\)/,'OpenCV mask mu
 assert.match(cv,/src\('mask'\)/,'the diagnosis output must show the HSV mask, not only compute its metrics');
 assert.match(cv,/const item=findPhoto\(camera\)/,'OpenCV HSV should analyze one identified latest photo for the selected CCTV');
 assert.match(cv,/HSV photo and channels/,'the result should display the HSV photo and its channels');
-assert.match(cv,/channelImage\(color\.hueChannel,w,h\)/,'the result should render the hue channel');
-assert.match(cv,/channelImage\(color\.saturationChannel,w,h\)/,'the result should render the saturation channel');
-assert.match(cv,/channelImage\(color\.valueChannel,w,h\)/,'the result should render the value channel');
+assert.match(cv,/src\('hue'\)/,'the result should render the hue channel');
+assert.match(cv,/src\('saturation'\)/,'the result should render the saturation channel');
+assert.match(cv,/src\('value'\)/,'the result should render the value channel');
 assert.match(cv,/report\.yellowPixels/,'the result should show yellow pixel counts');
 assert.match(cv,/report\.greenPixels/,'the result should show green pixel counts');
 assert.match(cv,/report\.brownPixels/,'the result should show brown pixel counts');
