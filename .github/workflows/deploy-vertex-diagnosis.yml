@@ -29,6 +29,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Show authenticated deploy principal
+        run: |
+          node -e "const fs=require('fs'); const c=JSON.parse(fs.readFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS,'utf8')); console.log('Authenticated deploy principal:', c.client_email || '(not available)')"
       - name: Install and check Firebase function
         working-directory: functions
         run: |
