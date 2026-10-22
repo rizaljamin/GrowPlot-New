@@ -25,17 +25,18 @@ android {
     }
 
     buildFeatures { buildConfig true }
-    // Configure at build time: -PgrowplotAccountApiUrl=https://your-account-service.example
-    defaultConfig { buildConfigField 'String', 'ACCOUNT_API_URL', buildConfigLiteral(project.findProperty('growplotAccountApiUrl') ?: '') }
+    // Vertex's regional API host is derived from project/location at runtime; these are identifiers, not secrets.
+    defaultConfig {
+        buildConfigField 'String', 'ACCOUNT_API_URL', buildConfigLiteral(project.findProperty('growplotAccountApiUrl') ?: '')
+        buildConfigField 'String', 'VERTEX_PROJECT_ID', buildConfigLiteral(project.findProperty('growplotVertexProjectId') ?: 'growplot')
+        buildConfigField 'String', 'VERTEX_LOCATION', buildConfigLiteral(project.findProperty('growplotVertexLocation') ?: 'us-central1')
+        buildConfigField 'String', 'VERTEX_MODEL_ID', buildConfigLiteral(project.findProperty('growplotVertexModelId') ?: 'gemini-3.8-flash')
+    }
     buildTypes {
         debug {
-            buildConfigField 'String', 'DIAGNOSIS_API_URL', buildConfigLiteral(project.findProperty('growplotDiagnosisApiUrl') ?: '')
-            buildConfigField 'String', 'DIAGNOSIS_PROXY_TOKEN', buildConfigLiteral(project.findProperty('growplotDiagnosisProxyToken') ?: '')
             buildConfigField 'String', 'PLANTNET_API_KEY', buildConfigLiteral(project.findProperty('growplotPlantNetApiKey') ?: '')
         }
         release {
-            buildConfigField 'String', 'DIAGNOSIS_API_URL', buildConfigLiteral(project.findProperty('growplotDiagnosisApiUrl') ?: '')
-            buildConfigField 'String', 'DIAGNOSIS_PROXY_TOKEN', buildConfigLiteral(project.findProperty('growplotDiagnosisProxyToken') ?: '')
             buildConfigField 'String', 'PLANTNET_API_KEY', buildConfigLiteral(project.findProperty('growplotPlantNetApiKey') ?: '')
         }
     }
