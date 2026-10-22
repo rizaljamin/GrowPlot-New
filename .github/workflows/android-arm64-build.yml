@@ -81,6 +81,7 @@ jobs:
           GROWPLOT_PLANTNET_API_KEY: ${{ secrets.GROWPLOT_PLANTNET_API_KEY }}
           GROWPLOT_DIAGNOSIS_API_URL: ${{ secrets.GROWPLOT_DIAGNOSIS_API_URL }}
           GROWPLOT_DIAGNOSIS_PROXY_TOKEN: ${{ secrets.GROWPLOT_DIAGNOSIS_PROXY_TOKEN }}
+          GROWPLOT_VERTEX_API_KEY: ${{ secrets.GROWPLOT_VERTEX_API_KEY }}
         run: |
           chmod +x gradlew tools/*.sh
           ./tools/build-apk.sh
