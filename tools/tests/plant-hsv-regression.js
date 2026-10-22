@@ -42,6 +42,12 @@ assert.match(cv,/No YOLO model is packaged in this build/,'do not claim YOLO inf
 assert.match(cv,/window\.GrowPlotCV=\{analyze:localAnalyze/,'Run Diagnosis must always execute the local HSV stage first');
 assert.match(cv,/480\/Math\.max\(img\.naturalWidth,img\.naturalHeight\)/,'local analysis should downsample photos before running connected-component CV');
 assert.match(cv,/const color=window\.GrowPlotHSV\.analyzeRgba\(pixels,w,h\),labels=color\.labels/,'connected components should reuse HSV labels instead of classifying each pixel again');
+assert.match(cv,/const hsvMask=document\.createElement\('canvas'\)/,'local analysis must render the HSV classifications as a visible mask');
+assert.match(cv,/kind===1\).*?maskPixels\[p\+1\]=205/s,'HSV mask must render green-classified pixels');
+assert.match(cv,/kind===2\).*?maskPixels\[p\+1\]=213/s,'HSV mask must render yellow-classified pixels');
+assert.match(cv,/kind===3\).*?maskPixels\[p\+1\]=103/s,'HSV mask must render brown-classified pixels');
+assert.match(cv,/hsvMask\.toDataURL\('image\/png'\)/,'the diagnosis output must show the HSV mask, not only compute its metrics');
+
 assert.match(cv,/GrowPlotHSV\.connectedComponents\(labels,w,h,minArea,12\)/,'connected foliage regions should use the tested, allocation-bounded CV routine');
 assert.match(cv,/openCVAnalysisButton.*remove\(\)/,'remove the redundant manual CV action from diagnosis');
 assert.match(java,/v2\/identify\/all\?api-key=/,'Run Diagnosis must call Pl@ntNet image-based species identification');
