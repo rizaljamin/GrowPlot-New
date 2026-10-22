@@ -1,8 +1,12 @@
-# GrowPlot — v0.7.00 Build 31
+# GrowPlot — v0.7.01 Build 03
 
 GrowPlot is an Android farm-management application with CCTV monitoring, Google Drive image feeds, A.I Plant Health, diagnosis workflows and plot management.
 
-**Current source version:** v0.7.00 Build 31 (`versionCode=235`, Android package `com.growplot.farm`). This identity is recorded in `version.properties`. A version number in source does not by itself confirm that a matching APK has been built; check the GitHub Actions run and its build manifest before distributing an APK.
+**Current source version:** v0.7.01 Build 03 (`versionCode=238`, Android package `com.growplot.farm`). This identity is recorded in `version.properties`. A version number in source does not by itself confirm that a matching APK has been built; check the GitHub Actions run and its build manifest before distributing an APK.
+
+## Vertex image assessment
+
+Build 03 sends selected diagnosis photos directly from the Android app to the standard Vertex AI project endpoint using the `GROWPLOT_VERTEX_API_KEY` GitHub Actions secret. For this endpoint, use a Google Cloud authorization API key bound to `growplot-vertex-api` and restricted to `aiplatform.googleapis.com`; an unbound standard key does not provide the service-account identity required by IAM. The key is packaged into the APK, so restrict it and treat this as a single-user test configuration. YOLO remains separate and still requires its configured inference service.
 
 ## Verified app baseline
 
