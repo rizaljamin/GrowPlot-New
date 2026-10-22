@@ -49,7 +49,7 @@ assert.doesNotMatch(html,/screenDiagnosisImage\(sources\[i\]\.url\)/,'Run Diagno
 assert.match(html,/await engine\.analyze\(camera\)/,'Run Diagnosis must await the local image screen before continuing');
 assert.match(cv,/This OpenCV subsection is limited to HSV colour output/,'keep YOLO out of the requested HSV-only OpenCV subsection');
 assert.match(cv,/window\.GrowPlotCV=\{analyze:localAnalyze/,'Run Diagnosis must always execute the local HSV stage first');
-assert.match(cv,/480\/Math\.max\(img\.naturalWidth,img\.naturalHeight\)/,'local analysis should downsample photos before running connected-component CV');
+assert.match(cv,/480\/Math\.max\(image\.naturalWidth,image\.naturalHeight\)/,'OpenCV input should be downsampled before native image processing');
 assert.match(cv,/window\.GrowPlotOpenCV\.analyzeImage\(pixels\)/,'Section 1 must send the sampled photo pixels to the Android OpenCV bridge');
 assert.match(cv,/src\('mask'\)/,'the diagnosis output must show the native OpenCV colour mask');
 assert.match(native,/mask\.setTo\(new Scalar\(34,205,94\),gm\)/,'OpenCV mask must render green-classified pixels');
