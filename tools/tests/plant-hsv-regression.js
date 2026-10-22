@@ -94,7 +94,7 @@ assert.doesNotMatch(html,/diagnosis-hourglass|RGB → HSV colour screening|Analy
 assert.match(html,/diagnosisVertexMarkup\(vertexReport\)/,'the Run diagnosis section must render the saved Vertex image output');
 assert.match(html,/window\.onVertexDiagnosis=function/,'Vertex output must be rendered when the Android callback returns');
 assert.match(java,/requestVertexImageAnalysis\(selectedImages, species, symptom, pixelMetrics\)/,'Run diagnosis must send the selected image set to Vertex');
-assert.match(java,/VERTEX_API_SCOPE = "https:\/\/www\.googleapis\.com\/auth\/cloud-platform"/,'Vertex must use the signed-in user's Google OAuth authorization');
+assert.match(java,/VERTEX_API_SCOPE = "https:\/\/www\.googleapis\.com\/auth\/cloud-platform"/,"Vertex must use the signed-in user's Google OAuth authorization");
 assert.match(java,/Identity\.getAuthorizationClient\(this\)\.authorize/,'request Vertex authorization through Android Google Identity when diagnosis runs');
 assert.match(java,/https:\/\/" \+ location \+ "-aiplatform\.googleapis\.com/,'derive the Vertex regional endpoint from the configured location');
 assert.match(java,/\/publishers\/google\/models\/.*:generateContent/,'send the photo request directly to Vertex generateContent');
