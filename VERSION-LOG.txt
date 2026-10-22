@@ -1,3 +1,7 @@
+2026-10-22 | v0.7.01 Build 02 | versionCode 237 | com.growplot.farm
+Changes: Run diagnosis sends its selected photos to a dedicated, authenticated Vertex image endpoint using Gemini 3.8 Flash. Replaces the six-item generic stage card with a Vertex result panel showing the model summary, visible findings, possible causes, next checks, and limitations; shows an explicit not-configured or connection error when no result arrives. Removes the separate CV analysis button from the diagnosis section.
+Validation: Plant HSV, YOLO, account, farm, data-feed, and timeline regression checks pass. Vertex backend unit tests and JavaScript syntax checks pass. APK build and tablet verification pending.
+
 2026-10-22 | v0.7.01 Build 01 | versionCode 236 | com.growplot.farm
 Changes: Run Diagnosis now renders the actual local HSV colour mask from the same pixel labels used for its green/yellow/brown metrics. The mask uses distinct green, yellow, and brown colors with unclassified pixels shown dark, and appears before the connected-region overview. Added regression checks for the generated mask and its legend. HSV thresholds remain broad image-color cues and may classify background, pot, or soil pixels; this is not a health score or disease diagnosis.
 Validation: Plant HSV regression and all source checks in GitHub Actions run #414 passed. ARM64 APK generated successfully with the stable signing certificate. APK SHA-256: `88445bb397763d0039ef6c77e3413d0b42d3822ed6395b67582a549adc58d47b`. Android tablet visual check pending.
