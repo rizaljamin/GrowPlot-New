@@ -3378,6 +3378,11 @@ public class MainActivity extends Activity {
             return feedLocationLabel(id);
         }
 
+        @JavascriptInterface public boolean hasDriveApiFeedFolder(String plotId) {
+            String folderId = driveApiFolderForSignedInUser(safePlotId(plotId));
+            return folderId != null && !folderId.trim().isEmpty();
+        }
+
         @JavascriptInterface public String getExpectedFeedPath(String plotId, String folderName) {
             try {
                 return "Google Drive: /Projects/GrowPlot/Image_Feed/" + signedInEmailFolderName()
