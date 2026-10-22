@@ -267,7 +267,7 @@ async function runDiagnosisScreen(camera){
  if(feedUrl&&!sources.some(item=>item.url===feedUrl))sources.push({url:feedUrl,kind:'photo',fileName:'Latest Image_Feed snapshot.jpg',feedSnapshot:true});
  if(!sources.length){if(status)status.textContent='Add a close-up photo or connect this plot’s Image_Feed first; video scans run automatically when you play a saved clip.';return}
  if(button)button.disabled=true;
- const progressKey=String(plotId||'')+':cctv'+Number(camera),progressStore=window.__growPlotDiagnosisProgress||(window.__growPlotDiagnosisProgress={});progressStore[progressKey]={states:{}};const vertexTarget=document.getElementById('diagnosisVertexAnalysis');if(vertexTarget)vertexTarget.innerHTML=diagnosisVertexMarkup({status:'pending',message:'Sending selected photos to Vertex AI…'});
+ const progressKey=String(plotId||'')+':cctv'+Number(camera),progressStore=window.__growPlotDiagnosisProgress||(window.__growPlotDiagnosisProgress={});progressStore[progressKey]={states:{}};const vertexTarget=document.getElementById('diagnosisVertexAnalysis'),vertexConfigured=!!diagnosisApiConfig().vertexApiConfigured;if(vertexTarget)vertexTarget.innerHTML=diagnosisVertexMarkup(vertexConfigured?{status:'pending',message:'Preparing local photo checks; the Vertex request starts after HSV/CV and YOLO finish.'}:{status:'not_configured',message:'Vertex API key is not included in this APK. Add the GROWPLOT_VERTEX_API_KEY GitHub Actions secret and rebuild.'});
  let hsvMetrics=[],yoloResult={status:'not_run'};
  try{
   if(status)status.textContent='Loading the original photograph…';
