@@ -39,17 +39,20 @@ assert.match(java,/getAssets\(\)\.open\("images\/" \+ name\)/,'baseline-photo ro
 assert.match(cv,/window\.screenDiagnosisImage=\(url\)=>ensureHSV\(\)\.then\(\(\)=>screenUrl\(url\)\)/,'Run Diagnosis image sampling must use HSV');
 assert.match(html,/screenDiagnosisImage\(sources\[i\]\.url\)/,'Run Diagnosis must sample each selected photo');
 assert.match(html,/await engine\.analyze\(camera\)/,'Run Diagnosis must await the local image screen before continuing');
-assert.match(cv,/No YOLO model is packaged in this build/,'do not claim YOLO inference without a packaged model');
+assert.match(cv,/This OpenCV subsection is limited to HSV colour output/,'keep YOLO out of the requested HSV-only OpenCV subsection');
 assert.match(cv,/window\.GrowPlotCV=\{analyze:localAnalyze/,'Run Diagnosis must always execute the local HSV stage first');
 assert.match(cv,/480\/Math\.max\(img\.naturalWidth,img\.naturalHeight\)/,'local analysis should downsample photos before running connected-component CV');
-assert.match(cv,/const color=window\.GrowPlotHSV\.analyzeRgba\(pixels,w,h\),labels=color\.labels/,'connected components should reuse HSV labels instead of classifying each pixel again');
-assert.match(cv,/const hsvMask=document\.createElement\('canvas'\)/,'local analysis must render the HSV classifications as a visible mask');
-assert.match(cv,/kind===1\).*?maskPixels\[p\+1\]=205/s,'HSV mask must render green-classified pixels');
-assert.match(cv,/kind===2\).*?maskPixels\[p\+1\]=213/s,'HSV mask must render yellow-classified pixels');
-assert.match(cv,/kind===3\).*?maskPixels\[p\+1\]=103/s,'HSV mask must render brown-classified pixels');
-assert.match(cv,/hsvMask\.toDataURL\('image\/png'\)/,'the diagnosis output must show the HSV mask, not only compute its metrics');
+assert.match(cv,/const pixels=ctx.getImageData\\(0,0,w,h\\)\\.data,color=window\\.GrowPlotHSV\\.analyzeRgba\\(pixels,w,h\\),labels=color\\.labels/,'local HSV output should reuse the classifier results for the image');
+assert.match(cv,/const mask=document\\.createElement\\('canvas'\\)/,'local analysis must render the HSV classifications as a visible mask');
+assert.match(cv,/if\\(k===1\\)\\{out\\[p\\]=34;out\\[p\\+1\\]=205;out\\[p\\+2\\]=94\\}/,'HSV mask must render green-classified pixels');
+assert.match(cv,/else if\\(k===2\\)\\{out\\[p\\]=255;out\\[p\\+1\\]=213;out\\[p\\+2\\]=55\\}/,'HSV mask must render yellow-classified pixels');
+assert.match(cv,/else if\\(k===3\\)\\{out\\[p\\]=169;out\\[p\\+1\\]=103;out\\[p\\+2\\]=57\\}/,'HSV mask must render brown-classified pixels');
+assert.match(cv,/mask\\.toDataURL\\('image\\/png'\\)/,'the diagnosis output must show the HSV mask, not only compute its metrics');
+assert.match(cv,/Combined pixel share across/,'the HSV result should show combined yellow, green and brown pixel percentages');
+assert.match(cv,/OpenCV analysis[\\s\\S]*?Vertex Analysis[\\s\\S]*?Pl@ntNet \\/ Kindwise Analysis/,'diagnosis results must be split into three provider/technique subsections');
+assert.match(cv,/HSV image and colour-pixel analysis/,'the OpenCV subsection should focus on the HSV image and pixel colour analysis');
 
-assert.match(cv,/GrowPlotHSV\.connectedComponents\(labels,w,h,minArea,12\)/,'connected foliage regions should use the tested, allocation-bounded CV routine');
+
 assert.match(cv,/openCVAnalysisButton.*remove\(\)/,'remove the redundant manual CV action from diagnosis');
 assert.match(java,/v2\/identify\/all\?api-key=/,'Run Diagnosis must call Pl@ntNet image-based species identification');
 assert.match(java,/response\.put\("speciesIdentification", speciesIdentification\)/,'include the species identification response with the diagnosis result');

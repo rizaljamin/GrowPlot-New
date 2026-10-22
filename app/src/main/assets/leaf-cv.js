@@ -17,6 +17,26 @@
   let host=currentPanel();if(!host)return null;let el=document.getElementById('cvLeafPanel');if(!el){el=document.createElement('section');el.className='cv-panel';el.id='cvLeafPanel';const target=host.querySelector('#diagnosisDescription');if(target)target.insertAdjacentElement('beforebegin',el);else host.appendChild(el)}el.innerHTML='<h4>Plant image analysis · Section '+String(camera).padStart(2,'0')+'</h4><p>Run Diagnosis screens HSV colour cues on this device and attempts YOLO-World detection of broad plant parts through the diagnosis service. Plant-part boxes are not species identification or disease confirmation.</p><p id="cvProgress" role="status"></p><div id="cvResult"></div>';return el}
  function feedPhoto(camera){const card=typeof cameraRoot!=='undefined'&&cameraRoot.children?cameraRoot.children[Number(camera)-1]:null,url=card?.dataset?.latestPhotoUrl||('https://appassets.androidplatform.net/assets/images/'+encodeURIComponent(String(window.selectedPlotId||''))+'/cctv_'+String(camera).padStart(2,'0')+'.jpg?refresh='+Date.now());return {url,kind:'photo',fileName:'Latest Image_Feed snapshot.jpg',feedSnapshot:true}}
  function findPhoto(camera){try{const photos=(typeof diagnosisMediaFor==='function'?diagnosisMediaFor(camera):[]).filter(x=>x.kind==='photo'&&x.url);let latest=photos.slice(-1)[0]||null,best=-1;photos.forEach(item=>{const time=Date.parse(item.capturedAt||item.timestamp||item.date||'');if(Number.isFinite(time)&&time>best){latest=item;best=time}});return latest||feedPhoto(camera)}catch(e){return feedPhoto(camera)}}
+ function installDiagnosisSubsections(){
+  const style='.diagnosis-results-grid{display:grid;gap:10px;margin-top:10px}.diagnosis-result-subsection{min-width:0;padding:11px;border:1px solid #cfe0d2;border-radius:10px;background:#f8fbf8}.diagnosis-result-subsection>h4{margin:0 0 8px;color:#174a35;font-size:14px}.diagnosis-result-subsection .diagnosis-analysis{margin:6px 0}.diagnosis-result-subsection .diagnosis-analysis h4{display:none}.cv-hsv-card{margin:8px 0;padding:8px;border:1px solid #d8e8dc;border-radius:8px;background:#fff}.cv-hsv-card>b{display:block;margin-bottom:6px;color:#355243;font-size:11px}.cv-hsv-card .cv-preview{max-height:280px}.cv-hsv-total{margin-top:10px;padding:8px;border-radius:8px;background:#fff}.cv-hsv-total> b{font-size:11px;color:#174a35}.cv-hsv-card .cv-metrics,.cv-hsv-total .cv-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}.diagnosis-result-status{font-size:10px;color:#617166;line-height:1.4}';
+  if(!document.getElementById('growplotDiagnosisSubsectionStyle')){const s=document.createElement('style');s.id='growplotDiagnosisSubsectionStyle';s.textContent=style;document.head.appendChild(s)}
+  const modal=document.getElementById('diagnosisModal'),analysis=modal&&modal.querySelector('#diagnosisAnalysis');if(!analysis)return;
+  if(analysis.dataset.subsectionsReady==='1')return;
+  const description=analysis.querySelector('#diagnosisDescription'),vertex=analysis.querySelector('#diagnosisVertexAnalysis'),providers=analysis.querySelector('#diagnosisProviderAnalysis'),inline=analysis.querySelector('#growplotInlineCV');
+  const section=document.createElement('div');section.className='diagnosis-results-grid';section.id='diagnosisResultsGrid';
+  const make=(title,id)=>{const box=document.createElement('section');box.className='diagnosis-result-subsection';box.setAttribute('aria-live','polite');const h=document.createElement('h4');h.textContent=title;box.appendChild(h);const body=document.createElement('div');body.id=id;box.appendChild(body);return {box,body}};
+  const cv=make('OpenCV analysis','opencvAnalysisOutput'),vx=make('Vertex Analysis','vertexAnalysisOutput'),pk=make('Pl@ntNet / Kindwise Analysis','plantNetKindwiseOutput');
+  if(inline){inline.style.display='block';inline.style.margin='0';inline.style.padding='0';const original=inline.querySelector('section');if(original)original.remove();const cvSection=inline.querySelector('section');if(cvSection){const heading=cvSection.querySelector('h4');if(heading)heading.textContent='HSV image and colour-pixel analysis';cvSection.style.border='0';cvSection.style.padding='0';cvSection.style.background='transparent';cv.body.appendChild(inline)}}
+  if(description){description.hidden=true;description.setAttribute('aria-hidden','true');cv.body.appendChild(description)}
+  if(vertex){vertex.id='diagnosisVertexAnalysis';vx.body.appendChild(vertex)}
+  if(providers){providers.id='diagnosisProviderAnalysis';pk.body.appendChild(providers)}
+  section.append(cv.box,vx.box,pk.box);analysis.replaceWith(section);section.dataset.subsectionsReady='1';
+  const step=section.closest('.diagnosis-step');if(step){const heading=step.querySelector('.diagnosis-section-heading h4');if(heading)heading.textContent='3. Diagnosis results';const intro=step.querySelector('.diagnosis-section-heading')?.nextElementSibling;if(intro&&intro.tagName==='P')intro.textContent='The results are separated by method. OpenCV displays the HSV colour mask and yellow, green, and brown pixel percentages.';step.querySelectorAll('.diagnosis-analysis-note').forEach(note=>{if(note.textContent.includes('Photo screening'))note.textContent='Run diagnosis to populate the three result panels below.'})}
+  if(window.GrowPlotCV)window.GrowPlotCV.runYolo=async()=>({status:'not_requested',message:'This OpenCV subsection is limited to HSV colour output.'});
+ }
+ const originalRender=window.renderDiagnosisModal;
+ if(typeof originalRender==='function'&&!originalRender.__growplotSubsections){const wrapped=function(camera){const result=originalRender.apply(this,arguments);installDiagnosisSubsections();return result};wrapped.__growplotSubsections=true;window.renderDiagnosisModal=wrapped}
+
  function load(url){return new Promise((resolve,reject)=>{const im=new Image();im.onload=()=>resolve(im);im.onerror=()=>reject(Error('Image unavailable. Select or capture a local close-up.'));im.src=url})}
  function ensureHSV(){if(window.GrowPlotHSV)return Promise.resolve(window.GrowPlotHSV);if(window.__growPlotHSVLoading)return window.__growPlotHSVLoading;window.__growPlotHSVLoading=new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='plant-hsv.js';script.onload=()=>window.GrowPlotHSV?resolve(window.GrowPlotHSV):reject(Error('plant-hsv.js loaded without initializing GrowPlotHSV'));script.onerror=()=>reject(Error('Unable to load local HSV analysis'));document.head.appendChild(script)}).catch(error=>{window.__growPlotHSVLoading=null;throw error});return window.__growPlotHSVLoading}
  function simplifyDiagnosisUi(){const modal=document.getElementById('diagnosisModal');if(!modal)return;modal.querySelector('#openCVAnalysisButton')?.remove();const identity=modal.querySelector('.species-confirm'),identityStatus=identity&&identity.querySelector('p');if(identityStatus&&identityStatus.textContent.includes('Visual estimate')){identityStatus.textContent='Preset estimate for this CCTV section only; it is not based on this photo. Run Diagnosis to get Pl@ntNet image-based species matches.';identity.querySelector('button[onclick^="confirmDiagnosisEstimate"]')?.remove()}modal.querySelectorAll('.diagnosis-analysis-note').forEach(note=>{if(note.textContent.includes('Photo screening')||note.textContent.includes('colour'))note.textContent='Run Diagnosis performs on-device HSV colour screening, attempts YOLO-World plant-part detection through the configured service, and asks Pl@ntNet to identify species and check disease candidates. YOLO locates broad plant parts; it does not diagnose disease.'});const estimate=modal.querySelector('.species-confirm');if(estimate){const status=estimate.querySelector('p');if(status&&status.textContent.includes('Visual estimate'))status.innerHTML='This is a preset visual estimate for the CCTV section, not an image-based species identification. Run Diagnosis to compare the submitted photos with Pl@ntNet.';estimate.querySelector('button[onclick^="confirmDiagnosisEstimate"]')?.remove()}const headings=modal.querySelectorAll('h4');headings.forEach(h=>{if(h.textContent.trim()==='2. CV diagnosis')h.textContent='2. Plant image analysis'})}
@@ -25,63 +45,34 @@
  async function analyze(camera){
   await ensureHSV();simplifyDiagnosisUi();
   const root=panel(camera);if(!root)return;
-  const status=root.querySelector('#cvProgress'),result=root.querySelector('#cvResult'),item=findPhoto(camera);
+  const status=root.querySelector('#cvProgress'),result=root.querySelector('#cvResult');
   if(!result)return;
   result.innerHTML='';
-  if(!item){if(status)status.textContent='No photo for this section. Capture or select a close-up first.';return}
+  const media=[];
+  try{(typeof diagnosisMediaFor==='function'?diagnosisMediaFor(camera):[]).filter(x=>x.kind==='photo'&&x.url).forEach(x=>media.push(x))}catch(e){}
+  const feed=feedPhoto(camera);if(feed.url&&!media.some(x=>x.url===feed.url))media.push(feed);
+  if(!media.length){if(status)status.textContent='No photo for this section. Capture or select a close-up first.';return}
   try{
-   if(status)status.textContent='Loading the latest selected photo…';
-   let img,source=item;try{img=await load(item.url)}catch(firstError){const fallback=feedPhoto(camera);if(item.feedSnapshot||fallback.url===item.url)throw firstError;img=await load(fallback.url);source=fallback}
-   const scale=Math.min(1,480/Math.max(img.naturalWidth,img.naturalHeight));
-   const w=Math.max(1,Math.round(img.naturalWidth*scale)),h=Math.max(1,Math.round(img.naturalHeight*scale));
-   const canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;
-   const ctx=canvas.getContext('2d',{willReadFrequently:true});
-   if(!ctx)throw Error('Canvas image processing is unavailable');
-   ctx.drawImage(img,0,0,w,h);
-   if(status)status.textContent='Measuring HSV colour, brightness, contrast and edges…';
-   const pixels=ctx.getImageData(0,0,w,h).data;
-   const color=window.GrowPlotHSV.analyzeRgba(pixels,w,h),labels=color.labels;
-   const total=w*h,minArea=Math.max(24,Math.round(total*.0015));
-   const regions=window.GrowPlotHSV.connectedComponents(labels,w,h,minArea,12);
-   const top=regions,percent=n=>Math.round(n*100/(total||1));
-   const report={plotId:String(window.selectedPlotId||''),camera,at:new Date().toISOString(),source:source.fileName||'',
-    imageWidth:img.naturalWidth,imageHeight:img.naturalHeight,analysisWidth:w,analysisHeight:h,
-    candidateRegions:top.length,greenPercent:color.greenPercent,yellowPercent:color.yellowPercent,
-    brownPercent:color.brownPercent,otherPercent:color.otherPercent,
-    meanBrightness:color.meanBrightness,brightnessContrast:color.brightnessContrast,
-    meanSaturationPercent:color.meanSaturationPercent,edgeDensityPercent:color.edgeDensityPercent,
-    method:'Local CV: HSV colour segmentation, connected regions, grayscale brightness/contrast and edge density',
-    limitations:'Generic HSV thresholds are sensitive to background, shadows, lighting and camera white balance. Connected colour regions are only foliage candidates, not individual leaves. Basic CV measurements are not a plant-health score or a disease diagnosis. No YOLO model is packaged in this build.'};
-   try{localStorage.setItem('growplotLeafCv:'+report.plotId+':cctv'+camera,JSON.stringify(report))}catch(e){}
-   const annotated=document.createElement('canvas');annotated.width=w;annotated.height=h;
-   const annotatedCtx=annotated.getContext('2d');annotatedCtx.drawImage(canvas,0,0);
-   const hsvMask=document.createElement('canvas');hsvMask.width=w;hsvMask.height=h;
-   const maskCtx=hsvMask.getContext('2d'),maskImage=maskCtx.createImageData(w,h),maskPixels=maskImage.data;
-   for(let i=0;i<labels.length;i++){
-    const p=i*4,kind=labels[i];
-    if(kind===1){maskPixels[p]=34;maskPixels[p+1]=205;maskPixels[p+2]=94}
-    else if(kind===2){maskPixels[p]=255;maskPixels[p+1]=213;maskPixels[p+2]=55}
-    else if(kind===3){maskPixels[p]=169;maskPixels[p+1]=103;maskPixels[p+2]=57}
-    else{maskPixels[p]=24;maskPixels[p+1]=35;maskPixels[p+2]=29}
-    maskPixels[p+3]=255;
-   }
-   maskCtx.putImageData(maskImage,0,0);
-   annotatedCtx.lineWidth=Math.max(1,Math.round(w/240));annotatedCtx.font='bold '+Math.max(12,Math.round(w/34))+'px sans-serif';
-   top.forEach((r,i)=>{annotatedCtx.strokeStyle='#f9e55c';annotatedCtx.strokeRect(r.xmin,r.ymin,r.xmax-r.xmin+1,r.ymax-r.ymin+1);annotatedCtx.fillStyle='#103f2b';annotatedCtx.fillRect(r.xmin,r.ymin,26,22);annotatedCtx.fillStyle='#fff';annotatedCtx.fillText(String(i+1),r.xmin+7,r.ymin+17)});
+   if(status)status.textContent='Converting the selected photos to HSV and counting yellow, green and brown pixels…';
    const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-   const cards=top.map((r,i)=>{const sum=r.green+r.yellow+r.brown||1,g=Math.round(r.green*100/sum),y=Math.round(r.yellow*100/sum),b=Math.round(r.brown*100/sum);return '<article class="cv-leaf-card"><p><b>Region '+(i+1)+'</b> · '+g+'% green · '+y+'% yellow · '+b+'% brown</p><p>'+(b>=20?'Brown-like pixels prominent':y>=25?'Yellow-like pixels prominent':g>=70?'Mostly green-like pixels':'Mixed colour cues')+'</p></article>'}).join('');
-   result.innerHTML='<h4>HSV colour mask</h4><img class="cv-preview" alt="HSV mask: green, yellow and brown classified pixels; dark pixels are unclassified" src="'+hsvMask.toDataURL('image/png')+'">'+
-    '<p class="cv-note">Green, yellow and brown show pixels matched by GrowPlot HSV thresholds; dark pixels are unclassified. Background, shadows and pot/soil colours can also match.</p><div class="cv-thumbnails"><span>🟩 Green-like</span><span>🟨 Yellow-like</span><span>🟫 Brown-like</span><span>⬛ Unclassified</span></div>'+
-    '<h4>Connected-region overview</h4>'+'<img class="cv-preview" alt="Photo annotated with candidate foliage regions" src="'+annotated.toDataURL('image/jpeg',.82)+'">'+
-    '<div class="cv-metrics"><span><b>'+report.greenPercent+'%</b>HSV green</span><span><b>'+report.yellowPercent+'%</b>HSV yellow</span><span><b>'+report.brownPercent+'%</b>HSV brown</span><span><b>'+report.otherPercent+'%</b>Other</span></div>'+
-    '<h4>Basic CV measurements</h4><div class="cv-metrics"><span><b>'+report.meanBrightness+'</b>Mean brightness / 255</span><span><b>'+report.brightnessContrast+'</b>Brightness contrast</span><span><b>'+report.meanSaturationPercent+'%</b>Mean saturation</span><span><b>'+report.edgeDensityPercent+'%</b>Edge density</span></div>'+
-    '<p><b>'+top.length+' connected foliage-colour regions highlighted</b> at '+w+' × '+h+' analysis resolution. Regions can merge or split and are not a leaf count.</p>'+
-    (cards?'<div class="cv-leaf-grid">'+cards+'</div>':'<p>No large connected green/yellow/brown regions met the screening threshold. Try a closer, well-lit photo with leaves filling more of the frame.</p>')+
-    '<p><b>What these readings say:</b> brightness, contrast and edge density describe this image. HSV percentages describe image pixels classified by broad colour ranges; they do not measure plant health.</p>'+
-    '<p><b>Follow-up:</b> compare new and older leaves, inspect both sides and the growing tip, and capture the same plant again under similar light. Check moisture and growing-medium pH/EC before changing treatment.</p>'+
-    '<small class="cv-caution">'+esc(report.limitations)+'</small>';
-   if(status)status.textContent='Basic CV and HSV analysis complete · latest photo · summary saved on this device for this plot and CCTV section.';
-  }catch(e){if(status)status.textContent='Unable to analyse photo: '+(e&&e.message?e.message:'image processing error');result.innerHTML='<p class="cv-caution">Image analysis stopped. Choose a readable photo and try again.</p>'}
+   let greenPixels=0,yellowPixels=0,brownPixels=0,totalPixels=0;
+   const cards=[];
+   for(let n=0;n<media.length;n++){
+    const item=media[n],img=await load(item.url),scale=Math.min(1,480/Math.max(img.naturalWidth,img.naturalHeight));
+    const w=Math.max(1,Math.round(img.naturalWidth*scale)),h=Math.max(1,Math.round(img.naturalHeight*scale)),canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;
+    const ctx=canvas.getContext('2d',{willReadFrequently:true});if(!ctx)throw Error('Canvas image processing is unavailable');ctx.drawImage(img,0,0,w,h);
+    const pixels=ctx.getImageData(0,0,w,h).data,color=window.GrowPlotHSV.analyzeRgba(pixels,w,h),labels=color.labels;
+    greenPixels+=color.greenPixels;yellowPixels+=color.yellowPixels;brownPixels+=color.brownPixels;totalPixels+=color.totalPixels;
+    const mask=document.createElement('canvas');mask.width=w;mask.height=h;const maskCtx=mask.getContext('2d'),maskImage=maskCtx.createImageData(w,h),out=maskImage.data;
+    for(let i=0;i<labels.length;i++){const p=i*4,k=labels[i];if(k===1){out[p]=34;out[p+1]=205;out[p+2]=94}else if(k===2){out[p]=255;out[p+1]=213;out[p+2]=55}else if(k===3){out[p]=169;out[p+1]=103;out[p+2]=57}else{out[p]=24;out[p+1]=35;out[p+2]=29}out[p+3]=255}
+    maskCtx.putImageData(maskImage,0,0);
+    cards.push('<article class="cv-hsv-card"><b>'+esc(item.fileName||('Image '+(n+1)))+'</b><img class="cv-preview" alt="HSV colour mask for '+esc(item.fileName||('image '+(n+1)))+'; green, yellow, and brown pixels are highlighted" src="'+mask.toDataURL('image/png')+'"><div class="cv-metrics"><span><b>'+color.yellowPercent+'%</b>Yellow</span><span><b>'+color.greenPercent+'%</b>Green</span><span><b>'+color.brownPercent+'%</b>Brown</span></div></article>');
+   }
+   const pct=n=>totalPixels?Math.round(n*1000/totalPixels)/10:0,report={plotId:String(window.selectedPlotId||''),camera,at:new Date().toISOString(),imageCount:media.length,totalPixels,yellowPercent:pct(yellowPixels),greenPercent:pct(greenPixels),brownPercent:pct(brownPixels),method:'Local RGB-to-HSV threshold segmentation; color percentages are shares of sampled image pixels.',limitations:'HSV colour ranges are affected by background, shadows, lighting and camera white balance. These percentages describe image pixels; they are not a plant-health score or a disease diagnosis.'};
+   try{localStorage.setItem('growplotLeafCv:'+report.plotId+':cctv'+camera,JSON.stringify(report))}catch(e){}
+   result.innerHTML='<p class="cv-note">HSV mask preview: green, yellow and brown pixels are highlighted; dark pixels fall outside these colour ranges.</p>'+cards.join('')+'<div class="cv-hsv-total"><b>Combined pixel share across '+media.length+' selected photo(s)</b><div class="cv-metrics"><span><b>'+report.yellowPercent+'%</b>Yellow pixels</span><span><b>'+report.greenPercent+'%</b>Green pixels</span><span><b>'+report.brownPercent+'%</b>Brown pixels</span></div></div><small class="cv-caution">'+esc(report.limitations)+'</small>';
+   if(status)status.textContent='HSV image masks and yellow, green, and brown pixel percentages are ready.';
+  }catch(e){if(status)status.textContent='HSV analysis could not read the selected photo: '+(e&&e.message?e.message:'image processing error');result.innerHTML='<p class="cv-caution">No HSV output was produced. Select or capture a readable photo and run diagnosis again.</p>'}
  }
 
  // Explicit API: invoked by runDiagnosisScreen, not by a second click listener.
