@@ -1,8 +1,8 @@
-# GrowPlot — v0.7.01 Build 11
+# GrowPlot — v0.7.01 Build 12
 
 GrowPlot is an Android farm-management application with CCTV monitoring, Google Drive image feeds, A.I Plant Health, diagnosis workflows and plot management.
 
-**Current source version:** v0.7.01 Build 11 (`versionCode=246`, Android package `com.growplot.farm`). This identity is recorded in `version.properties`. A version number in source does not by itself confirm that a matching APK has been built; check the GitHub Actions run and its build manifest before distributing an APK.
+**Current source version:** v0.7.01 Build 12 (`versionCode=247`, Android package `com.growplot.farm`). This identity is recorded in `version.properties`. A version number in source does not by itself confirm that a matching APK has been built; check the GitHub Actions run and its build manifest before distributing an APK.
 
 ## Vertex image assessment
 
@@ -22,7 +22,7 @@ The following behavior was documented as device-verified for v0.7.00 Build 02:
 
 OpenCV uses the Build 09 HSV thresholds and grouping rules to estimate a foliage outline, draws it in magenta, and reports colour counts and percentages within that region. Build 10's separate Hue, Saturation and Value image tiles remain removed; the panel keeps the HSV-converted photo, estimated boundary, YGB mask and pixel metrics. Build 11 restores the earlier boundary settings after the wider settings produced an incorrect outline. The boundary is a colour-based approximation: soil or background may still be included, and leaves may be missed. The output is not validated plant detection, a health score, or disease diagnosis. In the Build 11 APK, Run Diagnosis stops after OpenCV. The pending Vertex wiring keeps that OpenCV output and then requests a separate image assessment from the Firebase callable.
 
-The APK build and boundary accuracy still require verification on an Android device.
+The Build 12 APK and Vertex call still require Android device verification.
 
 ## Source and release workflow
 
