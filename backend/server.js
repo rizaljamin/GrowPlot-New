@@ -103,6 +103,22 @@ app.post('/v1/yolo', authorize, upload.array('photos', MAX_PHOTOS), async (req, 
   }
 });
 
+app.post('/v1/vertex', authorize, upload.array('photos', MAX_PHOTOS), async (req, res) => {
+  const images = req.files || [];
+  if (!images.length) return res.status(400).json({ error: 'Attach at least one photo.' });
+  if (images.some(file => !['image/jpeg', 'image/png'].includes(file.mimetype))) {
+    return res.status(415).json({ error: 'Photos must be JPEG or PNG.' });
+  }
+  if (images.reduce((n, file) => n + file.size, 0) > 50 * 1024 * 1024) {
+    return res.status(413).json({ error: 'Total photo size exceeds 50 MB.' });
+  }
+  try {
+    res.json(await vertexCheck(images, safeJson(req.body.context)));
+  } catch (error) {
+    res.status(502).json({ provider: 'Gemini on Agent Platform', status: 'error', message: error.message || 'Vertex image analysis failed.' });
+  }
+});
+
 app.post('/v1/diagnose', authorize, upload.array('photos', MAX_PHOTOS), async (req, res) => {
   const images = req.files || [];
   if (!images.length) return res.status(400).json({ error: 'Attach at least one photo.' });
