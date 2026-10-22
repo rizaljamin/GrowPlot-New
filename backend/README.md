@@ -1,13 +1,12 @@
 # GrowPlot diagnosis and YOLO services
 
-The diagnosis proxy keeps provider keys server-side, accepts up to five diagnosis photos, and calls Kindwise **crop.health**, Pl@ntNet **diseases/identify**, the YOLO-World detector, and Gemini image analysis on Gemini Enterprise Agent Platform (formerly Vertex AI). YOLO-World locates broad `plant`, `leaf`, `flower`, and `fruit` regions. It is not trained to identify GrowPlot crop species or diseases. Gemini returns cautious visual findings and possible species/cause suggestions; it does not replace the separate HSV pixel calculation or YOLO detections.
+The optional diagnosis proxy accepts up to five photos and can call Kindwise **crop.health**, Pl@ntNet **diseases/identify**, and the YOLO-World detector. Vertex image analysis is called directly from the Android app using the signed-in Google user's OAuth authorization; no Vertex request passes through this proxy. YOLO-World locates broad `plant`, `leaf`, `flower`, and `fruit` regions. It is not trained to identify GrowPlot crop species or diseases.
 
 ## Configure and deploy
 
 1. Build and deploy `backend/yolo` as a separate HTTPS Cloud Run service. The model downloads its pretrained weights when the container starts. Set a long random `GROWPLOT_YOLO_SERVICE_TOKEN` and use at least 4 GiB memory; first startup can take longer while weights load.
 2. Deploy this directory as the diagnosis proxy. Set `KINDWISE_CROP_HEALTH_API_KEY`, `PLANTNET_API_KEY`, `GROWPLOT_PROXY_TOKEN`, `GROWPLOT_YOLO_SERVICE_URL` (the YOLO service base URL), and the same `GROWPLOT_YOLO_SERVICE_TOKEN`. Keep provider keys and service tokens on the server only.
-3. For Gemini image analysis, assign the user-managed service account `growplot-vertex-api@growplot.iam.gserviceaccount.com` as the Cloud Run service identity. It needs the **Agent Platform User** role (`roles/aiplatform.user`) on project `growplot`; the Agent Platform API must be enabled. Set `GROWPLOT_VERTEX_ENABLED=true`, `GOOGLE_CLOUD_PROJECT=growplot`, `GOOGLE_CLOUD_LOCATION=global`, and `VERTEX_MODEL_ID=gemini-3.8-flash`. The backend gets short-lived OAuth access tokens from the Cloud Run metadata server; no service-account key or Vertex credential goes in the APK.
-4. For YOLO and Vertex image assessment, configure `GROWPLOT_DIAGNOSIS_API_URL` as the proxy URL ending in `/v1/diagnose` and `GROWPLOT_DIAGNOSIS_PROXY_TOKEN` as the app-to-proxy gate. The app derives the sibling `/v1/vertex` endpoint for Gemini image analysis. Cloud Run supplies Google Application Default Credentials through its runtime identity; no Vertex API key or service-account JSON is stored in GitHub or the APK.
+3. Vertex calls do not require deployment of this proxy. Enable the Vertex AI API in project `growplot`, grant the signed-in Google account Vertex AI permissions, and configure the Android OAuth consent screen for the `https://www.googleapis.com/auth/cloud-platform` scope. The app requests that scope only when the user runs diagnosis.
 
 Deploy the diagnosis proxy after deploying the model service and replacing the URL placeholder with its HTTPS base URL:
 
@@ -18,7 +17,7 @@ gcloud run deploy growplot-diagnosis \\
   --service-account growplot-vertex-api@growplot.iam.gserviceaccount.com \\
   --allow-unauthenticated \\
   --memory 1Gi \\
-  --set-env-vars GOOGLE_CLOUD_PROJECT=growplot,GOOGLE_CLOUD_LOCATION=global,VERTEX_MODEL_ID=gemini-3.8-flash,GROWPLOT_VERTEX_ENABLED=true,GROWPLOT_YOLO_SERVICE_URL=https://YOUR-YOLO-SERVICE.run.app \\
+  --set-env-vars GROWPLOT_YOLO_SERVICE_URL=https://YOUR-YOLO-SERVICE.run.app \\
   --set-secrets GROWPLOT_PROXY_TOKEN=growplot-proxy-token:latest,GROWPLOT_YOLO_SERVICE_TOKEN=growplot-yolo-service-token:latest
 ```
 
