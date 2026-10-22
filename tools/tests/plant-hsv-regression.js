@@ -94,6 +94,9 @@ assert.doesNotMatch(html,/diagnosis-hourglass|RGB → HSV colour screening|Analy
 assert.match(html,/diagnosisVertexMarkup\(vertexReport\)/,'the Run diagnosis section must render the saved Vertex image output');
 assert.match(html,/window\.onVertexDiagnosis=function/,'Vertex output must be rendered when the Android callback returns');
 assert.match(java,/requestVertexImageAnalysis\(selectedImages, species, symptom, pixelMetrics\)/,'Run diagnosis must send the selected image set to Vertex');
+assert.match(java,/BuildConfig\.VERTEX_API_KEY/,'the APK must receive the configured Vertex API key at build time');
+assert.match(java,/setRequestProperty\("x-goog-api-key", apiKey\)/,'Run diagnosis must authenticate directly to Vertex with the API key');
+assert.match(java,/projects\/growplot\/locations\/global\/publishers\/google\/models\//,'Run diagnosis must target the standard Vertex project endpoint');
 assert.match(proxy,/app\.post\('\/v1\/vertex', authorize/,'the diagnosis backend must expose an authenticated Vertex-only image endpoint');
 assert.match(html,/Vertex AI image result/,'the diagnosis page must identify the returned Vertex image result');
 assert.doesNotMatch(html,/id=\"openCVAnalysisButton\"/,'the diagnosis section must not offer a second CV-only action instead of the Vertex result');
