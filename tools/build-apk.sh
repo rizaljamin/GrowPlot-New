@@ -108,7 +108,7 @@ if [[ -n "${GROWPLOT_DIAGNOSIS_API_URL:-}" && -n "${GROWPLOT_DIAGNOSIS_PROXY_TOK
 else
   YOLO_STATE="Diagnosis proxy is not configured; YOLO-World inference is unavailable in this APK."
 fi
-VERTEX_STATE="Direct Vertex AI request configured for project growplot, location us-central1, model gemini-3.8-flash; OAuth access is requested from the signed-in Google user when diagnosis runs (no API key or proxy token in APK)."
+VERTEX_STATE="Direct Vertex AI request configured for project growplot, location us-central1, model gemini-3.8-flash; Android requests the signed-in user's OAuth access when diagnosis runs. Vertex uses no API key or diagnosis proxy."
 ZIP_OUT="$ROOT/release/v${SAFE_VERSION}-GrowPlot-source.zip"
 rm -f "$ZIP_OUT"
 zip -qr "$ZIP_OUT" . \
