@@ -51,43 +51,39 @@
   ctx.putImageData(image,0,0);return canvas.toDataURL('image/png');
  }
  async function analyze(camera){
-  await ensureHSV();simplifyDiagnosisUi();
-  const root=panel(camera);if(!root)return;
-  const status=root.querySelector('#cvProgress'),result=root.querySelector('#cvResult');
-  if(!result)return;
-  result.innerHTML='';
-  const item=findPhoto(camera);
-  if(!item||!item.url){if(status)status.textContent='No photo for this section. Capture or select a close-up first.';return}
-  try{
-   if(status)status.textContent='Converting the input photo to HSV and counting yellow, green and brown pixels…';
-   const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-   const img=await load(item.url),scale=Math.min(1,480/Math.max(img.naturalWidth,img.naturalHeight));
-   const w=Math.max(1,Math.round(img.naturalWidth*scale)),h=Math.max(1,Math.round(img.naturalHeight*scale)),canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;
-   const ctx=canvas.getContext('2d',{willReadFrequently:true});if(!ctx)throw Error('Canvas image processing is unavailable');ctx.drawImage(img,0,0,w,h);
-   const pixels=ctx.getImageData(0,0,w,h).data,color=window.GrowPlotHSV.analyzeRgba(pixels,w,h),labels=color.labels;
-   const hueUrl=await channelImage(color.hueChannel,w,h),satUrl=await channelImage(color.saturationChannel,w,h),valueUrl=await channelImage(color.valueChannel,w,h);
-   const mask=document.createElement('canvas');mask.width=w;mask.height=h;const maskCtx=mask.getContext('2d'),maskImage=maskCtx.createImageData(w,h),out=maskImage.data;
-   for(let i=0;i<labels.length;i++){const p=i*4,k=labels[i];if(k===1){out[p]=34;out[p+1]=205;out[p+2]=94}else if(k===2){out[p]=255;out[p+1]=213;out[p+2]=55}else if(k===3){out[p]=169;out[p+1]=103;out[p+2]=57}else{out[p]=24;out[p+1]=35;out[p+2]=29}out[p+3]=255}
-   maskCtx.putImageData(maskImage,0,0);
-   const name=esc(item.fileName||'Latest Image_Feed snapshot.jpg'),inputUrl=canvas.toDataURL('image/jpeg',.82);
-   const report={plotId:String(window.selectedPlotId||''),camera,at:new Date().toISOString(),imageCount:1,imageName:item.fileName||'Latest Image_Feed snapshot.jpg',source:item.feedSnapshot?'Latest Image_Feed snapshot':'Latest saved diagnosis photo',width:w,height:h,totalPixels:color.totalPixels,yellowPixels:color.yellowPixels,greenPixels:color.greenPixels,brownPixels:color.brownPixels,otherPixels:color.otherPixels,yellowPercent:color.yellowPercent,greenPercent:color.greenPercent,brownPercent:color.brownPercent,otherPercent:color.otherPercent,method:'Per-pixel RGB-to-HSV conversion with H, S and V channel views; broad HSV colour thresholds count yellow, green and brown pixels.',limitations:'Colour ranges can include background, soil and pot pixels and vary with lighting and camera white balance. Pixel percentages are image measurements, not a plant-health score or disease diagnosis.'};
-   try{localStorage.setItem('growplotLeafCv:'+report.plotId+':cctv'+camera,JSON.stringify(report))}catch(e){}
-   result.innerHTML='<p class="cv-note">Input photo: <b>'+name+'</b>. HSV channel images below show Hue (0–360°), Saturation (0–100%) and Value/Brightness (0–100%) as grayscale planes. The input is sampled at up to 480 pixels on its longest side.</p>'+
-    '<article class="cv-hsv-card"><b>Input photo and HSV channels · '+w+' × '+h+' sampled pixels</b><div class="cv-hsv-grid">'+
-    '<figure class="cv-hsv-channel"><b>Input photo</b><img alt="Input photo used for HSV analysis: '+name+'" src="'+inputUrl+'"></figure>'+
-    '<figure class="cv-hsv-channel"><b>Hue (H) · 0–360°</b><img alt="Hue channel of input photo, grayscale intensity maps hue from 0 to 360 degrees" src="'+hueUrl+'"></figure>'+
-    '<figure class="cv-hsv-channel"><b>Saturation (S) · 0–100%</b><img alt="Saturation channel of input photo shown in grayscale" src="'+satUrl+'"></figure>'+
-    '<figure class="cv-hsv-channel"><b>Value (V) · 0–100%</b><img alt="Value or brightness channel of input photo shown in grayscale" src="'+valueUrl+'"></figure></div>'+
-    '<div class="cv-hsv-grid"><figure class="cv-hsv-channel"><b>Colour pixel mask</b><img alt="Pixel classification mask: green, yellow and brown pixels are highlighted; other pixels are dark" src="'+mask.toDataURL('image/png')+'"></figure><div class="cv-hsv-channel"><b>HSV pixel counts</b><div class="cv-metrics cv-pixel-metrics">'+
-    '<span><b>'+color.yellowPercent+'%</b>Yellow<span class="cv-pixel-count">'+color.yellowPixels.toLocaleString()+' pixels</span></span>'+
-    '<span><b>'+color.greenPercent+'%</b>Green<span class="cv-pixel-count">'+color.greenPixels.toLocaleString()+' pixels</span></span>'+
-    '<span><b>'+color.brownPercent+'%</b>Brown<span class="cv-pixel-count">'+color.brownPixels.toLocaleString()+' pixels</span></span>'+
-    '<span><b>'+color.otherPercent+'%</b>Other<span class="cv-pixel-count">'+color.otherPixels.toLocaleString()+' pixels</span></span></div><small>'+color.totalPixels.toLocaleString()+' total sampled pixels</small></div></div></article>'+
-    '<small class="cv-caution">'+esc(report.limitations)+'</small>';
-   if(status)status.textContent='HSV channels and pixel counts are ready for '+(item.fileName||'the latest photo')+'.';
-  }catch(e){if(status)status.textContent='HSV analysis could not read the selected photo: '+(e&&e.message?e.message:'image processing error');result.innerHTML='<p class="cv-caution">No HSV output was produced. Select or capture a readable photo and run diagnosis again.</p>'}
- }
-
+ simplifyDiagnosisUi();const root=panel(camera);if(!root)return;
+ const status=root.querySelector('#cvProgress'),result=root.querySelector('#cvResult');
+ if(!result){if(status)status.textContent='OpenCV output area is missing from Section 1.';return}
+ result.innerHTML='';const item=findPhoto(camera),esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ if(!item||!item.url){const m='Photo reading failed: no saved photo or latest Image_Feed snapshot is available for this CCTV section.';if(status)status.textContent=m;result.innerHTML='<p class="cv-caution" role="status">'+esc(m)+'</p>';return {ok:false,error:m}}
+ try{
+  if(status)status.textContent='Reading photo: '+(item.fileName||'latest Image_Feed snapshot')+'…';
+  const im=await new Promise((resolve,reject)=>{const image=new Image();image.onload=()=>resolve(image);image.onerror=()=>reject(Error('The image file could not be opened. It may be unavailable, incomplete, or unsupported.'));image.src=item.url});
+  const scale=Math.min(1,480/Math.max(im.naturalWidth,im.naturalHeight)),w=Math.max(1,Math.round(im.naturalWidth*scale)),h=Math.max(1,Math.round(im.naturalHeight*scale)),canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;
+  const ctx=canvas.getContext('2d',{willReadFrequently:true});if(!ctx)throw Error('The browser could not create a canvas to read the photo.');ctx.drawImage(im,0,0,w,h);
+  let pixels;try{pixels=canvas.toDataURL('image/png').split(',')[1]}catch(e){throw Error('The photo loaded, but browser security blocked pixel access: '+(e.message||e))}
+  if(!pixels)throw Error('The photo loaded, but no pixel data could be read.');
+  if(status)status.textContent='Photo reading succeeded: '+w+' × '+h+' pixels sampled. Starting OpenCV HSV analysis…';
+  await new Promise(resolve=>requestAnimationFrame(()=>setTimeout(resolve,20)));
+  if(!window.GrowPlotOpenCV||typeof window.GrowPlotOpenCV.analyzeImage!=='function')throw Error('OpenCV native bridge is missing from this APK. Install the latest GrowPlot build.');
+  const report=JSON.parse(window.GrowPlotOpenCV.analyzeImage(pixels)||'{}');if(!report.ok)throw Error(report.error||'OpenCV returned no analysis result.');
+  const src=k=>'data:image/png;base64,'+report[k],name=esc(item.fileName||'Latest Image_Feed snapshot');
+  result.innerHTML='<p class="cv-note">Photo reading succeeded for <b>'+name+'</b>. OpenCV converted the image to HSV. The preview is converted back for display; grayscale images show H, S and V channels.</p>'+
+  '<article class="cv-hsv-card"><b>HSV photo and channels · '+report.width+' × '+report.height+' sampled pixels</b><div class="cv-hsv-grid">'+
+  '<figure class="cv-hsv-channel"><b>HSV-converted photo</b><img alt="Photo converted to HSV with OpenCV and back for display" src="'+src('preview')+'"></figure>'+
+  '<figure class="cv-hsv-channel"><b>Hue (H)</b><img alt="OpenCV Hue channel" src="'+src('hue')+'"></figure>'+
+  '<figure class="cv-hsv-channel"><b>Saturation (S)</b><img alt="OpenCV Saturation channel" src="'+src('saturation')+'"></figure>'+
+  '<figure class="cv-hsv-channel"><b>Value (V)</b><img alt="OpenCV Value channel" src="'+src('value')+'"></figure>'+
+  '<figure class="cv-hsv-channel"><b>Yellow, green and brown mask</b><img alt="OpenCV HSV colour mask" src="'+src('mask')+'"></figure>'+
+  '<div class="cv-hsv-channel"><b>Colour-pixel analysis</b><div class="cv-metrics cv-pixel-metrics">'+
+  '<span><b>'+report.yellowPercent+'%</b>Yellow<span class="cv-pixel-count">'+Number(report.yellowPixels).toLocaleString()+' pixels</span></span>'+
+  '<span><b>'+report.greenPercent+'%</b>Green<span class="cv-pixel-count">'+Number(report.greenPixels).toLocaleString()+' pixels</span></span>'+
+  '<span><b>'+report.brownPercent+'%</b>Brown<span class="cv-pixel-count">'+Number(report.brownPixels).toLocaleString()+' pixels</span></span>'+
+  '<span><b>'+report.otherPercent+'%</b>Other<span class="cv-pixel-count">'+Number(report.otherPixels).toLocaleString()+' pixels</span></span></div><small>'+Number(report.totalPixels).toLocaleString()+' total pixels</small></div></div></article>'+
+  '<small class="cv-caution">Counts include soil and background. These are colour measurements, not a plant-health score or disease diagnosis.</small>';
+  if(status)status.textContent='OpenCV HSV analysis succeeded: '+Number(report.totalPixels).toLocaleString()+' pixels counted.';return report;
+ }catch(e){const m=e&&e.message?e.message:String(e||'Unknown image-processing error');if(status)status.textContent='HSV analysis failed: '+m;result.innerHTML='<p class="cv-caution" role="status">OpenCV analysis failed: '+esc(m)+'</p>';return {ok:false,error:m}}
+}
  // Explicit API: invoked by runDiagnosisScreen, not by a second click listener.
 
  // Vision API enhancement. Never store an API key in the Android app.
