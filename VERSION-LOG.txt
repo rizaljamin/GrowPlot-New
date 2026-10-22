@@ -1,6 +1,10 @@
+2026-10-22 | v0.7.01 Build 11 | versionCode 246 | com.growplot.farm
+Changes: Restore the Build 09 HSV boundary thresholds, 9×9 closing kernel, central anchor range, and nearby-component filtering after Build 10's wider candidate/grouping settings produced an incorrect outline. Keep Build 10's simplified output: HSV-converted photo, estimated boundary, YGB mask, and pixel percentages.
+Validation: Build 09 boundary rules are covered by regression assertions; ARM64 build and visual confirmation on the user's photo pending.
+
 2026-10-22 | v0.7.01 Build 10 | versionCode 245 | com.growplot.farm
 Changes: Simplify OpenCV output to the HSV-converted photo, estimated plant boundary, YGB mask and colour-pixel metrics; remove separate Hue, Saturation and Value image tiles. Broaden HSV foliage candidates and their spatial grouping so pale, yellowing and darker leaf tips are less likely to be clipped at the boundary. This remains rule-based segmentation, not adaptive machine learning.
-Validation: Regression checks and ARM64 build pending. Boundary accuracy still needs visual confirmation on the user's Android photo.
+Validation: Regression checks and ARM64 build passed in GitHub Actions run #464. Boundary accuracy still needs visual confirmation on the user's Android photo.
 
 2026-10-22 | v0.7.01 Build 09 | versionCode 244 | com.growplot.farm
 Changes: OpenCV estimates a foliage boundary from the dominant central green/yellow HSV cluster, shows a magenta outline, and calculates yellow/green/brown/other pixel counts and percentages within the estimated region. It reports a specific failure if it cannot find a sufficiently large foliage region. This is colour-based segmentation, not validated plant detection or health diagnosis.

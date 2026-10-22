@@ -14,15 +14,15 @@ public final class OpenCvHsvBridge{
    Bitmap bitmap=android.graphics.BitmapFactory.decodeByteArray(bytes,0,bytes.length);if(bitmap==null)return error("OpenCV could not decode the selected photo.");
    Utils.bitmapToMat(bitmap,rgba);bitmap.recycle();Imgproc.cvtColor(rgba,rgb,Imgproc.COLOR_RGBA2RGB);Imgproc.cvtColor(rgb,hsv,Imgproc.COLOR_RGB2HSV);
    Core.inRange(hsv,new Scalar(29,46,41),new Scalar(85,255,255),gm);Core.inRange(hsv,new Scalar(17,46,77),new Scalar(28,255,255),ym);Core.inRange(hsv,new Scalar(4,46,0),new Scalar(16,255,173),bm);
-   // Broader HSV candidates keep pale, yellowing and darker leaf tips in the estimated outline.
-   Core.inRange(hsv,new Scalar(8,28,20),new Scalar(105,255,255),core);
-   closeKernel=Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE,new Size(13,13));openKernel=Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE,new Size(3,3));edgeKernel=Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE,new Size(3,3));
+   // Restore Build 09 HSV thresholds and grouping, which produced the closer foliage outline.
+   Core.inRange(hsv,new Scalar(17,35,30),new Scalar(100,255,255),core);
+   closeKernel=Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE,new Size(9,9));openKernel=Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE,new Size(3,3));edgeKernel=Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE,new Size(3,3));
    Imgproc.morphologyEx(core,core,Imgproc.MORPH_CLOSE,closeKernel);Imgproc.morphologyEx(core,core,Imgproc.MORPH_OPEN,openKernel);
    contourInput=core.clone();Imgproc.findContours(contourInput,contours,hierarchy,Imgproc.RETR_EXTERNAL,Imgproc.CHAIN_APPROX_SIMPLE);
    int width=hsv.cols(),height=hsv.rows();double largest=0;int anchor=-1;Point anchorCenter=null;
-   for(int i=0;i<contours.size();i++){double area=Imgproc.contourArea(contours.get(i));Rect box=Imgproc.boundingRect(contours.get(i));double cx=box.x+box.width/2.0,cy=box.y+box.height/2.0;if(cx>=width*.18&&cx<=width*.82&&cy>=height*.04&&cy<=height*.96&&area>largest){largest=area;anchor=i;anchorCenter=new Point(cx,cy);}}
+   for(int i=0;i<contours.size();i++){double area=Imgproc.contourArea(contours.get(i));Rect box=Imgproc.boundingRect(contours.get(i));double cx=box.x+box.width/2.0,cy=box.y+box.height/2.0;if(cx>=width*.08&&cx<=width*.92&&cy>=height*.04&&cy<=height*.96&&area>largest){largest=area;anchor=i;anchorCenter=new Point(cx,cy);}}
    if(anchor<0||largest<Math.max(20,(long)width*height*.00025))return error("No clear plant-like green/yellow cluster was found. Retake the photo with the plant larger and more central.");
-   double linkDistance=Math.max(24,Math.min(width,height)*.82),minimumArea=Math.max(8,largest*.0008);
+   double linkDistance=Math.max(24,Math.min(width,height)*.60),minimumArea=Math.max(12,largest*.002);
    for(int i=0;i<contours.size();i++){MatOfPoint contour=contours.get(i);double area=Imgproc.contourArea(contour);Rect box=Imgproc.boundingRect(contour);double cx=box.x+box.width/2.0,cy=box.y+box.height/2.0;if(area>=minimumArea&&Math.hypot(cx-anchorCenter.x,cy-anchorCenter.y)<=linkDistance)selected.add(contour);}
    if(selected.isEmpty())return error("The plant boundary could not be formed from the detected foliage regions.");
    plantMask.create(height,width,CvType.CV_8UC1);plantMask.setTo(new Scalar(0));Imgproc.drawContours(plantMask,selected,-1,new Scalar(255),Imgproc.FILLED);Imgproc.dilate(plantMask,plantMask,edgeKernel);

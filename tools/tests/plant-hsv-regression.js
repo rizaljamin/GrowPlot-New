@@ -139,7 +139,11 @@ assert.doesNotMatch(html,/await engine\.runYolo\(camera\)/,'Run Diagnosis must n
 assert.doesNotMatch(html,/runPlantNetDiseaseCheck\(camera,plotId\)/,'Run Diagnosis must not invoke provider analysis from Section 1');
 assert.match(native,/OpenCVLoader\.initLocal\(\)/,'initialize the Android OpenCV library');
 assert.match(native,/Imgproc\.cvtColor\(rgb,hsv,Imgproc\.COLOR_RGB2HSV\)/,'perform HSV conversion with OpenCV');
-assert.match(native,/Imgproc\.findContours\(/,'derive an estimated foliage boundary from broadened HSV candidate regions');
+assert.match(native,/Imgproc\.findContours\(/,'derive the foliage boundary from the restored Build 09 HSV candidate regions');
+assert.ok(native.includes('new Scalar(17,35,30),new Scalar(100,255,255),core'),'restore the Build 09 HSV boundary thresholds');
+assert.ok(native.includes('new Size(9,9)'),'restore the Build 09 morphology closing size');
+assert.ok(native.includes('cx>=width*.08&&cx<=width*.92'),'restore the Build 09 central anchor range');
+assert.ok(native.includes('Math.min(width,height)*.60),minimumArea=Math.max(12,largest*.002)'),'restore the Build 09 component distance and area filter');
 assert.match(native,/r\.put\("plantPixels",plantPixels\)/,'report the number of pixels inside the estimated boundary');
 assert.match(native,/r\.put\("boundary",png\(boundary\)\)/,'return an image with the plant boundary visibly outlined');
 assert.match(cv,/src\('boundary'\)/,'display the estimated plant boundary image in the OpenCV section');
