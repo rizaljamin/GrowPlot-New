@@ -1,5 +1,6 @@
 import express from 'express';
 import multer from 'multer';
+import {vertexCheck} from './vertex.js';
 
 const app = express();
 const port = Number(process.env.PORT || 8080);
@@ -112,10 +113,19 @@ app.post('/v1/diagnose', authorize, upload.array('photos', MAX_PHOTOS), async (r
     return res.status(413).json({ error: 'Total photo size exceeds 50 MB.' });
   }
   const context = safeJson(req.body.context);
-  const checks = await Promise.allSettled([kindwiseCheck(images), plantNetCheck(images), yoloCheck(images)]);
+  const checks = await Promise.allSettled([
+    kindwiseCheck(images),
+    plantNetCheck(images),
+    yoloCheck(images),
+    vertexCheck(images, context)
+  ]);
   const providers = checks.map((item, index) => {
     if (item.status === 'fulfilled') return item.value;
-    return { provider: ['Kindwise crop.health', 'Pl@ntNet', 'YOLO-World'][index], status: 'error', message: item.reason?.message || 'Provider request failed.' };
+    return {
+      provider: ['Kindwise crop.health', 'Pl@ntNet', 'YOLO-World', 'Gemini on Agent Platform'][index],
+      status: 'error',
+      message: item.reason?.message || 'Provider request failed.'
+    };
   });
   res.json({
     generatedAt: new Date().toISOString(),
