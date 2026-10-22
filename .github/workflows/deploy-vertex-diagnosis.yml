@@ -38,4 +38,4 @@ jobs:
           npm install --ignore-scripts
           npm run lint
       - name: Deploy Vertex callable to GrowPlot Firebase project
-        run: npx --yes firebase-tools@14 deploy --only functions:vertexImageDiagnosis --project growplot --non-interactive
+        run: npx --yes firebase-tools@14 deploy --only functions:vertexImageDiagnosis --project growplot --non-interactive --force
