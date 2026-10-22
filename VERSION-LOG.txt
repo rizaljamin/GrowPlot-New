@@ -1,6 +1,6 @@
 2026-10-22 | v0.7.00 Build 31 | versionCode 235 | com.growplot.farm
 Changes: The Data Feed settings status now checks the saved Drive API folder mapping for the signed-in Firebase email. When login has connected the assigned folder, stale “No Google Drive folder is connected” / “Not connected on this device” messages are replaced with “Google Drive connected to the assigned folder.” The connection info now describes login-based Drive connection rather than the folder picker.
-Validation: Focused JavaScript/bridge checks and GitHub ARM64 Actions build pending. Real tablet OAuth, connection and scan verification pending.
+Validation: Data-feed UI regression and JavaScript syntax checks passed. GitHub ARM64 Actions run #411 succeeded from source commit `9800d5eeb6482eb800064bf226952906dc291fc8`. APK SHA-256: `3361bfbb3bfbd18b69a6a0d2faac95bc7195a2678b2aaeff7a920e14ac25f1d5`; stable signing certificate matched. Real tablet OAuth, connection and scan verification pending.
 
 Warning: truncated output (original token count: 41453)
 Total output lines: 1403
