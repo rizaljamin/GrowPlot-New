@@ -219,8 +219,8 @@ function saveNotice(message,success){
  el.style.background=success?'#d8f4df':'#ffe5df';el.style.color=success?'#164b2a':'#782319';el.textContent=message;
 }
 function connectAssignedImageFeed(data){
- const plotsForUser=Array.isArray(data&&data.plots)?data.plots:[];
- const plot=plotsForUser.find(p=>p&&String(p.id)===String(data.selectedPlotId||'')&&String(p.id)!=='plot-1');
+ const plotsForUser=Array.isArray(data&&data.plots)?data.plots.filter(p=>p&&p.id&&String(p.id)!=='plot-1'):[];
+ const plot=plotsForUser.find(p=>String(p.id)===String(data.selectedPlotId||''))||(plotsForUser.length===1?plotsForUser[0]:null);
  if(!plot){saveNotice('Image Feed not connected: this account has no assigned plot selected.',false);return;}
  const user=window.GrowPlotCurrentUser||currentUser;
  const attempt=String(user&&(user.uid||user.id)||'')+'|'+String(plot.id);
