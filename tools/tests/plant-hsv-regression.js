@@ -132,7 +132,7 @@ assert.doesNotMatch(html,/screenDiagnosisImage\(sources\[i\]\.url\)/,'the Run Di
 assert.match(cv,/window\.screenDiagnosisImage=.*ensureHSV\(\)/,'photo HSV analysis must load the HSV transform before classifying pixels');
 assert.match(html,/markGrowPlotDiagnosisProvider\(camera,plotId,'plantnet'\)/,'Pl@ntNet completion must be tracked as a provider stage');
 assert.match(html,/markGrowPlotDiagnosisProvider\(camera,plotId,'kindwise'\)/,'Kindwise completion must be tracked as a provider stage');
-assert.match(html,/150000/,'the progress indicator must reach a visible terminal state if providers time out');
+assert.match(html,/OpenCV HSV analysis finished|OpenCV analysis failed/,'the Run Diagnosis button must show a visible OpenCV terminal status');
 assert.match(html,/await engine\.analyze\(camera\)/,'the diagnosis flow must wait for foliage CV to finish');
 assert.doesNotMatch(html,/await engine\.runYolo\(camera\)/,'Run Diagnosis must not run later analysis stages');
 assert.doesNotMatch(html,/runPlantNetDiseaseCheck\(camera,plotId\)/,'Run Diagnosis must not invoke provider analysis from Section 1');
