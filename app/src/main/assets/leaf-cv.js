@@ -18,7 +18,7 @@
  function feedPhoto(camera){const card=typeof cameraRoot!=='undefined'&&cameraRoot.children?cameraRoot.children[Number(camera)-1]:null,url=card?.dataset?.latestPhotoUrl||('https://appassets.androidplatform.net/assets/images/'+encodeURIComponent(String(window.selectedPlotId||''))+'/cctv_'+String(camera).padStart(2,'0')+'.jpg?refresh='+Date.now());return {url,kind:'photo',fileName:'Latest Image_Feed snapshot.jpg',feedSnapshot:true}}
  function findPhoto(camera){try{const photos=(typeof diagnosisMediaFor==='function'?diagnosisMediaFor(camera):[]).filter(x=>x.kind==='photo'&&x.url);let latest=photos.slice(-1)[0]||null,best=-1;photos.forEach(item=>{const time=Date.parse(item.capturedAt||item.timestamp||item.date||'');if(Number.isFinite(time)&&time>best){latest=item;best=time}});return latest||feedPhoto(camera)}catch(e){return feedPhoto(camera)}}
  function installDiagnosisSubsections(){
-  const style='.diagnosis-results-grid{display:grid;gap:10px;margin-top:10px}.diagnosis-result-subsection{min-width:0;padding:11px;border:1px solid #cfe0d2;border-radius:10px;background:#f8fbf8}.diagnosis-result-subsection>h4{margin:0 0 8px;color:#174a35;font-size:14px}.diagnosis-result-subsection .diagnosis-analysis{margin:6px 0}.diagnosis-result-subsection .diagnosis-analysis h4{display:none}.cv-hsv-card{margin:8px 0;padding:8px;border:1px solid #d8e8dc;border-radius:8px;background:#fff}.cv-hsv-card>b{display:block;margin-bottom:6px;color:#355243;font-size:11px}.cv-hsv-card .cv-preview{max-height:280px}.cv-hsv-total{margin-top:10px;padding:8px;border-radius:8px;background:#fff}.cv-hsv-total> b{font-size:11px;color:#174a35}.cv-hsv-card .cv-metrics,.cv-hsv-total .cv-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}.diagnosis-result-status{font-size:10px;color:#617166;line-height:1.4}';
+  const style='.diagnosis-results-grid{display:grid;gap:10px;margin-top:10px}.diagnosis-result-subsection{min-width:0;padding:11px;border:1px solid #cfe0d2;border-radius:10px;background:#f8fbf8}.diagnosis-result-subsection>h4{margin:0 0 8px;color:#174a35;font-size:14px}.diagnosis-result-subsection .diagnosis-analysis{margin:6px 0}.diagnosis-result-subsection .diagnosis-analysis h4{display:none}.cv-hsv-card{margin:8px 0;padding:8px;border:1px solid #d8e8dc;border-radius:8px;background:#fff}.cv-hsv-card>b{display:block;margin-bottom:6px;color:#355243;font-size:11px}.cv-hsv-card .cv-preview{max-height:280px}.cv-hsv-total{margin-top:10px;padding:8px;border-radius:8px;background:#fff}.cv-hsv-total> b{font-size:11px;color:#174a35}.cv-hsv-card .cv-metrics,.cv-hsv-total .cv-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.cv-hsv-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:8px 0}.cv-hsv-channel{margin:0;padding:6px;border:1px solid #d8e8dc;border-radius:7px;background:#fff}.cv-hsv-channel b{display:block;font-size:10px;color:#355243;margin-bottom:4px}.cv-hsv-channel img{display:block;width:100%;max-height:180px;object-fit:contain;background:#17231d;border-radius:4px}.cv-pixel-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.cv-pixel-count{display:block;font-size:10px;color:#51665a;margin-top:2px}.diagnosis-result-status{font-size:10px;color:#617166;line-height:1.4}';
   if(!document.getElementById('growplotDiagnosisSubsectionStyle')){const s=document.createElement('style');s.id='growplotDiagnosisSubsectionStyle';s.textContent=style;document.head.appendChild(s)}
   const modal=document.getElementById('diagnosisModal'),analysis=modal&&modal.querySelector('#diagnosisAnalysis');if(!analysis)return;
   if(analysis.dataset.subsectionsReady==='1')return;
@@ -43,36 +43,48 @@
  function simplifyDiagnosisUi(){const modal=document.getElementById('diagnosisModal');if(!modal)return;modal.querySelector('#openCVAnalysisButton')?.remove();const identity=modal.querySelector('.species-confirm'),identityStatus=identity&&identity.querySelector('p');if(identityStatus&&identityStatus.textContent.includes('Visual estimate')){identityStatus.textContent='Preset estimate for this CCTV section only; it is not based on this photo. Run Diagnosis to get Pl@ntNet image-based species matches.';identity.querySelector('button[onclick^="confirmDiagnosisEstimate"]')?.remove()}modal.querySelectorAll('.diagnosis-analysis-note').forEach(note=>{if(note.textContent.includes('Photo screening')||note.textContent.includes('colour'))note.textContent='Run Diagnosis performs on-device HSV colour screening, attempts YOLO-World plant-part detection through the configured service, and asks Pl@ntNet to identify species and check disease candidates. YOLO locates broad plant parts; it does not diagnose disease.'});const estimate=modal.querySelector('.species-confirm');if(estimate){const status=estimate.querySelector('p');if(status&&status.textContent.includes('Visual estimate'))status.innerHTML='This is a preset visual estimate for the CCTV section, not an image-based species identification. Run Diagnosis to compare the submitted photos with Pl@ntNet.';estimate.querySelector('button[onclick^="confirmDiagnosisEstimate"]')?.remove()}const headings=modal.querySelectorAll('h4');headings.forEach(h=>{if(h.textContent.trim()==='2. CV diagnosis')h.textContent='2. Plant image analysis'})}
  async function screenUrl(url){const im=await load(url),side=112,scale=Math.min(side/im.naturalWidth,side/im.naturalHeight),w=Math.max(1,Math.round(im.naturalWidth*scale)),h=Math.max(1,Math.round(im.naturalHeight*scale)),canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;const ctx=canvas.getContext('2d',{willReadFrequently:true});if(!ctx)throw Error('Canvas is unavailable');ctx.drawImage(im,0,0,w,h);return Object.assign({},window.GrowPlotHSV.analyzeRgba(ctx.getImageData(0,0,w,h).data),{colorSpace:'HSV',width:im.naturalWidth,height:im.naturalHeight})}
  window.screenDiagnosisImage=(url)=>ensureHSV().then(()=>screenUrl(url));
+ async function channelImage(values,width,height){
+  const canvas=document.createElement('canvas');canvas.width=width;canvas.height=height;
+  const ctx=canvas.getContext('2d');if(!ctx)throw Error('HSV channel rendering is unavailable');
+  const image=ctx.createImageData(width,height),out=image.data;
+  for(let i=0;i<values.length;i++){const p=i*4,v=values[i];out[p]=v;out[p+1]=v;out[p+2]=v;out[p+3]=255}
+  ctx.putImageData(image,0,0);return canvas.toDataURL('image/png');
+ }
  async function analyze(camera){
   await ensureHSV();simplifyDiagnosisUi();
   const root=panel(camera);if(!root)return;
   const status=root.querySelector('#cvProgress'),result=root.querySelector('#cvResult');
   if(!result)return;
   result.innerHTML='';
-  const media=[];
-  try{(typeof diagnosisMediaFor==='function'?diagnosisMediaFor(camera):[]).filter(x=>x.kind==='photo'&&x.url).forEach(x=>media.push(x))}catch(e){}
-  const feed=feedPhoto(camera);if(feed.url&&!media.some(x=>x.url===feed.url))media.push(feed);
-  if(!media.length){if(status)status.textContent='No photo for this section. Capture or select a close-up first.';return}
+  const item=findPhoto(camera);
+  if(!item||!item.url){if(status)status.textContent='No photo for this section. Capture or select a close-up first.';return}
   try{
-   if(status)status.textContent='Converting the selected photos to HSV and counting yellow, green and brown pixels…';
+   if(status)status.textContent='Converting the input photo to HSV and counting yellow, green and brown pixels…';
    const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-   let greenPixels=0,yellowPixels=0,brownPixels=0,totalPixels=0;
-   const cards=[];
-   for(let n=0;n<media.length;n++){
-    const item=media[n],img=await load(item.url),scale=Math.min(1,480/Math.max(img.naturalWidth,img.naturalHeight));
-    const w=Math.max(1,Math.round(img.naturalWidth*scale)),h=Math.max(1,Math.round(img.naturalHeight*scale)),canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;
-    const ctx=canvas.getContext('2d',{willReadFrequently:true});if(!ctx)throw Error('Canvas image processing is unavailable');ctx.drawImage(img,0,0,w,h);
-    const pixels=ctx.getImageData(0,0,w,h).data,color=window.GrowPlotHSV.analyzeRgba(pixels,w,h),labels=color.labels;
-    greenPixels+=color.greenPixels;yellowPixels+=color.yellowPixels;brownPixels+=color.brownPixels;totalPixels+=color.totalPixels;
-    const mask=document.createElement('canvas');mask.width=w;mask.height=h;const maskCtx=mask.getContext('2d'),maskImage=maskCtx.createImageData(w,h),out=maskImage.data;
-    for(let i=0;i<labels.length;i++){const p=i*4,k=labels[i];if(k===1){out[p]=34;out[p+1]=205;out[p+2]=94}else if(k===2){out[p]=255;out[p+1]=213;out[p+2]=55}else if(k===3){out[p]=169;out[p+1]=103;out[p+2]=57}else{out[p]=24;out[p+1]=35;out[p+2]=29}out[p+3]=255}
-    maskCtx.putImageData(maskImage,0,0);
-    cards.push('<article class="cv-hsv-card"><b>'+esc(item.fileName||('Image '+(n+1)))+'</b><img class="cv-preview" alt="HSV colour mask for '+esc(item.fileName||('image '+(n+1)))+'; green, yellow, and brown pixels are highlighted" src="'+mask.toDataURL('image/png')+'"><div class="cv-metrics"><span><b>'+color.yellowPercent+'%</b>Yellow</span><span><b>'+color.greenPercent+'%</b>Green</span><span><b>'+color.brownPercent+'%</b>Brown</span></div></article>');
-   }
-   const pct=n=>totalPixels?Math.round(n*1000/totalPixels)/10:0,report={plotId:String(window.selectedPlotId||''),camera,at:new Date().toISOString(),imageCount:media.length,totalPixels,yellowPercent:pct(yellowPixels),greenPercent:pct(greenPixels),brownPercent:pct(brownPixels),method:'Local RGB-to-HSV threshold segmentation; color percentages are shares of sampled image pixels.',limitations:'HSV colour ranges are affected by background, shadows, lighting and camera white balance. These percentages describe image pixels; they are not a plant-health score or a disease diagnosis.'};
+   const img=await load(item.url),scale=Math.min(1,480/Math.max(img.naturalWidth,img.naturalHeight));
+   const w=Math.max(1,Math.round(img.naturalWidth*scale)),h=Math.max(1,Math.round(img.naturalHeight*scale)),canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;
+   const ctx=canvas.getContext('2d',{willReadFrequently:true});if(!ctx)throw Error('Canvas image processing is unavailable');ctx.drawImage(img,0,0,w,h);
+   const pixels=ctx.getImageData(0,0,w,h).data,color=window.GrowPlotHSV.analyzeRgba(pixels,w,h),labels=color.labels;
+   const hueUrl=await channelImage(color.hueChannel,w,h),satUrl=await channelImage(color.saturationChannel,w,h),valueUrl=await channelImage(color.valueChannel,w,h);
+   const mask=document.createElement('canvas');mask.width=w;mask.height=h;const maskCtx=mask.getContext('2d'),maskImage=maskCtx.createImageData(w,h),out=maskImage.data;
+   for(let i=0;i<labels.length;i++){const p=i*4,k=labels[i];if(k===1){out[p]=34;out[p+1]=205;out[p+2]=94}else if(k===2){out[p]=255;out[p+1]=213;out[p+2]=55}else if(k===3){out[p]=169;out[p+1]=103;out[p+2]=57}else{out[p]=24;out[p+1]=35;out[p+2]=29}out[p+3]=255}
+   maskCtx.putImageData(maskImage,0,0);
+   const name=esc(item.fileName||'Latest Image_Feed snapshot.jpg'),inputUrl=canvas.toDataURL('image/jpeg',.82);
+   const report={plotId:String(window.selectedPlotId||''),camera,at:new Date().toISOString(),imageCount:1,imageName:item.fileName||'Latest Image_Feed snapshot.jpg',source:item.feedSnapshot?'Latest Image_Feed snapshot':'Latest saved diagnosis photo',width:w,height:h,totalPixels:color.totalPixels,yellowPixels:color.yellowPixels,greenPixels:color.greenPixels,brownPixels:color.brownPixels,otherPixels:color.otherPixels,yellowPercent:color.yellowPercent,greenPercent:color.greenPercent,brownPercent:color.brownPercent,otherPercent:color.otherPercent,method:'Per-pixel RGB-to-HSV conversion with H, S and V channel views; broad HSV colour thresholds count yellow, green and brown pixels.',limitations:'Colour ranges can include background, soil and pot pixels and vary with lighting and camera white balance. Pixel percentages are image measurements, not a plant-health score or disease diagnosis.'};
    try{localStorage.setItem('growplotLeafCv:'+report.plotId+':cctv'+camera,JSON.stringify(report))}catch(e){}
-   result.innerHTML='<p class="cv-note">HSV mask preview: green, yellow and brown pixels are highlighted; dark pixels fall outside these colour ranges.</p>'+cards.join('')+'<div class="cv-hsv-total"><b>Combined pixel share across '+media.length+' selected photo(s)</b><div class="cv-metrics"><span><b>'+report.yellowPercent+'%</b>Yellow pixels</span><span><b>'+report.greenPercent+'%</b>Green pixels</span><span><b>'+report.brownPercent+'%</b>Brown pixels</span></div></div><small class="cv-caution">'+esc(report.limitations)+'</small>';
-   if(status)status.textContent='HSV image masks and yellow, green, and brown pixel percentages are ready.';
+   result.innerHTML='<p class="cv-note">Input photo: <b>'+name+'</b>. HSV channel images below show Hue (0–360°), Saturation (0–100%) and Value/Brightness (0–100%) as grayscale planes. The input is sampled at up to 480 pixels on its longest side.</p>'+
+    '<article class="cv-hsv-card"><b>Input photo and HSV channels · '+w+' × '+h+' sampled pixels</b><div class="cv-hsv-grid">'+
+    '<figure class="cv-hsv-channel"><b>Input photo</b><img alt="Input photo used for HSV analysis: '+name+'" src="'+inputUrl+'"></figure>'+
+    '<figure class="cv-hsv-channel"><b>Hue (H) · 0–360°</b><img alt="Hue channel of input photo, grayscale intensity maps hue from 0 to 360 degrees" src="'+hueUrl+'"></figure>'+
+    '<figure class="cv-hsv-channel"><b>Saturation (S) · 0–100%</b><img alt="Saturation channel of input photo shown in grayscale" src="'+satUrl+'"></figure>'+
+    '<figure class="cv-hsv-channel"><b>Value (V) · 0–100%</b><img alt="Value or brightness channel of input photo shown in grayscale" src="'+valueUrl+'"></figure></div>'+
+    '<div class="cv-hsv-grid"><figure class="cv-hsv-channel"><b>Colour pixel mask</b><img alt="Pixel classification mask: green, yellow and brown pixels are highlighted; other pixels are dark" src="'+mask.toDataURL('image/png')+'"></figure><div class="cv-hsv-channel"><b>HSV pixel counts</b><div class="cv-metrics cv-pixel-metrics">'+
+    '<span><b>'+color.yellowPercent+'%</b>Yellow<span class="cv-pixel-count">'+color.yellowPixels.toLocaleString()+' pixels</span></span>'+
+    '<span><b>'+color.greenPercent+'%</b>Green<span class="cv-pixel-count">'+color.greenPixels.toLocaleString()+' pixels</span></span>'+
+    '<span><b>'+color.brownPercent+'%</b>Brown<span class="cv-pixel-count">'+color.brownPixels.toLocaleString()+' pixels</span></span>'+
+    '<span><b>'+color.otherPercent+'%</b>Other<span class="cv-pixel-count">'+color.otherPixels.toLocaleString()+' pixels</span></span></div><small>'+color.totalPixels.toLocaleString()+' total sampled pixels</small></div></div></article>'+
+    '<small class="cv-caution">'+esc(report.limitations)+'</small>';
+   if(status)status.textContent='HSV channels and pixel counts are ready for '+(item.fileName||'the latest photo')+'.';
   }catch(e){if(status)status.textContent='HSV analysis could not read the selected photo: '+(e&&e.message?e.message:'image processing error');result.innerHTML='<p class="cv-caution">No HSV output was produced. Select or capture a readable photo and run diagnosis again.</p>'}
  }
 

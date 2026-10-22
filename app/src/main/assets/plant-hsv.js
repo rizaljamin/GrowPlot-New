@@ -1,7 +1,7 @@
 /* Deterministic HSV colour screening shared by GrowPlot diagnosis stages. */
 (function(root){
   'use strict';
-  function classifyRgb(r,g,b){
+  function rgbToHsv(r,g,b){
     r=Math.max(0,Math.min(255,Number(r)||0))/255;
     g=Math.max(0,Math.min(255,Number(g)||0))/255;
     b=Math.max(0,Math.min(255,Number(b)||0))/255;
@@ -13,21 +13,28 @@
       else hue=60*((r-g)/delta+4);
     }
     if(hue<0)hue+=360;
-    const saturation=max===0?0:delta/max,value=max;
+    return {hue,saturation:max===0?0:delta/max,value:max};
+  }
+  function classifyHsv(hue,saturation,value){
     if(value<0.12||saturation<0.18)return 0;
     if(hue>=58&&hue<=170&&value>=0.16)return 1;
     if(hue>=34&&hue<58&&value>=0.30)return 2;
     if(hue>=8&&hue<40&&value<=0.68)return 3;
     return 0;
   }
+  function classifyRgb(r,g,b){
+    const hsv=rgbToHsv(r,g,b);
+    return classifyHsv(hsv.hue,hsv.saturation,hsv.value);
+  }
   function analyzeRgba(data,width,height){
     const total=Math.floor((data&&data.length||0)/4);
     width=Math.max(0,Math.floor(Number(width)||0));
     height=Math.max(0,Math.floor(Number(height)||0));
     let green=0,yellow=0,brown=0,graySum=0,graySquareSum=0,saturationSum=0;
-    const labels=new Uint8Array(total),gray=new Uint8Array(total);
+    const labels=new Uint8Array(total),gray=new Uint8Array(total),hueChannel=new Uint8ClampedArray(total),saturationChannel=new Uint8ClampedArray(total),valueChannel=new Uint8ClampedArray(total);
     for(let i=0;i<total;i++){
-      const k=i*4,r=data[k],g=data[k+1],b=data[k+2],category=classifyRgb(r,g,b);
+      const k=i*4,r=data[k],g=data[k+1],b=data[k+2],hsv=rgbToHsv(r,g,b),category=classifyHsv(hsv.hue,hsv.saturation,hsv.value);
+      hueChannel[i]=Math.round(hsv.hue*255/360);saturationChannel[i]=Math.round(hsv.saturation*255);valueChannel[i]=Math.round(hsv.value*255);
       const luminance=Math.round(.299*r+.587*g+.114*b),max=Math.max(r,g,b),min=Math.min(r,g,b);
       labels[i]=category;gray[i]=luminance;graySum+=luminance;graySquareSum+=luminance*luminance;
       saturationSum+=max?((max-min)/max):0;
@@ -55,7 +62,7 @@
       brightnessContrast:Math.round((total?Math.sqrt(Math.max(0,graySquareSum/total-meanBrightness*meanBrightness)):0)*10)/10,
       meanSaturationPercent:Math.round((total?saturationSum*100/total:0)*10)/10,
       edgeDensityPercent:edgeTotal?Math.round(edgePixels*1000/edgeTotal)/10:0,
-      labels,
+      labels,hueChannel,saturationChannel,valueChannel,
       method:'HSV threshold screening with grayscale contrast and edge-density checks'};
   }
   function connectedComponents(labels,width,height,minArea,limit){
