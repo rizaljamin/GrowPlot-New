@@ -3711,7 +3711,6 @@ public class MainActivity extends Activity {
             JSONObject config = new JSONObject();
             try {
                 config.put("url", "");
-                config.put("proxyToken", "");
                 config.put("vertexConfigured", true);
                 config.put("vertexDirect", true);
                 config.put("project", BuildConfig.VERTEX_PROJECT_ID);
