@@ -1,3 +1,7 @@
+2026-10-22 | v0.7.01 Build 12 | versionCode 247 | com.growplot.farm
+Changes: Run Diagnosis now completes the OpenCV HSV analysis first, then submits the same readable photo to the authenticated Firebase Vertex callable and displays a pending, success, or failure status with the returned visual assessment. No Vertex API key is embedded and the photo is not persisted by the app.
+Validation: Source JavaScript regression and syntax checks passed before packaging. ARM64 build and Android device verification pending.
+
 2026-10-22 | v0.7.01 Build 11 | versionCode 246 | com.growplot.farm
 Changes: Restore the Build 09 HSV boundary thresholds, 9×9 closing kernel, central anchor range, and nearby-component filtering after Build 10's wider candidate/grouping settings produced an incorrect outline. Keep Build 10's simplified output: HSV-converted photo, estimated boundary, YGB mask, and pixel percentages.
 Validation: Build 09 boundary rules are covered by regression assertions; ARM64 build and visual confirmation on the user's photo pending.
