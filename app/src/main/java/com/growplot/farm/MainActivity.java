@@ -156,6 +156,7 @@ public class MainActivity extends Activity {
     private volatile String pendingVertexSpecies = "";
     private volatile String pendingVertexSymptom = "";
     private volatile String pendingVertexPixelMetrics = "";
+    private volatile SnapshotBridge pendingVertexBridge;
     private volatile boolean driveAuthorizationInProgress;
     private volatile String pendingDriveAuthPlotId = DEFAULT_PLOT_ID;
     private volatile String pendingDriveAuthFolderName = "Demo_plot";
@@ -3601,9 +3602,10 @@ public class MainActivity extends Activity {
                 pendingVertexSpecies = species == null ? "" : species;
                 pendingVertexSymptom = symptom == null ? "" : symptom;
                 pendingVertexPixelMetrics = pixelMetrics == null ? "" : pixelMetrics;
+                pendingVertexBridge = this;
                 if (!vertexAuthorizationInProgress) {
                     vertexAuthorizationInProgress = true;
-                    runOnUiThread(this::authorizeVertexForPendingDiagnosis);
+                    runOnUiThread(MainActivity.this::authorizeVertexForPendingDiagnosis);
                 }
                 return;
             }
@@ -4735,7 +4737,9 @@ public class MainActivity extends Activity {
         final String species = pendingVertexSpecies;
         final String symptom = pendingVertexSymptom;
         final String metrics = pendingVertexPixelMetrics;
-        if (camera > 0) diagnosePhotosWithPlantNet(camera, plotId, species, symptom, metrics);
+        SnapshotBridge bridge = pendingVertexBridge;
+        pendingVertexBridge = null;
+        if (camera > 0 && bridge != null) bridge.diagnosePhotosWithPlantNet(camera, plotId, species, symptom, metrics);
     }
 
     private void connectDefaultFeedWithDriveApi(String plotId, String folderName) throws Exception {
