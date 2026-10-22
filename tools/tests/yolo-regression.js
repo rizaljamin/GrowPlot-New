@@ -8,10 +8,10 @@ const model = fs.readFileSync('backend/yolo/yolo_server.py', 'utf8');
 const docker = fs.readFileSync('backend/yolo/Dockerfile', 'utf8');
 const build = fs.readFileSync('tools/build-apk.sh', 'utf8');
 
-assert.match(index, /await engine\.runYolo\(camera\)/,
-  'Run Diagnosis must trigger YOLO analysis automatically');
-assert.match(index, /setGrowPlotDiagnosisProgress\(camera,'yolo'/,
-  'Run Diagnosis must track the YOLO request status');
+assert.doesNotMatch(index, /await engine\.runYolo\(camera\)/,
+  'Run Diagnosis must stop after the OpenCV HSV analysis');
+assert.match(index, /await engine\.analyze\(camera\)/,
+  'Run Diagnosis must wait for the OpenCV HSV result before completing');
 assert.doesNotMatch(index, /Analysis stages|growPlotDiagnosisStages|diagnosis-hourglass/,
   'Run Diagnosis must not show the generic six-stage analysis card');
 assert.match(cv, /getDiagnosisApiConfig\(\)/,
