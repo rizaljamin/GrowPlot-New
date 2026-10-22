@@ -54,7 +54,7 @@
  simplifyDiagnosisUi();const root=panel(camera);if(!root)return;
  const status=root.querySelector('#cvProgress'),result=root.querySelector('#cvResult');
  if(!result){if(status)status.textContent='OpenCV output area is missing from Section 1.';return}
- result.innerHTML='';const item=findPhoto(camera),esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ result.innerHTML='';let vertexImageBase64='';const item=findPhoto(camera),esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  if(!item||!item.url){const m='Photo reading failed: no saved photo or latest Image_Feed snapshot is available for this CCTV section.';if(status)status.textContent=m;result.innerHTML='<p class="cv-caution" role="status">'+esc(m)+'</p>';return {ok:false,error:m}}
  try{
   if(status)status.textContent='Reading photo: '+(item.fileName||'latest Image_Feed snapshot')+'…';
@@ -62,7 +62,7 @@
   const scale=Math.min(1,480/Math.max(im.naturalWidth,im.naturalHeight)),w=Math.max(1,Math.round(im.naturalWidth*scale)),h=Math.max(1,Math.round(im.naturalHeight*scale)),canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;
   const ctx=canvas.getContext('2d',{willReadFrequently:true});if(!ctx)throw Error('The browser could not create a canvas to read the photo.');ctx.drawImage(im,0,0,w,h);
   let pixels;try{pixels=canvas.toDataURL('image/png').split(',')[1]}catch(e){throw Error('The photo loaded, but browser security blocked pixel access: '+(e.message||e))}
-  if(!pixels)throw Error('The photo loaded, but no pixel data could be read.');
+  if(!pixels)throw Error('The photo loaded, but no pixel data could be read.');\n  try{const vertexScale=Math.min(1,1024/Math.max(im.naturalWidth,im.naturalHeight)),vw=Math.max(1,Math.round(im.naturalWidth*vertexScale)),vh=Math.max(1,Math.round(im.naturalHeight*vertexScale)),vertexCanvas=document.createElement('canvas');vertexCanvas.width=vw;vertexCanvas.height=vh;const vertexContext=vertexCanvas.getContext('2d');if(!vertexContext)throw Error('Could not prepare the photo for Vertex.');vertexContext.drawImage(im,0,0,vw,vh);vertexImageBase64=vertexCanvas.toDataURL('image/jpeg',0.84).split(',')[1]}catch(e){throw Error('OpenCV read the photo, but it could not be prepared for Vertex: '+(e.message||e))}
   if(status)status.textContent='Photo reading succeeded: '+w+' × '+h+' pixels sampled. Starting OpenCV HSV analysis…';
   await new Promise(resolve=>requestAnimationFrame(()=>setTimeout(resolve,20)));
   if(!window.GrowPlotOpenCV||typeof window.GrowPlotOpenCV.analyzeImage!=='function')throw Error('OpenCV native bridge is missing from this APK. Install the latest GrowPlot build.');
@@ -79,8 +79,8 @@
   '<span><b>'+report.brownPercent+'%</b>Brown<span class="cv-pixel-count">'+Number(report.brownPixels).toLocaleString()+' pixels</span></span>'+
   '<span><b>'+report.otherPercent+'%</b>Other<span class="cv-pixel-count">'+Number(report.otherPixels).toLocaleString()+' pixels</span></span></div><small>'+Number(report.plantPixels).toLocaleString()+' boundary pixels measured · '+Number(report.totalPixels).toLocaleString()+' photo pixels</small></div></div></article>'+
   '<small class="cv-caution">The magenta outline is estimated from HSV foliage-colour clusters. Check that it follows the plant; colour percentages use pixels inside this estimated boundary and are not a health score or disease diagnosis.</small>';
-  if(status)status.textContent='HSV analysis succeeded. Estimated plant boundary: '+Number(report.plantPercentOfPhoto)+'% of photo; '+Number(report.plantPixels).toLocaleString()+' boundary pixels measured.';return report;
- }catch(e){const m=e&&e.message?e.message:String(e||'Unknown image-processing error');if(status)status.textContent='HSV analysis failed: '+m;result.innerHTML='<p class="cv-caution" role="status">OpenCV analysis failed: '+esc(m)+'</p>';return {ok:false,error:m}}
+  if(status)status.textContent='HSV analysis succeeded. Estimated plant boundary: '+Number(report.plantPercentOfPhoto)+'% of photo; '+Number(report.plantPixels).toLocaleString()+' boundary pixels measured.';report.vertexImageBase64=vertexImageBase64;report.vertexMimeType='image/jpeg';report.vertexFileName=item.fileName||'Latest Image_Feed snapshot';return report;
+ }catch(e){const m=e&&e.message?e.message:String(e||'Unknown image-processing error');if(status)status.textContent='HSV analysis failed: '+m;result.innerHTML='<p class="cv-caution" role="status">OpenCV analysis failed: '+esc(m)+'</p>';return {ok:false,error:m,vertexImageBase64,vertexMimeType:'image/jpeg',vertexFileName:item.fileName||'Latest Image_Feed snapshot'}}
 }
  // Explicit API: invoked by runDiagnosisScreen, not by a second click listener.
 
