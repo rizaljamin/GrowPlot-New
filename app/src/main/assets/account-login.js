@@ -220,7 +220,7 @@ function saveNotice(message,success){
 }
 function connectAssignedImageFeed(data){
  const plotsForUser=Array.isArray(data&&data.plots)?data.plots.filter(p=>p&&p.id&&String(p.id)!=='plot-1'):[];
- const plot=plotsForUser.find(p=>String(p.id)===String(data.selectedPlotId||''))||(plotsForUser.length===1?plotsForUser[0]:null);
+ const plot=plotsForUser.find(p=>String(p.id)===String(data.selectedPlotId||''));
  if(!plot){saveNotice('Image Feed not connected: this account has no assigned plot selected.',false);return;}
  const user=window.GrowPlotCurrentUser||currentUser;
  const attempt=String(user&&(user.uid||user.id)||'')+'|'+String(plot.id);
