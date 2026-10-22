@@ -1,6 +1,6 @@
 ## BUG-072 — Stale “not connected” notice remains after Drive API login connection
 **Reported:** 2026-10-22  
-**Status:** Source fix prepared for v0.7.00 Build 31 / versionCode 235; ARM64 build and tablet verification pending.
+**Status:** Fixed in v0.7.00 Build 31 / versionCode 235; GitHub ARM64 run #411 passed and stable signing matched. APK SHA-256: `3361bfbb3bfbd18b69a6a0d2faac95bc7195a2678b2aaeff7a920e14ac25f1d5`. Tablet verification pending.
 
 **Cause:** The Data Feed settings notice used the older Android folder-grant state and did not check the Drive API folder mapping created during login.
 
