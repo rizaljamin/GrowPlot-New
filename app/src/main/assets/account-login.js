@@ -246,6 +246,7 @@ window.GrowPlotLoginImageFeedStatus=function(result){
  if(!pending||!result||String(result.plotId||'')!==pending.plotId)return;
  if(result.connected===true){
   saveNotice('Image Feed connected: '+String(result.path||pending.expected),true);
+  window.dispatchEvent(new Event('growplot-drive-feed-connection-changed'));
   window.GrowPlotLoginImageFeedPending=null;
   return;
  }
