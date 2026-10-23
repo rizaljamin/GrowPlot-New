@@ -1,6 +1,6 @@
 2026-10-23 | v0.7.01 Build 18 | versionCode 253 | com.growplot.farm
 Changes: Google Drive folder discovery now retries parent-scoped folder and file listings in the user's Drive corpus when `allDrives` returns no children. When multiple `Projects` folders or Shared Drives exist, GrowPlot prefers the one containing `GrowPlot/Image_Feed` so an unrelated personal `Projects` folder cannot hide the shared farm folder.
-Validation: Focused Drive discovery regression and ARM64 GitHub Actions build pending. Google OAuth, listing, scan, and upload still require verification on the Android tablet.
+Validation: Focused Drive discovery regression and GitHub Actions ARM64 run #486 passed; package/version/signature checks and artifact upload passed. APK SHA-256: `edb3c38b94bb40726a0f663fcc76cd8b856840a82e68fb9a1fda5038b889b164`. Stable signing matched. Source commit: `746b3931efb0a0de1ef75ccb68c020fab693d0dc`. Google OAuth, listing, scan, and upload still require verification on the Android tablet.
 
 2026-10-23 | v0.7.01 Build 15 | versionCode 250 | com.growplot.farm
 Changes: Root Projects folder discovery now retries the Drive API user corpus with sharedWithMe when the allDrives search cannot find a directly shared folder; added a focused regression check.
