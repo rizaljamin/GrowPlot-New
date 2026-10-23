@@ -14,4 +14,15 @@ assert(findMethod.includes('findDriveFolderByName(id, "GrowPlot")'), 'same-named
 assert(findMethod.includes('findDriveFolderByName(growPlotId, "Image_Feed")'), 'prefer the Projects candidate containing Image_Feed');
 assert(sharedDriveMethod.includes('findDriveFolderByName(id, "GrowPlot")'), 'same-named Shared Drives should be checked for GrowPlot');
 assert(sharedDriveMethod.includes('findDriveFolderByName(growPlotId, "Image_Feed")'), 'prefer the Shared Drive containing Image_Feed');
+const authMethod = source.slice(source.indexOf('private void authorizeAndConnectDriveFeed'), source.indexOf('private void completeDriveAuthorization'));
+assert(authMethod.includes('String firebaseEmail = signedInFirebaseEmail()') && authMethod.includes('requestBuilder.setAccount(new Account(firebaseEmail, "com.google"))'), 'authorize the Google account matching the signed-in GrowPlot user');
+const completion = source.slice(source.indexOf('private void completeDriveAuthorization'), source.indexOf('private void loadDriveFeedFolderOptions'));
+assert(completion.includes('getDriveAccountEmail()') && completion.includes('firebaseEmail.equalsIgnoreCase(driveAccountEmail)'), 'reject an OAuth account that does not match the signed-in GrowPlot user');
+const picker = source.slice(source.indexOf('private void loadDriveFeedFolderOptions'), source.indexOf('private void showDriveFeedFolderOptions'));
+assert(picker.includes('findOrCreateDriveFolder(imageFeedId, emailFolder)'), 'default under the signed-in user email folder');
+assert(picker.includes('findOrCreateDriveFolder(userFolderId, plotFolderName)'), 'default to the selected plot folder');
+assert(picker.includes('ordered.add(new DriveFeedFolderOption(defaultPlotFolderId, defaultPath))'), 'put the signed-in user plot folder first');
+const dialog = source.slice(source.indexOf('private void showDriveFeedFolderOptions'), source.indexOf('private void saveSelectedDriveFeedFolder'));
+assert(dialog.includes('setSingleChoiceItems(labels, 0'), 'preselect the user-specific default while allowing another available folder');
+assert(source.includes('expectedFeedPathLabel(plotId, folderName)'), 'build expected feed path with the account and plot folder');
 console.log('Drive folder discovery regression checks passed.');
