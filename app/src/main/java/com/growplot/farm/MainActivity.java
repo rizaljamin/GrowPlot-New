@@ -4921,6 +4921,7 @@ public class MainActivity extends Activity {
         String escapedName = name.replace("\\", "\\\\").replace("'", "\\'");
         String query = "name='" + escapedName + "'";
         String pageToken = null;
+        String fallbackId = null;
         do {
             String path = "/drive/v3/drives?q=" + URLEncoder.encode(query, "UTF-8")
                     + "&pageSize=100&fields=nextPageToken,drives(id,name)"
@@ -4930,15 +4931,18 @@ public class MainActivity extends Activity {
             if (drives != null) {
                 for (int i = 0; i < drives.length(); i++) {
                     JSONObject drive = drives.optJSONObject(i);
-                    if (drive != null && name.equals(drive.optString("name"))) {
-                        String id = drive.optString("id", "");
-                        if (!id.isEmpty()) return id;
-                    }
+                    if (drive == null || !name.equals(drive.optString("name"))) continue;
+                    String id = drive.optString("id", "");
+                    if (id.isEmpty()) continue;
+                    String growPlotId = findDriveFolderByName(id, "GrowPlot");
+                    if (growPlotId == null) continue;
+                    if (findDriveFolderByName(growPlotId, "Image_Feed") != null) return id;
+                    if (fallbackId == null) fallbackId = id;
                 }
             }
             pageToken = response.optString("nextPageToken", null);
         } while (pageToken != null && !pageToken.isEmpty());
-        return null;
+        return fallbackId;
     }
 
     private void connectDefaultFeedWithDriveApi(String plotId, String folderName) throws Exception {
@@ -5052,7 +5056,12 @@ public class MainActivity extends Activity {
     }
 
     private JSONArray listDriveFiles(String query) throws Exception {
-        return listDriveFiles(query, "allDrives");
+        JSONArray files = listDriveFiles(query, "allDrives");
+        // Items inside a directly shared My Drive folder may be absent from the allDrives
+        // corpus even though the authorized user can access them. Retry parent-scoped
+        // listings in the user's corpus so nested folder discovery and feed scans can see them.
+        if (files.length() > 0 || !query.contains(" in parents")) return files;
+        return listDriveFiles(query, "user");
     }
 
     private JSONArray listDriveFiles(String query, String corpora) throws Exception {
@@ -5076,14 +5085,32 @@ public class MainActivity extends Activity {
         String escapedName = name.replace("\\", "\\\\").replace("'", "\\'");
         String query = "name='" + escapedName + "' and mimeType='application/vnd.google-apps.folder' and trashed=false";
         if (parentId != null) query += " and '" + parentId.replace("'", "\\'") + "' in parents";
-        String folderId = findExactDriveFolderId(listDriveFiles(query), name);
-        if (folderId != null || parentId != null) return folderId;
+        JSONArray candidates = listDriveFiles(query);
+        if (parentId != null) {
+            return findExactDriveFolderId(candidates, name);
+        }
 
-        // A folder explicitly shared with this account can be absent from the allDrives corpus,
-        // especially when it belongs to a Shared Drive the account does not belong to.
-        // Search the user's Shared with me collection directly before reporting it missing.
+        // A directly shared Projects folder can be absent from allDrives. Also consider every
+        // same-named root and prefer the one that actually contains GrowPlot/Image_Feed; a
+        // personal, unrelated Projects folder must not mask the shared project tree.
         JSONArray sharedWithMe = listDriveFiles("sharedWithMe and " + query, "user");
-        return findExactDriveFolderId(sharedWithMe, name);
+        Set<String> seen = new HashSet<>();
+        String fallbackId = null;
+        for (int pass = 0; pass < 2; pass++) {
+            JSONArray files = pass == 0 ? candidates : sharedWithMe;
+            for (int i = 0; i < files.length(); i++) {
+                JSONObject file = files.optJSONObject(i);
+                if (file == null || !name.equals(file.optString("name"))) continue;
+                String id = file.optString("id", "");
+                if (id.isEmpty() || !seen.add(id)) continue;
+                if (!"Projects".equals(name)) return id;
+                String growPlotId = findDriveFolderByName(id, "GrowPlot");
+                if (growPlotId == null) continue;
+                if (findDriveFolderByName(growPlotId, "Image_Feed") != null) return id;
+                if (fallbackId == null) fallbackId = id;
+            }
+        }
+        return fallbackId;
     }
 
     private String findExactDriveFolderId(JSONArray files, String name) {
