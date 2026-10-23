@@ -1917,6 +1917,7 @@ public class MainActivity extends Activity {
         response.put("deletedIds", deletedIds);
         response.put("irrigationSchedules", management == null ? new JSONArray() : management.optJSONArray("irrigationSchedules") == null ? new JSONArray() : management.optJSONArray("irrigationSchedules"));
         response.put("maintenanceTasks", management == null ? new JSONArray() : management.optJSONArray("maintenanceTasks") == null ? new JSONArray() : management.optJSONArray("maintenanceTasks"));
+        response.put("customCrops", management == null ? new JSONArray() : management.optJSONArray("customCrops") == null ? new JSONArray() : management.optJSONArray("customCrops"));
         response.put("managementDeletedIds", management == null ? new JSONArray() : management.optJSONArray("deletedIds") == null ? new JSONArray() : management.optJSONArray("deletedIds"));
         response.put("ok", true);
         response.put("path", "/db/userdata/" + userId);
@@ -2015,10 +2016,14 @@ public class MainActivity extends Activity {
         if (managementDeletedIds == null) managementDeletedIds = new JSONArray();
         JSONObject management = new JSONObject();
         management.put("schemaVersion", 1); management.put("userId", userId);
+        JSONObject oldManagement = readFarmDriveJson(treeUri, userFolderId, "farm-management.json");
+        JSONArray customCrops = request.optJSONArray("customCrops");
+        if (customCrops == null) customCrops = oldManagement == null || oldManagement.optJSONArray("customCrops") == null ? new JSONArray() : oldManagement.optJSONArray("customCrops");
         management.put("updatedAt", new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US).format(new Date()));
         management.put("irrigationSchedules", irrigationSchedules);
         management.put("maintenanceTasks", maintenanceTasks);
         management.put("deletedIds", managementDeletedIds);
+        management.put("customCrops", customCrops);
         writeFarmDriveJson(treeUri, userFolderId, "farm-management.json", management);
         JSONObject response = new JSONObject(); response.put("ok", true); response.put("userId", userId);
         response.put("path", "/db/userdata/" + userId); response.put("scopeCount", scopes.size());
@@ -3398,6 +3403,13 @@ public class MainActivity extends Activity {
             return farmDataUserId("default-user");
         }
 
+        @JavascriptInterface public void openCropInfoSearch(String cropName) {
+            String crop = cropName == null || cropName.trim().isEmpty() ? "crop" : cropName.trim();
+            String query = crop + " crop varieties days to first harvest planting guide Malaysia";
+            Uri search = Uri.parse("https://www.google.com/search?q=" + Uri.encode(query));
+            runOnUiThread(() -> { try { startActivity(new Intent(Intent.ACTION_VIEW, search)); } catch (Exception ignored) { } });
+        }
+
         @JavascriptInterface public void loadFarmPlantings() {
             farmDataWorker.execute(() -> {
                 try { notifyFarmPlantingsLoaded(loadFarmPlantingsFromDrive(farmDataUserId("default-user"))); }
@@ -3406,7 +3418,7 @@ public class MainActivity extends Activity {
                     try { response.put("ok", false); response.put("userId", farmDataUserId("default-user"));
                         response.put("records", new JSONArray()); response.put("deletedIds", new JSONArray());
                         response.put("irrigationSchedules", new JSONArray()); response.put("maintenanceTasks", new JSONArray());
-                        response.put("managementDeletedIds", new JSONArray());
+                        response.put("managementDeletedIds", new JSONArray()); response.put("customCrops", new JSONArray());
                         response.put("message", error.getMessage() == null ? "Could not read the farm database from Google Drive" : error.getMessage()); }
                     catch (Exception ignored) { }
                     notifyFarmPlantingsLoaded(response);
