@@ -2,7 +2,7 @@
 
 ## Vertex image diagnosis
 
-`vertexImageDiagnosis` is a Firebase callable in `us-central1`. It requires a signed-in Firebase user, accepts 1–5 JPEG/PNG/WebP photos (combined base64 payload up to 7 MB), sends the images to Gemini `gemini-3.5-flash` on Vertex AI using the `us` multi-region endpoint, and returns a JSON visual assessment. The callable region (`us-central1`) is separate from the model serving location (`us`). It does not persist the submitted images.
+`vertexImageDiagnosis` is a Firebase callable in `us-central1`. It requires a signed-in Firebase user, accepts 1–5 JPEG/PNG/WebP photos (combined base64 payload up to 7 MB), sends the images to Gemini `gemini-3.5-flash` on Vertex AI using the documented `https://aiplatform.us.rep.googleapis.com` endpoint, and returns a JSON visual assessment. The callable region (`us-central1`) is separate from the model serving location (`us`). It does not persist the submitted images.
 
 The function runs as `growplot-vertex-api@growplot.iam.gserviceaccount.com`, using the Cloud Run service identity and ADC. Grant this runtime service account **Agent Platform User** (`roles/aiplatform.user`) on project `growplot`. Do not create or upload a service-account key. Vertex AI API and project billing must be enabled.
 
