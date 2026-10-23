@@ -2296,9 +2296,15 @@ public class MainActivity extends Activity {
         if (folderUri == null) return;
         String plotId = safePlotId(pickerPlotId);
         String selectedFolderName = getDocumentName(folderUri);
-        if (pickerCreatesDefaultFeed && !("Projects".equalsIgnoreCase(selectedFolderName)
-                || "GrowPlot".equalsIgnoreCase(selectedFolderName))) {
-            publishStatus(makeStatus("Select Projects or GrowPlot, then tap Use this folder. GrowPlot creates the missing folders for " + safeFolderName(pickerDefaultFolderName) + "."));
+        String selectedDocumentId = DocumentsContract.getTreeDocumentId(folderUri);
+        boolean selectedRoot = "Projects".equalsIgnoreCase(selectedFolderName)
+                || "GrowPlot".equalsIgnoreCase(selectedFolderName)
+                || "Image_Feed".equalsIgnoreCase(selectedFolderName)
+                || "My Drive".equalsIgnoreCase(selectedFolderName)
+                || "Drive".equalsIgnoreCase(selectedFolderName);
+        boolean selectedPlotFolder = selectedFolderName.equalsIgnoreCase(safeFolderName(pickerDefaultFolderName));
+        if (pickerCreatesDefaultFeed && !selectedRoot && !selectedPlotFolder) {
+            publishStatus(makeStatus("In Google Drive, choose this plot's existing folder under Projects/GrowPlot/Image_Feed, or choose Projects, GrowPlot, or Image_Feed to create it."));
             return;
         }
         int grantFlags = data.getFlags() & (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
@@ -2319,18 +2325,32 @@ public class MainActivity extends Activity {
             String targetDocumentId = DocumentsContract.getTreeDocumentId(folderUri);
             String defaultRelativePath = null;
             if (pickerCreatesDefaultFeed) {
-                targetDocumentId = resolveGrowPlotDocumentId(folderUri);
-                if (targetDocumentId == null) throw new IllegalStateException("Select the Projects or GrowPlot folder in Google Drive");
-                String emailFolder = signedInEmailFolderName();
-                String imageFeedId = findOrCreateChildFolder(folderUri, targetDocumentId, "Image_Feed");
-                String userFolderId = findOrCreateChildFolder(folderUri, imageFeedId, emailFolder);
-                String plotFolder = safeFolderName(pickerDefaultFolderName);
-                targetDocumentId = findOrCreateChildFolder(folderUri, userFolderId, plotFolder);
-                defaultRelativePath = "Image_Feed/" + emailFolder + "/" + plotFolder;
+                if (selectedPlotFolder && !selectedRoot) {
+                    // Keep the exact Drive folder the user selected; do not infer an
+                    // email subfolder from the Firebase account.
+                    targetDocumentId = selectedDocumentId;
+                    locationLabel = getDocumentPathLabel(folderUri, targetDocumentId);
+                } else {
+                    String imageFeedId;
+                    if ("Image_Feed".equalsIgnoreCase(selectedFolderName)) {
+                        imageFeedId = selectedDocumentId;
+                    } else {
+                        targetDocumentId = resolveGrowPlotDocumentId(folderUri);
+                        if (targetDocumentId == null) throw new IllegalStateException("Select Projects, GrowPlot, Image_Feed, or this plot's existing Image_Feed folder in Google Drive");
+                        imageFeedId = findOrCreateChildFolder(folderUri, targetDocumentId, "Image_Feed");
+                    }
+                    String emailFolder = signedInEmailFolderName();
+                    String userFolderId = findOrCreateChildFolder(folderUri, imageFeedId, emailFolder);
+                    String plotFolder = safeFolderName(pickerDefaultFolderName);
+                    targetDocumentId = findOrCreateChildFolder(folderUri, userFolderId, plotFolder);
+                    defaultRelativePath = "Image_Feed/" + emailFolder + "/" + plotFolder;
+                }
             }
-            locationLabel = defaultRelativePath == null
-                    ? getDocumentPathLabel(folderUri, targetDocumentId)
-                    : "Google Drive: /Projects/GrowPlot/" + defaultRelativePath;
+            if (locationLabel == null) {
+                locationLabel = defaultRelativePath == null
+                        ? getDocumentPathLabel(folderUri, targetDocumentId)
+                        : "Google Drive: /Projects/GrowPlot/" + defaultRelativePath;
+            }
             JSONObject config = new JSONObject(getPrefs().getString("data_feed_config_" + plotId, "{}"));
             config.put("plotId", plotId);
             config.put("enabled", true);
@@ -3392,6 +3412,17 @@ public class MainActivity extends Activity {
             runOnUiThread(MainActivity.this::openImageFeedFolderPicker);
         }
 
+        @JavascriptInterface public void browseDefaultFeedFolder(String plotId, String folderName) {
+            pickerPlotId = safePlotId(plotId);
+            pickerDefaultFolderName = safeFolderName(folderName);
+            pickerCreatesDefaultFeed = true;
+            getPrefs().edit().putString(PREF_ACTIVE_PLOT_ID, pickerPlotId).apply();
+            runOnUiThread(() -> {
+                publishStatus(makeStatus("Opening Google Drive. Choose this plot's folder under Projects/GrowPlot/Image_Feed, or choose Projects, GrowPlot, or Image_Feed to create its standard folder."));
+                openImageFeedFolderPicker(true);
+            });
+        }
+
         @JavascriptInterface public void createDefaultDataFeed(String plotId, String folderName) {
             pickerPlotId = safePlotId(plotId);
             pickerDefaultFolderName = safeFolderName(folderName);
@@ -3411,12 +3442,7 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface public String getExpectedFeedPath(String plotId, String folderName) {
-            try {
-                return "Google Drive: /Projects/GrowPlot/Image_Feed/" + signedInEmailFolderName()
-                        + "/" + safeFolderName(folderName);
-            } catch (Exception error) {
-                return "";
-            }
+            return "Google Drive: /Projects/GrowPlot/Image_Feed";
         }
 
         @JavascriptInterface public void openIpWebcam() {
@@ -5030,8 +5056,12 @@ public class MainActivity extends Activity {
     }
 
     private void openImageFeedFolderPicker() {
+        openImageFeedFolderPicker(false);
+    }
+
+    private void openImageFeedFolderPicker(boolean forcePicker) {
         if (isFinishing()) return;
-        if (pickerCreatesDefaultFeed) {
+        if (!forcePicker && pickerCreatesDefaultFeed) {
             String savedTree = getPrefs().getString(feedTreeKey(pickerPlotId), null);
             String savedFolder = getPrefs().getString(feedFolderDocumentKey(pickerPlotId), null);
             // Reuse any previously granted GrowPlot/Projects tree even when this plot
@@ -5065,7 +5095,8 @@ public class MainActivity extends Activity {
         }
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
         intent.putExtra(Intent.EXTRA_TITLE, pickerCreatesDefaultFeed
-                ? "Select Projects or GrowPlot for " + pickerDefaultFolderName : "Choose this plot's image feed folder");
+                ? "Choose " + pickerDefaultFolderName + " in Projects/GrowPlot/Image_Feed"
+                : "Choose this plot's image feed folder");
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
                 | Intent.FLAG_GRANT_WRITE_URI_PERMISSION
                 | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);

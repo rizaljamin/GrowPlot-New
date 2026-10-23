@@ -1,12 +1,12 @@
-# GrowPlot — v0.7.01 Build 15
+# GrowPlot — v0.7.01 Build 16
 
 GrowPlot is an Android farm-management application with CCTV monitoring, Google Drive image feeds, A.I Plant Health, diagnosis workflows and plot management.
 
-**Current source version:** v0.7.01 Build 15 (`versionCode=250`, Android package `com.growplot.farm`). This identity is recorded in `version.properties`. A version number in source does not by itself confirm that a matching APK has been built; check the GitHub Actions run and its build manifest before distributing an APK.
+**Current source version:** v0.7.01 Build 16 (`versionCode=251`, Android package `com.growplot.farm`). This identity is recorded in `version.properties`. A version number in source does not by itself confirm that a matching APK has been built; check the GitHub Actions run and its build manifest before distributing an APK.
 
 ## Google Drive image feed
 
-Build 15 retains shared-drive folder lookup and retries the root `Projects` search through the authorized user's `sharedWithMe` corpus when needed. The build and real-device OAuth, scan, and upload checks are pending.
+Build 16 changes Settings → Plot Management → Data Feed → Connect to folder to open Android's Google Drive folder picker. Select the existing plot folder under `Projects/GrowPlot/Image_Feed` to store its exact folder ID, or select `Projects`, `GrowPlot`, or `Image_Feed` to create the standard plot folder. This avoids guessing the Drive subfolder from the Firebase email. ARM64 build and real-device picker, scan, and upload checks are pending.
 
 ## Vertex image assessment
 

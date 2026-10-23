@@ -1027,3 +1027,15 @@ Build 7 validation: Gradle ARM64 build, package version, signature, alignment, S
 **Fix:** Serve bundled photos through the same-origin `/assets/baseline/cctv_NN.jpg` route in `MainActivity.localImageResponse`, and use that URL for all bundled-photo fallbacks. Regression checks confirm the route maps to all six packaged JPEGs.
 
 **Verification / limits:** Path regression, interval regression, and the project build gates must pass. Android WebView image loading still requires tablet verification.
+
+
+## BUG-072 — Settings Drive connection targeted an inferred empty email folder
+
+**Reported:** 2026-10-23
+**Status:** Fix implemented in v0.7.01 Build 16; ARM64 build and tablet verification pending.
+
+**Finding:** The Settings Connect to folder button called the automatic Drive API path builder. It inferred the Image_Feed account subfolder from the Firebase email, which pointed this plot to the empty `rizaljamin@gmail.com/plot02_pp5` folder instead of the existing `growplot2026@gmail.com/plot02_pp5` folder containing CCTV photos. Connection failures from this route also did not give the Settings folder picker a clear path to recover.
+
+**Fix:** The Settings action now opens Android's Google Drive folder picker. The user can select this plot's existing folder under `Projects/GrowPlot/Image_Feed`; GrowPlot stores that exact folder ID and does not substitute the Firebase email. Selecting `Projects`, `GrowPlot`, or `Image_Feed` still creates the standard path for the plot. The displayed disconnected path now points to the real `/Projects/GrowPlot/Image_Feed` root.
+
+**Verification / limits:** Regression coverage checks the Settings button route, selected-folder mapping, and fallback folder creation. Android picker return, access grant persistence, scan, and snapshot upload still require tablet verification.
