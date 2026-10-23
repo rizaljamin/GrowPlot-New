@@ -4744,10 +4744,37 @@ public class MainActivity extends Activity {
         if (camera > 0 && bridge != null) bridge.diagnosePhotosWithPlantNet(camera, plotId, species, symptom, metrics);
     }
 
+    private String findDriveSharedDriveByName(String name) throws Exception {
+        String escapedName = name.replace("\\", "\\\\").replace("'", "\\'");
+        String query = "name='" + escapedName + "'";
+        String pageToken = null;
+        do {
+            String path = "/drive/v3/drives?q=" + URLEncoder.encode(query, "UTF-8")
+                    + "&pageSize=100&fields=nextPageToken,drives(id,name)"
+                    + (pageToken == null ? "" : "&pageToken=" + URLEncoder.encode(pageToken, "UTF-8"));
+            JSONObject response = driveApiJsonRequest("GET", path, null);
+            JSONArray drives = response.optJSONArray("drives");
+            if (drives != null) {
+                for (int i = 0; i < drives.length(); i++) {
+                    JSONObject drive = drives.optJSONObject(i);
+                    if (drive != null && name.equals(drive.optString("name"))) {
+                        String id = drive.optString("id", "");
+                        if (!id.isEmpty()) return id;
+                    }
+                }
+            }
+            pageToken = response.optString("nextPageToken", null);
+        } while (pageToken != null && !pageToken.isEmpty());
+        return null;
+    }
+
     private void connectDefaultFeedWithDriveApi(String plotId, String folderName) throws Exception {
-        String projectsId = findDriveFolderByName(null, "Projects");
+        // "Projects" may be a folder shared into My Drive, or an actual Shared Drive.
+        // Drive API exposes Shared Drives through drives.list rather than files.list.
+        String projectsId = findDriveSharedDriveByName("Projects");
+        if (projectsId == null) projectsId = findDriveFolderByName(null, "Projects");
         if (projectsId == null) {
-            throw new IllegalStateException("Could not find the shared Projects folder in the authorized Google Drive account.");
+            throw new IllegalStateException("Could not find a Projects folder or Shared Drive in the authorized Google Drive account. Check that this Google account has access to Projects.");
         }
         String growPlotId = findDriveFolderByName(projectsId, "GrowPlot");
         if (growPlotId == null) {
@@ -4857,7 +4884,7 @@ public class MainActivity extends Activity {
         do {
             String path = "/drive/v3/files?q=" + URLEncoder.encode(query, "UTF-8")
                     + "&pageSize=1000&fields=nextPageToken,files(id,name,mimeType,modifiedTime,size,parents)"
-                    + "&supportsAllDrives=true&includeItemsFromAllDrives=true"
+                    + "&supportsAllDrives=true&includeItemsFromAllDrives=true&corpora=allDrives"
                     + (pageToken == null ? "" : "&pageToken=" + URLEncoder.encode(pageToken, "UTF-8"));
             JSONObject response = driveApiJsonRequest("GET", path, null);
             JSONArray page = response.optJSONArray("files");
@@ -4888,7 +4915,7 @@ public class MainActivity extends Activity {
         JSONArray parents = new JSONArray();
         parents.put(parentId);
         metadata.put("parents", parents);
-        JSONObject created = driveApiJsonRequest("POST", "/drive/v3/files?fields=id", metadata);
+        JSONObject created = driveApiJsonRequest("POST", "/drive/v3/files?supportsAllDrives=true&fields=id", metadata);
         String id = created.optString("id", "");
         if (id.isEmpty()) throw new IllegalStateException("Google Drive did not return the new folder ID for " + name);
         return id;

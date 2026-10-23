@@ -18,6 +18,14 @@ const picker=java.slice(java.indexOf('private void connectDefaultFeedInSavedTree
 assert(picker.includes('"Image_Feed"')&&picker.includes('signedInEmailFolderName()'),'create or reuse the signed-in user Image_Feed folder');
 assert(picker.includes('safeFolderName(pickerDefaultFolderName)'),'derive the target folder from the selected plot');
 assert(picker.includes('findOrCreateChildFolder'),'create each missing folder while reusing existing folders');
+const driveShared=java.slice(java.indexOf('private String findDriveSharedDriveByName'),java.indexOf('private void connectDefaultFeedWithDriveApi'));
+assert(driveShared.includes('/drive/v3/drives?q='),'look up a Projects Shared Drive through drives.list');
+assert(driveShared.includes('nextPageToken'),'paginate shared-drive lookup');
+const apiConnect=java.slice(java.indexOf('private void connectDefaultFeedWithDriveApi'),java.indexOf('private void notifyLoginDriveStatus'));
+assert(apiConnect.includes('findDriveSharedDriveByName("Projects")'),'prefer a shared Drive named Projects');
+assert(apiConnect.includes('findDriveFolderByName(null, "Projects")'),'fall back to a shared Projects folder');
+assert(java.includes('&corpora=allDrives'),'search folders across My Drive and shared drives');
+assert(java.includes('files?supportsAllDrives=true&fields=id'),'create folders inside a shared Drive');
 assert(java.includes('resolveGrowPlotDocumentId(folderUri)'),'resolve either Projects or GrowPlot as the authorized parent');
 assert(java.includes('feed_picker_creates_default'),'restore the pending connection if Android recreates the activity');
 assert(java.includes('Google Drive selection was cancelled'),'show a clear status when the picker returns without a folder');

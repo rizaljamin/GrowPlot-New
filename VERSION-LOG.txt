@@ -1,3 +1,7 @@
+2026-10-23 | v0.7.01 Build 14 | versionCode 249 | com.growplot.farm
+Changes: Image Feed login now resolves a Projects Shared Drive through drives.list as well as a shared Projects folder, searches all accessible Drive corpora, and creates folders with shared-drive support enabled.
+Validation: Added regression assertions for shared-drive lookup, My Drive/shared-folder fallback, cross-drive search, and shared-drive folder creation. GitHub ARM64 build and Android Drive authorization/scan verification pending.
+
 2026-10-22 | v0.7.01 Build 13 | versionCode 248 | com.growplot.farm
 Changes: The Vertex Analysis subsection now shows an animated hourglass and accessible busy status while the authenticated Vertex request is processing. The indicator is replaced when the Vertex result or error arrives.
 Validation: Vertex/OpenCV wiring regression and ARM64 packaging passed in GitHub Actions run #475; stable signing matched. Device verification pending.

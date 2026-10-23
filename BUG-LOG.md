@@ -1,3 +1,15 @@
+## BUG-073 — Image Feed login cannot locate the shared Projects location
+**Reported:** 2026-10-23  
+**Status:** Source fix prepared for v0.7.01 Build 14 / versionCode 249; ARM64 build and Android Drive verification pending.
+
+**Cause:** Login searched Drive files for a folder named Projects. Google exposes a Shared Drive named Projects through drives.list, and the file listing did not explicitly search all Drive corpora. Folder creation also omitted the shared-drive support flag.
+
+**Fix:** Resolve a Shared Drive named Projects first, then fall back to a shared folder named Projects; search all accessible corpora and pass supportsAllDrives=true when creating folders.
+
+**Verification / limits:** Regression checks cover both Projects layouts and shared-drive folder creation. The app still needs real-device OAuth and Image_Feed scan verification.
+
+---
+
 ## BUG-072 — Stale “not connected” notice remains after Drive API login connection
 **Reported:** 2026-10-22  
 **Status:** Fixed in v0.7.00 Build 31 / versionCode 235; GitHub ARM64 run #411 passed and stable signing matched. APK SHA-256: `3361bfbb3bfbd18b69a6a0d2faac95bc7195a2678b2aaeff7a920e14ac25f1d5`. Tablet verification pending.

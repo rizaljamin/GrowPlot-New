@@ -1,3 +1,8 @@
+## Build 14 — discover shared Projects Drive for Image Feed
+- Login now resolves either a Shared Drive named Projects or a shared Projects folder, searches all accessible Drive corpora, and creates Image_Feed folders with shared-drive support.
+- Regression checks cover both layouts, cross-drive search, and folder creation.
+- Source baseline: 23d551f57200fcfdaab6ddc4c410829f2ac04d7e; versionCode 249. ARM64 build and Android OAuth/scan verification pending.
+
 ## Pending — remove confirmed plant identity from Vertex and provider output
 
 - Remove the duplicated “Plant identity confirmed” cards from the Pl@ntNet/Kindwise provider section.
