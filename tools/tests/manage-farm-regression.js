@@ -179,4 +179,40 @@ assert.match(html, /PriceCatcher \(KPDN\/DOSM\)/, 'Historical Price attributes t
 assert.match(html, /not a FAMA farm-gate quote/, 'Historical Price distinguishes retail data from farm-gate prices');
 assert.match(farmJava, /MarketPriceBridge/, 'Android registers the market price callable bridge');
 
+assert.match(html, /function autofillFarmCropDetails\(/, 'common crop names can autofill the add-crop form');
+assert.match(html, /Crop details filled from /, 'autofill identifies the details source');
+{
+  const lookupStart = script.indexOf('const FARM_CROP_INFO_SOURCE=');
+  const lookupEnd = script.indexOf('function saveFarmCrop(e)', lookupStart);
+  assert.ok(lookupStart >= 0 && lookupEnd > lookupStart, 'crop lookup profiles are defined before crop save');
+  const makeField = (value = '') => ({ value, dataset: {} });
+  const form = { elements: {
+    name: makeField('Turmeric'), scientific: makeField(), varieties: makeField(),
+    minDays: makeField(), maxDays: makeField(), basis: makeField('after field planting'), source: makeField(),
+  } };
+  const status = { textContent: '', dataset: {} };
+  const lookupContext = {
+    FARM_CROP_INFO_SOURCE: undefined,
+    farmCropCatalog: [],
+    document: { getElementById: id => id === 'farmAddCropForm' ? form : status },
+  };
+  vm.createContext(lookupContext);
+  vm.runInContext(script.slice(lookupStart, lookupEnd), lookupContext);
+  vm.runInContext('autofillFarmCropDetails()', lookupContext);
+  assert.equal(form.elements.scientific.value, 'Curcuma longa');
+  assert.equal(form.elements.minDays.value, 210);
+  assert.equal(form.elements.maxDays.value, 300);
+  assert.equal(form.elements.basis.value, 'after planting');
+  assert.match(form.elements.source.value, /doa\\.gov\\.my/);
+  assert.match(status.textContent, /Department of Agriculture/);
+  form.elements.name.value = 'Lemon grass';
+  vm.runInContext('autofillFarmCropDetails()', lookupContext);
+  assert.equal(form.elements.scientific.value, 'Cymbopogon citratus');
+  assert.equal(form.elements.minDays.value, 180);
+  assert.equal(form.elements.maxDays.value, 240);
+  form.elements.maxDays.value = '200';
+  vm.runInContext('autofillFarmCropDetails()', lookupContext);
+  assert.equal(form.elements.maxDays.value, '200', 'manual edits are preserved');
+}
+
 console.log('PASS: farm scope filters, Plot default, shared plot management, due cues, completion dates, irrigation ordering, and Google Maps routing/location permissions.');
