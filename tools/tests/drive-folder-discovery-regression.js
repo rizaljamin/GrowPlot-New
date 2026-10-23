@@ -10,9 +10,9 @@ assert(listMethod.includes('if (files.length() > 0 || !query.contains(" in paren
 assert(listMethod.includes('return listDriveFiles(query, "user")'), 'nested Drive listing fallback should use the user corpus');
 assert(findMethod.includes('sharedWithMe and " + query'), 'root folder lookup must retry in Shared with me');
 assert(findMethod.includes('listDriveFiles(query)'), 'root Projects lookup should enumerate accessible Drive folders');
-assert(findMethod.includes('findDriveFolderByName(id, "GrowPlot")'), 'same-named Projects candidates should be checked for GrowPlot');
+assert(findMethod.includes('findDriveFolderByName(id, "growplot")'), 'same-named Projects candidates should be checked for lowercase growplot');
 assert(findMethod.includes('findDriveFolderByName(growPlotId, "Image_Feed")'), 'prefer the Projects candidate containing Image_Feed');
-assert(sharedDriveMethod.includes('findDriveFolderByName(id, "GrowPlot")'), 'same-named Shared Drives should be checked for GrowPlot');
+assert(sharedDriveMethod.includes('findDriveFolderByName(id, "growplot")'), 'same-named Shared Drives should be checked for lowercase growplot');
 assert(sharedDriveMethod.includes('findDriveFolderByName(growPlotId, "Image_Feed")'), 'prefer the Shared Drive containing Image_Feed');
 const authMethod = source.slice(source.indexOf('private void authorizeAndConnectDriveFeed'), source.indexOf('private void completeDriveAuthorization'));
 assert(authMethod.includes('requestBuilder.setAccount(new Account(DRIVE_OWNER_EMAIL, "com.google"))'), 'authorize the central shared Drive owner account');
