@@ -132,11 +132,13 @@ const farmContext = {
 const farmRoot = { hidden: true, innerHTML: '', querySelectorAll: () => [] };
 const farmForm = { addEventListener: () => {}, elements: { plotId: { addEventListener: () => {} }, greenhouse: { addEventListener: () => {}, value: '1' } } };
 const farmPicker = { hidden: true, addEventListener: () => {} };
+const farmAddForm = { addEventListener: () => {}, elements: { name: { value: '' } } };
+const farmAddPopup = { hidden: true, addEventListener: () => {} };
 const farmElements = {
   manageFarmContent: farmRoot,
   gh: { options: [{ value: '1', textContent: 'Greenhouse 1' }], value: '1' },
-  farmPlantingForm: farmForm, farmCropPopup: farmPicker,
-  farmOpenCropPicker: { addEventListener: () => {} }, farmCloseCropPicker: { addEventListener: () => {} },
+  farmPlantingForm: farmForm, farmCropPopup: farmPicker, farmAddCropForm: farmAddForm, farmAddCropPopup: farmAddPopup, farmCropWebSearch: { href: '' },
+  farmOpenCropPicker: { addEventListener: () => {} }, farmCloseCropPicker: { addEventListener: () => {} }, farmOpenAddCrop: { addEventListener: () => {} }, farmCloseAddCrop: { addEventListener: () => {} }, farmCancelAddCrop: { addEventListener: () => {} },
 };
 vm.createContext(farmContext);
 vm.runInContext(script.slice(farmStart, renderEnd), farmContext);
