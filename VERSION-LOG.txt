@@ -906,3 +906,5 @@ Signing / provider keys: This APK's certificate does not match the saved Build 3
 - Settings → Data Feed lists all available nested Drive folders beneath Projects/GrowPlot/Image_Feed in an in-app selector; any listed path can be selected and its exact Drive folder ID/path are saved.
 - Drive account identity is retained for authorization refresh so reconnection continues using the selected folder's Drive account instead of inferring a folder from Firebase email.
 - Disconnected path display uses the Image_Feed root. ARM64 build and tablet authorization, listing, scan, and upload validation pending.
+
+2026-10-23 | v0.7.01 Build 21 (versionCode 256) | Restore the Android system folder picker on Settings → Connect to folder. The user can select the Google Drive folder directly; GrowPlot saves its persisted URI, uses that exact folder for scans/uploads, and removes stale Drive API folder mapping. Selecting Projects or growplot creates/reuses the lowercase standard path Projects/growplot/Image_Feed/<signed-in email>/<plot>. Regression coverage updated; ARM64 build and tablet verification pending.

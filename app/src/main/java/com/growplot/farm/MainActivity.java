@@ -844,11 +844,11 @@ public class MainActivity extends Activity {
     private String resolveGrowPlotDocumentId(Uri treeUri) throws Exception {
         String id = DocumentsContract.getTreeDocumentId(treeUri);
         String selectedName = getDocumentName(treeUri);
-        if ("GrowPlot".equalsIgnoreCase(selectedName)) return id;
-        if ("Projects".equalsIgnoreCase(selectedName)) return findOrCreateChildFolder(treeUri, id, "GrowPlot");
+        if ("growplot".equalsIgnoreCase(selectedName)) return id;
+        if ("Projects".equalsIgnoreCase(selectedName)) return findOrCreateChildFolder(treeUri, id, "growplot");
         if ("My Drive".equalsIgnoreCase(selectedName) || "Drive".equalsIgnoreCase(selectedName)) {
             String projectsId = findOrCreateChildFolder(treeUri, id, "Projects");
-            return findOrCreateChildFolder(treeUri, projectsId, "GrowPlot");
+            return findOrCreateChildFolder(treeUri, projectsId, "growplot");
         }
         return null;
     }
@@ -2317,7 +2317,7 @@ public class MainActivity extends Activity {
                 || "Drive".equalsIgnoreCase(selectedFolderName);
         boolean selectedPlotFolder = selectedFolderName.equalsIgnoreCase(safeFolderName(pickerDefaultFolderName));
         if (pickerCreatesDefaultFeed && !selectedRoot && !selectedPlotFolder) {
-            publishStatus(makeStatus("In Google Drive, choose this plot's existing folder under Projects/growplot/Image_Feed, or choose Projects, GrowPlot, or Image_Feed to create it."));
+            publishStatus(makeStatus("In Google Drive, choose this plot's existing folder under Projects/growplot/Image_Feed, or choose Projects, growplot, or Image_Feed to create it."));
             return;
         }
         int grantFlags = data.getFlags() & (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
@@ -2349,7 +2349,7 @@ public class MainActivity extends Activity {
                         imageFeedId = selectedDocumentId;
                     } else {
                         targetDocumentId = resolveGrowPlotDocumentId(folderUri);
-                        if (targetDocumentId == null) throw new IllegalStateException("Select Projects, GrowPlot, Image_Feed, or this plot's existing Image_Feed folder in Google Drive");
+                        if (targetDocumentId == null) throw new IllegalStateException("Select Projects, growplot, Image_Feed, or this plot's existing Image_Feed folder in Google Drive");
                         imageFeedId = findOrCreateChildFolder(folderUri, targetDocumentId, "Image_Feed");
                     }
                     String emailFolder = signedInEmailFolderName();
@@ -2374,6 +2374,10 @@ public class MainActivity extends Activity {
                     .putString(feedLocationKey(plotId), locationLabel)
                     .putString("data_feed_config_" + plotId, config.toString())
                     .putString(PREF_ACTIVE_PLOT_ID, plotId)
+                    .remove(driveApiFolderKey(plotId))
+                    .remove(DRIVE_API_EMAIL_KEY_PREFIX + plotId)
+                    .remove(DRIVE_API_FOLDER_NAME_KEY_PREFIX + plotId)
+                    .remove(DRIVE_API_ACCOUNT_EMAIL_PREFIX + plotId)
                     .apply();
             rememberGrowPlotTreeIfScoped(folderUri);
             storageConfigSaved = saveDriveStorageConfig(folderUri);
@@ -3431,14 +3435,8 @@ public class MainActivity extends Activity {
             pickerCreatesDefaultFeed = true;
             getPrefs().edit().putString(PREF_ACTIVE_PLOT_ID, pickerPlotId).apply();
             runOnUiThread(() -> {
-                publishStatus(makeStatus("Connecting to Google Drive and listing folders under Projects/growplot/Image_Feed…"));
-                pendingDriveFolderBrowse = true;
-                if (googleDriveAccessToken != null && !googleDriveAccessToken.trim().isEmpty()
-                        && System.currentTimeMillis() - googleDriveTokenIssuedAt < 45L * 60L * 1000L) {
-                    loadDriveFeedFolderOptions(pickerPlotId);
-                } else {
-                    authorizeAndConnectDriveFeed(pickerPlotId, pickerDefaultFolderName);
-                }
+                publishStatus(makeStatus("Choose the Google Drive folder for this plot."));
+                openImageFeedFolderPicker(true);
             });
         }
 

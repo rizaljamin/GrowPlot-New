@@ -1,12 +1,12 @@
-# GrowPlot — v0.7.01 Build 19
+# GrowPlot — v0.7.01 Build 21
 
 GrowPlot is an Android farm-management application with CCTV monitoring, Google Drive image feeds, A.I Plant Health, diagnosis workflows and plot management.
 
-**Current source version:** v0.7.01 Build 19 (`versionCode=254`, Android package `com.growplot.farm`). This identity is recorded in `version.properties`. GitHub Actions ARM64 run #487 passed package, version, and stable-signature checks and produced the APK. APK SHA-256: `32c3e20a3b86885a3ade5468e0bba4f8e90349f3f43719053dd1203cc93090e2`. Drive account connection and folder scanning still need tablet verification.
+**Current source version:** v0.7.01 Build 21 (`versionCode=256`, Android package `com.growplot.farm`). This identity is recorded in `version.properties`. Build 21 restores Android's folder picker when Settings → Connect to folder is tapped. GitHub Actions ARM64 build and tablet verification are pending.
 
 ## Google Drive image feed
 
-Build 17 lists available Drive paths beneath `Projects/GrowPlot/Image_Feed` in an in-app selector. Build 19 requests Drive authorization for the signed-in GrowPlot user's Google account, verifies the account returned by Google, and preselects that user's `<email>/<plot>` folder. Other accessible folders remain selectable. Build 18 retries child-folder and file listings in the user's Drive corpus when `allDrives` cannot see descendants of a directly shared folder, and chooses the `Projects` tree that actually contains `GrowPlot/Image_Feed` when duplicate names exist. GrowPlot stores the selected folder's exact ID and path. GitHub Actions ARM64 run #486 passed and produced a stable-signed APK. Google authorization, listing, scan, and upload still need Android tablet verification.
+Settings → Connect to folder opens Android's system folder picker. Choose Google Drive, select the existing plot folder (or the Projects/growplot/Image_Feed scope), and grant read/write access. GrowPlot saves the exact selected folder URI and uses it for scans and uploads; choosing a folder clears any stale Drive API folder ID. When a root scope is selected, GrowPlot creates or reuses `Projects/growplot/Image_Feed/<signed-in email>/<plot>`. The picker uses the Google Drive account selected through Android's Drive provider. Android folder permission, scan, and upload behavior require tablet verification.
 
 ## Vertex image assessment
 
