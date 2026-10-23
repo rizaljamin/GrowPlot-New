@@ -4728,6 +4728,7 @@ public class MainActivity extends Activity {
         final String plotId = safePlotId(pendingDriveAuthPlotId);
         final String folderName = safeFolderName(pendingDriveAuthFolderName);
         farmDataWorker.execute(() -> {
+            driveApiTrace.set(new StringBuilder());
             try {
                 String driveAccountEmail = getDriveAccountEmail();
                 if (!DRIVE_OWNER_EMAIL.equalsIgnoreCase(driveAccountEmail)) {
