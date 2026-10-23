@@ -132,11 +132,13 @@ const farmContext = {
 const farmRoot = { hidden: true, innerHTML: '', querySelectorAll: () => [] };
 const farmForm = { addEventListener: () => {}, elements: { plotId: { addEventListener: () => {} }, greenhouse: { addEventListener: () => {}, value: '1' } } };
 const farmPicker = { hidden: true, addEventListener: () => {} };
+const farmAddForm = { addEventListener: () => {}, elements: { name: { value: '', addEventListener: () => {} }, basis: { value: 'after field planting', dataset: {}, addEventListener: () => {} } } };
+const farmAddPopup = { hidden: true, addEventListener: () => {} };
 const farmElements = {
   manageFarmContent: farmRoot,
   gh: { options: [{ value: '1', textContent: 'Greenhouse 1' }], value: '1' },
-  farmPlantingForm: farmForm, farmCropPopup: farmPicker,
-  farmOpenCropPicker: { addEventListener: () => {} }, farmCloseCropPicker: { addEventListener: () => {} },
+  farmPlantingForm: farmForm, farmCropPopup: farmPicker, farmAddCropForm: farmAddForm, farmAddCropPopup: farmAddPopup, farmCropWebSearch: { href: '', addEventListener: () => {} },
+  farmOpenCropPicker: { addEventListener: () => {} }, farmCloseCropPicker: { addEventListener: () => {} }, farmOpenAddCrop: { addEventListener: () => {} }, farmCloseAddCrop: { addEventListener: () => {} }, farmCancelAddCrop: { addEventListener: () => {} },
 };
 vm.createContext(farmContext);
 vm.runInContext(script.slice(farmStart, renderEnd), farmContext);
@@ -154,4 +156,63 @@ assert.match(manifest, /android\.permission\.ACCESS_COARSE_LOCATION/, 'GrowPlot 
 assert.doesNotMatch(manifest, /android\.permission\.ACCESS_BACKGROUND_LOCATION/, 'map use does not request unnecessary background location');
 assert.match(java, /googleMaps\.setPackage\("com\.google\.android\.apps\.maps"\)/, 'plot map links prefer the Google Maps app');
 assert.match(java, /catch \(Exception mapsUnavailable\)[\s\S]*?new Intent\(Intent\.ACTION_VIEW, maps\)/, 'plot map links fall back to the web map when the app is unavailable');
+const cropSave = line('saveFarmCrop');
+assert.match(cropSave, /farmCustomCrops\.push\(crop\)/, 'new crop enters the selectable catalogue');
+assert.match(cropSave, /max>3650/, 'harvest estimates have an upper bound');
+assert.match(cropSave, /That crop is already in the list/, 'duplicate crop names are rejected');
+assert.match(renderFarm, /id="farmOpenAddCrop"/, 'Add crop button sits beside the crop picker');
+assert.match(renderFarm, /id="farmAddCropForm"/, 'crop details have a dedicated entry form');
+assert.match(line('persistFarmPlantingsLocally'), /growplotCustomCrops_v1/, 'custom crop catalogue is persisted locally');
+assert.match(line('syncFarmPlantingsToDrive'), /customCrops:farmCustomCrops/, 'custom crop catalogue is sent to Drive');
+const farmJava = fs.readFileSync('app/src/main/java/com/growplot/farm/MainActivity.java', 'utf8');
+assert.match(farmJava, /response\.put\("customCrops"/, 'Drive load returns the custom catalogue');
+assert.match(farmJava, /management\.put\("customCrops", customCrops\)/, 'Drive save stores the custom catalogue');
+assert.match(farmJava, /openCropInfoSearch/, 'crop web search opens outside the app WebView');
+
+assert.match(html, /id="marketBuyerList"/, 'Marketplace exposes Buyer List');
+assert.match(html, /id="marketHistoricalPrice"/, 'Marketplace exposes Historical Price');
+assert.match(html, /farmCropCatalog\.map\(c=>/, 'Historical Price crop options use the shared crop catalogue');
+assert.match(html, /id="marketCropSelect"/, 'Historical Price lets the user choose a crop');
+assert.match(html, /id="marketPriceMonth"/, 'Historical Price lets the user choose a month');
+assert.match(html, /GrowPlotMarket\.loadMonthlyPrices/, 'Historical Price requests monthly source data from Android');
+assert.match(html, /PriceCatcher \(KPDN\/DOSM\)/, 'Historical Price attributes the public government data source');
+assert.match(html, /not a FAMA farm-gate quote/, 'Historical Price distinguishes retail data from farm-gate prices');
+assert.match(farmJava, /MarketPriceBridge/, 'Android registers the market price callable bridge');
+
+assert.match(html, /function autofillFarmCropDetails\(/, 'common crop names can autofill the add-crop form');
+assert.match(html, /Crop details filled from /, 'autofill identifies the details source');
+{
+  const lookupStart = script.indexOf('const FARM_CROP_INFO_SOURCE=');
+  const lookupEnd = script.indexOf('function saveFarmCrop(e)', lookupStart);
+  assert.ok(lookupStart >= 0 && lookupEnd > lookupStart, 'crop lookup profiles are defined before crop save');
+  const makeField = (value = '') => ({ value, dataset: {} });
+  const form = { elements: {
+    name: makeField('Turmeric'), scientific: makeField(), varieties: makeField(),
+    minDays: makeField(), maxDays: makeField(), basis: makeField('after field planting'), source: makeField(),
+  } };
+  const status = { textContent: '', dataset: {} };
+  const lookupContext = {
+    FARM_CROP_INFO_SOURCE: undefined,
+    farmCropCatalog: [],
+    document: { getElementById: id => id === 'farmAddCropForm' ? form : status },
+  };
+  vm.createContext(lookupContext);
+  vm.runInContext(script.slice(lookupStart, lookupEnd), lookupContext);
+  vm.runInContext('autofillFarmCropDetails()', lookupContext);
+  assert.equal(form.elements.scientific.value, 'Curcuma longa');
+  assert.equal(form.elements.minDays.value, '210');
+  assert.equal(form.elements.maxDays.value, '300');
+  assert.equal(form.elements.basis.value, 'after planting');
+  assert.match(form.elements.source.value, /doa\.gov\.my/);
+  assert.match(status.textContent, /Department of Agriculture/);
+  form.elements.name.value = 'Lemon grass';
+  vm.runInContext('autofillFarmCropDetails()', lookupContext);
+  assert.equal(form.elements.scientific.value, 'Cymbopogon citratus');
+  assert.equal(form.elements.minDays.value, '180');
+  assert.equal(form.elements.maxDays.value, '240');
+  form.elements.maxDays.value = '200';
+  vm.runInContext('autofillFarmCropDetails()', lookupContext);
+  assert.equal(form.elements.maxDays.value, '200', 'manual edits are preserved');
+}
+
 console.log('PASS: farm scope filters, Plot default, shared plot management, due cues, completion dates, irrigation ordering, and Google Maps routing/location permissions.');

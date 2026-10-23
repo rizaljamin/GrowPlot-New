@@ -1,12 +1,11 @@
-name: Deploy GrowPlot Vertex callable
+name: Deploy GrowPlot Firebase callables
 
 on:
   workflow_dispatch:
   push:
     branches: [main]
     paths:
-      - 'functions/index.js'
-      - 'functions/package.json'
+      - 'functions/**'
       - 'firebase.json'
       - '.github/workflows/deploy-vertex-diagnosis.yml'
 
@@ -14,7 +13,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: growplot-vertex-diagnosis
+  group: growplot-firebase-callables
   cancel-in-progress: false
 
 jobs:
@@ -32,10 +31,10 @@ jobs:
       - name: Show authenticated deploy principal
         run: |
           node -e "const fs=require('fs'); const c=JSON.parse(fs.readFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS,'utf8')); console.log('Authenticated deploy principal:', c.client_email || '(not available)')"
-      - name: Install and check Firebase function
+      - name: Install and check Firebase functions
         working-directory: functions
         run: |
           npm install --ignore-scripts
           npm run lint
-      - name: Deploy Vertex callable to GrowPlot Firebase project
-        run: npx --yes firebase-tools@14 deploy --only functions:vertexImageDiagnosis --project growplot --non-interactive --force
+      - name: Deploy Firebase callables to GrowPlot
+        run: npx --yes firebase-tools@14 deploy --only functions:vertexImageDiagnosis,functions:getMonthlyRetailCropPrices --project growplot --non-interactive --force
