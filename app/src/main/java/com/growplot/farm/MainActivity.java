@@ -3403,6 +3403,11 @@ public class MainActivity extends Activity {
             return farmDataUserId("default-user");
         }
 
+        @JavascriptInterface public void openFamaMarketPortal() {
+            Uri portal = Uri.parse("https://ami.fama.gov.my/web-awam");
+            runOnUiThread(() -> { try { startActivity(new Intent(Intent.ACTION_VIEW, portal)); } catch (Exception ignored) { } });
+        }
+
         @JavascriptInterface public void openCropInfoSearch(String cropName) {
             String crop = cropName == null || cropName.trim().isEmpty() ? "crop" : cropName.trim();
             String query = crop + " crop varieties days to first harvest planting guide Malaysia";
