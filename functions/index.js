@@ -145,7 +145,7 @@ export const vertexImageDiagnosis = onCall({
     throw new HttpsError('internal', 'Vertex authentication failed. Check the Cloud Function service identity.');
   }
 
-  const endpoint = 'https://' + VERTEX_LOCATION + '-aiplatform.googleapis.com/v1/projects/'
+  const endpoint = 'https://aiplatform.' + VERTEX_LOCATION + '.rep.googleapis.com/v1/projects/'
     + encodeURIComponent(VERTEX_PROJECT_ID) + '/locations/' + VERTEX_LOCATION
     + '/publishers/google/models/' + VERTEX_MODEL + ':generateContent';
   const parts = images.map(image => ({inlineData: image}));
