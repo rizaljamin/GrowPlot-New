@@ -1,3 +1,9 @@
+## Build 15 — retry directly shared Projects folder lookup
+- Preserve Build 14's shared-drive search and folder creation support.
+- If the root Projects folder is absent from allDrives, retry with the Drive API user corpus and the sharedWithMe query.
+- Add a focused regression check to the ARM64 build gate.
+- Source change committed; GitHub ARM64 build and real Android verification pending.
+
 ## Completed — Build 14 shared Projects Drive Image Feed fix
 - Login resolves either a Shared Drive named Projects or a shared Projects folder, searches all accessible Drive corpora, and creates, downloads, and uploads feed items with shared-drive support.
 - GitHub ARM64 Actions run #479 passed regression, compilation, package/version/signature checks, and artifact upload from source commit 0bbba278b3931d5383be715bc6e015ff3d6b9220.

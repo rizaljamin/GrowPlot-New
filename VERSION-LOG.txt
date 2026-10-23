@@ -1,3 +1,7 @@
+2026-10-23 | v0.7.01 Build 15 | versionCode 250 | com.growplot.farm
+Changes: Root Projects folder discovery now retries the Drive API user corpus with sharedWithMe when the allDrives search cannot find a directly shared folder; added a focused regression check.
+Validation: Pending GitHub ARM64 Actions run and real-device OAuth, Image_Feed scan, and upload verification.
+
 2026-10-23 | v0.7.01 Build 14 | versionCode 249 | com.growplot.farm
 Changes: Image Feed login now resolves a Projects Shared Drive through drives.list as well as a shared Projects folder, searches all accessible Drive corpora, and creates folders with shared-drive support enabled.
 Validation: GitHub Actions ARM64 run #479 passed data-feed regressions, compilation, package/version/signature checks, and artifact upload. APK size: 89,525,841 bytes. SHA-256: 577f2141bf1b8088b7a966f5d842e0e6242f31ae6bc387c336e78466d558ca99. Stable signing matched. Source commit: 0bbba278b3931d5383be715bc6e015ff3d6b9220. Android OAuth and feed-scan verification pending.

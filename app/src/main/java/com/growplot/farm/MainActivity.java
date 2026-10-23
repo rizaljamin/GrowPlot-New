@@ -4879,12 +4879,17 @@ public class MainActivity extends Activity {
     }
 
     private JSONArray listDriveFiles(String query) throws Exception {
+        return listDriveFiles(query, "allDrives");
+    }
+
+    private JSONArray listDriveFiles(String query, String corpora) throws Exception {
         JSONArray files = new JSONArray();
         String pageToken = null;
         do {
             String path = "/drive/v3/files?q=" + URLEncoder.encode(query, "UTF-8")
                     + "&pageSize=1000&fields=nextPageToken,files(id,name,mimeType,modifiedTime,size,parents)"
-                    + "&supportsAllDrives=true&includeItemsFromAllDrives=true&corpora=allDrives"
+                    + "&supportsAllDrives=true&includeItemsFromAllDrives=true"
+                    + "&corpora=" + URLEncoder.encode(corpora, "UTF-8")
                     + (pageToken == null ? "" : "&pageToken=" + URLEncoder.encode(pageToken, "UTF-8"));
             JSONObject response = driveApiJsonRequest("GET", path, null);
             JSONArray page = response.optJSONArray("files");
@@ -4898,7 +4903,17 @@ public class MainActivity extends Activity {
         String escapedName = name.replace("\\", "\\\\").replace("'", "\\'");
         String query = "name='" + escapedName + "' and mimeType='application/vnd.google-apps.folder' and trashed=false";
         if (parentId != null) query += " and '" + parentId.replace("'", "\\'") + "' in parents";
-        JSONArray files = listDriveFiles(query);
+        String folderId = findExactDriveFolderId(listDriveFiles(query), name);
+        if (folderId != null || parentId != null) return folderId;
+
+        // A folder explicitly shared with this account can be absent from the allDrives corpus,
+        // especially when it belongs to a Shared Drive the account does not belong to.
+        // Search the user's Shared with me collection directly before reporting it missing.
+        JSONArray sharedWithMe = listDriveFiles("sharedWithMe and " + query, "user");
+        return findExactDriveFolderId(sharedWithMe, name);
+    }
+
+    private String findExactDriveFolderId(JSONArray files, String name) {
         for (int i = 0; i < files.length(); i++) {
             JSONObject file = files.optJSONObject(i);
             if (file != null && name.equals(file.optString("name"))) return file.optString("id", null);
