@@ -1,8 +1,8 @@
-# GrowPlot — v0.7.01 Build 21
+# GrowPlot — v0.7.01 Build 22
 
 GrowPlot is an Android farm-management application with CCTV monitoring, Google Drive image feeds, A.I Plant Health, diagnosis workflows and plot management.
 
-**Current source version:** v0.7.01 Build 21 (`versionCode=256`, Android package `com.growplot.farm`). This identity is recorded in `version.properties`. Build 21 restores Android's folder picker when Settings → Connect to folder is tapped. GitHub Actions run #494 passed the ARM64 build, release manifest, and stable-signing checks. APK SHA-256: `0c10a26b2eb3de6ad5a89280101cbeccf7e27c36067c700ad37472c27954eab4`. Tablet picker, scan, and upload verification remain pending.
+**Current source version:** v0.7.01 Build 22 (`versionCode=257`, Android package `com.growplot.farm`). The build adds custom crops in Manage Farm and Buyer List / Historical Price entries in Marketplace, with a link to the FAMA AMI public portal. [GitHub Actions run #505](https://github.com/rizaljamin/GrowPlot-New/actions/runs/39968124574) passed the ARM64 build, release manifest, package and stable-signing checks. Stable signing matched. APK size: 89,528,805 bytes. APK SHA-256: `d712f86c47ff0b8786c36d9297aa0862772798aef1c09affa94f80fb09c0965b`. Source commit: `f1c480078a5cb5c1d76822c498b79127c9db2538`. Android tablet verification remains pending.
 
 ## Google Drive image feed
 
