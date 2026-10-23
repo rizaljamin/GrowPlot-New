@@ -172,8 +172,11 @@ assert.match(farmJava, /openCropInfoSearch/, 'crop web search opens outside the 
 assert.match(html, /id="marketBuyerList"/, 'Marketplace exposes Buyer List');
 assert.match(html, /id="marketHistoricalPrice"/, 'Marketplace exposes Historical Price');
 assert.match(html, /farmCropCatalog\.map\(c=>/, 'Historical Price crop options use the shared crop catalogue');
-assert.match(html, /ami\.fama\.gov\.my\/web-awam/, 'Historical Price opens the official FAMA AMI portal');
-assert.match(html, /Price unit: RM\/kg/, 'Historical Price states the requested price unit');
-assert.match(farmJava, /openFamaMarketPortal/, 'FAMA AMI portal opens through the Android bridge');
+assert.match(html, /id="marketCropSelect"/, 'Historical Price lets the user choose a crop');
+assert.match(html, /id="marketPriceMonth"/, 'Historical Price lets the user choose a month');
+assert.match(html, /GrowPlotMarket\.loadMonthlyPrices/, 'Historical Price requests monthly source data from Android');
+assert.match(html, /PriceCatcher \(KPDN\/DOSM\)/, 'Historical Price attributes the public government data source');
+assert.match(html, /not a FAMA farm-gate quote/, 'Historical Price distinguishes retail data from farm-gate prices');
+assert.match(farmJava, /MarketPriceBridge/, 'Android registers the market price callable bridge');
 
 console.log('PASS: farm scope filters, Plot default, shared plot management, due cues, completion dates, irrigation ordering, and Google Maps routing/location permissions.');
