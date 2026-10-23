@@ -245,3 +245,9 @@ Validation: Java 17 compilation against Android API 35/VLC and existing Settings
 2026-10-20 | Pending next APK
 Google Drive image-feed Connect now creates or reuses `Image_Feed/<signed-in-email>/<selected-plot>` under the authorized GrowPlot folder. Reuses the saved Android folder grant when available; otherwise, the user authorizes the GrowPlot folder once, then the selected user's plot path is created. If folder creation fails, the expected path and the failure status are reported separately.
 Verification: source change committed; Android build and Google Drive provider/device verification pending.
+
+
+## Pending — add custom crops in Manage Farm
+- Add an **Add crop** control beside the Crop Planning picker. The form captures crop name, scientific name, varieties, first-harvest range and reference URL, with a Google search link for local growing details.
+- Save custom crops locally and in the existing Google Drive farm-management JSON. Newly added crops are selected immediately for a planting record.
+- Validation: JavaScript syntax and focused add/select, duplicate-name, local persistence, Drive bridge checks passed. Android build and Drive device verification pending.
