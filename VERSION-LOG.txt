@@ -1,3 +1,7 @@
+2026-10-23 | v0.7.01 Build 23 | versionCode 258 | com.growplot.farm
+Changes: Add-crop auto-fills known scientific names, harvest windows, estimate basis, and source links from the crop catalogue. Includes Department of Agriculture guidance for turmeric/kunyit and culinary lemongrass/serai; suggestions remain editable. Marketplace Historical Price now aggregates monthly Malaysia PriceCatcher public retail observations in RM/kg with counts and attribution. Retail observations are not FAMA farm-gate prices.
+Validation: Crop autofill regression passed locally. Full GitHub ARM64 workflow and package/signature validation pending. Android tablet verification pending.
+
 2026-10-23 | v0.7.01 Build 22 | versionCode 257 | com.growplot.farm
 Changes: Add custom crops to Manage Farm crop planning. Add Marketplace Buyer List placeholder and Historical Price view, using the shared crop catalogue and linking to FAMA AMI for monthly price information (RM/kg).
 Validation: GrowPlot ARM64 Actions run #505 passed build, release manifest, package, stable-signing and artifact-upload checks. APK size: 89,528,805 bytes. APK SHA-256: d712f86c47ff0b8786c36d9297aa0862772798aef1c09affa94f80fb09c0965b. Stable signing matched. Source commit: f1c480078a5cb5c1d76822c498b79127c9db2538. Android tablet verification pending.
