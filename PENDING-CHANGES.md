@@ -1,7 +1,8 @@
-## Build 14 — discover shared Projects Drive for Image Feed
-- Login now resolves either a Shared Drive named Projects or a shared Projects folder, searches all accessible Drive corpora, and creates, downloads, and uploads feed items with shared-drive support.
-- Regression checks cover both layouts, cross-drive search, and folder creation.
-- Source baseline: 23d551f57200fcfdaab6ddc4c410829f2ac04d7e; versionCode 249. ARM64 build and Android OAuth/scan verification pending.
+## Completed — Build 14 shared Projects Drive Image Feed fix
+- Login resolves either a Shared Drive named Projects or a shared Projects folder, searches all accessible Drive corpora, and creates, downloads, and uploads feed items with shared-drive support.
+- GitHub ARM64 Actions run #479 passed regression, compilation, package/version/signature checks, and artifact upload from source commit 0bbba278b3931d5383be715bc6e015ff3d6b9220.
+- v0.7.01 Build 14 / versionCode 249 APK is 89,525,841 bytes; stable signing matched. SHA-256: 577f2141bf1b8088b7a966f5d842e0e6242f31ae6bc387c336e78466d558ca99.
+- A real Android OAuth, feed scan, and image upload test remains pending.
 
 ## Pending — remove confirmed plant identity from Vertex and provider output
 
