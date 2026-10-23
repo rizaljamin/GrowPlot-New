@@ -24,7 +24,7 @@ assert(driveShared.includes('nextPageToken'),'paginate shared-drive lookup');
 const apiConnect=java.slice(java.indexOf('private void connectDefaultFeedWithDriveApi'),java.indexOf('private void notifyLoginDriveStatus'));
 assert(apiConnect.includes('findDriveSharedDriveByName("Projects")'),'prefer a shared Drive named Projects');
 assert(apiConnect.includes('findDriveFolderByName(null, "Projects")'),'fall back to a shared Projects folder');
-assert(java.includes('return listDriveFiles(query, "allDrives")')&&java.includes('"&corpora=" + URLEncoder.encode(corpora, "UTF-8")'),'search folders across My Drive/shared drives and allow a user-corpus fallback');
+assert(java.includes('JSONArray files = listDriveFiles(query, "allDrives")')&&java.includes('return listDriveFiles(query, "user")')&&java.includes('"&corpora=" + URLEncoder.encode(corpora, "UTF-8")'),'search allDrives first and retry empty parent-scoped listings in the user corpus');
 assert(java.includes('files?supportsAllDrives=true&fields=id'),'create folders inside a shared Drive');
 assert(java.includes('?alt=media&supportsAllDrives=true'),'download Image_Feed photos from a shared Drive');
 assert(java.includes('uploadType=multipart&supportsAllDrives=true'),'upload CCTV snapshots to a shared Drive');
