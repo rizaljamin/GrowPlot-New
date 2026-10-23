@@ -256,4 +256,4 @@ Verification: source change committed; Android build and Google Drive provider/d
 ## Pending — Marketplace buyer and FAMA prices
 - Add **Buyer List** and **Historical Price** entries under Marketplace. Buyer List is a placeholder; Historical Price uses the same built-in and custom crop catalogue as Manage Farm.
 - Add crop and market-level reference selectors with RM/kg labeling and an Android link to FAMA AMI’s public portal. The user selects crop, level, and month on FAMA’s site; GrowPlot does not claim to fetch monthly prices directly.
-- Validation: Marketplace entry, shared crop catalogue, FAMA portal bridge, and RM/kg regression checks passed. APK build and Android device verification pending.
+- Validation: Marketplace entry, shared crop catalogue, FAMA portal bridge, and RM/kg regression checks passed. ARM64 Actions run #505 built v0.7.01 Build 22 / versionCode 257 with stable signing. Android device verification pending.
