@@ -3,6 +3,9 @@ import {initializeApp} from 'firebase-admin/app';
 import {getFirestore, FieldValue} from 'firebase-admin/firestore';
 import {KeyManagementServiceClient} from '@google-cloud/kms';
 import {GoogleAuth} from 'google-auth-library';
+import {Readable} from 'node:stream';
+import {createInterface} from 'node:readline';
+import {parseCsvLine, pricePerKg, monthlyPriceSummary} from './pricecatcher-utils.js';
 initializeApp();
 const db=getFirestore(), kms=new KeyManagementServiceClient();
 const key=process.env.GROWPLOT_KMS_KEY_NAME;
@@ -193,4 +196,93 @@ export const vertexImageDiagnosis = onCall({
     generatedAt: new Date().toISOString(),
     analysis
   };
+});
+
+
+const PRICE_DATA_ROOT='https://storage.data.gov.my/pricecatcher';
+const priceCacheLoads=new Map();
+let itemLookupPromise;
+function currentPriceMonth(){
+ const now=new Date();
+ return now.toISOString().slice(0,7);
+}
+async function csvRows(url,onRow){
+ let response;
+ try { response=await fetch(url,{signal:AbortSignal.timeout(480000)}); }
+ catch(error){ console.error('PriceCatcher download failed:',error?.message||error); throw new HttpsError('unavailable','Could not reach Malaysia PriceCatcher data. Try again later.'); }
+ if(!response.ok) throw new HttpsError(response.status===404?'not-found':'unavailable','PriceCatcher has no downloadable data for this month (HTTP '+response.status+').');
+ const length=Number(response.headers.get('content-length')||0);
+ if(length>500_000_000) throw new HttpsError('resource-exhausted','PriceCatcher monthly file is larger than the supported limit.');
+ const reader=createInterface({input:Readable.fromWeb(response.body),crlfDelay:Infinity});
+ let headers=null;
+ for await(const line of reader){
+  if(!headers){headers=parseCsvLine(line).map(h=>h.replace(/^\uFEFF/,'').trim());continue;}
+  if(!line.trim())continue;
+  const cells=parseCsvLine(line),row={};
+  headers.forEach((name,index)=>{row[name]=cells[index]??''});
+  onRow(row);
+ }
+ if(!headers) throw new HttpsError('unavailable','PriceCatcher returned an empty CSV file.');
+}
+async function loadItemLookup(){
+ if(!itemLookupPromise){
+  itemLookupPromise=(async()=>{
+   const items=new Map();
+   await csvRows(PRICE_DATA_ROOT+'/lookup_item.csv',row=>{
+    const code=String(row.item_code||'').trim(),item=String(row.item||'').trim(),unit=String(row.unit||'').trim();
+    if(code&&item)items.set(code,{item,unit});
+   });
+   if(!items.size)throw new HttpsError('unavailable','PriceCatcher item lookup contained no products.');
+   return items;
+  })().catch(error=>{itemLookupPromise=null;throw error});
+ }
+ return itemLookupPromise;
+}
+async function buildMonthStats(month){
+ const items=await loadItemLookup(),stats=new Map();
+ const sourceUrl=PRICE_DATA_ROOT+'/pricecatcher_'+month+'.csv';
+ await csvRows(sourceUrl,row=>{
+  const code=String(row.item_code||'').trim(),item=items.get(code);
+  if(!item)return;
+  const perKg=pricePerKg(row.price,item.unit);
+  if(perKg===null)return;
+  let entry=stats.get(code);
+  if(!entry){entry={item:item.item,unit:item.unit,sum:0,count:0};stats.set(code,entry)}
+  entry.sum+=perKg;
+  entry.count+=1;
+ });
+ const result=[...stats.values()].filter(row=>row.count>0);
+ if(!result.length)throw new HttpsError('not-found','PriceCatcher returned no per-kilogram observations for '+month+'.');
+ if(Buffer.byteLength(JSON.stringify(result),'utf8')>900_000)throw new HttpsError('resource-exhausted','Monthly price summary is too large to cache.');
+ return {sourceUrl,items:result,fetchedAtMs:Date.now()};
+}
+async function getCachedMonthStats(month){
+ const cacheRef=db.collection('public_market_price_cache').doc(month);
+ const snap=await cacheRef.get(),current=month===currentPriceMonth();
+ if(snap.exists){
+  const value=snap.data()||{},age=Date.now()-Number(value.fetchedAtMs||0);
+  if(Array.isArray(value.items)&&value.sourceUrl&&(!current||age<6*60*60*1000))return value;
+ }
+ if(priceCacheLoads.has(month))return priceCacheLoads.get(month);
+ const load=buildMonthStats(month).then(async result=>{
+  await cacheRef.set(result);
+  return result;
+ }).finally(()=>priceCacheLoads.delete(month));
+ priceCacheLoads.set(month,load);
+ return load;
+}
+export const getMonthlyRetailCropPrices=onCall({
+ region:'us-central1',
+ timeoutSeconds:540,
+ memory:'1GiB',
+ maxInstances:2,
+ enforceAppCheck:false
+},async req=>{
+ if(!req.auth?.uid)throw new HttpsError('unauthenticated','Sign in to GrowPlot to load public market prices.');
+ const month=String(req.data?.month||'');
+ if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)||month>currentPriceMonth())throw new HttpsError('invalid-argument','Choose a valid month that is not in the future.');
+ const aliases=Array.isArray(req.data?.aliases)?req.data.aliases.slice(0,8).map(value=>String(value||'').replace(/[^A-Za-z0-9À-ÿ -]/g,' ').replace(/\s+/g,' ').trim()).filter(value=>value.length>=3&&value.length<=60):[];
+ if(!aliases.length)throw new HttpsError('invalid-argument','Choose a crop with a searchable name.');
+ const cached=await getCachedMonthStats(month);
+ return monthlyPriceSummary(month,cached.sourceUrl,cached.items,aliases);
 });
