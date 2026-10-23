@@ -132,12 +132,12 @@ const farmContext = {
 const farmRoot = { hidden: true, innerHTML: '', querySelectorAll: () => [] };
 const farmForm = { addEventListener: () => {}, elements: { plotId: { addEventListener: () => {} }, greenhouse: { addEventListener: () => {}, value: '1' } } };
 const farmPicker = { hidden: true, addEventListener: () => {} };
-const farmAddForm = { addEventListener: () => {}, elements: { name: { value: '' } } };
+const farmAddForm = { addEventListener: () => {}, elements: { name: { value: '', addEventListener: () => {} } } };
 const farmAddPopup = { hidden: true, addEventListener: () => {} };
 const farmElements = {
   manageFarmContent: farmRoot,
   gh: { options: [{ value: '1', textContent: 'Greenhouse 1' }], value: '1' },
-  farmPlantingForm: farmForm, farmCropPopup: farmPicker, farmAddCropForm: farmAddForm, farmAddCropPopup: farmAddPopup, farmCropWebSearch: { href: '' },
+  farmPlantingForm: farmForm, farmCropPopup: farmPicker, farmAddCropForm: farmAddForm, farmAddCropPopup: farmAddPopup, farmCropWebSearch: { href: '', addEventListener: () => {} },
   farmOpenCropPicker: { addEventListener: () => {} }, farmCloseCropPicker: { addEventListener: () => {} }, farmOpenAddCrop: { addEventListener: () => {} }, farmCloseAddCrop: { addEventListener: () => {} }, farmCancelAddCrop: { addEventListener: () => {} },
 };
 vm.createContext(farmContext);
