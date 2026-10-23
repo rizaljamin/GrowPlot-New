@@ -19,9 +19,9 @@ export function parseCsvLine(line) {
 export function pricePerKg(price, unit) {
   const amount = Number(price);
   if (!Number.isFinite(amount) || amount < 0) return null;
-  const normalized = String(unit || '').toLowerCase().replace(/[._]/g, ' ').replace(/\\s+/g, ' ').trim();
-  if (/^(?:1\\s*)?(?:kg|kilogram|kilograms)$/.test(normalized)) return amount;
-  const grams = normalized.match(/^(?:1\\s*)?(\\d+(?:\\.\\d+)?)\\s*(?:g|gram|grams)$/);
+  const normalized = String(unit || '').toLowerCase().replace(/[._]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (/^(?:1\s*)?(?:kg|kilogram|kilograms)$/.test(normalized)) return amount;
+  const grams = normalized.match(/^(?:1\s*)?(\d+(?:\.\d+)?)\s*(?:g|gram|grams)$/);
   if (grams) {
     const gramsPerItem = Number(grams[1]);
     return gramsPerItem > 0 ? amount * 1000 / gramsPerItem : null;
@@ -30,12 +30,11 @@ export function pricePerKg(price, unit) {
 }
 
 export function itemMatchesAliases(item, aliases) {
-  const name = String(item || '').normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase();
+  const clean = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const name = ' ' + clean(item) + ' ';
   return (Array.isArray(aliases) ? aliases : []).some(alias => {
-    const term = String(alias || '').normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase().trim();
-    if (term.length < 3) return false;
-    const escaped = term.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&');
-    return new RegExp('(?:^|[^a-z0-9])' + escaped + '(?:$|[^a-z0-9])', 'i').test(name);
+    const term = clean(alias);
+    return term.length >= 3 && name.includes(' ' + term + ' ');
   });
 }
 
