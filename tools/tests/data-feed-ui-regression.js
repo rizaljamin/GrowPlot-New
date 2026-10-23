@@ -23,8 +23,10 @@ const driveShared=java.slice(java.indexOf('private String findDriveSharedDriveBy
 assert(driveShared.includes('/drive/v3/drives?q='),'look up a Projects Shared Drive through drives.list');
 assert(driveShared.includes('nextPageToken'),'paginate shared-drive lookup');
 const apiConnect=java.slice(java.indexOf('private void connectDefaultFeedWithDriveApi'),java.indexOf('private void notifyLoginDriveStatus'));
-assert(apiConnect.includes('findDriveSharedDriveByName("Projects")'),'prefer a shared Drive named Projects');
-assert(apiConnect.includes('findDriveFolderByName(null, "Projects")'),'fall back to a shared Projects folder');
+assert(apiConnect.includes('findOwnedProjectsFolder()'),'search only for the Projects folder owned by the configured Drive account');
+const ownedProjects=java.slice(java.indexOf('private String findOwnedProjectsFolder'),java.indexOf('private String findDriveFolderByName'));
+assert(ownedProjects.includes('DRIVE_OWNER_EMAIL')&&ownedProjects.includes("' in owners")&&ownedProjects.includes('listDriveFiles(query, "user")'),'filter Projects by owner email in the user corpus');
+assert(java.includes('name.equalsIgnoreCase(file.optString("name"))'),'match Google Drive folder names without case sensitivity');
 assert(java.includes('JSONArray files = listDriveFiles(query, "allDrives")')&&java.includes('return listDriveFiles(query, "user")')&&java.includes('"&corpora=" + URLEncoder.encode(corpora, "UTF-8")'),'search allDrives first and retry empty parent-scoped listings in the user corpus');
 assert(java.includes('files?supportsAllDrives=true&fields=id'),'create folders inside a shared Drive');
 assert(java.includes('?alt=media&supportsAllDrives=true'),'download Image_Feed photos from a shared Drive');
