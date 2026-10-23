@@ -117,6 +117,8 @@ public class MainActivity extends Activity {
     private static final int REQUEST_VERTEX_AUTHORIZATION = 419;
     private static final String VERTEX_API_SCOPE = "https://www.googleapis.com/auth/cloud-platform";
     private static final String DRIVE_API_SCOPE = "https://www.googleapis.com/auth/drive";
+    // All GrowPlot users store feed images in Rizal Jamin's shared central Drive.
+    private static final String DRIVE_OWNER_EMAIL = "rizaljamin@gmail.com";
     private static final String DRIVE_API_FOLDER_KEY_PREFIX = "data_feed_drive_api_folder_";
     private static final String DRIVE_API_EMAIL_KEY_PREFIX = "data_feed_drive_api_email_";
     private static final String DRIVE_API_FOLDER_NAME_KEY_PREFIX = "data_feed_drive_api_folder_name_";
@@ -4676,11 +4678,9 @@ public class MainActivity extends Activity {
         try {
             AuthorizationRequest.Builder requestBuilder = new AuthorizationRequest.Builder()
                     .setRequestedScopes(Collections.singletonList(new Scope(DRIVE_API_SCOPE)));
-            // Use the signed-in GrowPlot user's Google account for both browsing and reconnects.
-            // Otherwise Android may authorize a different device account and resolve another
-            // user's Image_Feed path.
-            String firebaseEmail = signedInFirebaseEmail();
-            requestBuilder.setAccount(new Account(firebaseEmail, "com.google"));
+            // Every GrowPlot account uses the central owner Drive. The Firebase email is used only
+            // to select that user's subfolder beneath Projects/GrowPlot/Image_Feed.
+            requestBuilder.setAccount(new Account(DRIVE_OWNER_EMAIL, "com.google"));
             Identity.getAuthorizationClient(this).authorize(requestBuilder.build())
                     .addOnSuccessListener(this, this::completeDriveAuthorization)
                     .addOnFailureListener(this, error -> {
@@ -4731,11 +4731,10 @@ public class MainActivity extends Activity {
         farmDataWorker.execute(() -> {
             try {
                 String driveAccountEmail = getDriveAccountEmail();
-                String firebaseEmail = signedInFirebaseEmail();
-                if (!firebaseEmail.equalsIgnoreCase(driveAccountEmail)) {
+                if (!DRIVE_OWNER_EMAIL.equalsIgnoreCase(driveAccountEmail)) {
                     throw new IllegalStateException("Google Drive authorized " + driveAccountEmail
-                            + " but GrowPlot is signed in as " + firebaseEmail
-                            + ". Switch Google Drive to the signed-in GrowPlot account and connect again.");
+                            + " but GrowPlot requires the shared owner Drive " + DRIVE_OWNER_EMAIL
+                            + ". Select that Google account and connect again.");
                 }
                 getPrefs().edit()
                         .putString(DRIVE_API_ACCOUNT_EMAIL_PREFIX + plotId, driveAccountEmail).apply();
