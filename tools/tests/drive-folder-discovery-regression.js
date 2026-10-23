@@ -17,6 +17,9 @@ assert(sharedDriveMethod.includes('findDriveFolderByName(growPlotId, "Image_Feed
 const authMethod = source.slice(source.indexOf('private void authorizeAndConnectDriveFeed'), source.indexOf('private void completeDriveAuthorization'));
 assert(authMethod.includes('requestBuilder.setAccount(new Account(DRIVE_OWNER_EMAIL, "com.google"))'), 'authorize the central shared Drive owner account');
 const completion = source.slice(source.indexOf('private void completeDriveAuthorization'), source.indexOf('private void loadDriveFeedFolderOptions'));
+const connectMethod = source.slice(source.indexOf('private void connectDefaultFeedWithDriveApi'), source.indexOf('private void notifyLoginDriveStatus'));
+assert(connectMethod.includes('findDriveFolderByName(projectsId, "growplot")'), 'find the actual lowercase Projects/growplot folder');
+assert(!connectMethod.includes('findDriveFolderByName(projectsId, "GrowPlot")'), 'do not require a differently-cased GrowPlot folder');
 assert(completion.includes('getDriveAccountEmail()') && completion.includes('DRIVE_OWNER_EMAIL.equalsIgnoreCase(driveAccountEmail)'), 'require the central shared Drive owner account');
 const picker = source.slice(source.indexOf('private void loadDriveFeedFolderOptions'), source.indexOf('private void showDriveFeedFolderOptions'));
 assert(picker.includes('findOrCreateDriveFolder(imageFeedId, emailFolder)'), 'default under the signed-in user email folder');
