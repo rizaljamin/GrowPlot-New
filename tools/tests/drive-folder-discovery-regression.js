@@ -15,9 +15,9 @@ assert(findMethod.includes('findDriveFolderByName(growPlotId, "Image_Feed")'), '
 assert(sharedDriveMethod.includes('findDriveFolderByName(id, "GrowPlot")'), 'same-named Shared Drives should be checked for GrowPlot');
 assert(sharedDriveMethod.includes('findDriveFolderByName(growPlotId, "Image_Feed")'), 'prefer the Shared Drive containing Image_Feed');
 const authMethod = source.slice(source.indexOf('private void authorizeAndConnectDriveFeed'), source.indexOf('private void completeDriveAuthorization'));
-assert(authMethod.includes('String firebaseEmail = signedInFirebaseEmail()') && authMethod.includes('requestBuilder.setAccount(new Account(firebaseEmail, "com.google"))'), 'authorize the Google account matching the signed-in GrowPlot user');
+assert(authMethod.includes('requestBuilder.setAccount(new Account(DRIVE_OWNER_EMAIL, "com.google"))'), 'authorize the central shared Drive owner account');
 const completion = source.slice(source.indexOf('private void completeDriveAuthorization'), source.indexOf('private void loadDriveFeedFolderOptions'));
-assert(completion.includes('getDriveAccountEmail()') && completion.includes('firebaseEmail.equalsIgnoreCase(driveAccountEmail)'), 'reject an OAuth account that does not match the signed-in GrowPlot user');
+assert(completion.includes('getDriveAccountEmail()') && completion.includes('DRIVE_OWNER_EMAIL.equalsIgnoreCase(driveAccountEmail)'), 'require the central shared Drive owner account');
 const picker = source.slice(source.indexOf('private void loadDriveFeedFolderOptions'), source.indexOf('private void showDriveFeedFolderOptions'));
 assert(picker.includes('findOrCreateDriveFolder(imageFeedId, emailFolder)'), 'default under the signed-in user email folder');
 assert(picker.includes('findOrCreateDriveFolder(userFolderId, plotFolderName)'), 'default to the selected plot folder');
