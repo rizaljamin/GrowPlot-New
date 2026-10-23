@@ -863,7 +863,7 @@ public class MainActivity extends Activity {
 
     private String relativePathFromGrowPlot(String displayPath) {
         if (displayPath == null) return null;
-        for (String marker : new String[]{"/Projects/GrowPlot/", "/My Drive/GrowPlot/", "/GrowPlot/"}) {
+        for (String marker : new String[]{"/Projects/growplot/", "/My Drive/GrowPlot/", "/GrowPlot/"}) {
             int index = displayPath.indexOf(marker);
             if (index >= 0) {
                 String path = displayPath.substring(index + marker.length()).replace('\\', '/');
@@ -2317,7 +2317,7 @@ public class MainActivity extends Activity {
                 || "Drive".equalsIgnoreCase(selectedFolderName);
         boolean selectedPlotFolder = selectedFolderName.equalsIgnoreCase(safeFolderName(pickerDefaultFolderName));
         if (pickerCreatesDefaultFeed && !selectedRoot && !selectedPlotFolder) {
-            publishStatus(makeStatus("In Google Drive, choose this plot's existing folder under Projects/GrowPlot/Image_Feed, or choose Projects, GrowPlot, or Image_Feed to create it."));
+            publishStatus(makeStatus("In Google Drive, choose this plot's existing folder under Projects/growplot/Image_Feed, or choose Projects, GrowPlot, or Image_Feed to create it."));
             return;
         }
         int grantFlags = data.getFlags() & (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
@@ -2362,7 +2362,7 @@ public class MainActivity extends Activity {
             if (locationLabel == null) {
                 locationLabel = defaultRelativePath == null
                         ? getDocumentPathLabel(folderUri, targetDocumentId)
-                        : "Google Drive: /Projects/GrowPlot/" + defaultRelativePath;
+                        : "Google Drive: /Projects/growplot/" + defaultRelativePath;
             }
             JSONObject config = new JSONObject(getPrefs().getString("data_feed_config_" + plotId, "{}"));
             config.put("plotId", plotId);
@@ -3431,7 +3431,7 @@ public class MainActivity extends Activity {
             pickerCreatesDefaultFeed = true;
             getPrefs().edit().putString(PREF_ACTIVE_PLOT_ID, pickerPlotId).apply();
             runOnUiThread(() -> {
-                publishStatus(makeStatus("Connecting to Google Drive and listing folders under Projects/GrowPlot/Image_Feed…"));
+                publishStatus(makeStatus("Connecting to Google Drive and listing folders under Projects/growplot/Image_Feed…"));
                 pendingDriveFolderBrowse = true;
                 if (googleDriveAccessToken != null && !googleDriveAccessToken.trim().isEmpty()
                         && System.currentTimeMillis() - googleDriveTokenIssuedAt < 45L * 60L * 1000L) {
@@ -4679,7 +4679,7 @@ public class MainActivity extends Activity {
             AuthorizationRequest.Builder requestBuilder = new AuthorizationRequest.Builder()
                     .setRequestedScopes(Collections.singletonList(new Scope(DRIVE_API_SCOPE)));
             // Every GrowPlot account uses the central owner Drive. The Firebase email is used only
-            // to select that user's subfolder beneath Projects/GrowPlot/Image_Feed.
+            // to select that user's subfolder beneath Projects/growplot/Image_Feed.
             requestBuilder.setAccount(new Account(DRIVE_OWNER_EMAIL, "com.google"));
             Identity.getAuthorizationClient(this).authorize(requestBuilder.build())
                     .addOnSuccessListener(this, this::completeDriveAuthorization)
@@ -4773,10 +4773,10 @@ public class MainActivity extends Activity {
                 String projectsId = findDriveSharedDriveByName("Projects");
                 if (projectsId == null) projectsId = findDriveFolderByName(null, "Projects");
                 if (projectsId == null) throw new IllegalStateException("Could not find a Projects folder or Shared Drive in this Google Drive account.");
-                String growPlotId = findDriveFolderByName(projectsId, "GrowPlot");
-                if (growPlotId == null) throw new IllegalStateException("Could not find Projects/GrowPlot in this Google Drive account.");
+                String growPlotId = findDriveFolderByName(projectsId, "growplot");
+                if (growPlotId == null) throw new IllegalStateException("Could not find Projects/growplot in this Google Drive account.");
                 String imageFeedId = findOrCreateDriveFolder(growPlotId, "Image_Feed");
-                String imageFeedPath = "Google Drive: /Projects/GrowPlot/Image_Feed";
+                String imageFeedPath = "Google Drive: /Projects/growplot/Image_Feed";
                 String emailFolder = signedInEmailFolderName();
                 String userFolderId = findOrCreateDriveFolder(imageFeedId, emailFolder);
                 String plotFolderName = safeFolderName(pickerDefaultFolderName);
@@ -4829,7 +4829,7 @@ public class MainActivity extends Activity {
         if (isFinishing()) return;
         if (options == null || options.isEmpty()) {
             pendingDriveFolderBrowse = false;
-            String message = "No folders were found under Projects/GrowPlot/Image_Feed.";
+            String message = "No folders were found under Projects/growplot/Image_Feed.";
             publishStatus(makeStatus(message));
             return;
         }
@@ -4961,7 +4961,7 @@ public class MainActivity extends Activity {
                     if (drive == null || !name.equals(drive.optString("name"))) continue;
                     String id = drive.optString("id", "");
                     if (id.isEmpty()) continue;
-                    String growPlotId = findDriveFolderByName(id, "GrowPlot");
+                    String growPlotId = findDriveFolderByName(id, "growplot");
                     if (growPlotId == null) continue;
                     if (findDriveFolderByName(growPlotId, "Image_Feed") != null) return id;
                     if (fallbackId == null) fallbackId = id;
@@ -4980,16 +4980,16 @@ public class MainActivity extends Activity {
         if (projectsId == null) {
             throw new IllegalStateException("Could not find a Projects folder or Shared Drive in the authorized Google Drive account. Check that this Google account has access to Projects.");
         }
-        String growPlotId = findDriveFolderByName(projectsId, "GrowPlot");
+        String growPlotId = findDriveFolderByName(projectsId, "growplot");
         if (growPlotId == null) {
-            throw new IllegalStateException("Could not find Projects/GrowPlot in the authorized Google Drive account.");
+            throw new IllegalStateException("Could not find Projects/growplot in the authorized Google Drive account.");
         }
         String imageFeedId = findOrCreateDriveFolder(growPlotId, "Image_Feed");
         String userFolder = signedInEmailFolderName();
         String userFolderId = findOrCreateDriveFolder(imageFeedId, userFolder);
         String plotFolderId = findOrCreateDriveFolder(userFolderId, folderName);
         listDriveFiles("'" + plotFolderId.replace("'", "\\'") + "' in parents and trashed=false");
-        String path = "Google Drive: /Projects/GrowPlot/Image_Feed/" + userFolder + "/" + folderName;
+        String path = "Google Drive: /Projects/growplot/Image_Feed/" + userFolder + "/" + folderName;
         JSONObject config = new JSONObject(getPrefs().getString("data_feed_config_" + plotId, "{}"));
         config.put("plotId", plotId);
         config.put("enabled", true);
@@ -5131,7 +5131,7 @@ public class MainActivity extends Activity {
                 String id = file.optString("id", "");
                 if (id.isEmpty() || !seen.add(id)) continue;
                 if (!"Projects".equals(name)) return id;
-                String growPlotId = findDriveFolderByName(id, "GrowPlot");
+                String growPlotId = findDriveFolderByName(id, "growplot");
                 if (growPlotId == null) continue;
                 if (findDriveFolderByName(growPlotId, "Image_Feed") != null) return id;
                 if (fallbackId == null) fallbackId = id;
@@ -5235,7 +5235,7 @@ public class MainActivity extends Activity {
         String plotFolder = safeFolderName(pickerDefaultFolderName);
         String plotFolderId = findOrCreateChildFolder(treeUri, userFolderId, plotFolder);
         String relativePath = "Image_Feed/" + userFolder + "/" + plotFolder;
-        String locationLabel = "Google Drive: /Projects/GrowPlot/" + relativePath;
+        String locationLabel = "Google Drive: /Projects/growplot/" + relativePath;
         JSONObject config = new JSONObject(getPrefs().getString("data_feed_config_" + plotId, "{}"));
         config.put("plotId", plotId);
         config.put("enabled", true);
@@ -5296,7 +5296,7 @@ public class MainActivity extends Activity {
         }
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
         intent.putExtra(Intent.EXTRA_TITLE, pickerCreatesDefaultFeed
-                ? "Choose " + pickerDefaultFolderName + " in Projects/GrowPlot/Image_Feed"
+                ? "Choose " + pickerDefaultFolderName + " in Projects/growplot/Image_Feed"
                 : "Choose this plot's image feed folder");
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
                 | Intent.FLAG_GRANT_WRITE_URI_PERMISSION
@@ -5699,11 +5699,11 @@ public class MainActivity extends Activity {
 
     private String expectedFeedPathLabel(String plotId, String folderName) {
         try {
-            String path = "Google Drive: /Projects/GrowPlot/Image_Feed/" + signedInEmailFolderName();
+            String path = "Google Drive: /Projects/growplot/Image_Feed/" + signedInEmailFolderName();
             String folder = folderName == null || folderName.trim().isEmpty() ? null : safeFolderName(folderName);
             return folder == null ? path : path + "/" + folder;
         } catch (Exception ignored) {
-            return "Google Drive: /Projects/GrowPlot/Image_Feed";
+            return "Google Drive: /Projects/growplot/Image_Feed";
         }
     }
 
