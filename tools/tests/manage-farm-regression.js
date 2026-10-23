@@ -167,4 +167,11 @@ assert.match(farmJava, /response\.put\("customCrops"/, 'Drive load returns the c
 assert.match(farmJava, /management\.put\("customCrops", customCrops\)/, 'Drive save stores the custom catalogue');
 assert.match(farmJava, /openCropInfoSearch/, 'crop web search opens outside the app WebView');
 
+assert.match(html, /id="marketBuyerList"/, 'Marketplace exposes Buyer List');
+assert.match(html, /id="marketHistoricalPrice"/, 'Marketplace exposes Historical Price');
+assert.match(html, /farmCropCatalog\.map\(c=>/, 'Historical Price crop options use the shared crop catalogue');
+assert.match(html, /ami\.fama\.gov\.my\/web-awam/, 'Historical Price opens the official FAMA AMI portal');
+assert.match(html, /Price unit: RM\/kg/, 'Historical Price states the requested price unit');
+assert.match(farmJava, /openFamaMarketPortal/, 'FAMA AMI portal opens through the Android bridge');
+
 console.log('PASS: farm scope filters, Plot default, shared plot management, due cues, completion dates, irrigation ordering, and Google Maps routing/location permissions.');
