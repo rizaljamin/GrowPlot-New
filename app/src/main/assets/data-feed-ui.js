@@ -43,7 +43,7 @@ const addInfoTip=(heading,id,title,message)=>{
 const intervalHeading=dataFeedHeadings.find(e=>e.textContent.trim()==='Photo snapshot interval');
 const connectionHeading=dataFeedHeadings.find(e=>e.textContent.trim()==='Connection and scanning');
 addInfoTip(intervalHeading,'feedSnapshotInfoButton','Photo snapshot interval information','Snapshots run only while GrowPlot is open and the camera stream is active. They are not scheduled background photos. Minimum interval: 0.5 minutes.');
-addInfoTip(connectionHeading,'feedConnectInfoButton','Data feed connection information','Tap Connect to folder to browse Google Drive. Choose this plot’s existing folder under Projects/GrowPlot/Image_Feed, or select Projects, GrowPlot, or Image_Feed and GrowPlot will create the standard plot folder.');
+addInfoTip(connectionHeading,'feedConnectInfoButton','Data feed connection information','Tap Connect to folder to list available paths under Projects/GrowPlot/Image_Feed, then choose any folder path. GrowPlot saves the exact folder you select.');
 const selected=()=>{const m=byId('plotManagerSelect'),id=(m&&m.value)||(typeof selectedPlotId!=='undefined'?selectedPlotId:''),list=typeof plots!=='undefined'?plots:[];return list.find(p=>p.id===id)||list[0]||null};
 const expected=p=>{try{return window.GrowPlotBridge.getExpectedFeedPath(p.id,typeof defaultFeedFolder==='function'?defaultFeedFolder(p):p.name)||''}catch(e){return ''}};
 const local=p=>{try{return window.GrowPlotBridge.getFeedLocation(p.id)||''}catch(e){return ''}};

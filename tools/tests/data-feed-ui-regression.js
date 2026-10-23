@@ -32,10 +32,16 @@ assert(java.includes('resolveGrowPlotDocumentId(folderUri)'),'resolve either Pro
 assert(java.includes('feed_picker_creates_default'),'restore the pending connection if Android recreates the activity');
 assert(java.includes('Google Drive selection was cancelled'),'show a clear status when the picker returns without a folder');
 const browse=java.slice(java.indexOf('@JavascriptInterface public void browseDefaultFeedFolder'),java.indexOf('@JavascriptInterface public void createDefaultDataFeed'));
-assert(browse.includes('openImageFeedFolderPicker(true)'),'Connect to folder must open the visible Android Drive picker instead of silently guessing an account folder');
+assert(browse.includes('loadDriveFeedFolderOptions(pickerPlotId)'),'Connect to folder lists Drive folders inside the app');
+assert(!browse.includes('openImageFeedFolderPicker(true)'),'Connect to folder does not open the Android system picker');
+assert(java.includes('collectDriveFeedFolderOptions(imageFeedId'),'list all nested folder paths beneath Image_Feed');
+assert(java.includes('setItems(labels, (dialog, which) -> saveSelectedDriveFeedFolder'),'let the user select any listed path');
+assert(java.includes('putString(driveApiFolderKey(plotId), option.id)'),'save the exact selected Drive folder ID');
+assert(java.includes('putString(feedLocationKey(plotId), path)'),'save the exact selected Drive path');
+assert(java.includes('setTitle("Choose Google Drive folder")'),'show the in-app folder selection dialog');
 const result=java.slice(java.indexOf('String selectedDocumentId = DocumentsContract.getTreeDocumentId(folderUri)'),java.indexOf('int grantFlags = data.getFlags()',java.indexOf('String selectedDocumentId = DocumentsContract.getTreeDocumentId(folderUri)')));
 assert(result.includes('selectedFolderName.equalsIgnoreCase(safeFolderName(pickerDefaultFolderName))'),'allow selecting this plot\'s existing folder directly');
-assert(java.includes('Keep the exact Drive folder the user selected'),'preserve the selected Drive folder ID instead of deriving a Firebase-email folder');
+assert(java.includes('putString(driveApiFolderKey(plotId), option.id)'),'preserve the selected Drive folder ID instead of deriving a Firebase-email folder');
 const html=fs.readFileSync('app/src/main/assets/index.html','utf8');
 assert(html.includes('GrowPlotBridge.browseDefaultFeedFolder(id,defaultFeedFolder(p))'),'wire Settings Connect to folder to the folder browser');
 assert(!html.includes('GrowPlotBridge.createDefaultDataFeed(id,defaultFeedFolder(p))'),'do not route Settings through the email-pinned auto-create flow');
@@ -46,4 +52,4 @@ assert(ui.includes("addEventListener('mouseenter'"),'show setup guidance on hove
 assert(ui.includes("addEventListener('click'"),'show setup guidance on tap');
 assert(!ui.includes('Expected folder path is based on the signed-in user and selected plot'),'remove the long inline explanation');
 assert(!picker.includes('Plot01_demo'),'avoid hard-coded demo-plot picker guidance');
-console.log('Data-feed display, folder creation, picker return, and info-tooltip regression checks passed.');
+console.log('Data-feed display, in-app Drive path list, exact folder selection, and info-tooltip regression checks passed.');

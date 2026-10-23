@@ -120,6 +120,7 @@ public class MainActivity extends Activity {
     private static final String DRIVE_API_FOLDER_KEY_PREFIX = "data_feed_drive_api_folder_";
     private static final String DRIVE_API_EMAIL_KEY_PREFIX = "data_feed_drive_api_email_";
     private static final String DRIVE_API_FOLDER_NAME_KEY_PREFIX = "data_feed_drive_api_folder_name_";
+    private static final String DRIVE_API_ACCOUNT_EMAIL_PREFIX = "data_feed_drive_api_account_email_";
     private static final String PREFS = "growplot_snapshot_settings";
     private static final String PREF_SELECTED_URIS = "selected_image_uris";
     private static final String PREF_IMAGE_FEED_TREE_URI = "image_feed_tree_uri";
@@ -158,6 +159,8 @@ public class MainActivity extends Activity {
     private volatile String pendingVertexPixelMetrics = "";
     private volatile SnapshotBridge pendingVertexBridge;
     private volatile boolean driveAuthorizationInProgress;
+    private volatile boolean pendingDriveFolderBrowse;
+    private volatile boolean pendingDriveReconnectOnly;
     private volatile String pendingDriveAuthPlotId = DEFAULT_PLOT_ID;
     private volatile String pendingDriveAuthFolderName = "Demo_plot";
     private volatile String locationPermissionPlotId = DEFAULT_PLOT_ID;
@@ -266,6 +269,11 @@ public class MainActivity extends Activity {
     private static final class FrameFeatures {
         double greenPercent;
         double brightness;
+    }
+
+    private static final class DriveFeedFolderOption {
+        final String id; final String path;
+        DriveFeedFolderOption(String id, String path) { this.id = id; this.path = path; }
     }
 
     private static final class FeedDocument {
@@ -2258,7 +2266,10 @@ public class MainActivity extends Activity {
         if (requestCode == REQUEST_DRIVE_AUTHORIZATION) {
             if (resultCode != RESULT_OK || data == null) {
                 driveAuthorizationInProgress = false;
+                pendingDriveFolderBrowse = false;
+                pendingDriveReconnectOnly = false;
                 notifyLoginDriveStatus(pendingDriveAuthPlotId, false, true, "Google Drive authorization was cancelled.");
+                publishStatus(makeStatus("Google Drive authorization was cancelled."));
                 return;
             }
             try {
@@ -3418,8 +3429,14 @@ public class MainActivity extends Activity {
             pickerCreatesDefaultFeed = true;
             getPrefs().edit().putString(PREF_ACTIVE_PLOT_ID, pickerPlotId).apply();
             runOnUiThread(() -> {
-                publishStatus(makeStatus("Opening Google Drive. Choose this plot's folder under Projects/GrowPlot/Image_Feed, or choose Projects, GrowPlot, or Image_Feed to create its standard folder."));
-                openImageFeedFolderPicker(true);
+                publishStatus(makeStatus("Connecting to Google Drive and listing folders under Projects/GrowPlot/Image_Feed…"));
+                pendingDriveFolderBrowse = true;
+                if (googleDriveAccessToken != null && !googleDriveAccessToken.trim().isEmpty()
+                        && System.currentTimeMillis() - googleDriveTokenIssuedAt < 45L * 60L * 1000L) {
+                    loadDriveFeedFolderOptions(pickerPlotId);
+                } else {
+                    authorizeAndConnectDriveFeed(pickerPlotId, pickerDefaultFolderName);
+                }
             });
         }
 
@@ -4652,21 +4669,28 @@ public class MainActivity extends Activity {
         try {
             AuthorizationRequest.Builder requestBuilder = new AuthorizationRequest.Builder()
                     .setRequestedScopes(Collections.singletonList(new Scope(DRIVE_API_SCOPE)));
-            com.google.firebase.auth.FirebaseUser firebaseUser =
-                    com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
-            String email = firebaseUser == null ? null : firebaseUser.getEmail();
-            if (email != null && !email.trim().isEmpty()) {
-                requestBuilder.setAccount(new Account(email.trim(), "com.google"));
+            if (pendingDriveReconnectOnly) {
+                String email = getPrefs().getString(DRIVE_API_ACCOUNT_EMAIL_PREFIX + pendingDriveAuthPlotId, null);
+                if (email != null && !email.trim().isEmpty()) requestBuilder.setAccount(new Account(email.trim(), "com.google"));
+            } else if (!pendingDriveFolderBrowse) {
+                com.google.firebase.auth.FirebaseUser firebaseUser =
+                        com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+                String email = firebaseUser == null ? null : firebaseUser.getEmail();
+                if (email != null && !email.trim().isEmpty()) requestBuilder.setAccount(new Account(email.trim(), "com.google"));
             }
             Identity.getAuthorizationClient(this).authorize(requestBuilder.build())
                     .addOnSuccessListener(this, this::completeDriveAuthorization)
                     .addOnFailureListener(this, error -> {
                         driveAuthorizationInProgress = false;
+                        pendingDriveFolderBrowse = false;
+                        pendingDriveReconnectOnly = false;
                         notifyLoginDriveStatus(pendingDriveAuthPlotId, false, true,
                                 "Google Drive authorization failed: " + safeErrorMessage(error));
                     });
         } catch (Exception error) {
             driveAuthorizationInProgress = false;
+            pendingDriveFolderBrowse = false;
+            pendingDriveReconnectOnly = false;
             notifyLoginDriveStatus(pendingDriveAuthPlotId, false, true,
                     "Google Drive authorization could not start: " + safeErrorMessage(error));
         }
@@ -4703,10 +4727,133 @@ public class MainActivity extends Activity {
         final String folderName = safeFolderName(pendingDriveAuthFolderName);
         farmDataWorker.execute(() -> {
             try {
-                connectDefaultFeedWithDriveApi(plotId, folderName);
+                String driveAccountEmail = getDriveAccountEmail();
+                if (!driveAccountEmail.isEmpty()) getPrefs().edit()
+                        .putString(DRIVE_API_ACCOUNT_EMAIL_PREFIX + plotId, driveAccountEmail).apply();
+                if (pendingDriveFolderBrowse) {
+                    loadDriveFeedFolderOptions(plotId);
+                } else if (pendingDriveReconnectOnly) {
+                    pendingDriveReconnectOnly = false;
+                    String folderId = getPrefs().getString(driveApiFolderKey(plotId), null);
+                    if (folderId == null || folderId.isEmpty()) throw new IllegalStateException("The saved Google Drive folder is missing. Choose it again in Settings.");
+                    listDriveFiles("'" + folderId.replace("'", "\\'") + "' in parents and trashed=false");
+                    notifyLoginDriveStatus(plotId, true, true, feedLocationLabel(plotId));
+                    scanSnapshotFolder(plotId);
+                } else {
+                    connectDefaultFeedWithDriveApi(plotId, folderName);
+                }
             } catch (Exception error) {
-                notifyLoginDriveStatus(plotId, false, true,
-                        "Google Drive folder connection failed: " + safeErrorMessage(error));
+                String message = "Google Drive folder connection failed: " + safeErrorMessage(error);
+                notifyLoginDriveStatus(plotId, false, true, message);
+                if (pendingDriveFolderBrowse) {
+                    pendingDriveFolderBrowse = false;
+                    publishStatus(makeStatus(message));
+                }
+            }
+        });
+    }
+
+    private String getDriveAccountEmail() throws Exception {
+        JSONObject about = driveApiJsonRequest("GET", "/drive/v3/about?fields=user(emailAddress)", null);
+        JSONObject user = about.optJSONObject("user");
+        return user == null ? "" : user.optString("emailAddress", "").trim();
+    }
+
+    private void loadDriveFeedFolderOptions(String plotId) {
+        farmDataWorker.execute(() -> {
+            try {
+                String projectsId = findDriveSharedDriveByName("Projects");
+                if (projectsId == null) projectsId = findDriveFolderByName(null, "Projects");
+                if (projectsId == null) throw new IllegalStateException("Could not find a Projects folder or Shared Drive in this Google Drive account.");
+                String growPlotId = findDriveFolderByName(projectsId, "GrowPlot");
+                if (growPlotId == null) throw new IllegalStateException("Could not find Projects/GrowPlot in this Google Drive account.");
+                String imageFeedId = findDriveFolderByName(growPlotId, "Image_Feed");
+                if (imageFeedId == null) throw new IllegalStateException("Could not find Projects/GrowPlot/Image_Feed in this Google Drive account.");
+                List<DriveFeedFolderOption> options = new ArrayList<>();
+                options.add(new DriveFeedFolderOption(imageFeedId, "Google Drive: /Projects/GrowPlot/Image_Feed"));
+                collectDriveFeedFolderOptions(imageFeedId, "Google Drive: /Projects/GrowPlot/Image_Feed", options, 0, new HashSet<>());
+                Collections.sort(options, Comparator.comparing(option -> option.path.toLowerCase(Locale.ROOT)));
+                runOnUiThread(() -> showDriveFeedFolderOptions(safePlotId(plotId), options));
+            } catch (Exception error) {
+                pendingDriveFolderBrowse = false;
+                String message = "Could not list Google Drive folders: " + safeErrorMessage(error);
+                notifyLoginDriveStatus(plotId, false, true, message);
+                publishStatus(makeStatus(message));
+            }
+        });
+    }
+
+    private void collectDriveFeedFolderOptions(String parentId, String parentPath,
+                                               List<DriveFeedFolderOption> options, int depth,
+                                               Set<String> visited) throws Exception {
+        if (depth >= 7 || options.size() >= 500 || !visited.add(parentId)) return;
+        String query = "'" + parentId.replace("'", "\\'") + "' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false";
+        JSONArray children = listDriveFiles(query);
+        for (int i = 0; i < children.length() && options.size() < 500; i++) {
+            JSONObject child = children.optJSONObject(i);
+            if (child == null) continue;
+            String id = child.optString("id", "");
+            String name = child.optString("name", "");
+            if (id.isEmpty() || name.isEmpty()) continue;
+            String path = parentPath + "/" + name;
+            options.add(new DriveFeedFolderOption(id, path));
+            collectDriveFeedFolderOptions(id, path, options, depth + 1, visited);
+        }
+    }
+
+    private void showDriveFeedFolderOptions(String plotId, List<DriveFeedFolderOption> options) {
+        if (isFinishing()) return;
+        if (options == null || options.isEmpty()) {
+            pendingDriveFolderBrowse = false;
+            String message = "No folders were found under Projects/GrowPlot/Image_Feed.";
+            publishStatus(makeStatus(message));
+            return;
+        }
+        String[] labels = new String[options.size()];
+        for (int i = 0; i < options.size(); i++) labels[i] = options.get(i).path;
+        new android.app.AlertDialog.Builder(this)
+                .setTitle("Choose Google Drive folder")
+                .setMessage("Select any available folder path under Projects/GrowPlot/Image_Feed.")
+                .setItems(labels, (dialog, which) -> saveSelectedDriveFeedFolder(plotId, options.get(which)))
+                .setNegativeButton("Cancel", (dialog, which) -> {
+                    pendingDriveFolderBrowse = false;
+                    publishStatus(makeStatus("Google Drive folder selection cancelled."));
+                })
+                .show();
+    }
+
+    private void saveSelectedDriveFeedFolder(String plotId, DriveFeedFolderOption option) {
+        if (option == null || option.id == null || option.id.isEmpty()) return;
+        farmDataWorker.execute(() -> {
+            try {
+                listDriveFiles("'" + option.id.replace("'", "\\'") + "' in parents and trashed=false");
+                String firebaseIdentity = signedInEmailFolderName();
+                String driveAccountEmail = getDriveAccountEmail();
+                String path = option.path;
+                JSONObject config = new JSONObject(getPrefs().getString("data_feed_config_" + plotId, "{}"));
+                config.put("plotId", plotId);
+                config.put("enabled", true);
+                config.put("driveApiFolderId", option.id);
+                getPrefs().edit()
+                        .putString(driveApiFolderKey(plotId), option.id)
+                        .putString(DRIVE_API_EMAIL_KEY_PREFIX + plotId, firebaseIdentity)
+                        .putString(DRIVE_API_ACCOUNT_EMAIL_PREFIX + plotId, driveAccountEmail)
+                        .putString(DRIVE_API_FOLDER_NAME_KEY_PREFIX + plotId, option.path.substring(option.path.lastIndexOf('/') + 1))
+                        .putString(feedLocationKey(plotId), path)
+                        .putString("data_feed_config_" + plotId, config.toString())
+                        .putString(PREF_ACTIVE_PLOT_ID, plotId)
+                        .apply();
+                pendingDriveFolderBrowse = false;
+                pickerCreatesDefaultFeed = false;
+                notifyFeedSettingsSaved(plotId, path);
+                notifyLoginDriveStatus(plotId, true, true, path);
+                publishStatus(makeStatus("Connected to " + path));
+                scanSnapshotFolder(plotId);
+            } catch (Exception error) {
+                pendingDriveFolderBrowse = false;
+                String message = "Could not connect this Google Drive folder: " + safeErrorMessage(error);
+                notifyLoginDriveStatus(plotId, false, true, message);
+                publishStatus(makeStatus(message));
             }
         });
     }
@@ -5153,6 +5300,7 @@ public class MainActivity extends Activity {
                 && com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser() != null) {
             if (!driveAuthorizationInProgress) {
                 String savedName = getPrefs().getString(DRIVE_API_FOLDER_NAME_KEY_PREFIX + plotId, pickerDefaultFolderName);
+                pendingDriveReconnectOnly = true;
                 authorizeAndConnectDriveFeed(plotId, savedName);
             }
             return;
@@ -5488,11 +5636,7 @@ public class MainActivity extends Activity {
     private String feedLocationKey(String plotId) { return "data_feed_location_label_" + safePlotId(plotId); }
 
     private String expectedFeedPathLabel(String plotId) {
-        String userFolder;
-        try { userFolder = signedInEmailFolderName(); }
-        catch (Exception error) { return "Google Drive: /Projects/GrowPlot/Image_Feed/<signed-in-user>/<plot>"; }
-        String plot = safeFolderName(pickerDefaultFolderName);
-        return "Google Drive: /Projects/GrowPlot/Image_Feed/" + userFolder + "/" + plot;
+        return "Google Drive: /Projects/GrowPlot/Image_Feed";
     }
 
     private String feedLocationLabel(String plotId) {

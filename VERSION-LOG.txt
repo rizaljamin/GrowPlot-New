@@ -893,3 +893,8 @@ Signing / provider keys: This APK's certificate does not match the saved Build 3
 
 
 2026-10-23 | v0.7.01 Build 16 (versionCode 251) | Settings Connect to folder now opens Android's Google Drive folder picker. Users can select the existing per-plot folder under Projects/GrowPlot/Image_Feed, preserving its exact Drive folder ID, or select Projects/GrowPlot/Image_Feed to create the standard path. The settings action no longer assumes the Firebase email folder. Regression and ARM64 build pending; tablet picker/scan/upload verification pending.
+
+2026-10-23 | v0.7.01 Build 17 | versionCode 252
+- Settings → Data Feed lists all available nested Drive folders beneath Projects/GrowPlot/Image_Feed in an in-app selector; any listed path can be selected and its exact Drive folder ID/path are saved.
+- Drive account identity is retained for authorization refresh so reconnection continues using the selected folder's Drive account instead of inferring a folder from Firebase email.
+- Disconnected path display uses the Image_Feed root. ARM64 build and tablet authorization, listing, scan, and upload validation pending.

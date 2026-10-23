@@ -1031,11 +1031,11 @@ Build 7 validation: Gradle ARM64 build, package version, signature, alignment, S
 
 ## BUG-072 — Settings Drive connection targeted an inferred empty email folder
 
-**Reported:** 2026-10-23
-**Status:** Fix implemented in v0.7.01 Build 16; ARM64 build and tablet verification pending.
+**Reported:** 2026-10-23  
+**Status:** In-app Drive folder browser implemented in v0.7.01 Build 17 (versionCode 252); ARM64 build and tablet verification pending.
 
-**Finding:** The Settings Connect to folder button called the automatic Drive API path builder. It inferred the Image_Feed account subfolder from the Firebase email, which pointed this plot to the empty `rizaljamin@gmail.com/plot02_pp5` folder instead of the existing `growplot2026@gmail.com/plot02_pp5` folder containing CCTV photos. Connection failures from this route also did not give the Settings folder picker a clear path to recover.
+**Finding:** The Settings Connect to folder button called the automatic Drive API path builder. It inferred the Image_Feed account subfolder from the Firebase email, which pointed this plot to the empty `rizaljamin@gmail.com/plot02_pp5` folder instead of the existing `growplot2026@gmail.com/plot02_pp5` folder containing CCTV photos.
 
-**Fix:** The Settings action now opens Android's Google Drive folder picker. The user can select this plot's existing folder under `Projects/GrowPlot/Image_Feed`; GrowPlot stores that exact folder ID and does not substitute the Firebase email. Selecting `Projects`, `GrowPlot`, or `Image_Feed` still creates the standard path for the plot. The displayed disconnected path now points to the real `/Projects/GrowPlot/Image_Feed` root.
+**Fix:** Settings now lists available folders beneath `Projects/GrowPlot/Image_Feed` in an in-app dialog. The user can select any listed path, and GrowPlot saves its exact Drive folder ID and full path. The selected Google Drive account is remembered for token refresh, so reconnection does not return to an inferred email folder. The disconnected display points to `Google Drive: /Projects/GrowPlot/Image_Feed`.
 
-**Verification / limits:** Regression coverage checks the Settings button route, selected-folder mapping, and fallback folder creation. Android picker return, access grant persistence, scan, and snapshot upload still require tablet verification.
+**Verification / limits:** Regression coverage checks in-app listing, nested path enumeration, exact folder ID/path saving, Settings routing, and path display. ARM64 build and actual Android authorization, listing, scanning, and upload behavior still require tablet verification.
