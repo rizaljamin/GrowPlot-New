@@ -73,8 +73,10 @@ export const assignOwnedDevice=onCall({region:'us-central1',enforceAppCheck:fals
 
 // Authenticated Vertex image diagnosis. Images are sent inline and are not stored by this function.
 const VERTEX_PROJECT_ID = process.env.GCLOUD_PROJECT || 'growplot';
-const VERTEX_LOCATION = 'us-central1';
-const VERTEX_MODEL = 'gemini-2.5-flash';
+const VERTEX_CALLABLE_REGION = 'us-central1';
+// Gemini 3.5 Flash is served from the US multi-region, not us-central1.
+const VERTEX_LOCATION = 'us';
+const VERTEX_MODEL = 'gemini-3.5-flash';
 const VERTEX_RUNTIME_SERVICE_ACCOUNT = 'growplot-vertex-api@growplot.iam.gserviceaccount.com';
 const vertexGoogleAuth = new GoogleAuth({
   scopes: ['https://www.googleapis.com/auth/cloud-platform']
@@ -121,7 +123,7 @@ function diagnosisPrompt(context) {
 }
 
 export const vertexImageDiagnosis = onCall({
-  region: VERTEX_LOCATION,
+  region: VERTEX_CALLABLE_REGION,
   timeoutSeconds: 120,
   memory: '1GiB',
   maxInstances: 3,
