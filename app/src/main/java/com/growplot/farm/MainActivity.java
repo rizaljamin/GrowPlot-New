@@ -5037,9 +5037,9 @@ public class MainActivity extends Activity {
             String body = new String(response, StandardCharsets.UTF_8);
             if (body.length() > 900) body = body.substring(0, 900) + "…[response truncated]";
             StringBuilder trace = driveApiTrace.get();
-            String line = method + " " + path + " | HTTP " + status + " | " + body + "\\n";
+            String line = method + " " + path + " | HTTP " + status + " | " + body + "\n";
             if (trace.length() < 6000) trace.append(line, 0, Math.min(line.length(), 6000 - trace.length()));
-            if (trace.length() >= 6000) trace.append("\\n[Drive API trace truncated]");
+            if (trace.length() >= 6000) trace.append("\n[Drive API trace truncated]");
         } catch (Exception ignored) { }
     }
 
@@ -5047,7 +5047,7 @@ public class MainActivity extends Activity {
         String message = safeErrorMessage(error);
         StringBuilder trace = driveApiTrace.get();
         return trace == null || trace.length() == 0 ? message
-                : message + "\\n\\nGoogle Drive API responses (raw):\\n" + trace.toString();
+                : message + "\n\nGoogle Drive API responses (raw):\n" + trace.toString();
     }
 
     private JSONObject driveApiJsonRequest(String method, String path, JSONObject body) throws Exception {
