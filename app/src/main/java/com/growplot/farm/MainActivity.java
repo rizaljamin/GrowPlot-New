@@ -2318,7 +2318,7 @@ public class MainActivity extends Activity {
                 || "Drive".equalsIgnoreCase(selectedFolderName);
         boolean selectedPlotFolder = selectedFolderName.equalsIgnoreCase(safeFolderName(pickerDefaultFolderName));
         if (pickerCreatesDefaultFeed && !selectedRoot && !selectedPlotFolder) {
-            publishStatus(makeStatus("In Google Drive, choose this plot's existing folder under Projects/GrowPlot/Image_Feed, or choose Projects, growplot, or Image_Feed to create it."));
+            publishStatus(makeStatus("In Google Drive, choose this plot's existing folder under Projects/GrowPlot/Image_Feed, or choose Projects, GrowPlot, or Image_Feed to create it."));
             return;
         }
         int grantFlags = data.getFlags() & (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
