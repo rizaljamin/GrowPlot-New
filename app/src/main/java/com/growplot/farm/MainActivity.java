@@ -4771,8 +4771,7 @@ public class MainActivity extends Activity {
         farmDataWorker.execute(() -> {
             driveApiTrace.set(new StringBuilder());
             try {
-                String projectsId = findDriveSharedDriveByName("Projects");
-                if (projectsId == null) projectsId = findDriveFolderByName(null, "Projects");
+                String projectsId = findOwnedProjectsFolder();
                 if (projectsId == null) throw new IllegalStateException("Could not find a Projects folder or Shared Drive in this Google Drive account.");
                 String growPlotId = findDriveFolderByName(projectsId, "growplot");
                 if (growPlotId == null) throw new IllegalStateException("Could not find Projects/growplot in this Google Drive account.");
@@ -4976,8 +4975,7 @@ public class MainActivity extends Activity {
     private void connectDefaultFeedWithDriveApi(String plotId, String folderName) throws Exception {
         // "Projects" may be a folder shared into My Drive, or an actual Shared Drive.
         // Drive API exposes Shared Drives through drives.list rather than files.list.
-        String projectsId = findDriveSharedDriveByName("Projects");
-        if (projectsId == null) projectsId = findDriveFolderByName(null, "Projects");
+        String projectsId = findOwnedProjectsFolder();
         if (projectsId == null) {
             throw new IllegalStateException("Could not find a Projects folder or Shared Drive in the authorized Google Drive account. Check that this Google account has access to Projects.");
         }
@@ -5116,7 +5114,7 @@ public class MainActivity extends Activity {
         String pageToken = null;
         do {
             String path = "/drive/v3/files?q=" + URLEncoder.encode(query, "UTF-8")
-                    + "&pageSize=1000&fields=nextPageToken,files(id,name,mimeType,modifiedTime,size,parents)"
+                    + "&pageSize=1000&fields=nextPageToken,files(id,name,mimeType,modifiedTime,size,parents,owners(emailAddress,displayName,me))"
                     + "&supportsAllDrives=true&includeItemsFromAllDrives=true"
                     + "&corpora=" + URLEncoder.encode(corpora, "UTF-8")
                     + (pageToken == null ? "" : "&pageToken=" + URLEncoder.encode(pageToken, "UTF-8"));
@@ -5126,6 +5124,13 @@ public class MainActivity extends Activity {
             pageToken = response.optString("nextPageToken", null);
         } while (pageToken != null && !pageToken.isEmpty() && files.length() < MAX_FEED_FILES);
         return files;
+    }
+
+    private String findOwnedProjectsFolder() throws Exception {
+        String owner = DRIVE_OWNER_EMAIL.replace("\\", "\\\\").replace("'", "\\'");
+        String query = "name='Projects' and mimeType='application/vnd.google-apps.folder' and trashed=false and '" + owner + "' in owners";
+        JSONArray folders = listDriveFiles(query, "user");
+        return findExactDriveFolderId(folders, "Projects");
     }
 
     private String findDriveFolderByName(String parentId, String name) throws Exception {
@@ -5163,7 +5168,7 @@ public class MainActivity extends Activity {
     private String findExactDriveFolderId(JSONArray files, String name) {
         for (int i = 0; i < files.length(); i++) {
             JSONObject file = files.optJSONObject(i);
-            if (file != null && name.equals(file.optString("name"))) return file.optString("id", null);
+            if (file != null && name.equalsIgnoreCase(file.optString("name"))) return file.optString("id", null);
         }
         return null;
     }
