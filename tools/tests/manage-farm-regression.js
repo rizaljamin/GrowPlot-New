@@ -132,7 +132,7 @@ const farmContext = {
 const farmRoot = { hidden: true, innerHTML: '', querySelectorAll: () => [] };
 const farmForm = { addEventListener: () => {}, elements: { plotId: { addEventListener: () => {} }, greenhouse: { addEventListener: () => {}, value: '1' } } };
 const farmPicker = { hidden: true, addEventListener: () => {} };
-const farmAddForm = { addEventListener: () => {}, elements: { name: { value: '', addEventListener: () => {} } } };
+const farmAddForm = { addEventListener: () => {}, elements: { name: { value: '', addEventListener: () => {} }, basis: { value: 'after field planting', dataset: {}, addEventListener: () => {} } } };
 const farmAddPopup = { hidden: true, addEventListener: () => {} };
 const farmElements = {
   manageFarmContent: farmRoot,
