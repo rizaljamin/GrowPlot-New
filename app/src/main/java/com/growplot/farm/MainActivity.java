@@ -2330,7 +2330,7 @@ public class MainActivity extends Activity {
             publishStatus(makeStatus("Android did not grant lasting access to that folder. Choose the data feed folder again."));
             return;
         }
-        String locationLabel;
+        String locationLabel = null;
         boolean storageConfigSaved = false;
         try {
             String targetDocumentId = DocumentsContract.getTreeDocumentId(folderUri);

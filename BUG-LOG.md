@@ -1038,4 +1038,4 @@ Build 7 validation: Gradle ARM64 build, package version, signature, alignment, S
 
 **Fix:** Settings now lists available folders beneath `Projects/GrowPlot/Image_Feed` in an in-app dialog. The user can select any listed path, and GrowPlot saves its exact Drive folder ID and full path. The selected Google Drive account is remembered for token refresh, so reconnection does not return to an inferred email folder. The disconnected display points to `Google Drive: /Projects/GrowPlot/Image_Feed`.
 
-**Verification / limits:** Regression coverage checks in-app listing, nested path enumeration, exact folder ID/path saving, Settings routing, and path display. ARM64 build and actual Android authorization, listing, scanning, and upload behavior still require tablet verification.
+**Verification / limits:** Regression coverage checks in-app listing, nested path enumeration, exact folder ID/path saving, Settings routing, and path display. The first ARM64 workflow attempt exposed an uninitialized local in the legacy folder-selection handler; it is initialized in the follow-up commit. Android authorization, listing, scanning, upload, and the retry build remain pending.
