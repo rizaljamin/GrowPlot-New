@@ -251,3 +251,9 @@ Verification: source change committed; Android build and Google Drive provider/d
 - Add an **Add crop** control beside the Crop Planning picker. The form captures crop name, scientific name, varieties, first-harvest range and reference URL, with a Google search link for local growing details.
 - Save custom crops locally and in the existing Google Drive farm-management JSON. Newly added crops are selected immediately for a planting record.
 - Validation: JavaScript syntax and focused add/select, duplicate-name, local persistence, Drive bridge checks passed. Android build and Drive device verification pending.
+
+
+## Pending — Marketplace buyer and FAMA prices
+- Add **Buyer List** and **Historical Price** entries under Marketplace. Buyer List is a placeholder; Historical Price uses the same built-in and custom crop catalogue as Manage Farm.
+- Add crop and market-level reference selectors with RM/kg labeling and an Android link to FAMA AMI’s public portal. The user selects crop, level, and month on FAMA’s site; GrowPlot does not claim to fetch monthly prices directly.
+- Validation: Marketplace entry, shared crop catalogue, FAMA portal bridge, and RM/kg regression checks passed. APK build and Android device verification pending.
