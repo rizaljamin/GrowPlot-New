@@ -4956,7 +4956,7 @@ public class MainActivity extends Activity {
                         id.replaceAll("[^A-Za-z0-9_-]", "_") + "_" + modified + ".jpg");
                 if (!cached.isFile() || cached.length() == 0) {
                     byte[] photo = driveApiRequest("GET",
-                            "/drive/v3/files/" + URLEncoder.encode(id, "UTF-8") + "?alt=media", null, null);
+                            "/drive/v3/files/" + URLEncoder.encode(id, "UTF-8") + "?alt=media&supportsAllDrives=true", null, null);
                     try (OutputStream output = new FileOutputStream(cached)) { output.write(photo); }
                 }
                 images.add(new FeedDocument(Uri.fromFile(cached), name, cameraHint));
@@ -4980,7 +4980,7 @@ public class MainActivity extends Activity {
                 .getBytes(StandardCharsets.UTF_8));
         photo.writeTo(body);
         body.write(("\r\n--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8));
-        driveApiRequest("POST", "/upload/drive/v3/files?uploadType=multipart&fields=id",
+        driveApiRequest("POST", "/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true&fields=id",
                 body.toByteArray(), "multipart/related; boundary=" + boundary);
     }
 

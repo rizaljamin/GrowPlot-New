@@ -26,6 +26,8 @@ assert(apiConnect.includes('findDriveSharedDriveByName("Projects")'),'prefer a s
 assert(apiConnect.includes('findDriveFolderByName(null, "Projects")'),'fall back to a shared Projects folder');
 assert(java.includes('&corpora=allDrives'),'search folders across My Drive and shared drives');
 assert(java.includes('files?supportsAllDrives=true&fields=id'),'create folders inside a shared Drive');
+assert(java.includes('?alt=media&supportsAllDrives=true'),'download Image_Feed photos from a shared Drive');
+assert(java.includes('uploadType=multipart&supportsAllDrives=true'),'upload CCTV snapshots to a shared Drive');
 assert(java.includes('resolveGrowPlotDocumentId(folderUri)'),'resolve either Projects or GrowPlot as the authorized parent');
 assert(java.includes('feed_picker_creates_default'),'restore the pending connection if Android recreates the activity');
 assert(java.includes('Google Drive selection was cancelled'),'show a clear status when the picker returns without a folder');

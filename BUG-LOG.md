@@ -4,7 +4,7 @@
 
 **Cause:** Login searched Drive files for a folder named Projects. Google exposes a Shared Drive named Projects through drives.list, and the file listing did not explicitly search all Drive corpora. Folder creation also omitted the shared-drive support flag.
 
-**Fix:** Resolve a Shared Drive named Projects first, then fall back to a shared folder named Projects; search all accessible corpora and pass supportsAllDrives=true when creating folders.
+**Fix:** Resolve a Shared Drive named Projects first, then fall back to a shared folder named Projects; search all accessible corpora and pass supportsAllDrives=true when creating folders, downloading feed photos, and uploading CCTV snapshots.
 
 **Verification / limits:** Regression checks cover both Projects layouts and shared-drive folder creation. The app still needs real-device OAuth and Image_Feed scan verification.
 
