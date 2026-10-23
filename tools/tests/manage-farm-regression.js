@@ -154,4 +154,17 @@ assert.match(manifest, /android\.permission\.ACCESS_COARSE_LOCATION/, 'GrowPlot 
 assert.doesNotMatch(manifest, /android\.permission\.ACCESS_BACKGROUND_LOCATION/, 'map use does not request unnecessary background location');
 assert.match(java, /googleMaps\.setPackage\("com\.google\.android\.apps\.maps"\)/, 'plot map links prefer the Google Maps app');
 assert.match(java, /catch \(Exception mapsUnavailable\)[\s\S]*?new Intent\(Intent\.ACTION_VIEW, maps\)/, 'plot map links fall back to the web map when the app is unavailable');
+const cropSave = line('saveFarmCrop');
+assert.match(cropSave, /farmCustomCrops\.push\(crop\)/, 'new crop enters the selectable catalogue');
+assert.match(cropSave, /max>3650/, 'harvest estimates have an upper bound');
+assert.match(cropSave, /That crop is already in the list/, 'duplicate crop names are rejected');
+assert.match(renderFarm, /id="farmOpenAddCrop"/, 'Add crop button sits beside the crop picker');
+assert.match(renderFarm, /id="farmAddCropForm"/, 'crop details have a dedicated entry form');
+assert.match(line('persistFarmPlantingsLocally'), /growplotCustomCrops_v1/, 'custom crop catalogue is persisted locally');
+assert.match(line('syncFarmPlantingsToDrive'), /customCrops:farmCustomCrops/, 'custom crop catalogue is sent to Drive');
+const farmJava = fs.readFileSync('app/src/main/java/com/growplot/farm/MainActivity.java', 'utf8');
+assert.match(farmJava, /response\.put\("customCrops"/, 'Drive load returns the custom catalogue');
+assert.match(farmJava, /management\.put\("customCrops", customCrops\)/, 'Drive save stores the custom catalogue');
+assert.match(farmJava, /openCropInfoSearch/, 'crop web search opens outside the app WebView');
+
 console.log('PASS: farm scope filters, Plot default, shared plot management, due cues, completion dates, irrigation ordering, and Google Maps routing/location permissions.');
