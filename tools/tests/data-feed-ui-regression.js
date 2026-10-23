@@ -44,7 +44,7 @@ assert(java.includes('putString(feedLocationKey(plotId), path)'),'save the exact
 assert(java.includes('new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)')&&java.includes('startActivityForResult(intent, REQUEST_IMAGE_FOLDER)'),'use Android folder selection to grant Drive access');
 assert(java.includes('.remove(driveApiFolderKey(plotId))'),'discard a stale Drive API folder ID after the user selects a system folder');
 const scope=java.slice(java.indexOf('private String resolveGrowPlotDocumentId'),java.indexOf('private void rememberGrowPlotTreeIfScoped'));
-assert(scope.includes('findOrCreateChildFolder(treeUri, id, "growplot")'),'create or reuse the exact lowercase Projects/growplot folder');
+assert(scope.includes('findOrCreateChildFolder(treeUri, id, "GrowPlot")'),'create or reuse the exact My Drive Projects/GrowPlot folder');
 const result=java.slice(java.indexOf('String selectedDocumentId = DocumentsContract.getTreeDocumentId(folderUri)'),java.indexOf('int grantFlags = data.getFlags()',java.indexOf('String selectedDocumentId = DocumentsContract.getTreeDocumentId(folderUri)')));
 assert(result.includes('selectedFolderName.equalsIgnoreCase(safeFolderName(pickerDefaultFolderName))'),'allow selecting this plot\'s existing folder directly');
 assert(java.includes('putString(driveApiFolderKey(plotId), option.id)'),'preserve the selected Drive folder ID instead of deriving a Firebase-email folder');
