@@ -149,6 +149,7 @@ public class MainActivity extends Activity {
     private volatile boolean pickerCreatesDefaultFeed;
     private volatile String pickerDefaultFolderName = "Demo_plot";
     private volatile String googleDriveAccessToken;
+    private final ThreadLocal<StringBuilder> driveApiTrace = ThreadLocal.withInitial(StringBuilder::new);
     private volatile long googleDriveTokenIssuedAt;
     private volatile String vertexAccessToken;
     private volatile long vertexTokenIssuedAt;
@@ -4749,7 +4750,7 @@ public class MainActivity extends Activity {
                     connectDefaultFeedWithDriveApi(plotId, folderName);
                 }
             } catch (Exception error) {
-                String message = "Google Drive folder connection failed: " + safeErrorMessage(error);
+                String message = "Google Drive folder connection failed: " + driveApiDiagnosticMessage(error);
                 notifyLoginDriveStatus(plotId, false, true, message);
                 if (pendingDriveFolderBrowse) {
                     pendingDriveFolderBrowse = false;
@@ -4767,6 +4768,7 @@ public class MainActivity extends Activity {
 
     private void loadDriveFeedFolderOptions(String plotId) {
         farmDataWorker.execute(() -> {
+            driveApiTrace.set(new StringBuilder());
             try {
                 String projectsId = findDriveSharedDriveByName("Projects");
                 if (projectsId == null) projectsId = findDriveFolderByName(null, "Projects");
@@ -4798,7 +4800,7 @@ public class MainActivity extends Activity {
                 runOnUiThread(() -> showDriveFeedFolderOptions(safePlotId(plotId), ordered));
             } catch (Exception error) {
                 pendingDriveFolderBrowse = false;
-                String message = "Could not list Google Drive folders: " + safeErrorMessage(error);
+                String message = "Could not list Google Drive folders: " + driveApiDiagnosticMessage(error);
                 notifyLoginDriveStatus(plotId, false, true, message);
                 publishStatus(makeStatus(message));
             }
@@ -5029,6 +5031,24 @@ public class MainActivity extends Activity {
         return message == null || message.trim().isEmpty() ? "Unknown error" : message;
     }
 
+    private void recordDriveApiResponse(String method, String path, int status, byte[] response) {
+        try {
+            String body = new String(response, StandardCharsets.UTF_8);
+            if (body.length() > 900) body = body.substring(0, 900) + "…[response truncated]";
+            StringBuilder trace = driveApiTrace.get();
+            String line = method + " " + path + " | HTTP " + status + " | " + body + "\\n";
+            if (trace.length() < 6000) trace.append(line, 0, Math.min(line.length(), 6000 - trace.length()));
+            if (trace.length() >= 6000) trace.append("\\n[Drive API trace truncated]");
+        } catch (Exception ignored) { }
+    }
+
+    private String driveApiDiagnosticMessage(Exception error) {
+        String message = safeErrorMessage(error);
+        StringBuilder trace = driveApiTrace.get();
+        return trace == null || trace.length() == 0 ? message
+                : message + "\\n\\nGoogle Drive API responses (raw):\\n" + trace.toString();
+    }
+
     private JSONObject driveApiJsonRequest(String method, String path, JSONObject body) throws Exception {
         byte[] response = driveApiRequest(method, path,
                 body == null ? null : body.toString().getBytes(StandardCharsets.UTF_8),
@@ -5069,6 +5089,7 @@ public class MainActivity extends Activity {
                 }
             }
             byte[] response = output.toByteArray();
+            recordDriveApiResponse(method, path, responseCode, response);
             if (responseCode < 200 || responseCode >= 300) {
                 String details = new String(response, StandardCharsets.UTF_8);
                 if (details.length() > 500) details = details.substring(0, 500);
