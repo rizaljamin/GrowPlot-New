@@ -13,10 +13,10 @@
 ## BUG-072 — Settings Drive connection used the wrong folder-discovery flow
 
 **Reported:** 2026-10-23  
-**Status:** Restored Android's folder picker in v0.7.01 Build 21 (versionCode 256); ARM64 build and tablet verification pending.
+**Status:** Fixed in v0.7.01 Build 21 (versionCode 256). GitHub Actions run #494 passed the ARM64 build and stable-signature checks; tablet verification pending.
 
 **Finding:** Settings Connect to folder routed through the in-app Drive API browser and required GrowPlot to find a Projects root. That was failing for the user's Drive even though Android's Drive provider can let the user choose the existing folder directly.
 
 **Fix:** Connect to folder now opens Android's system folder picker. The user chooses Google Drive and the exact folder. GrowPlot saves the persistable folder grant and selected folder ID for scanning/uploads; it clears any stale API-folder mapping so the newly selected folder takes precedence. When the user selects Projects or growplot as a scope, GrowPlot uses the lowercase path Projects/growplot/Image_Feed/<signed-in email>/<plot>.
 
-**Verification / limits:** Regression coverage checks the button routing, picker intent, persistable folder grant, exact selected-folder mapping, and lowercase root creation. Android Google Drive account selection, scanning, and upload still require tablet verification.
+**Verification / limits:** Regression coverage passed for button routing, picker intent, persistable folder grant, exact selected-folder mapping, and lowercase root creation. Run #494 produced the ARM64 APK signed with the stable certificate. Android Google Drive account selection, scanning, and upload still require tablet verification.
