@@ -5,6 +5,9 @@ const assert = require('node:assert/strict');
 const html = fs.readFileSync('app/src/main/assets/index.html', 'utf8');
 const java = fs.readFileSync('app/src/main/java/com/growplot/farm/MainActivity.java', 'utf8');
 const rules = fs.readFileSync('firestore.rules', 'utf8');
+const storageRules = fs.readFileSync('storage.rules', 'utf8');
+const gradle = fs.readFileSync('app/build.gradle', 'utf8');
+const firebaseConfig = JSON.parse(fs.readFileSync('firebase.json', 'utf8'));
 
 assert.match(html, /GrowPlotBridge\.saveDiagnosisHistoryRecord\(camera,plotId,JSON\.stringify\(/,
   'each saved diagnosis record is sent to Android for Firestore persistence');
@@ -26,4 +29,16 @@ assert.match(java, /whereEqualTo\("ownerUserId", uid\)\.whereEqualTo\("plotId", 
   'history loads are scoped to the signed-in user, plot, and camera');
 assert.match(rules, /match \/diagnosis_records\/{recordDocumentId}[\s\S]*?resource\.data\.ownerUserId == request\.auth\.uid/,
   'Firestore rules restrict records to their authenticated owner');
+
+assert.match(gradle, /com\\.google\\.firebase:firebase-storage/,
+  'the Android app includes Firebase Storage for diagnosis photos');
+assert.match(java, /uploadDiagnosisPhotoToFirebase[\\s\\S]*?FirebaseStorage\\.getInstance\\(\\)[\\s\\S]*?putFile\\(Uri\\.fromFile\\(photo\\)\\)/,
+  'new and Drive-cached diagnosis photos upload to Firebase Storage');
+assert.match(html, /function diagnosisHistoryPhotosMarkup[\\s\\S]*?firebaseDownloadUrl/,
+  'history records display their linked diagnosis photos');
+assert.match(storageRules, /request\\.auth\\.uid == userId[\\s\\S]*?request\\.resource\\.size < 20 \\* 1024 \\* 1024[\\s\\S]*?contentType\\.matches\\('image\\/\\(jpeg\\|png\\|webp\\)'\\)/,
+  'Firebase Storage limits diagnosis photos to the owner and image content under 20 MB');
+assert.equal(firebaseConfig.storage.rules, 'storage.rules',
+  'Firebase deployment config includes Storage security rules');
+
 console.log('Diagnosis Firebase history regression checks passed.');
