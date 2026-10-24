@@ -2,7 +2,8 @@
 - Restore the species confirmed for the selected plot and CCTV camera before rendering the home cards.
 - Reset to camera defaults when switching plots so one plot's species cannot appear on another.
 - Update the current home card immediately after confirmation and cover persistence/rendering with a focused regression.
-- Build and Android tablet verification pending.
+- GitHub Actions run #512 passed Build 23 regression, ARM64 compilation, stable signing, package/version/alignment and artifact upload (APK SHA-256 `c08cfd93baed9295b548906411a5506926652c5b7be3101d21f89d0239f1d0d4`).
+- On-device species-label persistence and camera/Drive behavior still need verification.
 
 ## Completed — Build 22 due live-camera snapshot retries
 - Measure each live camera's next capture from its last successful Drive save; attempt overdue captures shortly after feed visibility returns.

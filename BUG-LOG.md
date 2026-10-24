@@ -1,12 +1,12 @@
 ## BUG-075 — Diagnosis-confirmed species is missing from the home CCTV card
 **Reported:** 2026-10-24
-**Status:** Fixed in v0.7.01 Build 23 source; ARM64 build and tablet verification pending.
+**Status:** Fixed in v0.7.01 Build 23; GitHub Actions run #512 passed ARM64 build and stable signing. Tablet verification pending.
 
 **Cause:** Diagnosis stored the confirmed species under a plot-and-camera local-storage key, but the home dashboard used static `plantIds` defaults and never reloaded that saved identity. The immediate in-memory update also did not refresh the already-rendered home card.
 
 **Fix:** Restore confirmed species for the active plot before home cards render, reset camera identities to defaults when switching plots, and update the matching card as soon as diagnosis confirmation is saved.
 
-**Verification:** Added a focused regression to the ARM64 build gate. On-device persistence and display verification remain pending.
+**Verification:** Focused source regression and ARM64 build/signature/package checks passed in GitHub Actions run #512. On-device persistence and display verification remain pending.
 
 ## BUG-074 — Live CCTV snapshot can be skipped while GrowPlot is open.
 **Reported:** 2026-10-24
