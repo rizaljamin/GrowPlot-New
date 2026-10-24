@@ -3702,7 +3702,6 @@ public class MainActivity extends Activity {
                     response.put("selectedSources", candidateSources(selected));
                 } catch (Exception error) {
                     response = plantNetError(error);
-                    sendVertexResult(camera, id, vertexStatus("error", error.getMessage() == null ? "No readable photos were available for Vertex image analysis." : error.getMessage()));
                 }
                 sendPlantNetResult(camera, id, response);
             });
