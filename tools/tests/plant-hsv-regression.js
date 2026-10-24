@@ -114,7 +114,8 @@ assert.match(html,/Basic CV and HSV analysis/,'the analysis modal must display l
 assert.doesNotMatch(html,/diagnosis-hourglass|RGB → HSV colour screening|Analysis stages/,'the diagnosis result area must not show the generic six-stage progress card');
 assert.match(html,/diagnosisVertexMarkup\(vertexReport\)/,'the Run diagnosis section must render the saved Vertex image output');
 assert.match(html,/window\.onVertexDiagnosis=function/,'Vertex output must be rendered when the Android callback returns');
-assert.match(java,/requestVertexImageAnalysis\(selectedImages, species, symptom, pixelMetrics\)/,'Run diagnosis must send the selected image set to Vertex');
+const plantNetBridge=java.slice(java.indexOf('diagnosePhotosWithPlantNet'),java.indexOf('identifyPlantSpeciesFromPhotos',java.indexOf('diagnosePhotosWithPlantNet')));
+assert.doesNotMatch(plantNetBridge,/requestVertexImageAnalysis/,'Pl@ntNet provider analysis must not issue a duplicate Vertex request');
 assert.match(java,/VERTEX_API_SCOPE = "https:\/\/www\.googleapis\.com\/auth\/cloud-platform"/,"Vertex must use the signed-in user's Google OAuth authorization");
 assert.match(java,/Identity\.getAuthorizationClient\(this\)\.authorize/,'request Vertex authorization through Android Google Identity when diagnosis runs');
 assert.match(java,/https:\/\/" \+ location \+ "-aiplatform\.googleapis\.com/,'derive the Vertex regional endpoint from the configured location');
