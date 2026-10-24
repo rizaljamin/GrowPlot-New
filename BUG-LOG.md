@@ -1,12 +1,12 @@
 ## BUG-079 — Home card stayed stale after A.I Health showed a species
 **Reported:** 2026-10-24
-**Status:** Fix prepared in v0.7.01 Build 27; ARM64 build and tablet verification pending.
+**Status:** Fixed in v0.7.01 Build 27; GitHub Actions run #518 passed ARM64 build and stable signing. Tablet verification pending.
 
 **Cause:** A.I Health reloads the selected plot's saved identity/suggestion before rendering. Home only revealed its existing camera-card DOM on return, leaving the earlier “unverified” text in place.
 
 **Fix:** Refresh all six Home species labels from the selected plot when returning from A.I Health. The saved user confirmation remains higher priority than an unconfirmed suggestion.
 
-**Verification:** Added regression coverage for the return-to-Home refresh. Tablet UI verification pending.
+**Verification:** Return-to-Home regression and ARM64 package/version/alignment checks passed in run #518; stable signing and Firebase OAuth signer checks passed. Tablet UI verification pending. APK SHA-256: `a9d5a80bcf1e5f5e0f1a607e6c7e62731f4cce46fc7f0961492c2e4efbad4164`.
 
 ---
 
