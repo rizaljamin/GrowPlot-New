@@ -4,7 +4,7 @@ const assert=require('node:assert/strict');
 const html=fs.readFileSync('app/src/main/assets/index.html','utf8');
 const java=fs.readFileSync('app/src/main/java/com/growplot/farm/MainActivity.java','utf8');
 
-assert.match(html,/async function runDiagnosisScreen\(camera\)[\s\S]*?runPlantNetDiseaseCheck\(camera,selectedPlotId\)/,
+assert.match(html,/async function runDiagnosisScreen\(camera\)[\s\S]*?runPlantNetDiseaseCheck\(camera,plotId\)/,
   'Run diagnosis must start the external Pl@ntNet provider analysis');
 assert.match(html,/function runPlantNetDiseaseCheck\(camera,plotId=selectedPlotId\)[\s\S]*?GrowPlotBridge\.diagnosePhotosWithPlantNet\(camera,plotId/,
   'the provider analysis must pass the active plot and camera to Android');
