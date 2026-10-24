@@ -1,3 +1,9 @@
+## Build 22 — repair due live-camera snapshot retries
+- Measure each live camera's next capture from its last successful Drive save; attempt overdue captures shortly after feed visibility returns.
+- Retry due captures after PixelCopy or Drive failures; recheck disconnected folder access while GrowPlot remains open.
+- Back off while a camera is hidden and register a focused scheduler regression in the ARM64 build gate.
+- Build and Android tablet verification pending.
+
 ## Build 15 — retry directly shared Projects folder lookup
 - Preserve Build 14's shared-drive search and folder creation support.
 - If the root Projects folder is absent from allDrives, retry with the Drive API user corpus and the sharedWithMe query.
