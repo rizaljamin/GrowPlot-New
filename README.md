@@ -2,7 +2,7 @@
 
 GrowPlot is an Android farm-management application with CCTV monitoring, Google Drive image feeds, A.I Plant Health, diagnosis workflows and plot management.
 
-**Current source version:** v0.7.01 Build 25 (`versionCode=260`, Android package `com.growplot.farm`). Run diagnosis now invokes Pl@ntNet species/disease analysis using the encrypted Settings key; it runs separately from Vertex. Kindwise plant.id and crop.health keys remain separate but are grouped under one Settings heading. Build 24's home species candidate display and Build 22's snapshot retry fix are included. GitHub Actions run #516 passed the regression suite and stable-signed ARM64 package checks; APK SHA-256: `${shaApk}`. Live provider responses and tablet behavior still need verification.
+**Current source version:** v0.7.01 Build 25 (`versionCode=260`, Android package `com.growplot.farm`). Run diagnosis now invokes Pl@ntNet species/disease analysis using the encrypted Settings key; it runs separately from Vertex. Kindwise plant.id and crop.health keys remain separate but are grouped under one Settings heading. Build 24's home species candidate display and Build 22's snapshot retry fix are included. GitHub Actions run #516 passed the regression suite and stable-signed ARM64 package checks; APK SHA-256: `1b6539640ab61fc5391f97ca5231225681b878a9f9416176f221c2087df4f4c7`. Live provider responses and tablet behavior still need verification.
 
 ## Live CCTV snapshot capture
 
@@ -32,7 +32,7 @@ The following behavior was documented as device-verified for v0.7.00 Build 02:
 
 ## OpenCV plant boundary (Build 09)
 
-OpenCV uses the Build 09 HSV thresholds and grouping rules to estimate a foliage outline, draws it in magenta, and reports colour counts and percentages within that region. Build 10's separate Hue, Saturation and Value image tiles remain removed; the panel keeps the HSV-converted photo, estimated boundary, YGB mask and pixel metrics. Build 11 restores the earlier boundary settings after the wider settings produced an incorrect outline. The boundary is a colour-based approximation: soil or background may still be included, and leaves may be missed. The output is not validated plant detection, a health score, or disease diagnosis. In the Build 11 APK, Run Diagnosis stops after OpenCV. The pending Vertex wiring keeps that OpenCV output and then requests a separate image assessment from the Firebase callable.
+OpenCV uses HSV colour thresholds and grouping rules to estimate a foliage outline, then shows the HSV-converted photo, estimated boundary, YGB mask, and pixel metrics. The boundary is approximate: soil or background may be included and leaves may be missed. The output is not validated plant detection, a health score, or disease diagnosis. Run Diagnosis displays this local screening alongside separate Vertex and Pl@ntNet/Kindwise results.
 
 The Build 25 APK is available from GitHub Actions; provider responses, camera behavior, and Google Drive behavior still require Android device verification.
 
