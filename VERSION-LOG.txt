@@ -1,3 +1,7 @@
+2026-10-24 | v0.7.02 Build 07 | versionCode 272 | com.growplot.farm
+Changes: Use the VLC player as the only live CCTV stream connection. The WebView card displays the latest saved snapshot instead of opening a second MJPEG stream. Replace one-second playback polling with VLC event updates, and capture scheduled snapshots from VLC's decoded output rather than probing MJPEG with a second connection.
+Validation: ARM64 GitHub Actions build and manifest/package/signing verification pending. On-device comparison of CCTV01 stream behavior and front-end responsiveness pending.
+
 2026-10-24 | v0.7.02 Build 06 | versionCode 271 | com.growplot.farm
 Changes: Replace the Home card’s Latest vs previous frame panel with a crop summary scoped to plot, greenhouse, and section. Show Malay and scientific plant names first, then seedling-ready date, field planting date, and plant status. Summarize the latest saved diagnosis from OpenCV, Vertex, and Pl@ntNet.
 Validation: GitHub Actions ARM64 build and manifest/package/signing verification pending. Android tablet verification pending.
