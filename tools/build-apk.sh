@@ -59,6 +59,7 @@ node "$ROOT/tools/tests/feed-history-regression.js" || fail "Feed-history regres
 node "$ROOT/tools/tests/cctv-snapshot-scheduler-regression.js" || fail "CCTV snapshot scheduler regression check failed"
 node "$ROOT/tools/tests/confirmed-species-home-regression.js" || fail "Confirmed-species home-label regression check failed"
 node "$ROOT/tools/tests/diagnosis-history-firebase-regression.js" || fail "Firebase diagnosis-history regression check failed"
+node "$ROOT/tools/tests/marketplace-regression.js" || fail "Marketplace regression check failed"
 node "$ROOT/tools/tests/timeline-persistence-regression.js" || fail "Timeline persistence regression check failed"
 
 cd "$ROOT"
