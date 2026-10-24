@@ -1,6 +1,6 @@
 2026-10-24 | v0.7.02 Build 06 | versionCode 271 | com.growplot.farm
 Changes: Sync custom Crop Planning additions through the shared Google Drive JSON catalog at config/crop_list/custom-crops.json, loading it on other devices. Store Marketplace buyers in the signed-in user's market_buyers Firestore collection and allow assignment to multiple plots.
-Validation: Regression and inline JavaScript syntax checks pass. GitHub Actions ARM64 compilation, manifest/package/signing verification pending. Firestore rules deployment and two-device verification pending.
+Validation: All regression and inline JavaScript syntax checks pass. GitHub Actions run #542 passed ARM64 compilation, manifest/package verification, and stable signing. APK SHA-256: 162b765a085509d78a592504ad7a0166860ffcd64b517b23ec6a23aba123a8c8. [Artifact](https://github.com/rizaljamin/GrowPlot-New/actions/runs/40085097394/artifacts/12555989362). Firestore rules deployment and two-device verification pending.
 
 2026-10-24 | v0.7.02 Build 05 | versionCode 270 | com.growplot.farm
 Changes: Inline the curated Add Crop profiles from the Android asset into the WebView page. The Add Crop UI loads the turmeric/kunyit and ginger/halia scientific names, sourced maturity ranges, and credited photos without relying on an unavailable relative asset URL.

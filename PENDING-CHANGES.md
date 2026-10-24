@@ -1,8 +1,9 @@
-## Build 06 — custom crops and user-level buyers
+## Completed — Build 06 custom crops and user-level buyers
 
 - Crop Planning writes custom crops to `Projects/GrowPlot/config/crop_list/custom-crops.json` and loads the catalog so it can sync across devices using the same Drive folder.
 - Marketplace buyers are stored under the signed-in user's `market_buyers` Firestore collection; each buyer can be assigned to multiple user-owned plots.
-- Regression checks pass. ARM64 compilation is pending. Deploy `firestore.rules`, then verify Drive catalog access and buyer save/load on two devices.
+- GitHub Actions run #542 passed regression checks, ARM64 compilation, manifest/package verification, and stable signing. APK SHA-256: `162b765a085509d78a592504ad7a0166860ffcd64b517b23ec6a23aba123a8c8`. [Download the artifact](https://github.com/rizaljamin/GrowPlot-New/actions/runs/40085097394/artifacts/12555989362).
+- Still deploy `firestore.rules`, then verify Drive catalog access and buyer save/load on two devices.
 
 ## Completed — Build 04 Marketplace table
 
