@@ -1,6 +1,16 @@
+## BUG-076 — Diagnosis species candidate is hidden from the home CCTV card
+**Reported:** 2026-10-24
+**Status:** Fixed in v0.7.01 Build 24 source; ARM64 build and tablet verification pending.
+
+**Cause:** The Home card only used a user-confirmed identity. When diagnosis had produced a candidate but the user had not confirmed it, the card showed only “Plant identity unverified,” hiding the species name shown by diagnosis.
+
+**Fix:** Show the newest saved diagnosis candidate for the matching plot and camera while marking it clearly as not confirmed. A confirmed identity continues to take precedence and remains locked as before.
+
+**Verification:** Added a focused regression to the ARM64 build gate. Tablet verification pending.
+
 ## BUG-075 — Diagnosis-confirmed species is missing from the home CCTV card
 **Reported:** 2026-10-24
-**Status:** Fixed in v0.7.01 Build 23; GitHub Actions run #512 passed ARM64 build and stable signing. Tablet verification pending.
+**Status:** Build 23 restores confirmed identities; screenshot revealed unconfirmed diagnosis candidates still were not shown. Build 24 adds a clearly labeled suggestion. Tablet verification pending.
 
 **Cause:** Diagnosis stored the confirmed species under a plot-and-camera local-storage key, but the home dashboard used static `plantIds` defaults and never reloaded that saved identity. The immediate in-memory update also did not refresh the already-rendered home card.
 

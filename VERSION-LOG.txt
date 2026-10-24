@@ -1,6 +1,10 @@
+2026-10-24 | v0.7.01 Build 24 | versionCode 259 | com.growplot.farm
+Changes: In addition to restoring confirmed species per plot and camera, show the latest saved diagnosis species candidate on the corresponding home card when no confirmed identity exists. Label the candidate as not confirmed. Includes due-aware CCTV snapshot retries.
+Validation: ARM64 build, regression, package/signing, and artifact checks pending. Tablet verification of candidate selection, CCTV capture and Drive upload pending.
+
 2026-10-24 | v0.7.01 Build 23 | versionCode 258 | com.growplot.farm
 Changes: Persist diagnosis-confirmed species by plot and camera, restore the selected plot's confirmed species when the home screen renders, and immediately update the matching CCTV card after confirmation. Includes Build 22's due-aware snapshot retries.
-Validation: GitHub Actions run #512 passed regression, ARM64 compilation, stable signing, package/version, alignment and artifact upload. APK SHA-256: `c08cfd93baed9295b548906411a5506926652c5b7be3101d21f89d0239f1d0d4`. Source commit: `7ab855ec47139f1cb645033274b80d7bc2d72971`. Live CCTV capture, Drive upload, and species label still require tablet verification.
+Validation: GitHub Actions run #512 passed regression, ARM64 compilation, stable signing, package/version, alignment and artifact upload. APK SHA-256: `c08cfd93baed9295b548906411a5506926652c5b7be3101d21f89d0239f1d0d4`. Screenshot retest showed the diagnosis suggestion had not been confirmed, so Build 24 now displays candidates as unconfirmed on Home. Live CCTV and Drive behavior still require tablet verification.
 
 2026-10-24 | v0.7.01 Build 22 | versionCode 257 | com.growplot.farm
 Changes: Make all live CCTV snapshot timers due-aware. When a camera becomes visible and active, overdue captures are attempted promptly; a missed frame or Drive save is retried without waiting another full snapshot interval. Hidden feed and missing-folder checks back off while the app remains foregrounded. The next interval is measured from a successful save.
