@@ -12,6 +12,10 @@ assert.match(html, /function render\(\)\{[\s\S]*?loadConfirmedPlantIds\(selected
   'home camera cards hydrate confirmed species before rendering');
 assert.match(html, /function updateCameraSpeciesDisplay\(camera\)[\s\S]*?querySelector\('\.plant-id b'\)[\s\S]*?querySelector\('\.plant-id em'\)/,
   'the currently rendered home card updates immediately after confirmation');
+assert.match(html, /function loadConfirmedPlantIds\(plotId=selectedPlotId\)[\s\S]*?plant\.identityConfirmed=true;return;let suggestion=null[\s\S]*?diagnosisSpeciesCandidates\(report\)\[0\][\s\S]*?plant\.identitySuggested=true/,
+  'when identity is not confirmed, the home card can show the diagnosis candidate clearly marked unconfirmed');
+assert.match(html, /plant\.identitySuggested\?'DIAGNOSIS SUGGESTION · NOT CONFIRMED'/,
+  'suggested species on the home card is explicitly labeled as not confirmed');
 assert.match(html, /function confirmDiagnosisSpeciesChoice\(camera,choice\)[\s\S]*?localStorage\.setItem\(diagnosisSpeciesKey\(camera\),JSON\.stringify\(confirmed\)\)[\s\S]*?loadConfirmedPlantIds\(selectedPlotId\);updateCameraSpeciesDisplay\(camera\)/,
   'diagnosis confirmation persists and refreshes the matching home species label');
 assert.match(build, /node "\$ROOT\/tools\/tests\/confirmed-species-home-regression\.js"/,
