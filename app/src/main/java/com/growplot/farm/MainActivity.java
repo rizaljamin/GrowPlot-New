@@ -3017,11 +3017,102 @@ public class MainActivity extends Activity {
                     .format(new Date(saved.lastModified())) + " MYT");
         } catch (Exception ignored) { }
         saveDiagnosisMediaIndex(camera, plotId, item);
+        if ("photo".equals(kind)) uploadDiagnosisPhotoToFirebase(camera, plotId, saved, item);
         runOnUiThread(() -> {
             if (web != null) web.evaluateJavascript("window.onDiagnosisMediaAdded&&window.onDiagnosisMediaAdded(" + item + ")", null);
             if (drivePath != null) notifyDiagnosisStatus("Saved on this device and to Google Drive: " + drivePath);
             else if (driveError != null) notifyDiagnosisStatus("Saved on this device, but Google Drive upload failed: " + driveError);
             else notifyDiagnosisStatus("Saved on this device. Choose a Google Drive Diagnosis folder to enable uploads.");
+        });
+    }
+
+    private String diagnosisPhotoStoragePath(String uid, String plotId, int camera, String fileName) {
+        String plotKey = Base64.encodeToString(safePlotId(plotId).getBytes(StandardCharsets.UTF_8),
+                Base64.URL_SAFE | Base64.NO_PADDING | Base64.NO_WRAP);
+        String safeName = fileName == null ? "photo.jpg" : fileName.replaceAll("[^A-Za-z0-9._-]", "_");
+        if (safeName.length() > 120) safeName = safeName.substring(safeName.length() - 120);
+        return "users/" + uid + "/diagnosis/" + plotKey + "/cctv_" + String.format(Locale.US, "%02d", camera) + "/" + safeName;
+    }
+
+    private void uploadDiagnosisPhotoToFirebase(int camera, String plotId, File photo, JSONObject mediaItem) {
+        if (photo == null || !photo.isFile() || camera < 1 || camera > 6) return;
+        com.google.firebase.auth.FirebaseUser user = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+        if (user == null) {
+            sendDiagnosisPhotoCloudSaved(camera, plotId, mediaItem.optString("fileName"), "", "", false,
+                    "Sign in to Firebase to sync this photo.");
+            return;
+        }
+        String fileName = mediaItem.optString("fileName", photo.getName());
+        String indexKey = diagnosisMediaIndexKey(camera, plotId);
+        try {
+            JSONArray existing = new JSONArray(getPrefs().getString(indexKey, "[]"));
+            for (int i = 0; i < existing.length(); i++) {
+                JSONObject old = existing.optJSONObject(i);
+                if (old != null && fileName.equals(old.optString("fileName"))
+                        && "saved".equals(old.optString("firebaseUploadStatus"))) {
+                    mediaItem.put("firebaseStoragePath", old.optString("firebaseStoragePath"));
+                    mediaItem.put("firebaseDownloadUrl", old.optString("firebaseDownloadUrl"));
+                    mediaItem.put("firebaseUploadStatus", "saved");
+                    sendDiagnosisPhotoCloudSaved(camera, plotId, fileName, mediaItem.optString("firebaseStoragePath"),
+                            mediaItem.optString("firebaseDownloadUrl"), true, "Diagnosis photo is already saved to Firebase Storage.");
+                    return;
+                }
+            }
+        } catch (Exception ignored) { }
+        String path = diagnosisPhotoStoragePath(user.getUid(), plotId, camera, photo.getName());
+        com.google.firebase.storage.StorageReference ref = com.google.firebase.storage.FirebaseStorage.getInstance()
+                .getReference().child(path);
+        ref.putFile(Uri.fromFile(photo))
+                .addOnSuccessListener(task -> ref.getDownloadUrl()
+                        .addOnSuccessListener(download -> {
+                            String url = download.toString();
+                            updateDiagnosisMediaFirebaseInfo(camera, plotId, fileName, path, url, "saved");
+                            sendDiagnosisPhotoCloudSaved(camera, plotId, fileName, path, url, true,
+                                    "Diagnosis photo saved to Firebase Storage.");
+                        })
+                        .addOnFailureListener(error -> sendDiagnosisPhotoCloudSaved(camera, plotId, fileName, path, "", false,
+                                "Photo uploaded, but Firebase did not return its download URL.")))
+                .addOnFailureListener(error -> sendDiagnosisPhotoCloudSaved(camera, plotId, fileName, path, "", false,
+                        "Firebase photo upload failed: " + diagnosisCloudError(error)));
+    }
+
+    private void updateDiagnosisMediaFirebaseInfo(int camera, String plotId, String fileName, String path, String url, String status) {
+        String key = diagnosisMediaIndexKey(camera, plotId);
+        JSONArray old;
+        try { old = new JSONArray(getPrefs().getString(key, "[]")); }
+        catch (Exception ignored) { old = new JSONArray(); }
+        JSONArray updated = new JSONArray();
+        boolean found = false;
+        for (int i = 0; i < old.length(); i++) {
+            JSONObject item = old.optJSONObject(i);
+            if (item == null) continue;
+            if (fileName.equals(item.optString("fileName"))) {
+                try { item.put("firebaseStoragePath", path); item.put("firebaseDownloadUrl", url); item.put("firebaseUploadStatus", status); }
+                catch (Exception ignored) { }
+                found = true;
+            }
+            updated.put(item);
+        }
+        if (!found) {
+            JSONObject item = new JSONObject();
+            try { item.put("camera", camera); item.put("plotId", safePlotId(plotId)); item.put("kind", "photo");
+                item.put("fileName", fileName); item.put("firebaseStoragePath", path); item.put("firebaseDownloadUrl", url);
+                item.put("firebaseUploadStatus", status); }
+            catch (Exception ignored) { }
+            updated.put(item);
+        }
+        getPrefs().edit().putString(key, updated.toString()).apply();
+    }
+
+    private void sendDiagnosisPhotoCloudSaved(int camera, String plotId, String fileName, String path, String url,
+                                               boolean success, String message) {
+        runOnUiThread(() -> {
+            if (web == null) return;
+            String js = "window.onDiagnosisPhotoCloudSaved&&window.onDiagnosisPhotoCloudSaved(" + camera + ","
+                    + JSONObject.quote(safePlotId(plotId)) + "," + JSONObject.quote(fileName == null ? "" : fileName) + ","
+                    + JSONObject.quote(path == null ? "" : path) + "," + JSONObject.quote(url == null ? "" : url) + ","
+                    + success + "," + JSONObject.quote(message == null ? "" : message) + ")";
+            web.evaluateJavascript(js, null);
         });
     }
 
@@ -3209,6 +3300,10 @@ public class MainActivity extends Activity {
                 }
             }
             result.put(row);
+            if (!video) {
+                saveDiagnosisMediaIndex(camera, plotId, row);
+                uploadDiagnosisPhotoToFirebase(camera, plotId, cached, row);
+            }
         }
         File[] cachedFiles = directory.listFiles();
         if (cachedFiles != null) for (File cachedFile : cachedFiles) {
