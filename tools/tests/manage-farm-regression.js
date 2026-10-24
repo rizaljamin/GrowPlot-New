@@ -117,7 +117,7 @@ assert.equal(settingsParent.children[1], sharedPlotSection, 'leaving the Plot ta
 assert.equal(sharedPlotSection.open, true, 'restoring Plot Management preserves its Settings accordion state');
 assert.equal(sharedPlotSection.classes.has('manage-farm-plot-panel'), false, 'restored section clears Manage Farm styling');
 const farmContext = {
-  document: { getElementById: (id) => farmElements[id] || { options: [] } },
+  document: { getElementById: (id) => farmElements[id] || { options: [], addEventListener: () => {} } },
   restorePlotManagementSection: () => {},
   farmActiveMenu: 'crops', farmEditingId: '', farmEditingManagementId: '', farmEditingManagementType: '',
   farmPlotFilter: 'plot-1', farmGreenhouseFilter: '1', farmSectionFilter: 'all',
@@ -128,6 +128,8 @@ const farmContext = {
   farmScopeMatches: () => true, farmScopeFilterMarkup: () => '',
   farmDateLabel: (value) => String(value || '—'), farmExpectedDate: () => null, farmHarvestStart: () => null,
   saveFarmPlanting: () => {}, farmAction: () => {},
+  farmAddCropPopupMarkup: () => '<div id="farmAddCropPopup"></div>',
+  openFarmAddCropPopup: () => {}, closeFarmAddCropPopup: () => {}, saveFarmCustomCrop: () => {}, farmQueueCropLookup: () => {},
 };
 const farmRoot = { hidden: true, innerHTML: '', querySelectorAll: () => [] };
 const farmForm = { addEventListener: () => {}, elements: { plotId: { addEventListener: () => {} }, greenhouse: { addEventListener: () => {}, value: '1' } } };
