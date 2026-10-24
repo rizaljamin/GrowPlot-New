@@ -1,3 +1,9 @@
+## Build 28 — Firebase diagnosis history
+- Save diagnosis result snapshots in `diagnosis_records` for the signed-in Firebase user, plot, and CCTV.
+- Opening diagnosis syncs local records and loads cloud history; selecting an entry restores the saved OpenCV, Pl@ntNet, Kindwise, and Vertex results.
+- Firestore rules restrict access to each record's owner; photos are not included.
+- Focused regression and source assertions are added. ARM64 build, Firestore rules deployment, and Android tablet save/load/recall checks pending.
+
 ## Completed — Build 27 refresh Home species name after A.I Health
 - On return to Home, reload each CCTV's saved identity/suggestion for the selected plot and update the existing card labels.
 - Keep confirmed identities and not-confirmed suggestion status as stored.
