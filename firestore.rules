@@ -108,6 +108,39 @@ service cloud.firestore {
       allow delete: if request.auth != null
         && resource.data.ownerUserId == request.auth.uid;
     }
+    match /market_buyers/{buyerDocumentId} {
+      allow read: if request.auth != null
+        && resource.data.ownerUserId == request.auth.uid;
+      allow create: if request.auth != null
+        && request.resource.data.ownerUserId == request.auth.uid
+        && buyerDocumentId.matches(request.auth.uid + '_[A-Za-z0-9_-]+')
+        && request.resource.data.keys().hasOnly(['ownerUserId','buyerId','name','contact','crops','location','phone','email','notes','assignedPlotIds','updatedAt'])
+        && request.resource.data.buyerId is string
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.contact is string
+        && request.resource.data.crops is string
+        && request.resource.data.location is string
+        && request.resource.data.phone is string
+        && request.resource.data.email is string
+        && request.resource.data.notes is string
+        && request.resource.data.assignedPlotIds is list
+        && request.resource.data.assignedPlotIds.size() > 0
+        && request.resource.data.updatedAt is timestamp;
+      allow update: if request.auth != null
+        && resource.data.ownerUserId == request.auth.uid
+        && request.resource.data.ownerUserId == request.auth.uid
+        && request.resource.data.buyerId == resource.data.buyerId
+        && request.resource.data.keys().hasOnly(['ownerUserId','buyerId','name','contact','crops','location','phone','email','notes','assignedPlotIds','updatedAt'])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.assignedPlotIds is list
+        && request.resource.data.assignedPlotIds.size() > 0
+        && request.resource.data.updatedAt is timestamp
+        && buyerDocumentId.matches(request.auth.uid + '_[A-Za-z0-9_-]+');
+      allow delete: if request.auth != null
+        && resource.data.ownerUserId == request.auth.uid;
+    }
     match /users/{uid} {
       allow create: if request.auth != null
         && request.auth.uid == uid

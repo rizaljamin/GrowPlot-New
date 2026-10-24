@@ -1922,12 +1922,17 @@ public class MainActivity extends Activity {
             }
         }
         JSONObject management = userFolderId == null ? null : readFarmDriveJson(treeUri, userFolderId, "farm-management.json");
+        String configId = findOrCreateChildFolder(treeUri, rootId, "config");
+        String cropListId = findOrCreateChildFolder(treeUri, configId, "crop_list");
+        JSONObject cropCatalog = readFarmDriveJson(treeUri, cropListId, "custom-crops.json");
         response.put("records", records);
         response.put("deletedIds", deletedIds);
         response.put("irrigationSchedules", management == null ? new JSONArray() : management.optJSONArray("irrigationSchedules") == null ? new JSONArray() : management.optJSONArray("irrigationSchedules"));
         response.put("maintenanceTasks", management == null ? new JSONArray() : management.optJSONArray("maintenanceTasks") == null ? new JSONArray() : management.optJSONArray("maintenanceTasks"));
         response.put("managementDeletedIds", management == null ? new JSONArray() : management.optJSONArray("deletedIds") == null ? new JSONArray() : management.optJSONArray("deletedIds"));
-        response.put("customCrops", management == null ? new JSONArray() : management.optJSONArray("customCrops") == null ? new JSONArray() : management.optJSONArray("customCrops"));
+        JSONArray savedCrops = cropCatalog == null ? null : cropCatalog.optJSONArray("customCrops");
+        if (savedCrops == null) savedCrops = management == null ? null : management.optJSONArray("customCrops");
+        response.put("customCrops", savedCrops == null ? new JSONArray() : savedCrops);
         response.put("ok", true);
         response.put("path", "/db/userdata/" + userId);
         return response;
@@ -2025,6 +2030,13 @@ public class MainActivity extends Activity {
         if (managementDeletedIds == null) managementDeletedIds = new JSONArray();
         JSONArray customCrops = request.optJSONArray("customCrops");
         if (customCrops == null) customCrops = new JSONArray();
+        String configId = findOrCreateChildFolder(treeUri, rootId, "config");
+        String cropListId = findOrCreateChildFolder(treeUri, configId, "crop_list");
+        JSONObject cropCatalog = new JSONObject();
+        cropCatalog.put("schemaVersion", 1); cropCatalog.put("userId", userId);
+        cropCatalog.put("updatedAt", new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US).format(new Date()));
+        cropCatalog.put("customCrops", customCrops);
+        writeFarmDriveJson(treeUri, cropListId, "custom-crops.json", cropCatalog);
         JSONObject management = new JSONObject();
         management.put("schemaVersion", 1); management.put("userId", userId);
         management.put("updatedAt", new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US).format(new Date()));
@@ -2035,6 +2047,7 @@ public class MainActivity extends Activity {
         writeFarmDriveJson(treeUri, userFolderId, "farm-management.json", management);
         JSONObject response = new JSONObject(); response.put("ok", true); response.put("userId", userId);
         response.put("path", "/db/userdata/" + userId); response.put("scopeCount", scopes.size());
+        response.put("cropCount", customCrops.length()); response.put("cropCatalogPath", "/config/crop_list/custom-crops.json");
         return response;
     }
 
@@ -3790,6 +3803,72 @@ public class MainActivity extends Activity {
                     .addOnFailureListener(error -> sendMarketPriceSaved(safePlot, productId, observedDate, false, "Firebase price save failed: " + diagnosisCloudError(error)));
         }
 
+        @JavascriptInterface public String getMarketBuyerUserId() {
+            com.google.firebase.auth.FirebaseUser user = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+            return user == null ? "default-user" : user.getUid();
+        }
+
+        @JavascriptInterface public void loadMarketBuyers() {
+            com.google.firebase.auth.FirebaseUser user = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+            if (user == null) { sendMarketBuyersLoaded(new JSONArray(), false, "Sign in to load this user's buyer list from Firebase."); return; }
+            com.google.firebase.firestore.FirebaseFirestore.getInstance().collection("market_buyers")
+                    .whereEqualTo("ownerUserId", user.getUid()).get()
+                    .addOnSuccessListener(snapshot -> {
+                        JSONArray buyers = new JSONArray();
+                        for (com.google.firebase.firestore.QueryDocumentSnapshot document : snapshot) {
+                            try { buyers.put(new JSONObject(new com.google.gson.Gson().toJson(document.getData()))); }
+                            catch (Exception ignored) { }
+                        }
+                        sendMarketBuyersLoaded(buyers, true, "Buyer list loaded from Firebase.");
+                    })
+                    .addOnFailureListener(error -> sendMarketBuyersLoaded(new JSONArray(), false, "Firebase buyer load failed: " + diagnosisCloudError(error)));
+        }
+
+        @JavascriptInterface public void saveMarketBuyer(String buyerJson) {
+            com.google.firebase.auth.FirebaseUser user = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+            if (user == null) { sendMarketBuyerSaved("", false, "Sign in to Firebase to save buyer details."); return; }
+            final JSONObject parsed;
+            final String buyerId;
+            try {
+                parsed = new JSONObject(buyerJson == null ? "{}" : buyerJson);
+                buyerId = parsed.optString("id", "").trim();
+                if (!buyerId.matches("[A-Za-z0-9_-]{1,100}") || parsed.optString("name", "").trim().isEmpty())
+                    throw new IllegalArgumentException("Buyer ID and name are required.");
+                JSONArray assignments = parsed.optJSONArray("assignedPlotIds");
+                if (assignments == null || assignments.length() == 0) throw new IllegalArgumentException("Assign this buyer to at least one plot.");
+                for (int i = 0; i < assignments.length(); i++) {
+                    String plotId = assignments.optString(i, "");
+                    if (!plotId.matches("[A-Za-z0-9_-]{1,64}")) throw new IllegalArgumentException("Invalid plot assignment.");
+                }
+            } catch (Exception error) { sendMarketBuyerSaved("", false, error.getMessage() == null ? "Buyer details are invalid." : error.getMessage()); return; }
+            Map<String,Object> fields = new HashMap<>();
+            fields.put("ownerUserId", user.getUid()); fields.put("buyerId", buyerId);
+            for (String key : new String[]{"name", "contact", "crops", "location", "phone", "email", "notes"})
+                fields.put(key, parsed.optString(key, "").trim());
+            JSONArray assignments = parsed.optJSONArray("assignedPlotIds");
+            List<String> assignedPlotIds = new ArrayList<>();
+            for (int i = 0; assignments != null && i < assignments.length(); i++) {
+                String plotId = assignments.optString(i, ""); if (!assignedPlotIds.contains(plotId)) assignedPlotIds.add(plotId);
+            }
+            fields.put("assignedPlotIds", assignedPlotIds);
+            fields.put("updatedAt", com.google.firebase.firestore.FieldValue.serverTimestamp());
+            String encodedId = Base64.encodeToString(buyerId.getBytes(StandardCharsets.UTF_8), Base64.URL_SAFE | Base64.NO_PADDING | Base64.NO_WRAP);
+            com.google.firebase.firestore.FirebaseFirestore.getInstance().collection("market_buyers").document(user.getUid() + "_" + encodedId)
+                    .set(fields, com.google.firebase.firestore.SetOptions.merge())
+                    .addOnSuccessListener(ignored -> sendMarketBuyerSaved(buyerId, true, "Buyer saved to this user's Firebase list."))
+                    .addOnFailureListener(error -> sendMarketBuyerSaved(buyerId, false, "Firebase buyer save failed: " + diagnosisCloudError(error)));
+        }
+
+        @JavascriptInterface public void deleteMarketBuyer(String buyerId) {
+            com.google.firebase.auth.FirebaseUser user = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+            String safeId = buyerId == null ? "" : buyerId.trim();
+            if (user == null || !safeId.matches("[A-Za-z0-9_-]{1,100}")) { sendMarketBuyerDeleted(safeId, false, "Sign in and select a valid buyer record."); return; }
+            String encodedId = Base64.encodeToString(safeId.getBytes(StandardCharsets.UTF_8), Base64.URL_SAFE | Base64.NO_PADDING | Base64.NO_WRAP);
+            com.google.firebase.firestore.FirebaseFirestore.getInstance().collection("market_buyers").document(user.getUid() + "_" + encodedId).delete()
+                    .addOnSuccessListener(ignored -> sendMarketBuyerDeleted(safeId, true, "Buyer removed from this user's Firebase list."))
+                    .addOnFailureListener(error -> sendMarketBuyerDeleted(safeId, false, "Firebase buyer delete failed: " + diagnosisCloudError(error)));
+        }
+
         @JavascriptInterface public void syncDiagnosisHistory(int camera, String plotId, String recordsJson) {
             com.google.firebase.auth.FirebaseUser user = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
             if (user == null) { sendDiagnosisHistoryLoaded(camera, plotId, new JSONArray(), false, "Sign in to Firebase to sync; on-device history is retained."); return; }
@@ -3890,6 +3969,18 @@ public class MainActivity extends Activity {
 
         private void sendMarketPriceSaved(String plotId, String productId, String observedDate, boolean success, String message) {
             runOnUiThread(() -> { if (web == null) return; String js = "window.onMarketPriceSaved&&window.onMarketPriceSaved(" + JSONObject.quote(plotId == null ? "" : plotId) + "," + JSONObject.quote(productId == null ? "" : productId) + "," + JSONObject.quote(observedDate == null ? "" : observedDate) + "," + success + "," + JSONObject.quote(message == null ? "" : message) + ")"; web.evaluateJavascript(js, null); });
+        }
+
+        private void sendMarketBuyersLoaded(JSONArray buyers, boolean success, String message) {
+            runOnUiThread(() -> { if (web == null) return; String js = "window.onMarketBuyersLoaded&&window.onMarketBuyersLoaded(" + JSONObject.quote(buyers == null ? "[]" : buyers.toString()) + "," + success + "," + JSONObject.quote(message == null ? "" : message) + ")"; web.evaluateJavascript(js, null); });
+        }
+
+        private void sendMarketBuyerSaved(String buyerId, boolean success, String message) {
+            runOnUiThread(() -> { if (web == null) return; String js = "window.onMarketBuyerSaved&&window.onMarketBuyerSaved(" + JSONObject.quote(buyerId == null ? "" : buyerId) + "," + success + "," + JSONObject.quote(message == null ? "" : message) + ")"; web.evaluateJavascript(js, null); });
+        }
+
+        private void sendMarketBuyerDeleted(String buyerId, boolean success, String message) {
+            runOnUiThread(() -> { if (web == null) return; String js = "window.onMarketBuyerDeleted&&window.onMarketBuyerDeleted(" + JSONObject.quote(buyerId == null ? "" : buyerId) + "," + success + "," + JSONObject.quote(message == null ? "" : message) + ")"; web.evaluateJavascript(js, null); });
         }
 
         private void sendDiagnosisHistoryLoaded(int camera, String plotId, JSONArray records, boolean success, String message) {
@@ -5577,6 +5668,33 @@ public class MainActivity extends Activity {
             while ((read = input.read(buffer)) != -1) output.write(buffer, 0, read);
             String html = output.toString(StandardCharsets.UTF_8.name())
                     .replace("{{GROWPLOT_VERSION}}", "v" + BuildConfig.VERSION_NAME);
+            // Inline curated crop profiles because loadDataWithBaseURL does not serve ordinary
+            // Android assets at relative URLs. This keeps Add Crop guides available offline.
+            try (InputStream cropGuidesInput = getAssets().open("farm-crop-guides.js");
+                 ByteArrayOutputStream cropGuidesOutput = new ByteArrayOutputStream()) {
+                byte[] cropGuideBuffer = new byte[8192];
+                int cropGuideRead;
+                while ((cropGuideRead = cropGuidesInput.read(cropGuideBuffer)) != -1) {
+                    cropGuidesOutput.write(cropGuideBuffer, 0, cropGuideRead);
+                }
+                String cropGuidesScript = cropGuidesOutput.toString(StandardCharsets.UTF_8.name());
+                String externalCropGuidesTag = "<script src=\"farm-crop-guides.js\"></script>";
+                if (!html.contains(externalCropGuidesTag)) {
+                    throw new IllegalStateException("Dashboard HTML is missing the crop-guide script tag");
+                }
+                html = html.replace(externalCropGuidesTag, "<script>" + cropGuidesScript + "</script>");
+            }
+            // Inline Marketplace buyer logic so the dashboard remains under its HTML size budget.
+            try (InputStream buyerInput = getAssets().open("marketplace-buyers.js");
+                 ByteArrayOutputStream buyerOutput = new ByteArrayOutputStream()) {
+                byte[] buyerBuffer = new byte[8192];
+                int buyerRead;
+                while ((buyerRead = buyerInput.read(buyerBuffer)) != -1) buyerOutput.write(buyerBuffer, 0, buyerRead);
+                String buyerScript = buyerOutput.toString(StandardCharsets.UTF_8.name());
+                String buyerTag = "<script src=\"marketplace-buyers.js\"></script>";
+                if (!html.contains(buyerTag)) throw new IllegalStateException("Dashboard HTML is missing the Marketplace buyer script tag");
+                html = html.replace(buyerTag, "<script>" + buyerScript + "</script>");
+            }
             // Inline the packaged CV engine so WebView never needs to fetch leaf-cv.js.
             try (InputStream cvInput = getAssets().open("leaf-cv.js");
                  ByteArrayOutputStream cvOutput = new ByteArrayOutputStream()) {

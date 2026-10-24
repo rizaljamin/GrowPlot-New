@@ -2,6 +2,8 @@
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const html=fs.readFileSync('app/src/main/assets/index.html','utf8');
+const buyerJs=fs.readFileSync('app/src/main/assets/marketplace-buyers.js','utf8');
+const marketplace=html+'\n'+buyerJs;
 const java=fs.readFileSync('app/src/main/java/com/growplot/farm/MainActivity.java','utf8');
 const rules=fs.readFileSync('firestore.rules','utf8');
 assert.ok(html.includes('id="marketplaceContent"'),'Market Place has a dedicated module surface');
@@ -16,11 +18,16 @@ assert.ok(html.includes('async function loadMarketPriceHistory()')&&html.include
 for(const level of ['Ladang','Borong','Runcit'])assert.ok(html.includes("marketPriceAt(data,'"+level+"',index)"),'table includes '+level+' prices by report date');
 assert.ok(html.includes("growplotMarketShortlist:'+selectedPlotId")&&html.includes('farmPlantings.filter'),'watchlist is plot scoped and can use planted crops');
 assert.ok(html.includes('GrowPlotBridge.saveMarketPriceSnapshot'),'latest watchlist prices are sent to the Firebase bridge');
-assert.ok(html.includes("growplotMarketBuyers:'+selectedPlotId"),'buyer contacts are plot scoped');
+assert.ok(marketplace.includes("growplotMarketBuyers:user:")&&html.includes('getMarketBuyerUserId'),"buyer records are stored under the signed-in user's key, not the selected plot");
+assert.ok(marketplace.includes('assignedPlotIds')&&marketplace.includes('renderMarketBuyerPlotChoices')&&marketplace.includes('editMarketBuyer'),'a buyer can be assigned or reassigned to any of the user\'s plots');
 for(const field of ['marketBuyerName','marketBuyerContact','marketBuyerCrops','marketBuyerLocation','marketBuyerPhone','marketBuyerEmail'])assert.ok(html.includes(field),'buyer form includes '+field);
-assert.ok(html.includes('localStorage.setItem(marketBuyerKey(),JSON.stringify(list))'),'buyer details persist on device');
+assert.ok(marketplace.includes('marketSaveBuyers(list)')&&marketplace.includes('GrowPlotBridge.saveMarketBuyer(JSON.stringify(buyer))'),'buyer details persist locally and sync to Firebase');
 assert.ok(html.includes('FAMA current prices'),'the market screen links to FAMA');
 assert.ok(html.includes('button.market-action:not(.secondary)')&&html.includes('--growplot-green'),'primary marketplace actions use app green');
 assert.ok(java.includes('@JavascriptInterface public void saveMarketPriceSnapshot')&&java.includes('collection("market_price_snapshots")'),'native bridge writes prices to Firestore');
+assert.ok(java.includes('getAssets().open("marketplace-buyers.js")')&&java.includes('replace(buyerTag, "<script>" + buyerScript + "</script>")'),'Android inlines Marketplace buyer logic from its packaged asset');
+assert.ok(java.includes('@JavascriptInterface public void loadMarketBuyers()')&&java.includes('collection("market_buyers")')&&java.includes('whereEqualTo("ownerUserId", user.getUid())'),'buyer list loads from the signed-in user\'s Firestore records');
+assert.ok(java.includes('@JavascriptInterface public void saveMarketBuyer(String buyerJson)')&&java.includes('fields.put("assignedPlotIds", assignedPlotIds)'),'buyer record and plot assignments save at user level in Firestore');
+assert.ok(rules.includes('match /market_buyers/{buyerDocumentId}')&&rules.includes("request.resource.data.ownerUserId == request.auth.uid"),'Firestore buyer records are private to the owning user');
 assert.ok(rules.includes('match /market_price_snapshots/{snapshotId}')&&rules.includes('request.resource.data.ownerUserId == request.auth.uid'),'Firestore restricts price writes to the signed-in owner');
 console.log('Marketplace watchlist price table, Firebase save and buyer-list regression checks passed.');
