@@ -1,3 +1,8 @@
+## Build 26 — show Run diagnosis species results on Home
+- Save the Pl@ntNet species result nested in Run diagnosis under the same plot/CCTV candidate key read by Home.
+- Refresh the matching active Home card as “Diagnosis suggestion · not confirmed”; keep user-confirmed identity priority.
+- Regression, ARM64 package and tablet verification pending.
+
 ## Completed — Build 25 connect Pl@ntNet analysis and simplify Kindwise settings
 - Start Pl@ntNet species and disease analysis when Run diagnosis is tapped, reading the encrypted API key from Settings.
 - Keep Pl@ntNet provider requests independent from Vertex OAuth and avoid a duplicate Vertex call.
