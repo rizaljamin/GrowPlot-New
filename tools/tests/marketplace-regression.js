@@ -8,10 +8,10 @@ assert.ok(html.includes('id="marketplaceContent"'),'Market Place has a dedicated
 assert.ok(html.includes('Historical prices · watchlist'),'Marketplace exposes watchlist price history');
 assert.ok(html.includes('Historical Price')&&html.includes('Buyer List'),'Marketplace exposes price and buyer tabs');
 assert.ok(html.includes("MARKET_PRICE_BASE='https://raw.githubusercontent.com/ipohbot-png/fama-price-tracker/"),'FAMA public archive is the source');
-assert.ok(html.includes('<th>Date</th><th>Crop</th><th>Farm · Ladang</th><th>Wholesale · Borong</th><th>Retail · Runcit</th>'),'one dated table shows all three FAMA market levels');
+assert.ok(html.includes('<th>Crop</th><th>Farm · Ladang</th><th>Wholesale · Borong</th><th>Retail · Runcit</th>')&&!html.includes('<th>Date</th>'),'the table shows crop and all three FAMA market levels without a date column');
 assert.ok(html.includes('type="date"')&&html.includes('marketHistoryDateChanged(this.value)'),'native calendar date picker filters price history');
-assert.ok(html.includes('function marketShowAllHistory()')&&html.includes('marketHistoryRowsCache.filter(row=>!marketSelectedDate||row.date===marketSelectedDate)'),'date filter supports selected date and all dates');
-assert.ok(html.includes("if(marketActiveTab==='prices'){marketSelectedDate='';marketShowAllDates=false}")&&html.includes('if(!marketShowAllDates&&!marketSelectedDate)marketSelectedDate=latestDate'),'opening Historical Price defaults to the latest available report date');
+assert.ok(!html.includes('marketShowAllHistory')&&html.includes('marketHistoryRowsCache.filter(row=>!marketSelectedDate||row.date===marketSelectedDate)'),'calendar selection filters the table to one report date');
+assert.ok(html.includes("if(marketActiveTab==='prices')marketSelectedDate=''")&&html.includes('if(!marketSelectedDate)marketSelectedDate=latestDate'),'opening Historical Price defaults to the latest available report date');
 assert.ok(html.includes('async function loadMarketPriceHistory()')&&html.includes('marketShortlist()'),'the table loads the selected plot watchlist');
 for(const level of ['Ladang','Borong','Runcit'])assert.ok(html.includes("marketPriceAt(data,'"+level+"',index)"),'table includes '+level+' prices by report date');
 assert.ok(html.includes("growplotMarketShortlist:'+selectedPlotId")&&html.includes('farmPlantings.filter'),'watchlist is plot scoped and can use planted crops');
