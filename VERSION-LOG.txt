@@ -1,3 +1,7 @@
+2026-10-24 | v0.7.02 Build 05 | versionCode 270 | com.growplot.farm
+Changes: Inline the curated Add Crop profiles from the Android asset into the WebView page. The Add Crop UI loads the turmeric/kunyit and ginger/halia scientific names, sourced maturity ranges, and credited photos without relying on an unavailable relative asset URL.
+Validation: Crop-catalog regression, ARM64 GitHub build, manifest/package verification, and stable signing pending. Android tablet verification pending.
+
 2026-10-24 | v0.7.02 Build 04 | versionCode 269 | com.growplot.farm
 Changes: Remove the report-date column and All dates action from Marketplace Historical Price; the date picker filters the table and defaults to the latest FAMA date. Fix the extra comma in farm-crop-guides.js so curated turmeric/kunyit and ginger/halia crop profiles and photos load.
 Validation: GitHub ARM64 build pending.
