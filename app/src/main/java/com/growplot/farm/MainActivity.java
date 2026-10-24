@@ -3657,6 +3657,89 @@ public class MainActivity extends Activity {
             runOnUiThread(() -> launchDiagnosisPicker(camera, plotId, plotName));
         }
 
+        @JavascriptInterface public void saveDiagnosisHistoryRecord(int camera, String plotId, String recordJson) {
+            com.google.firebase.auth.FirebaseUser user = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+            if (user == null) { sendDiagnosisCloudSaved(camera, plotId, "", false, "Sign in to Firebase to sync; the record remains on this device."); return; }
+            final String uid = user.getUid();
+            final String recordId;
+            final Map<String,Object> fields;
+            try {
+                fields = diagnosisRecordFields(uid, camera, plotId, recordJson);
+                recordId = String.valueOf(fields.get("recordId"));
+            } catch (Exception error) { sendDiagnosisCloudSaved(camera, plotId, "", false, "Diagnosis record could not be prepared for Firebase."); return; }
+            String encodedId = Base64.encodeToString(recordId.getBytes(StandardCharsets.UTF_8), Base64.URL_SAFE | Base64.NO_PADDING | Base64.NO_WRAP);
+            com.google.firebase.firestore.FirebaseFirestore.getInstance().collection("diagnosis_records").document(uid + "_" + encodedId)
+                    .set(fields, com.google.firebase.firestore.SetOptions.merge())
+                    .addOnSuccessListener(ignored -> sendDiagnosisCloudSaved(camera, plotId, recordId, true, "Diagnosis record saved to Firebase."))
+                    .addOnFailureListener(error -> sendDiagnosisCloudSaved(camera, plotId, recordId, false, "Firebase save failed: " + diagnosisCloudError(error)));
+        }
+
+        @JavascriptInterface public void syncDiagnosisHistory(int camera, String plotId, String recordsJson) {
+            com.google.firebase.auth.FirebaseUser user = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+            if (user == null) { sendDiagnosisHistoryLoaded(camera, plotId, new JSONArray(), false, "Sign in to Firebase to sync; on-device history is retained."); return; }
+            final String uid = user.getUid();
+            final com.google.firebase.firestore.FirebaseFirestore store = com.google.firebase.firestore.FirebaseFirestore.getInstance();
+            final com.google.firebase.firestore.WriteBatch batch = store.batch();
+            int writes = 0;
+            try {
+                JSONArray records = new JSONArray(recordsJson == null ? "[]" : recordsJson);
+                Set<String> seen = new HashSet<>();
+                for (int i = 0; i < records.length() && writes < 100; i++) {
+                    JSONObject record = records.optJSONObject(i); if (record == null) continue;
+                    Map<String,Object> fields = diagnosisRecordFields(uid, camera, plotId, record.toString());
+                    String recordId = String.valueOf(fields.get("recordId")); if (!seen.add(recordId)) continue;
+                    String encodedId = Base64.encodeToString(recordId.getBytes(StandardCharsets.UTF_8), Base64.URL_SAFE | Base64.NO_PADDING | Base64.NO_WRAP);
+                    batch.set(store.collection("diagnosis_records").document(uid + "_" + encodedId), fields, com.google.firebase.firestore.SetOptions.merge()); writes++;
+                }
+            } catch (Exception error) { sendDiagnosisHistoryLoaded(camera, plotId, new JSONArray(), false, "Local diagnosis history could not be prepared for Firebase."); return; }
+            if (writes == 0) { loadFirebaseDiagnosisHistory(store, uid, camera, plotId, 0); return; }
+            final int synced = writes;
+            batch.commit().addOnSuccessListener(ignored -> loadFirebaseDiagnosisHistory(store, uid, camera, plotId, synced))
+                    .addOnFailureListener(error -> sendDiagnosisHistoryLoaded(camera, plotId, new JSONArray(), false, "Firebase history sync failed: " + diagnosisCloudError(error)));
+        }
+
+        private Map<String,Object> diagnosisRecordFields(String uid, int camera, String plotId, String recordJson) throws Exception {
+            if (camera < 1 || camera > 6 || plotId == null || plotId.trim().isEmpty() || plotId.length() > 200) throw new IllegalArgumentException("Invalid diagnosis scope");
+            JSONObject parsed = new JSONObject(recordJson == null ? "{}" : recordJson);
+            String recordId = parsed.optString("id", "").trim();
+            if (recordId.isEmpty() || recordId.length() > 200 || recordId.contains("/")) throw new IllegalArgumentException("Invalid diagnosis record ID");
+            java.lang.reflect.Type mapType = new com.google.gson.reflect.TypeToken<Map<String,Object>>(){}.getType();
+            Map<String,Object> record = new com.google.gson.Gson().fromJson(parsed.toString(), mapType);
+            if (record == null) throw new IllegalArgumentException("Diagnosis record is empty");
+            Map<String,Object> fields = new HashMap<>();
+            fields.put("ownerUserId", uid); fields.put("recordId", recordId); fields.put("plotId", plotId); fields.put("camera", camera);
+            fields.put("record", record); fields.put("updatedAt", com.google.firebase.firestore.FieldValue.serverTimestamp());
+            return fields;
+        }
+
+        private void loadFirebaseDiagnosisHistory(com.google.firebase.firestore.FirebaseFirestore store, String uid, int camera, String plotId, int synced) {
+            store.collection("diagnosis_records").whereEqualTo("ownerUserId", uid).whereEqualTo("plotId", plotId).whereEqualTo("camera", camera).limit(100).get()
+                    .addOnSuccessListener(snapshot -> {
+                        JSONArray records = new JSONArray(); com.google.gson.Gson gson = new com.google.gson.Gson();
+                        for (com.google.firebase.firestore.QueryDocumentSnapshot document : snapshot) {
+                            Object value = document.get("record"); if (!(value instanceof Map)) continue;
+                            try { JSONObject record = new JSONObject(gson.toJson(value)); if (!record.has("id")) record.put("id", document.getString("recordId")); records.put(record); } catch (Exception ignored) { }
+                        }
+                        String message = synced > 0 ? "Synced " + synced + " local record(s); loaded " + records.length() + " Firebase record(s)." : "Loaded " + records.length() + " Firebase record(s).";
+                        sendDiagnosisHistoryLoaded(camera, plotId, records, true, message);
+                    })
+                    .addOnFailureListener(error -> sendDiagnosisHistoryLoaded(camera, plotId, new JSONArray(), false, "Firebase history load failed: " + diagnosisCloudError(error)));
+        }
+
+        private String diagnosisCloudError(Exception error) {
+            String message = error == null ? "Unknown error" : error.getLocalizedMessage();
+            if (message == null || message.trim().isEmpty()) return "check the Firebase connection and Firestore rules";
+            return message.length() > 180 ? message.substring(0, 180) : message;
+        }
+
+        private void sendDiagnosisCloudSaved(int camera, String plotId, String recordId, boolean success, String message) {
+            runOnUiThread(() -> { if (web == null) return; String js = "window.onDiagnosisCloudSaved&&window.onDiagnosisCloudSaved(" + camera + "," + JSONObject.quote(plotId == null ? "" : plotId) + "," + JSONObject.quote(recordId == null ? "" : recordId) + "," + success + "," + JSONObject.quote(message == null ? "" : message) + ")"; web.evaluateJavascript(js, null); });
+        }
+
+        private void sendDiagnosisHistoryLoaded(int camera, String plotId, JSONArray records, boolean success, String message) {
+            runOnUiThread(() -> { if (web == null) return; String js = "window.onDiagnosisHistoryLoaded&&window.onDiagnosisHistoryLoaded(" + camera + "," + JSONObject.quote(plotId == null ? "" : plotId) + "," + JSONObject.quote(records == null ? "[]" : records.toString()) + "," + success + "," + JSONObject.quote(message == null ? "" : message) + ")"; web.evaluateJavascript(js, null); });
+        }
+
         @JavascriptInterface public void diagnosePhotosWithPlantNet(int camera, String plotId, String species, String symptom, String pixelMetrics) {
             // PlantNet and Kindwise calls use their own saved API keys; Vertex runs through its separate Firebase callable.
             final String id = safePlotId(plotId);

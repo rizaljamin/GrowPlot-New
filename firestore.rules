@@ -50,6 +50,32 @@ service cloud.firestore {
     match /users/{uid}/data_feeds/{deviceId} {
       allow read, write: if false;
     }
+    match /diagnosis_records/{recordDocumentId} {
+      allow read: if request.auth != null
+        && resource.data.ownerUserId == request.auth.uid;
+      allow create: if request.auth != null
+        && request.resource.data.ownerUserId == request.auth.uid
+        && recordDocumentId.matches(request.auth.uid + '_[A-Za-z0-9_-]+')
+        && request.resource.data.keys().hasOnly(['ownerUserId','recordId','plotId','camera','record','updatedAt'])
+        && request.resource.data.recordId is string
+        && request.resource.data.plotId is string
+        && request.resource.data.camera is int
+        && request.resource.data.camera >= 1
+        && request.resource.data.camera <= 6
+        && request.resource.data.record is map
+        && request.resource.data.updatedAt is timestamp;
+      allow update: if request.auth != null
+        && resource.data.ownerUserId == request.auth.uid
+        && request.resource.data.ownerUserId == request.auth.uid
+        && request.resource.data.recordId == resource.data.recordId
+        && request.resource.data.plotId == resource.data.plotId
+        && request.resource.data.camera == resource.data.camera
+        && request.resource.data.record is map
+        && request.resource.data.updatedAt is timestamp
+        && recordDocumentId.matches(request.auth.uid + '_[A-Za-z0-9_-]+');
+      allow delete: if request.auth != null
+        && resource.data.ownerUserId == request.auth.uid;
+    }
     match /users/{uid} {
       allow create: if request.auth != null
         && request.auth.uid == uid
