@@ -47,6 +47,7 @@ print('\n'.join(scripts))
 PY
 node --check "$TEMP_JS" || fail "inline JavaScript syntax check failed"
 node "$ROOT/tools/tests/kindwise-regression.js" || fail "Kindwise integration regression check failed"
+node "$ROOT/tools/tests/plantnet-analysis-regression.js" || fail "Pl@ntNet analysis integration regression check failed"
 node "$ROOT/tools/tests/manage-farm-regression.js" || fail "Manage Farm regression check failed"
 node "$ROOT/tools/tests/account-registration-regression.js" || fail "Account registration regression check failed"
 node "$ROOT/tools/tests/data-feed-ui-regression.js" || fail "Data-feed UI regression check failed"

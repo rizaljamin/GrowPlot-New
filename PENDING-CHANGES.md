@@ -1,4 +1,11 @@
-## Build 24 — show diagnosis species candidate on Home
+## Build 25 — connect Pl@ntNet analysis and simplify Kindwise settings
+- Start Pl@ntNet species and disease analysis when Run diagnosis is tapped, reading the encrypted API key from Settings.
+- Keep Pl@ntNet provider requests independent from Vertex OAuth and avoid a duplicate Vertex call.
+- Group Kindwise plant.id and crop.health keys under one heading and one account link while preserving distinct key fields.
+- Add key-flow and settings regressions to the build gate.
+- ARM64 build, API-key validation, and tablet verification pending.
+
+## Completed — Build 24 home species suggestions
 - When no confirmed identity is stored, show the latest species candidate saved by diagnosis for that plot and CCTV camera.
 - Label the candidate “not confirmed”; a user-confirmed identity remains the display priority.
 - Cover candidate fallback and labeling in the build regression.
