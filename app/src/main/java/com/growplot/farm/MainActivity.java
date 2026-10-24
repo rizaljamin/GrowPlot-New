@@ -3769,6 +3769,23 @@ public class MainActivity extends Activity {
                     .addOnFailureListener(error -> sendDiagnosisCloudSaved(camera, plotId, recordId, false, "Firebase save failed: " + diagnosisCloudError(error)));
         }
 
+        @JavascriptInterface public void saveMarketPriceSnapshot(String plotId, String snapshotJson) {
+            final String safePlot = plotId == null ? "" : plotId.trim();
+            final com.google.firebase.auth.FirebaseUser user = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+            if (user == null) { sendMarketPriceSaved(safePlot, "", "", false, "Sign in to Firebase to save market prices."); return; }
+            final Map<String,Object> fields;
+            try { fields = marketPriceSnapshotFields(user.getUid(), safePlot, snapshotJson); }
+            catch (Exception error) { sendMarketPriceSaved(safePlot, "", "", false, "Market price snapshot could not be prepared for Firebase."); return; }
+            final String productId = String.valueOf(fields.get("productId"));
+            final String observedDate = String.valueOf(fields.get("observedDate"));
+            String identity = safePlot + "_" + productId + "_" + observedDate;
+            String encodedId = Base64.encodeToString(identity.getBytes(StandardCharsets.UTF_8), Base64.URL_SAFE | Base64.NO_PADDING | Base64.NO_WRAP);
+            com.google.firebase.firestore.FirebaseFirestore.getInstance().collection("market_price_snapshots").document(user.getUid() + "_" + encodedId)
+                    .set(fields, com.google.firebase.firestore.SetOptions.merge())
+                    .addOnSuccessListener(ignored -> sendMarketPriceSaved(safePlot, productId, observedDate, true, "FAMA price snapshot saved to Firebase."))
+                    .addOnFailureListener(error -> sendMarketPriceSaved(safePlot, productId, observedDate, false, "Firebase price save failed: " + diagnosisCloudError(error)));
+        }
+
         @JavascriptInterface public void syncDiagnosisHistory(int camera, String plotId, String recordsJson) {
             com.google.firebase.auth.FirebaseUser user = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
             if (user == null) { sendDiagnosisHistoryLoaded(camera, plotId, new JSONArray(), false, "Sign in to Firebase to sync; on-device history is retained."); return; }
@@ -3807,6 +3824,42 @@ public class MainActivity extends Activity {
             return fields;
         }
 
+        private Map<String,Object> marketPriceSnapshotFields(String uid, String plotId, String snapshotJson) throws Exception {
+            if (plotId == null || !plotId.matches("[A-Za-z0-9_-]{1,64}")) throw new IllegalArgumentException("Invalid plot scope");
+            JSONObject parsed = new JSONObject(snapshotJson == null ? "{}" : snapshotJson);
+            String productId = parsed.optString("productId", "").trim();
+            String cropId = parsed.optString("cropId", "").trim();
+            String observedDate = parsed.optString("observedDate", "").trim();
+            String cropName = parsed.optString("cropName", "").trim();
+            String unit = parsed.optString("unit", "").trim();
+            String source = parsed.optString("source", "").trim();
+            if (!productId.matches("[A-Za-z0-9_-]{1,100}") || !cropId.matches("[A-Za-z0-9_-]{1,100}")
+                    || !observedDate.matches("\\d{4}-\\d{2}-\\d{2}") || cropName.isEmpty() || cropName.length() > 100
+                    || unit.isEmpty() || unit.length() > 50 || !"FAMA public AMI price report".equals(source))
+                throw new IllegalArgumentException("Invalid market price snapshot");
+            java.lang.reflect.Type mapType = new com.google.gson.reflect.TypeToken<Map<String,Object>>(){}.getType();
+            JSONObject priceObject = parsed.optJSONObject("prices");
+            if (priceObject == null) throw new IllegalArgumentException("Missing price levels");
+            Map<String,Object> prices = new com.google.gson.Gson().fromJson(priceObject.toString(), mapType);
+            if (prices == null) throw new IllegalArgumentException("Missing price levels");
+            for (String level : new String[]{"Ladang", "Borong", "Runcit"}) {
+                Object entry = prices.get(level);
+                if (entry == null) continue;
+                if (!(entry instanceof Map)) throw new IllegalArgumentException("Invalid price level");
+                Map<?,?> value = (Map<?,?>) entry;
+                Object amount = value.get("price"), date = value.get("date");
+                if (!(amount instanceof Number) || !(date instanceof String) || !((String) date).matches("\\d{4}-\\d{2}-\\d{2}"))
+                    throw new IllegalArgumentException("Invalid dated market price");
+            }
+            Map<String,Object> fields = new HashMap<>();
+            fields.put("ownerUserId", uid); fields.put("plotId", plotId); fields.put("productId", productId); fields.put("cropId", cropId);
+            fields.put("cropName", cropName); fields.put("unit", unit); fields.put("source", source);
+            fields.put("sourceUrl", parsed.optString("sourceUrl", "")); fields.put("archiveUrl", parsed.optString("archiveUrl", ""));
+            fields.put("observedDate", observedDate); fields.put("prices", prices);
+            fields.put("updatedAt", com.google.firebase.firestore.FieldValue.serverTimestamp());
+            return fields;
+        }
+
         private void loadFirebaseDiagnosisHistory(com.google.firebase.firestore.FirebaseFirestore store, String uid, int camera, String plotId, int synced) {
             store.collection("diagnosis_records").whereEqualTo("ownerUserId", uid).whereEqualTo("plotId", plotId).whereEqualTo("camera", camera).limit(100).get()
                     .addOnSuccessListener(snapshot -> {
@@ -3829,6 +3882,10 @@ public class MainActivity extends Activity {
 
         private void sendDiagnosisCloudSaved(int camera, String plotId, String recordId, boolean success, String message) {
             runOnUiThread(() -> { if (web == null) return; String js = "window.onDiagnosisCloudSaved&&window.onDiagnosisCloudSaved(" + camera + "," + JSONObject.quote(plotId == null ? "" : plotId) + "," + JSONObject.quote(recordId == null ? "" : recordId) + "," + success + "," + JSONObject.quote(message == null ? "" : message) + ")"; web.evaluateJavascript(js, null); });
+        }
+
+        private void sendMarketPriceSaved(String plotId, String productId, String observedDate, boolean success, String message) {
+            runOnUiThread(() -> { if (web == null) return; String js = "window.onMarketPriceSaved&&window.onMarketPriceSaved(" + JSONObject.quote(plotId == null ? "" : plotId) + "," + JSONObject.quote(productId == null ? "" : productId) + "," + JSONObject.quote(observedDate == null ? "" : observedDate) + "," + success + "," + JSONObject.quote(message == null ? "" : message) + ")"; web.evaluateJavascript(js, null); });
         }
 
         private void sendDiagnosisHistoryLoaded(int camera, String plotId, JSONArray records, boolean success, String message) {
