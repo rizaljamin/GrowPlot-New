@@ -1,7 +1,7 @@
-## Build 27 — refresh Home species name after A.I Health
+## Completed — Build 27 refresh Home species name after A.I Health
 - On return to Home, reload each CCTV's saved identity/suggestion for the selected plot and update the existing card labels.
 - Keep confirmed identities and not-confirmed suggestion status as stored.
-- Regression and ARM64 build pending; tablet check pending.
+- GitHub Actions run #518 passed focused regression, ARM64 build, package/version/alignment checks, stable signing, and artifact upload. APK SHA-256: `a9d5a80bcf1e5f5e0f1a607e6c7e62731f4cce46fc7f0961492c2e4efbad4164`; source commit: `87050de09f45276507c1d2d3047651f590fd6ef4`. Tablet check pending. [Download the Build 27 ARM64 package](https://github.com/rizaljamin/GrowPlot-New/actions/runs/40059998515/artifacts/12546489690).
 
 ## Build 26 — show Run diagnosis species results on Home
 - Save the Pl@ntNet species result nested in Run diagnosis under the same plot/CCTV candidate key read by Home.
