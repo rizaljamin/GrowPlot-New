@@ -1,3 +1,15 @@
+## BUG-078 — Run diagnosis species candidate not shown on Home
+**Reported:** 2026-10-24
+**Status:** Fix prepared in v0.7.01 Build 26; ARM64 build and tablet verification pending.
+
+**Cause:** Run diagnosis returns species matches inside `speciesIdentification`, but the Home card reads the separate `growplotSpeciesCandidates:<plotId>:cctv<N>` localStorage entry. The callback saved only the combined disease report, leaving Home with no candidate to display.
+
+**Fix:** Save the nested species report to the plot/CCTV candidate key and refresh that camera’s Home card. The model result is labeled as an unconfirmed suggestion; a user-confirmed identity keeps priority.
+
+**Verification:** Added a regression for nested-result persistence and matching-card refresh. Live provider response and tablet UI verification pending.
+
+---
+
 ## BUG-077 — Pl@ntNet key was not called by Run diagnosis; Kindwise settings looked duplicated
 **Reported:** 2026-10-24
 **Status:** Fixed in v0.7.01 Build 25; GitHub Actions run #516 passed ARM64 build and stable signing. Tablet verification pending.
