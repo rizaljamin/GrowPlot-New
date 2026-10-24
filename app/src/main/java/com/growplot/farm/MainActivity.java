@@ -1878,48 +1878,6 @@ public class MainActivity extends Activity {
         return create ? findOrCreateChildFolder(treeUri, userdataId, userId) : findExistingChildFolder(treeUri, userdataId, userId);
     }
 
-    private JSONObject loadCustomCropCatalogFromDrive() throws Exception {
-        Uri treeUri = farmDataTreeUri();
-        String rootId = resolveGrowPlotDocumentId(treeUri);
-        String configId = findOrCreateChildFolder(treeUri, rootId, "config");
-        String cropListId = findOrCreateChildFolder(treeUri, configId, "crop_list");
-        JSONObject stored = readFarmDriveJson(treeUri, cropListId, "crop-catalog.json");
-        JSONObject response = new JSONObject();
-        response.put("ok", true);
-        response.put("crops", stored == null || stored.optJSONArray("crops") == null ? new JSONArray() : stored.optJSONArray("crops"));
-        response.put("path", "/config/crop_list/crop-catalog.json");
-        return response;
-    }
-
-    private JSONObject saveCustomCropCatalogToDrive(String payload) throws Exception {
-        JSONObject request = new JSONObject(payload == null ? "{}" : payload);
-        JSONArray requested = request.optJSONArray("crops");
-        JSONArray crops = new JSONArray();
-        if (requested != null) {
-            if (requested.length() > 200) throw new IllegalArgumentException("Crop catalog is limited to 200 entries");
-            for (int i = 0; i < requested.length(); i++) {
-                JSONObject crop = requested.optJSONObject(i);
-                if (crop == null || !crop.optBoolean("isCustom", false)
-                        || crop.optString("id", "").isEmpty() || crop.optString("name", "").isEmpty()) continue;
-                crops.put(crop);
-            }
-        }
-        Uri treeUri = farmDataTreeUri();
-        String rootId = resolveGrowPlotDocumentId(treeUri);
-        String configId = findOrCreateChildFolder(treeUri, rootId, "config");
-        String cropListId = findOrCreateChildFolder(treeUri, configId, "crop_list");
-        JSONObject catalog = new JSONObject();
-        catalog.put("schemaVersion", 1);
-        catalog.put("updatedAt", new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US).format(new Date()));
-        catalog.put("crops", crops);
-        writeFarmDriveJson(treeUri, cropListId, "crop-catalog.json", catalog);
-        JSONObject response = new JSONObject();
-        response.put("ok", true);
-        response.put("cropCount", crops.length());
-        response.put("path", "/config/crop_list/crop-catalog.json");
-        return response;
-    }
-
     private JSONObject loadFarmPlantingsFromDrive(String requestedUserId) throws Exception {
         String userId = farmDataUserId(requestedUserId);
         Uri treeUri = farmDataTreeUri();
@@ -2077,19 +2035,8 @@ public class MainActivity extends Activity {
         writeFarmDriveJson(treeUri, userFolderId, "farm-management.json", management);
         JSONObject response = new JSONObject(); response.put("ok", true); response.put("userId", userId);
         response.put("path", "/db/userdata/" + userId); response.put("scopeCount", scopes.size());
+        response.put("cropCount", customCrops.length());
         return response;
-    }
-
-    private void notifyCustomCropCatalogLoaded(JSONObject result) {
-        if (web == null) return;
-        String argument = JSONObject.quote(result == null ? "{}" : result.toString());
-        runOnUiThread(() -> { if (web != null) web.evaluateJavascript("window.onCustomCropCatalogLoaded&&window.onCustomCropCatalogLoaded(" + argument + ")", null); });
-    }
-
-    private void notifyCustomCropCatalogSaved(JSONObject result) {
-        if (web == null) return;
-        String argument = JSONObject.quote(result == null ? "{}" : result.toString());
-        runOnUiThread(() -> { if (web != null) web.evaluateJavascript("window.onCustomCropCatalogSaved&&window.onCustomCropCatalogSaved(" + argument + ")", null); });
     }
 
     private void notifyFarmPlantingsLoaded(JSONObject result) {
@@ -3585,32 +3532,6 @@ public class MainActivity extends Activity {
                             ? "Google Drive could not save these farm records" : error.getMessage()); }
                     catch (Exception ignored) { }
                     notifyFarmPlantingsSaved(response);
-                }
-            });
-        }
-
-        @JavascriptInterface public void loadCustomCropCatalog() {
-            farmDataWorker.execute(() -> {
-                try { notifyCustomCropCatalogLoaded(loadCustomCropCatalogFromDrive()); }
-                catch (Exception error) {
-                    JSONObject response = new JSONObject();
-                    try { response.put("ok", false); response.put("crops", new JSONArray());
-                        response.put("message", error.getMessage() == null ? "Could not read the Google Drive crop catalog" : error.getMessage()); }
-                    catch (Exception ignored) { }
-                    notifyCustomCropCatalogLoaded(response);
-                }
-            });
-        }
-
-        @JavascriptInterface public void saveCustomCropCatalog(String payload) {
-            farmDataWorker.execute(() -> {
-                try { notifyCustomCropCatalogSaved(saveCustomCropCatalogToDrive(payload)); }
-                catch (Exception error) {
-                    JSONObject response = new JSONObject();
-                    try { response.put("ok", false);
-                        response.put("message", error.getMessage() == null ? "Google Drive could not save the crop catalog" : error.getMessage()); }
-                    catch (Exception ignored) { }
-                    notifyCustomCropCatalogSaved(response);
                 }
             });
         }
