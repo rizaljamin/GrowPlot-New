@@ -3,7 +3,6 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const html=fs.readFileSync('app/src/main/assets/index.html','utf8');
 const java=fs.readFileSync('app/src/main/java/com/growplot/farm/MainActivity.java','utf8');
-const sync=fs.readFileSync('app/src/main/assets/crop-catalog-sync.js','utf8');
 assert.ok(html.includes('id="farmAddCropButton"')&&html.includes('id="farmNewCropName"'),'Crop Planning exposes Add crop beside the crop dropdown');
 assert.ok(html.includes("api.gbif.org/v1/species/match")&&html.includes('farmLookupScientificName'),'typing a common name looks up its scientific name');
 assert.ok(html.includes('commons.wikimedia.org/w/api.php')&&html.includes('farmLookupCropPhotos')&&html.includes('samplePhotos'),'crop lookup supplies sample images with credit and license details');
@@ -13,7 +12,6 @@ assert.ok(html.includes("localStorage.setItem('growplotCustomCropCatalog_v1'")&&
 assert.ok(html.includes('Maturity timeframe not available')&&html.includes('harvest date estimates are disabled'),'unknown maturity is not fabricated and does not create a false harvest date');
 assert.ok(html.includes('Maturity reference URL')&&html.includes('Department of Agriculture Malaysia'),'crop maturity details retain their reference');
 assert.ok(java.includes('management.optJSONArray("customCrops")')&&java.includes('management.put("customCrops", customCrops)'),'Google Drive saves and recalls the custom crop catalog');
-assert.ok(h.includes('src="crop-catalog-sync.js"')&&h.includes("GrowPlotBridge.loadCustomCropCatalog()")&&sync.includes('GrowPlotBridge.saveCustomCropCatalog(JSON.stringify({crops:farmCustomCrops}))'),'all devices load and save the shared custom crop catalog');
-assert.ok(java.includes('findOrCreateChildFolder(treeUri, configId, "crop_list")')&&java.includes('"crop-catalog.json"'),'custom crops persist under Projects/GrowPlot/config/crop_list/crop-catalog.json');
-assert.ok(h.includes('cropMerge.uploadNeeded')&&h.includes('if(uploadNeeded)syncFarmPlantingsToDrive()'),'existing device crop records migrate into the shared catalog on sync');
+assert.ok(java.includes('writeFarmDriveJson(treeUri, userFolderId, "farm-management.json", management)')&&java.includes('response.put("cropCount", customCrops.length())'),'crop catalog saves with farm data in the Google Drive database');
+assert.ok(html.includes('syncFarmPlantingsToDrive();const saved=document.getElementById(\'farmSaveStatus\')'),'adding a crop immediately syncs the shared Drive database');
 console.log('Manage Farm add-crop and crop-catalog persistence regression checks passed.');
