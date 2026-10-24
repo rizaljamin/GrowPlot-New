@@ -1,3 +1,7 @@
+2026-10-24 | v0.7.02 Build 06 | versionCode 271 | com.growplot.farm
+Changes: Replace the Home card’s Latest vs previous frame panel with a crop summary scoped to plot, greenhouse, and section. Show Malay and scientific plant names first, then seedling-ready date, field planting date, and plant status. Summarize the latest saved diagnosis from OpenCV, Vertex, and Pl@ntNet.
+Validation: GitHub Actions ARM64 build and manifest/package/signing verification pending. Android tablet verification pending.
+
 2026-10-24 | v0.7.02 Build 05 | versionCode 270 | com.growplot.farm
 Changes: Inline the curated Add Crop profiles from the Android asset into the WebView page. The Add Crop UI loads the turmeric/kunyit and ginger/halia scientific names, sourced maturity ranges, and credited photos without relying on an unavailable relative asset URL.
 Validation: GitHub Actions run 40074366819 passed the crop, plant HSV, marketplace, and full regression checks, ARM64 compilation, manifest/package verification, and stable signing. APK SHA-256: e55d78fe0a39ec697d777438a1d4fea6575717b815cf5693a88a0047e88cf7f6. Source commit: 2823dc793e4fd3599ee7cc1c29347a7333eb4691. Android tablet verification pending.
