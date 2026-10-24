@@ -3,6 +3,12 @@
 - Hide the date column and remove the all-dates view; the calendar picker selects the date, defaulting to the latest available report.
 - GitHub Actions run 40073242925 passed the ARM64 build, manifest/package checks, and stable signing. The Add Crop guide still did not load in the Android WebView; Build 05 inlines the asset into the page.
 
+## Pending — crop and diagnosis dashboard summary
+
+- Replace the “Latest vs previous frame” card with a crop summary scoped to the current plot, greenhouse, and camera section. Show crop name, seedling-ready date, field planting date, and crop status from Crop Planning.
+- Show the latest saved diagnosis in three channels: OpenCV, Vertex, and Pl@ntNet; refresh the summary when planting records or diagnosis results update.
+- ARM64 build and Android device verification pending.
+
 ## Completed — Build 05 crop guide loading
 
 - Inline curated crop data into Android's WebView page so it does not rely on fetching a relative asset URL.
