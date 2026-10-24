@@ -5,7 +5,7 @@
 
 ## Pending — crop and diagnosis dashboard summary
 
-- Replace the “Latest vs previous frame” card with a crop summary scoped to the current plot, greenhouse, and camera section. Show crop name, seedling-ready date, field planting date, and crop status from Crop Planning.
+- Replace the “Latest vs previous frame” card with a crop summary scoped to the current plot, greenhouse, and camera section. Show the Malay and scientific plant names first, followed by crop name, seedling-ready date, field planting date, and crop status from Crop Planning.
 - Show the latest saved diagnosis in three channels: OpenCV, Vertex, and Pl@ntNet; refresh the summary when planting records or diagnosis results update.
 - ARM64 build and Android device verification pending.
 
