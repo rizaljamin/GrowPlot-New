@@ -217,9 +217,9 @@ public class MainActivity extends Activity {
     private volatile long cctvSnapshotIntervalMillis = 900_000L;
     private final Runnable cctv01SnapshotTicker = new Runnable() {
         @Override public void run() {
-            if (!activityResumed || ipWebcamVlcPlayer == null || ipWebcamVlcLayout == null) return;
-            checkIpWebcamBeforeSnapshot(1);
-            mainHandler.postDelayed(this, cctvSnapshotIntervalMillis);
+            if (!activityResumed) return;
+            if (ipWebcamVlcPlayer != null && ipWebcamVlcLayout != null) checkIpWebcamBeforeSnapshot(1);
+            mainHandler.postDelayed(this, nextSnapshotCheckDelay(1));
         }
     };
     private final Runnable cctv02SnapshotTicker = new Runnable() {
@@ -237,9 +237,9 @@ public class MainActivity extends Activity {
     private org.videolan.libvlc.MediaPlayer ipWebcam3VlcPlayer;
     private final Runnable cctv03SnapshotTicker = new Runnable() {
         @Override public void run() {
-            if (!activityResumed || ipWebcam3VlcPlayer == null || ipWebcam3VlcLayout == null) return;
-            checkIpWebcamBeforeSnapshot(3);
-            mainHandler.postDelayed(this, cctvSnapshotIntervalMillis);
+            if (!activityResumed) return;
+            if (ipWebcam3VlcPlayer != null && ipWebcam3VlcLayout != null) checkIpWebcamBeforeSnapshot(3);
+            mainHandler.postDelayed(this, nextSnapshotCheckDelay(3));
         }
     };
     private boolean pageReady;
@@ -1053,7 +1053,7 @@ public class MainActivity extends Activity {
             media.release();
             ipWebcamVlcPlayer.play();
             mainHandler.removeCallbacks(cctv01SnapshotTicker);
-            mainHandler.postDelayed(cctv01SnapshotTicker, cctvSnapshotIntervalMillis);
+            mainHandler.postDelayed(cctv01SnapshotTicker, nextSnapshotCheckDelay(1));
         } catch (Exception error) {
             stopIpWebcamVlc();
             TextView message = new TextView(this);
@@ -1399,7 +1399,7 @@ public class MainActivity extends Activity {
             media.release();
             ipWebcam3VlcPlayer.play();
             mainHandler.removeCallbacks(cctv03SnapshotTicker);
-            mainHandler.postDelayed(cctv03SnapshotTicker, snapshotDue(3) ? 5000L : cctvSnapshotIntervalMillis);
+            mainHandler.postDelayed(cctv03SnapshotTicker, nextSnapshotCheckDelay(3));
         } catch (Exception error) {
             stopCctv03Vlc();
             TextView message = new TextView(this);
@@ -1616,11 +1616,20 @@ public class MainActivity extends Activity {
         return !snapshotInFlight.contains(snapshotFlightKey(camera,plotId))
                 && (last<=0 || System.currentTimeMillis()-last>=cctvSnapshotIntervalMillis);
     }
+    private boolean snapshotFeedCanCapture(int camera) {
+        FrameLayout frame = camera == 1 ? ipWebcamVlcFrame : camera == 2 ? ipWebcam2VlcFrame : ipWebcam3VlcFrame;
+        org.videolan.libvlc.MediaPlayer player = camera == 1 ? ipWebcamVlcPlayer
+                : camera == 2 ? ipWebcam2VlcPlayer : ipWebcam3VlcPlayer;
+        return activityResumed && cctvVlcFeedsAllowedOnActiveScreen && frame != null
+                && frame.getVisibility() == View.VISIBLE && player != null && player.isPlaying();
+    }
+
     private long nextSnapshotCheckDelay(int camera) {
         String plotId=safePlotId(getPrefs().getString(PREF_ACTIVE_PLOT_ID,DEFAULT_PLOT_ID));
-        // A missing plot folder is a configuration problem, not a frame-timing problem.
-        // Back off to the configured interval rather than retrying PixelCopy every 5 seconds.
-        if (!isFeedFolderReady(plotId)) return cctvSnapshotIntervalMillis;
+        // Avoid tight polling while Home or this camera is hidden, but resume capture shortly after it returns.
+        if (!snapshotFeedCanCapture(camera)) return 30_000L;
+        // Recheck folder access periodically so connecting a folder while the app is open resumes capture.
+        if (!isFeedFolderReady(plotId)) return 60_000L;
         long last=getPrefs().getLong(snapshotLastSuccessKey(camera,plotId),0L);
         if (snapshotInFlight.contains(snapshotFlightKey(camera,plotId))) return 5000L;
         if (last<=0) return 5000L;
@@ -3611,13 +3620,13 @@ public class MainActivity extends Activity {
                 mainHandler.removeCallbacks(cctv02SnapshotTicker);
                 mainHandler.removeCallbacks(cctv03SnapshotTicker);
                 if (activityResumed && ipWebcamVlcPlayer != null && ipWebcamVlcLayout != null) {
-                    mainHandler.postDelayed(cctv01SnapshotTicker, cctvSnapshotIntervalMillis);
+                    mainHandler.postDelayed(cctv01SnapshotTicker, nextSnapshotCheckDelay(1));
                 }
                 if (activityResumed && ipWebcam2VlcPlayer != null && ipWebcam2VlcLayout != null) {
                     mainHandler.postDelayed(cctv02SnapshotTicker, nextSnapshotCheckDelay(2));
                 }
                 if (activityResumed && ipWebcam3VlcPlayer != null && ipWebcam3VlcLayout != null) {
-                    mainHandler.postDelayed(cctv03SnapshotTicker, cctvSnapshotIntervalMillis);
+                    mainHandler.postDelayed(cctv03SnapshotTicker, nextSnapshotCheckDelay(3));
                 }
             });
         }
