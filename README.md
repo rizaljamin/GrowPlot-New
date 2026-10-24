@@ -1,8 +1,8 @@
-# GrowPlot — v0.7.01 Build 27
+# GrowPlot — v0.7.01 Build 28
 
 GrowPlot is an Android farm-management application with CCTV monitoring, Google Drive image feeds, A.I Plant Health, diagnosis workflows and plot management.
 
-**Current source version:** v0.7.01 Build 27 (`versionCode=262`, Android package `com.growplot.farm`). Run diagnosis now invokes Pl@ntNet species/disease analysis using the encrypted Settings key; it runs separately from Vertex. Kindwise plant.id and crop.health keys remain separate but are grouped under one Settings heading. Run diagnosis species candidates are saved to the matching plot/CCTV Home card as unconfirmed suggestions. Build 24's home species candidate display and Build 22's snapshot retry fix are included. Build 27 refreshes Home card species labels when returning from A.I Health. GitHub Actions run #518 passed the ARM64 build and stable signing; APK SHA-256: `a9d5a80bcf1e5f5e0f1a607e6c7e62731f4cce46fc7f0961492c2e4efbad4164`. Tablet verification pending.
+**Current source version:** v0.7.01 Build 28 (`versionCode=263`, Android package `com.growplot.farm`). Diagnosis runs are saved in the Firebase `diagnosis_records` collection for the signed-in user, plot, and CCTV. Opening diagnosis syncs history; selecting a record restores its saved OpenCV, Pl@ntNet, Kindwise, and Vertex results. Android build and tablet save/load verification pending. Run diagnosis now invokes Pl@ntNet species/disease analysis using the encrypted Settings key; it runs separately from Vertex. Kindwise plant.id and crop.health keys remain separate but are grouped under one Settings heading. Run diagnosis species candidates are saved to the matching plot/CCTV Home card as unconfirmed suggestions. Build 24's home species candidate display and Build 22's snapshot retry fix are included. Build 27 refreshes Home card species labels when returning from A.I Health. GitHub Actions run #518 passed the ARM64 build and stable signing; APK SHA-256: `a9d5a80bcf1e5f5e0f1a607e6c7e62731f4cce46fc7f0961492c2e4efbad4164`. Tablet verification pending.
 
 ## Live CCTV snapshot capture
 
@@ -34,7 +34,7 @@ The following behavior was documented as device-verified for v0.7.00 Build 02:
 
 OpenCV uses HSV colour thresholds and grouping rules to estimate a foliage outline, then shows the HSV-converted photo, estimated boundary, YGB mask, and pixel metrics. The boundary is approximate: soil or background may be included and leaves may be missed. The output is not validated plant detection, a health score, or disease diagnosis. Run Diagnosis displays this local screening alongside separate Vertex and Pl@ntNet/Kindwise results.
 
-The Build 25 APK is available from GitHub Actions; provider responses, camera behavior, and Google Drive behavior still require Android device verification.
+Build 28 source includes Firebase diagnosis history. The ARM64 package and Firebase rules deployment are pending; provider responses, camera behavior, Google Drive behavior, and Firebase save/load still require Android device verification.
 
 ## Source and release workflow
 
