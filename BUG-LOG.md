@@ -1,3 +1,13 @@
+## BUG-077 — Pl@ntNet key was not called by Run diagnosis; Kindwise settings looked duplicated
+**Reported:** 2026-10-24
+**Status:** Fixed in v0.7.01 Build 25 source; ARM64 build and tablet verification pending.
+
+**Cause:** The Pl@ntNet/Kindwise provider bridge existed, but Run diagnosis never invoked it. The provider method also waited on Vertex OAuth and attempted a second Vertex request, unnecessarily coupling the services. Settings listed separate Kindwise plant.id and crop.health keys as separate branded entries, each with its own link.
+
+**Fix:** Run diagnosis now starts Pl@ntNet species and disease analysis using the encrypted Settings key and the provider-specific callback. The provider request no longer waits on Vertex auth or duplicates its Vertex output. Kindwise has one grouped settings heading and one shared account link; separate product keys remain separate.
+
+**Verification:** Added Pl@ntNet key-flow and Kindwise settings regressions to the ARM64 build gate. API credentials are not logged. Real provider response still needs tablet validation.
+
 ## BUG-076 — Diagnosis species candidate is hidden from the home CCTV card
 **Reported:** 2026-10-24
 **Status:** Fixed in v0.7.01 Build 24; GitHub Actions run #513 passed ARM64 build and stable signing. Tablet verification pending.
