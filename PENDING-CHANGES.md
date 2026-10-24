@@ -3,11 +3,11 @@
 - Hide the date column and remove the all-dates view; the calendar picker selects the date, defaulting to the latest available report.
 - GitHub Actions run 40073242925 passed the ARM64 build, manifest/package checks, and stable signing. The Add Crop guide still did not load in the Android WebView; Build 05 inlines the asset into the page.
 
-## Pending — Build 05 crop guide loading
+## Completed — Build 05 crop guide loading
 
-- Inline curated crop data in Android's WebView page to avoid fetching a relative Android asset URL.
-- Confirm turmeric / kunyit populates Curcuma longa, 190–285 days, a source reference, and credited sample photos.
-- GitHub ARM64 build and tablet verification pending.
+- Inline curated crop data into Android's WebView page so it does not rely on fetching a relative asset URL.
+- Backfill saved crops that match curated guides with missing scientific names, maturity ranges, sources, and credited sample photos. Add a credited lemongrass / serai sample photo.
+- GitHub Actions run 40074366819 passed the ARM64 build, regression suite, manifest checks, and stable signing. APK SHA-256: `e55d78fe0a39ec697d777438a1d4fea6575717b815cf5693a88a0047e88cf7f6`. [Build artifact](https://github.com/rizaljamin/GrowPlot-New/actions/runs/40074366819/artifacts/12552408485). Device verification pending.
 
 ## Completed — curated common-crop profiles (Build 03)
 
