@@ -6,8 +6,8 @@ assert.match(html,/id="marketplaceContent"/,'Market Place has a dedicated module
 assert.match(html,/function renderMarketplace\([\s\S]*?Historical Price[\s\S]*?Buyer List/,'Marketplace exposes historical prices and buyer details');
 assert.match(html,/MARKET_PRICE_BASE='https:\/\/raw\.githubusercontent\.com\/ipohbot-png\/fama-price-tracker/,'FAMA public archive is the source for price history');
 assert.match(html,/function loadMarketPriceHistory\([\s\S]*?data\.national&&data\.national\[marketPriceLevel\][\s\S]*?item\.sum\/item\.count/,'daily FAMA national observations are aggregated into monthly averages by price level');
-assert.match(html,/function marketShortlist\([\s\S]*?growplotMarketShortlist:\$\{selectedPlotId\}[\s\S]*?farmPlantings/,'the price shortlist is scoped to the selected plot and seeds from planned crops');
-assert.match(html,/function marketBuyerKey\(\)\{return 'growplotMarketBuyers:\$\{selectedPlotId\}'\}/,'buyer contacts are scoped to the selected plot');
+assert.match(html,/function marketShortlist\([\s\S]*?growplotMarketShortlist:'\\+selectedPlotId[\s\S]*?farmPlantings/,'the price shortlist is scoped to the selected plot and seeds from planned crops');
+assert.match(html,/function marketBuyerKey\(\)\{return 'growplotMarketBuyers:'\\+selectedPlotId'\}/,'buyer contacts are scoped to the selected plot');
 assert.match(html,/marketBuyerName[\s\S]*?marketBuyerContact[\s\S]*?marketBuyerCrops[\s\S]*?marketBuyerLocation[\s\S]*?marketBuyerPhone[\s\S]*?marketBuyerEmail/,'buyer list captures contact and crop-interest details');
 assert.match(html,/function saveMarketBuyer\([\s\S]*?localStorage\.setItem\(marketBuyerKey\(\),JSON\.stringify\(list\)\)/,'buyer details persist on-device for the selected plot');
 assert.match(html,/marketFamaLink|FAMA current prices/,'the market screen links to FAMA current prices');
