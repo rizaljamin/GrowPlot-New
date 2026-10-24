@@ -1,6 +1,6 @@
 2026-10-24 | v0.7.01 Build 23 | versionCode 258 | com.growplot.farm
 Changes: Persist diagnosis-confirmed species by plot and camera, restore the selected plot's confirmed species when the home screen renders, and immediately update the matching CCTV card after confirmation. Includes Build 22's due-aware snapshot retries.
-Validation: Confirmed-species home-label regression and full ARM64 build/signature/package/alignment/artifact checks pending. Live CCTV capture, Drive upload, and the species label on the user's tablet still require device verification.
+Validation: GitHub Actions run #512 passed regression, ARM64 compilation, stable signing, package/version, alignment and artifact upload. APK SHA-256: `c08cfd93baed9295b548906411a5506926652c5b7be3101d21f89d0239f1d0d4`. Source commit: `7ab855ec47139f1cb645033274b80d7bc2d72971`. Live CCTV capture, Drive upload, and species label still require tablet verification.
 
 2026-10-24 | v0.7.01 Build 22 | versionCode 257 | com.growplot.farm
 Changes: Make all live CCTV snapshot timers due-aware. When a camera becomes visible and active, overdue captures are attempted promptly; a missed frame or Drive save is retried without waiting another full snapshot interval. Hidden feed and missing-folder checks back off while the app remains foregrounded. The next interval is measured from a successful save.
