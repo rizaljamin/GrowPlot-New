@@ -1,8 +1,8 @@
-# GrowPlot — v0.7.01 Build 29
+# GrowPlot — v0.7.02 Build 02
 
 GrowPlot is an Android farm-management application with CCTV monitoring, Google Drive image feeds, A.I Plant Health, diagnosis workflows and plot management.
 
-**Current source version:** v0.7.01 Build 29 (`versionCode=264`, Android package `com.growplot.farm`). Diagnosis results and history are stored in Firestore; diagnosis photos are copied to Firebase Storage and linked to each history record. Opening diagnosis syncs history; selecting a record restores its result panels and photos. ARM64 build, Firebase rules deployment, and tablet verification pending. Run diagnosis now invokes Pl@ntNet species/disease analysis using the encrypted Settings key; it runs separately from Vertex. Kindwise plant.id and crop.health keys remain separate but are grouped under one Settings heading. Run diagnosis species candidates are saved to the matching plot/CCTV Home card as unconfirmed suggestions. Build 24's home species candidate display and Build 22's snapshot retry fix are included. Build 27 refreshes Home card species labels when returning from A.I Health. GitHub Actions run #518 passed the ARM64 build and stable signing; APK SHA-256: `a9d5a80bcf1e5f5e0f1a607e6c7e62731f4cce46fc7f0961492c2e4efbad4164`. Tablet verification pending.
+**Current source version:** v0.7.02 Build 02 (`versionCode=267`, Android package `com.growplot.farm`). This release adds custom crop entry and sourced crop guidance to Manage Farm, and a calendar date selector for Marketplace Historical Price. Crop lookup supplies scientific names and sample photos; maturity ranges are prefilled when a crop-specific guide is available. ARM64 build and tablet verification are pending.
 
 ## Live CCTV snapshot capture
 

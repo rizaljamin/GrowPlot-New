@@ -60,6 +60,7 @@ node "$ROOT/tools/tests/cctv-snapshot-scheduler-regression.js" || fail "CCTV sna
 node "$ROOT/tools/tests/confirmed-species-home-regression.js" || fail "Confirmed-species home-label regression check failed"
 node "$ROOT/tools/tests/diagnosis-history-firebase-regression.js" || fail "Firebase diagnosis-history regression check failed"
 node "$ROOT/tools/tests/marketplace-regression.js" || fail "Marketplace regression check failed"
+node "$ROOT/tools/tests/crop-catalog-regression.js" || fail "Manage Farm crop-catalog regression check failed"
 node "$ROOT/tools/tests/timeline-persistence-regression.js" || fail "Timeline persistence regression check failed"
 
 cd "$ROOT"
