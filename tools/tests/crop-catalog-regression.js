@@ -1,0 +1,15 @@
+'use strict';
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const html=fs.readFileSync('app/src/main/assets/index.html','utf8');
+const java=fs.readFileSync('app/src/main/java/com/growplot/farm/MainActivity.java','utf8');
+assert.ok(html.includes('id="farmAddCropButton"')&&html.includes('id="farmNewCropName"'),'Crop Planning exposes Add crop beside the crop dropdown');
+assert.ok(html.includes("api.gbif.org/v1/species/match")&&html.includes('farmLookupScientificName'),'typing a common name looks up its scientific name');
+assert.ok(html.includes('commons.wikimedia.org/w/api.php')&&html.includes('farmLookupCropPhotos')&&html.includes('samplePhotos'),'crop lookup supplies sample images with credit and license details');
+assert.ok(html.includes("aliases:['lemongrass','lemon grass','serai','serai makan','cymbopogon citratus']")&&html.includes("scientific:'Cymbopogon citratus'")&&html.includes('days:[180,240]'),'lemongrass auto-fills its scientific name and 6–8 month first-harvest range');
+assert.ok(html.includes('farmCropCatalog.push(crop)')&&html.includes('applyFarmCustomCrops(farmCustomCrops)'),'saved custom crops join the crop list');
+assert.ok(html.includes("localStorage.setItem('growplotCustomCropCatalog_v1'")&&html.includes('customCrops:farmCustomCrops'),'custom crops persist locally and sync through the farm data bridge');
+assert.ok(html.includes('Maturity timeframe not available')&&html.includes('harvest date estimates are disabled'),'unknown maturity is not fabricated and does not create a false harvest date');
+assert.ok(html.includes('Maturity reference URL')&&html.includes('Department of Agriculture Malaysia'),'crop maturity details retain their reference');
+assert.ok(java.includes('management.optJSONArray("customCrops")')&&java.includes('management.put("customCrops", customCrops)'),'Google Drive saves and recalls the custom crop catalog');
+console.log('Manage Farm add-crop and crop-catalog persistence regression checks passed.');
