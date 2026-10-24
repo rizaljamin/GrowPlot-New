@@ -1,6 +1,6 @@
 2026-10-24 | v0.7.01 Build 27 | versionCode 262 | com.growplot.farm
 Changes: Refresh the existing Home species labels from the selected plot's saved confirmed identity or diagnosis suggestion when returning from A.I Health. No diagnosis or provider flow changes.
-Validation: Focused regression and ARM64 build pending; tablet screen verification pending.
+Validation: GitHub Actions run #518 passed the Home species refresh regression, ARM64 compilation, package/version/alignment checks, stable signing, Firebase OAuth signer verification, and artifact upload. APK SHA-256: `a9d5a80bcf1e5f5e0f1a607e6c7e62731f4cce46fc7f0961492c2e4efbad4164`. Source commit: `87050de09f45276507c1d2d3047651f590fd6ef4`. A tablet screen retest remains pending. APK artifact: https://github.com/rizaljamin/GrowPlot-New/actions/runs/40059998515/artifacts/12546489690
 
 2026-10-24 | v0.7.01 Build 26 | versionCode 261 | com.growplot.farm
 Changes: Persist the nested Pl@ntNet species candidates returned by Run diagnosis under the matching plot/CCTV key, then refresh that Home card as an unconfirmed suggestion. User-confirmed identities remain unchanged.
