@@ -1,3 +1,15 @@
+## BUG-080 — Diagnosis results and history are local only
+**Reported:** 2026-10-24
+**Status:** Implemented in v0.7.01 Build 28; ARM64 build, Firebase rules deployment, and tablet verification pending.
+
+**Cause:** Diagnosis history was stored in WebView localStorage and could not be recalled from another signed-in device.
+
+**Fix:** Save each run's result snapshot to the authenticated user's `diagnosis_records` Firestore collection. On opening diagnosis, sync local history and load cloud entries scoped to the plot and CCTV. Selecting an entry restores its OpenCV, Pl@ntNet, Kindwise, and Vertex result panels. Owner-only rules protect records; image payloads are excluded.
+
+**Verification:** Source assertions cover save, scoping, load, record recall, and image exclusion. GitHub Actions ARM64 build, rules deployment, and Android tablet save/load/recall remain pending.
+
+---
+
 ## BUG-079 — Home card stayed stale after A.I Health showed a species
 **Reported:** 2026-10-24
 **Status:** Fixed in v0.7.01 Build 27; GitHub Actions run #518 passed ARM64 build and stable signing. Tablet verification pending.
