@@ -2,7 +2,8 @@
 - When no confirmed identity is stored, show the latest species candidate saved by diagnosis for that plot and CCTV camera.
 - Label the candidate “not confirmed”; a user-confirmed identity remains the display priority.
 - Cover candidate fallback and labeling in the build regression.
-- ARM64 build and tablet verification pending.
+- GitHub Actions run #513 passed ARM64 regression, compilation, stable signing, package/version/alignment and artifact upload. APK SHA-256: `6bb8a1341d13f80bc755ee03d00887123449db980ebefe2fbb3d30cad402eb2f`.
+- Tablet species display, CCTV capture, and Drive upload verification pending.
 
 ## Completed — Build 23 confirmed species persistence
 - Restore the species confirmed for the selected plot and CCTV camera before rendering the home cards.
