@@ -109,6 +109,10 @@ assert.doesNotMatch(html,/onclick=\"confirmVisualReviewCandidate\(/,'visual shor
 const identityUi=html.slice(html.indexOf('function diagnosisSpeciesCandidates'),html.indexOf('function diagnosisAnalysisKey'));
 assert.doesNotMatch(identityUi,/camera\s*===?\s*2|camera\s*!==?\s*2/,'the same plant identity flow must apply to every CCTV camera');
 assert.match(html,/diagnosisSpeciesKey\(camera,plotId=selectedPlotId\)/,'identity candidates must remain scoped to the active camera and plot');
+assert.match(html,/function persistDiagnosisSpeciesCandidates\(camera,plotId,report\)/,'species candidates must be saved by plot and camera for the Home cards');
+assert.match(html,/species=report\.speciesIdentification\|\|\{\};persistDiagnosisSpeciesCandidates\(camera,plotId,species\)/,'Run diagnosis must persist its nested Pl@ntNet species response');
+assert.match(html,/report\.generatedAt=new Date\(\)\.toISOString\(\);persistDiagnosisSpeciesCandidates\(camera,plotId,report\)/,'standalone species checks must use the same candidate persistence path');
+assert.match(html,/loadConfirmedPlantIds\(plotId\);updateCameraSpeciesDisplay\(camera\)/,'a new candidate must refresh the matching active Home card without confirming it');
 assert.match(html,/engine\.analyze\(camera\)/,'the CV analysis button must run the local image analysis engine');
 assert.match(html,/Basic CV and HSV analysis/,'the analysis modal must display local CV and HSV results');
 assert.doesNotMatch(html,/diagnosis-hourglass|RGB → HSV colour screening|Analysis stages/,'the diagnosis result area must not show the generic six-stage progress card');
