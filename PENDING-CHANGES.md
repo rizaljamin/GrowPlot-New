@@ -1,8 +1,13 @@
-## Pending — Historical Price table and crop-guide loading
+## Completed — Build 04 Marketplace table
 
 - Hide the date column and remove the all-dates view; the calendar picker selects the date, defaulting to the latest available report.
-- Fix the extra comma in the curated crop-guide asset that prevented its JavaScript from loading, so turmeric / kunyit and ginger / halia populate their details and credited photos.
-- Build and tablet verification pending.
+- GitHub Actions run 40073242925 passed the ARM64 build, manifest/package checks, and stable signing. The Add Crop guide still did not load in the Android WebView; Build 05 inlines the asset into the page.
+
+## Pending — Build 05 crop guide loading
+
+- Inline curated crop data in Android's WebView page to avoid fetching a relative Android asset URL.
+- Confirm turmeric / kunyit populates Curcuma longa, 190–285 days, a source reference, and credited sample photos.
+- GitHub ARM64 build and tablet verification pending.
 
 ## Completed — curated common-crop profiles (Build 03)
 
