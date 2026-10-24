@@ -1,3 +1,7 @@
+2026-10-24 | v0.7.01 Build 28 | versionCode 263 | com.growplot.farm
+Changes: Save diagnosis history and result snapshots to the authenticated user's Firestore `diagnosis_records` collection, scoped by plot and CCTV. Sync cloud history when opening A.I Health and restore saved OpenCV, Pl@ntNet, Kindwise, and Vertex panels when a record is selected. Add owner-scoped Firestore rules and a regression check. Image payloads are not included.
+Validation: Source assertions passed for record save, user/plot/camera scoping, history merge and recall, image exclusion, regression wiring, and Build 28 metadata. ARM64 build, Firestore rules deployment, and tablet verification pending.
+
 2026-10-24 | v0.7.01 Build 27 | versionCode 262 | com.growplot.farm
 Changes: Refresh the existing Home species labels from the selected plot's saved confirmed identity or diagnosis suggestion when returning from A.I Health. No diagnosis or provider flow changes.
 Validation: GitHub Actions run #518 passed the Home species refresh regression, ARM64 compilation, package/version/alignment checks, stable signing, Firebase OAuth signer verification, and artifact upload. APK SHA-256: `a9d5a80bcf1e5f5e0f1a607e6c7e62731f4cce46fc7f0961492c2e4efbad4164`. Source commit: `87050de09f45276507c1d2d3047651f590fd6ef4`. A tablet screen retest remains pending. APK artifact: https://github.com/rizaljamin/GrowPlot-New/actions/runs/40059998515/artifacts/12546489690
