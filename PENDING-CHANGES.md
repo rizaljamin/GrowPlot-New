@@ -1,3 +1,8 @@
+## Build 27 — refresh Home species name after A.I Health
+- On return to Home, reload each CCTV's saved identity/suggestion for the selected plot and update the existing card labels.
+- Keep confirmed identities and not-confirmed suggestion status as stored.
+- Regression and ARM64 build pending; tablet check pending.
+
 ## Build 26 — show Run diagnosis species results on Home
 - Save the Pl@ntNet species result nested in Run diagnosis under the same plot/CCTV candidate key read by Home.
 - Refresh the matching active Home card as “Diagnosis suggestion · not confirmed”; keep user-confirmed identity priority.

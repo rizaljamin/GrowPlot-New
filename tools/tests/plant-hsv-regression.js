@@ -113,6 +113,7 @@ assert.match(html,/function persistDiagnosisSpeciesCandidates\(camera,plotId,rep
 assert.match(html,/species=report\.speciesIdentification\|\|\{\};persistDiagnosisSpeciesCandidates\(camera,plotId,species\)/,'Run diagnosis must persist its nested Pl@ntNet species response');
 assert.match(html,/report\.generatedAt=new Date\(\)\.toISOString\(\);persistDiagnosisSpeciesCandidates\(camera,plotId,report\)/,'standalone species checks must use the same candidate persistence path');
 assert.match(html,/loadConfirmedPlantIds\(plotId\);updateCameraSpeciesDisplay\(camera\)/,'a new candidate must refresh the matching active Home card without confirming it');
+assert.match(html,/function returnHome\(scroll=true\)[^}]*loadConfirmedPlantIds\(selectedPlotId\);for\(let camera=1;camera<=6;camera\+\+\)updateCameraSpeciesDisplay\(camera\)/,'returning from A.I Health must refresh every Home species label from the selected plot');
 assert.match(html,/engine\.analyze\(camera\)/,'the CV analysis button must run the local image analysis engine');
 assert.match(html,/Basic CV and HSV analysis/,'the analysis modal must display local CV and HSV results');
 assert.doesNotMatch(html,/diagnosis-hourglass|RGB → HSV colour screening|Analysis stages/,'the diagnosis result area must not show the generic six-stage progress card');
