@@ -1,4 +1,4 @@
-name: Deploy Firestore Rules
+name: Deploy Firestore and Storage Rules
 # Re-trigger deployment after Firebase service-account secret was configured.
 on:
   workflow_dispatch:
@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - firestore.rules
+      - storage.rules
       - firebase.json
       - .github/workflows/deploy-firestore-rules.yml
 
@@ -28,5 +29,5 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Deploy Firestore rules only
-        run: npx --yes firebase-tools@14 deploy --only firestore:rules --project growplot --non-interactive
+      - name: Deploy Firestore and Storage rules
+        run: npx --yes firebase-tools@14 deploy --only firestore:rules,storage --project growplot --non-interactive

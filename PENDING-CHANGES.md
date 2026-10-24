@@ -1,3 +1,10 @@
+## Build 29 — Save diagnosis photos with Firebase history
+- Copy new diagnosis photos and Drive-cached diagnosis photos to the signed-in user's Firebase Storage area.
+- Store photo references with the diagnosis-history Firestore record and display linked photos when a record is selected.
+- Keep the existing Google Drive diagnosis media path.
+- Storage rules restrict reads/writes to the owner and image uploads under 20 MB.
+- Regression coverage, ARM64 build, rules deployment, and tablet verification pending.
+
 ## Build 28 — Firebase diagnosis history
 - Save diagnosis result snapshots in `diagnosis_records` for the signed-in Firebase user, plot, and CCTV.
 - Opening diagnosis syncs local records and loads cloud history; selecting an entry restores the saved OpenCV, Pl@ntNet, Kindwise, and Vertex results.
