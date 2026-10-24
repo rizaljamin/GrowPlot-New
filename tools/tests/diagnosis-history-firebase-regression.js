@@ -30,13 +30,13 @@ assert.match(java, /whereEqualTo\("ownerUserId", uid\)\.whereEqualTo\("plotId", 
 assert.match(rules, /match \/diagnosis_records\/{recordDocumentId}[\s\S]*?resource\.data\.ownerUserId == request\.auth\.uid/,
   'Firestore rules restrict records to their authenticated owner');
 
-assert.match(gradle, /com\\.google\\.firebase:firebase-storage/,
+assert.match(gradle, /com\.google\.firebase:firebase-storage/,
   'the Android app includes Firebase Storage for diagnosis photos');
-assert.match(java, /uploadDiagnosisPhotoToFirebase[\\s\\S]*?FirebaseStorage\\.getInstance\\(\\)[\\s\\S]*?putFile\\(Uri\\.fromFile\\(photo\\)\\)/,
+assert.match(java, /uploadDiagnosisPhotoToFirebase[\s\S]*?FirebaseStorage\.getInstance\(\)[\s\S]*?putFile\(Uri\.fromFile\(photo\)\)/,
   'new and Drive-cached diagnosis photos upload to Firebase Storage');
-assert.match(html, /function diagnosisHistoryPhotosMarkup[\\s\\S]*?firebaseDownloadUrl/,
+assert.match(html, /function diagnosisHistoryPhotosMarkup[\s\S]*?firebaseDownloadUrl/,
   'history records display their linked diagnosis photos');
-assert.match(storageRules, /request\\.auth\\.uid == userId[\\s\\S]*?request\\.resource\\.size < 20 \\* 1024 \\* 1024[\\s\\S]*?contentType\\.matches\\('image\\/\\(jpeg\\|png\\|webp\\)'\\)/,
+assert.match(storageRules, /request\.auth\.uid == userId[\s\S]*?request\.resource\.size < 20 \* 1024 \* 1024[\s\S]*?contentType\.matches\('image\/\(jpeg\|png\|webp\)'\)/,
   'Firebase Storage limits diagnosis photos to the owner and image content under 20 MB');
 assert.equal(firebaseConfig.storage.rules, 'storage.rules',
   'Firebase deployment config includes Storage security rules');
