@@ -1,6 +1,6 @@
 2026-10-24 | v0.7.02 Build 03 | versionCode 268 | com.growplot.farm
 Changes: Refine Add Crop with direct turmeric/kunyit and ginger/halia crop profiles, scientific names, source-linked maturity windows, planting material, harvest part and credited sample photos. Clear previous lookup data when the common name changes; show crop category and harvested part in the crop picker.
-Validation: GitHub ARM64 build pending.
+Validation: GitHub Actions run 40072343906 passed crop and app regression checks, ARM64 compilation, manifest/package verification, and stable signing. APK SHA-256: 55ce84fb5240334296a19ff8935bacb529b1ebcca5abd7df910a9124999e62c8. Source commit: 9d1e8ff5399794720f7d053da36a6ce4690d8730. Device verification pending. [APK artifact](https://github.com/rizaljamin/GrowPlot-New/actions/runs/40072343906/artifacts/12552106169).
 
 2026-10-24 | v0.7.02 Build 02 | versionCode 267 | com.growplot.farm
 Changes: Add custom crop creation beside the Crop Planning selector. Common-name lookup fills scientific taxonomy and sample photos; curated Malaysian crop guidance supplies sourced maturity ranges, including lemongrass at 180–240 days. Save custom crops locally and to Google Drive. Add a calendar date filter to Marketplace Historical Price, defaulting to the latest report date.

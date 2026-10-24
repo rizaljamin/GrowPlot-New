@@ -1,8 +1,8 @@
-## Pending — curated common-crop profiles
+## Completed — curated common-crop profiles (Build 03)
 
-- Add direct crop guides for turmeric / kunyit and improve ginger / halia aliases, including scientific name, harvest window, planting material, harvest part, source note, and credited sample photos.
-- Clear previous lookup fields and photos when the common name changes so details from another crop cannot be added accidentally.
-- Build and device photo-loading checks are pending; release version remains v0.7.02 Build 02 until the next bundled enhancement release.
+- Add direct crop guides for turmeric / kunyit and ginger / halia, with scientific names, source-linked maturity ranges, planting and harvest details, and credited photos.
+- Clear previous lookup state when the crop name changes; show crop type and harvest part in the crop picker.
+- GitHub Actions run 40072343906 passed regression checks, ARM64 build, manifest checks, and stable signing. APK SHA-256: `55ce84fb5240334296a19ff8935bacb529b1ebcca5abd7df910a9124999e62c8`. [Build artifact](https://github.com/rizaljamin/GrowPlot-New/actions/runs/40072343906/artifacts/12552106169). Device photo loading still needs tablet verification.
 
 ## Build 29 — Save diagnosis photos with Firebase history
 - Copy new diagnosis photos and Drive-cached diagnosis photos to the signed-in user's Firebase Storage area.
