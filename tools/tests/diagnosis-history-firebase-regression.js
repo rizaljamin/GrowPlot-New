@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const assert = require('node:assert/strict');
 
 const html = fs.readFileSync('app/src/main/assets/index.html', 'utf8');
+const leafCv = fs.readFileSync('app/src/main/assets/leaf-cv.js', 'utf8');
 const java = fs.readFileSync('app/src/main/java/com/growplot/farm/MainActivity.java', 'utf8');
 const rules = fs.readFileSync('firestore.rules', 'utf8');
 const storageRules = fs.readFileSync('storage.rules', 'utf8');
@@ -17,6 +18,12 @@ assert.match(html, /window\.onDiagnosisHistoryLoaded=function[\s\S]*?localStorag
   'Firebase records are merged into the plot and camera local history');
 assert.match(html, /function showDiagnosisHistoryOccurrence[\s\S]*?diagnosisAnalysisMarkup\(report\)[\s\S]*?diagnosisProviderResultsMarkup\(provider,details\.kindwiseResponse[\s\S]*?diagnosisVertexMarkup\(details\.vertexResponse/,
   'selecting a history record restores OpenCV, provider, and Vertex results');
+assert.match(html, /function diagnosisOpenCvSnapshot\(report\)[\s\S]*?report\.mask\.length<=180000[\s\S]*?openCvAnalysis:diagnosisOpenCvSnapshot\(report\.openCvAnalysis\|\|report\)/,
+  'history records retain bounded HSV metrics and the compact mask for Firestore recall');
+assert.match(html, /GrowPlotCV\.restoreHistory\(cvHistory\)/,
+  'selecting a history entry restores its saved result into the OpenCV panel');
+assert.match(leafCv, /function restoreHistory\(report\)[\s\S]*?Showing the saved OpenCV HSV result/,
+  'the OpenCV panel renders the saved HSV mask and pixel metrics');
 assert.match(html, /async function runDiagnosisScreen\(camera\)[\s\S]*?historyId='diagnosis-'\+camera[\s\S]*?recordDiagnosisHistory\(camera,plotId,storedReport,'photo'\)/,
   'each OpenCV run creates a stable diagnosis history record');
 assert.match(html, /delete storedReport\.vertexImageBase64;delete storedReport\.vertexMimeType/,
