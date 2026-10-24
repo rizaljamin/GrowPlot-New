@@ -1,10 +1,10 @@
-# GrowPlot — v0.7.01 Build 21
+# GrowPlot — v0.7.01 Build 22
 
 GrowPlot is an Android farm-management application with CCTV monitoring, Google Drive image feeds, A.I Plant Health, diagnosis workflows and plot management.
 
-**Current source version:** v0.7.01 Build 21 (`versionCode=256`, Android package `com.growplot.farm`). This identity is recorded in `version.properties`. Build 21 restores Android's folder picker when Settings → Connect to folder is tapped. GitHub Actions run #494 passed the ARM64 build, release manifest, and stable-signing checks. APK SHA-256: `0c10a26b2eb3de6ad5a89280101cbeccf7e27c36067c700ad37472c27954eab4`. Tablet picker, scan, and upload verification remain pending.
+**Current source version:** v0.7.01 Build 22 (`versionCode=257`, Android package `com.growplot.farm`). Build 22 makes live CCTV snapshot scheduling due-aware and retries after feed or folder interruptions. ARM64 build and Android tablet verification are pending.
 
-## Google Drive image feed
+## Live CCTV snapshot capture\n\nFor each visible, playing live camera, GrowPlot attempts a snapshot when its configured interval has elapsed since that camera's last successful Drive save. Overdue snapshots are attempted shortly after the feed becomes available. Hidden feeds retry visibility checks every 30 seconds; an unconnected folder is rechecked every 60 seconds. The app must remain foregrounded with Home and the live camera visible.\n\n## Google Drive image feed
 
 Settings → Connect to folder opens Android's system folder picker. Choose Google Drive, select the existing plot folder (or the Projects/growplot/Image_Feed scope), and grant read/write access. GrowPlot saves the exact selected folder URI and uses it for scans and uploads; choosing a folder clears any stale Drive API folder ID. When a root scope is selected, GrowPlot creates or reuses `Projects/growplot/Image_Feed/<signed-in email>/<plot>`. The picker uses the Google Drive account selected through Android's Drive provider. Android folder permission, scan, and upload behavior require tablet verification.
 
