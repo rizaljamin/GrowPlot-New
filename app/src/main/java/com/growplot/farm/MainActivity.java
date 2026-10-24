@@ -3658,20 +3658,7 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface public void diagnosePhotosWithPlantNet(int camera, String plotId, String species, String symptom, String pixelMetrics) {
-            if (!hasVertexAccessToken() && !vertexAuthorizationFailedOnce) {
-                pendingVertexCamera = camera;
-                pendingVertexPlotId = safePlotId(plotId);
-                pendingVertexSpecies = species == null ? "" : species;
-                pendingVertexSymptom = symptom == null ? "" : symptom;
-                pendingVertexPixelMetrics = pixelMetrics == null ? "" : pixelMetrics;
-                pendingVertexBridge = this;
-                if (!vertexAuthorizationInProgress) {
-                    vertexAuthorizationInProgress = true;
-                    runOnUiThread(MainActivity.this::authorizeVertexForPendingDiagnosis);
-                }
-                return;
-            }
-            vertexAuthorizationFailedOnce = false;
+            // PlantNet and Kindwise calls use their own saved API keys; Vertex runs through its separate Firebase callable.
             final String id = safePlotId(plotId);
             diagnosisWorker.execute(() -> {
                 JSONObject response;
@@ -3692,8 +3679,6 @@ public class MainActivity extends Activity {
                     if (candidates.isEmpty()) throw new IllegalStateException("No readable photos are available for this quadrant");
                     List<PlantNetImageCandidate> selected = selectBestPlantNetImages(candidates);
                     List<byte[]> selectedImages = candidateBytes(selected);
-                    diagnosisCvWorker.execute(() -> sendVertexResult(camera, id,
-                            requestVertexImageAnalysis(selectedImages, species, symptom, pixelMetrics)));
                     requestKindwiseDiagnosis(camera, id, selectedImages, candidates.size(), selected,
                             species, symptom, pixelMetrics, "quadrant_photos",
                             "Diagnosis/" + diagnosisPlotFolder(id) + "/Quadrant_" + String.format(Locale.US, "%02d", camera),
