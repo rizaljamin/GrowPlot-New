@@ -17,5 +17,19 @@ requireMatch(/window\.onKindwiseDiagnosis=function/, html, 'Kindwise result call
 requireMatch(/diagnosisKindwiseProviderKey\(camera,plotId\)/, html, 'Kindwise result must be stored separately by plot and section.');
 requireMatch(/diagnosisProviderResultsMarkup\(providerReport,kindwiseReport,camera,selectedPlotId\)/, html, 'Diagnosis screen must render both provider reports.');
 requireMatch(/d\.treatment/, html, 'Kindwise treatment details must be available in the result card.');
+const settingsStart = html.indexOf('<details id="pluginApiSettingsSection"');
+const settingsEnd = html.indexOf('</details>', settingsStart);
+const settings = html.slice(settingsStart, settingsEnd);
+requireMatch(/<h4>Kindwise API keys<\\/h4>/, settings, 'Kindwise services must appear under one settings heading.');
+requireMatch(/id="plantidApiKey"/, settings, 'Keep the separate plant.id key field.');
+requireMatch(/id="kindwiseApiKey"/, settings, 'Keep the separate crop.health key field.');
+if ((settings.match(/openPluginKeyPortal\\('kindwise'\\)/g) || []).length !== 1 ||
+    /openPluginKeyPortal\\('plantid'\\)/.test(settings)) {
+  throw new Error('Kindwise settings should show one shared account link, not duplicate provider links.');
+}
+if (/Kindwise plant\\.id API key|Kindwise · crop\\.health API key/.test(settings)) {
+  throw new Error('Do not repeat the Kindwise brand on both service key labels.');
+}
+
 
 console.log('PASS: encrypted Kindwise key, selected photo/video requests, separate result storage, and treatment display.');
