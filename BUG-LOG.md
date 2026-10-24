@@ -1,12 +1,22 @@
-## BUG-074 — Live CCTV snapshot can be skipped while GrowPlot is open
+## BUG-075 — Diagnosis-confirmed species is missing from the home CCTV card
 **Reported:** 2026-10-24
-**Status:** Fixed in v0.7.01 Build 22 source; ARM64 build and tablet verification pending.
+**Status:** Fixed in v0.7.01 Build 23 source; ARM64 build and tablet verification pending.
+
+**Cause:** Diagnosis stored the confirmed species under a plot-and-camera local-storage key, but the home dashboard used static `plantIds` defaults and never reloaded that saved identity. The immediate in-memory update also did not refresh the already-rendered home card.
+
+**Fix:** Restore confirmed species for the active plot before home cards render, reset camera identities to defaults when switching plots, and update the matching card as soon as diagnosis confirmation is saved.
+
+**Verification:** Added a focused regression to the ARM64 build gate. On-device persistence and display verification remain pending.
+
+## BUG-074 — Live CCTV snapshot can be skipped while GrowPlot is open.
+**Reported:** 2026-10-24
+**Status:** Fixed in v0.7.01 Build 22; GitHub Actions ARM64 run #510 passed. Tablet verification pending.
 
 **Cause:** CCTV01 reset its first timer to the full interval when VLC started, even when the prior successful capture was already overdue. CCTV01/CCTV03 also waited a full interval after a skipped or failed attempt. A hidden camera surface skipped the capture, but the timer did not adapt its next delay to that state.
 
 **Fix:** All three live camera timers now schedule from each camera's last successful Drive save, retry promptly while due, recheck after feed/folder interruptions, and avoid tight polling when the feed is hidden. Snapshot interval remains the delay between successful captures.
 
-**Verification limits:** Build regression and ARM64 packaging pending. Actual VLC frame capture and Google Drive write still require testing on the Android tablet.
+**Verification limits:** Regression and ARM64 packaging passed in GitHub Actions run #510. Actual VLC frame capture and Google Drive write still require testing on the Android tablet.
 
 ## BUG-073 — Image Feed login cannot locate the shared Projects location
 **Reported:** 2026-10-23  
