@@ -1,6 +1,6 @@
 2026-10-24 | v0.7.01 Build 24 | versionCode 259 | com.growplot.farm
 Changes: In addition to restoring confirmed species per plot and camera, show the latest saved diagnosis species candidate on the corresponding home card when no confirmed identity exists. Label the candidate as not confirmed. Includes due-aware CCTV snapshot retries.
-Validation: ARM64 build, regression, package/signing, and artifact checks pending. Tablet verification of candidate selection, CCTV capture and Drive upload pending.
+Validation: GitHub Actions run #513 passed the ARM64 regression suite, compilation, stable signing, package/version/alignment and artifact upload. APK SHA-256: `6bb8a1341d13f80bc755ee03d00887123449db980ebefe2fbb3d30cad402eb2f`. Source commit: `ab1edd50a153e3bd2b8177cf1112589da8e40d84`. Candidate display on the tablet, CCTV capture, and Drive upload still need device verification.
 
 2026-10-24 | v0.7.01 Build 23 | versionCode 258 | com.growplot.farm
 Changes: Persist diagnosis-confirmed species by plot and camera, restore the selected plot's confirmed species when the home screen renders, and immediately update the matching CCTV card after confirmation. Includes Build 22's due-aware snapshot retries.
