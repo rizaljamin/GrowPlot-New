@@ -1,3 +1,15 @@
+## BUG-081 — Diagnosis history records omit their photos
+**Reported:** 2026-10-24
+**Status:** Implemented in v0.7.01 Build 29; ARM64 build, Firebase rules deployment, and tablet verification pending.
+
+**Cause:** Diagnosis records saved result data but did not link the associated images. The media gallery used local/Google Drive references only.
+
+**Fix:** Upload new and Drive-cached diagnosis photos to Firebase Storage under the signed-in user's path. Save photo links with diagnosis history and show them when recalling a record. Keep the existing Google Drive copy. Storage rules enforce owner access and image size/type limits.
+
+**Verification:** Source regression coverage added for Storage upload, owner rules, record photo links and recall. ARM64 build, rules deployment, and Android upload/recall verification pending.
+
+---
+
 ## BUG-080 — Diagnosis results and history are local only
 **Reported:** 2026-10-24
 **Status:** Implemented in v0.7.01 Build 28; ARM64 build, Firebase rules deployment, and tablet verification pending.
