@@ -15,4 +15,5 @@ assert.ok(html.includes('Maturity reference URL')&&html.includes('Department of 
 assert.ok(java.includes('management.optJSONArray("customCrops")')&&java.includes('management.put("customCrops", customCrops)'),'Google Drive saves and recalls the custom crop catalog');
 assert.ok(h.includes('src="crop-catalog-sync.js"')&&h.includes("GrowPlotBridge.loadCustomCropCatalog()")&&sync.includes('GrowPlotBridge.saveCustomCropCatalog(JSON.stringify({crops:farmCustomCrops}))'),'all devices load and save the shared custom crop catalog');
 assert.ok(java.includes('findOrCreateChildFolder(treeUri, configId, "crop_list")')&&java.includes('"crop-catalog.json"'),'custom crops persist under Projects/GrowPlot/config/crop_list/crop-catalog.json');
+assert.ok(h.includes('cropMerge.uploadNeeded')&&h.includes('if(uploadNeeded)syncFarmPlantingsToDrive()'),'existing device crop records migrate into the shared catalog on sync');
 console.log('Manage Farm add-crop and crop-catalog persistence regression checks passed.');
