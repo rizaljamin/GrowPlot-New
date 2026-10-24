@@ -29,5 +29,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Deploy Firestore and Storage rules
-        run: npx --yes firebase-tools@14 deploy --only firestore:rules,storage --project growplot --non-interactive
+      - name: Deploy Firestore rules
+        run: npx --yes firebase-tools@14 deploy --only firestore:rules --project growplot --non-interactive
+      - name: Deploy Storage rules
+        run: npx --yes firebase-tools@14 deploy --only storage --project growplot --non-interactive
