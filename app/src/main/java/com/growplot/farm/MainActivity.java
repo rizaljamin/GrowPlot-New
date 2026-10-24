@@ -1927,6 +1927,7 @@ public class MainActivity extends Activity {
         response.put("irrigationSchedules", management == null ? new JSONArray() : management.optJSONArray("irrigationSchedules") == null ? new JSONArray() : management.optJSONArray("irrigationSchedules"));
         response.put("maintenanceTasks", management == null ? new JSONArray() : management.optJSONArray("maintenanceTasks") == null ? new JSONArray() : management.optJSONArray("maintenanceTasks"));
         response.put("managementDeletedIds", management == null ? new JSONArray() : management.optJSONArray("deletedIds") == null ? new JSONArray() : management.optJSONArray("deletedIds"));
+        response.put("customCrops", management == null ? new JSONArray() : management.optJSONArray("customCrops") == null ? new JSONArray() : management.optJSONArray("customCrops"));
         response.put("ok", true);
         response.put("path", "/db/userdata/" + userId);
         return response;
@@ -2022,12 +2023,15 @@ public class MainActivity extends Activity {
         if (maintenanceTasks == null) maintenanceTasks = new JSONArray();
         JSONArray managementDeletedIds = request.optJSONArray("managementDeletedIds");
         if (managementDeletedIds == null) managementDeletedIds = new JSONArray();
+        JSONArray customCrops = request.optJSONArray("customCrops");
+        if (customCrops == null) customCrops = new JSONArray();
         JSONObject management = new JSONObject();
         management.put("schemaVersion", 1); management.put("userId", userId);
         management.put("updatedAt", new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US).format(new Date()));
         management.put("irrigationSchedules", irrigationSchedules);
         management.put("maintenanceTasks", maintenanceTasks);
         management.put("deletedIds", managementDeletedIds);
+        management.put("customCrops", customCrops);
         writeFarmDriveJson(treeUri, userFolderId, "farm-management.json", management);
         JSONObject response = new JSONObject(); response.put("ok", true); response.put("userId", userId);
         response.put("path", "/db/userdata/" + userId); response.put("scopeCount", scopes.size());
@@ -3510,7 +3514,7 @@ public class MainActivity extends Activity {
                     try { response.put("ok", false); response.put("userId", farmDataUserId("default-user"));
                         response.put("records", new JSONArray()); response.put("deletedIds", new JSONArray());
                         response.put("irrigationSchedules", new JSONArray()); response.put("maintenanceTasks", new JSONArray());
-                        response.put("managementDeletedIds", new JSONArray());
+                        response.put("managementDeletedIds", new JSONArray()); response.put("customCrops", new JSONArray());
                         response.put("message", error.getMessage() == null ? "Could not read the farm database from Google Drive" : error.getMessage()); }
                     catch (Exception ignored) { }
                     notifyFarmPlantingsLoaded(response);
