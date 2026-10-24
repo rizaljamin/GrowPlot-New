@@ -2,8 +2,15 @@ const fs = require('node:fs');
 const assert = require('node:assert/strict');
 
 const java = fs.readFileSync('app/src/main/java/com/growplot/farm/MainActivity.java', 'utf8');
-assert.match(java, /private boolean snapshotFeedCanCapture\(int camera\)[\s\S]*?frame\.getVisibility\(\) == View\.VISIBLE[\s\S]*?player\.isPlaying\(\)/,
-  'capture readiness is tied to an active, visible, playing feed');
+const html = fs.readFileSync('app/src/main/assets/index.html', 'utf8');
+assert.match(java, /private boolean snapshotFeedCanCapture\(int camera\)[\s\S]*?frame\.getVisibility\(\) == View\.VISIBLE[\s\S]*?cctvPlaybackActive\[camera - 1\]/,
+  'capture readiness is tied to an active, visible feed reported by VLC events');
+assert.match(java, /private void updateCctvPlaybackFromEvent[\s\S]*?Event\.Playing[\s\S]*?Event\.EncounteredError/,
+  'VLC playback events update the cached stream state');
+assert.doesNotMatch(java, /isIpWebcamFrameAvailable|player\.isPlaying\(\)/,
+  'status and snapshot checks do not poll the player or open a duplicate MJPEG probe');
+assert.doesNotMatch(html, /ipWebcamStreamUrl|\/videofeed/,
+  'the WebView does not open a second live MJPEG connection');
 assert.match(java, /private long nextSnapshotCheckDelay\(int camera\)[\s\S]*?if \(!snapshotFeedCanCapture\(camera\)\) return 30_000L;[\s\S]*?if \(!isFeedFolderReady\(plotId\)\) return 60_000L;[\s\S]*?remaining<=0 \? 5000L : remaining;/,
   'inactive feed and missing folder retry, overdue captures are attempted promptly, and future captures track last success');
 assert.match(java, /private final Runnable cctv01SnapshotTicker[\s\S]*?checkIpWebcamBeforeSnapshot\(1\);[\s\S]*?postDelayed\(this, nextSnapshotCheckDelay\(1\)\)/,

@@ -214,6 +214,7 @@ public class MainActivity extends Activity {
     private boolean cctv03CredentialCheckInProgress;
     private boolean cctv03CredentialsRejected;
     private boolean activityResumed;
+    private final boolean[] cctvPlaybackActive = new boolean[3];
     private volatile long cctvSnapshotIntervalMillis = 900_000L;
     private final Runnable cctv01SnapshotTicker = new Runnable() {
         @Override public void run() {
@@ -981,23 +982,45 @@ public class MainActivity extends Activity {
         } catch (Exception ignored) { }
     }
 
-    // Blink red when inactive and green only while the VLC player reports playback.
+    // Status changes come from VLC events; the WebView no longer polls player state.
     private final TextView[] cctvStatusDots = new TextView[3];
-    private final Runnable cctvStatusRefresh = new Runnable() {
-        @Override public void run() {
-            org.videolan.libvlc.MediaPlayer[] players = {ipWebcamVlcPlayer, ipWebcam2VlcPlayer, ipWebcam3VlcPlayer};
-            for (int i = 0; i < players.length; i++) {
-                TextView dot = cctvStatusDots[i];
-                if (dot == null) continue;
-                boolean playing = false;
-                try { playing = players[i] != null && players[i].isPlaying(); }
-                catch (Exception ignored) { }
-                dot.setTextColor(playing ? Color.GREEN : ((System.currentTimeMillis() / 500L) % 2 == 0 ? Color.RED : Color.TRANSPARENT));
-                dot.setContentDescription("CCTV " + (i + 1) + (playing ? " active" : " inactive"));
+    private void renderCctvStatus(int camera) {
+        if (camera < 1 || camera > cctvStatusDots.length) return;
+        TextView dot = cctvStatusDots[camera - 1];
+        if (dot == null) return;
+        boolean active = cctvPlaybackActive[camera - 1];
+        dot.setTextColor(active ? Color.GREEN : Color.RED);
+        dot.setContentDescription("CCTV " + camera + (active ? " active" : " inactive"));
+    }
+
+    private void setCctvPlaybackActive(int camera, boolean active) {
+        if (camera < 1 || camera > cctvPlaybackActive.length) return;
+        mainHandler.post(() -> {
+            cctvPlaybackActive[camera - 1] = active;
+            renderCctvStatus(camera);
+            if (active) {
+                Runnable ticker = camera == 1 ? cctv01SnapshotTicker
+                        : camera == 2 ? cctv02SnapshotTicker : cctv03SnapshotTicker;
+                mainHandler.removeCallbacks(ticker);
+                mainHandler.postDelayed(ticker, nextSnapshotCheckDelay(camera));
             }
-            mainHandler.postDelayed(this, 1000);
+        });
+    }
+
+    private void updateCctvPlaybackFromEvent(org.videolan.libvlc.MediaPlayer.Event event, int camera,
+                                               org.videolan.libvlc.MediaPlayer sourcePlayer) {
+        org.videolan.libvlc.MediaPlayer currentPlayer = camera == 1 ? ipWebcamVlcPlayer
+                : camera == 2 ? ipWebcam2VlcPlayer : ipWebcam3VlcPlayer;
+        if (sourcePlayer != currentPlayer) return;
+        if (event.type == org.videolan.libvlc.MediaPlayer.Event.Playing) {
+            setCctvPlaybackActive(camera, true);
+        } else if (event.type == org.videolan.libvlc.MediaPlayer.Event.Paused
+                || event.type == org.videolan.libvlc.MediaPlayer.Event.Stopped
+                || event.type == org.videolan.libvlc.MediaPlayer.Event.EndReached
+                || event.type == org.videolan.libvlc.MediaPlayer.Event.EncounteredError) {
+            setCctvPlaybackActive(camera, false);
         }
-    };
+    }
 
     private void installCctvStatusDot(FrameLayout frame, int camera) {
         TextView dot = new TextView(this);
@@ -1016,8 +1039,7 @@ public class MainActivity extends Activity {
         blink.setRepeatCount(android.view.animation.Animation.INFINITE);
         dot.startAnimation(blink);
         cctvStatusDots[camera - 1] = dot;
-        mainHandler.removeCallbacks(cctvStatusRefresh);
-        mainHandler.post(cctvStatusRefresh);
+        renderCctvStatus(camera);
     }
 
     private void startIpWebcamVlc(VLCVideoLayout videoLayout) {
@@ -1036,6 +1058,7 @@ public class MainActivity extends Activity {
             // IP Webcam MJPEG: reconnect on VLC playback failure rather than leaving a black frame.
             final org.videolan.libvlc.MediaPlayer sessionPlayer = ipWebcamVlcPlayer;
             sessionPlayer.setEventListener(event -> {
+                updateCctvPlaybackFromEvent(event, 1, sessionPlayer);
                 if (event.type == org.videolan.libvlc.MediaPlayer.Event.EncounteredError) {
                     mainHandler.postDelayed(() -> {
                         if (!isFinishing() && activityResumed && ipWebcamVlcPlayer == sessionPlayer
@@ -1246,6 +1269,7 @@ public class MainActivity extends Activity {
             // IP Webcam MJPEG: reconnect on VLC playback failure rather than leaving a black frame.
             final org.videolan.libvlc.MediaPlayer sessionPlayer = ipWebcam2VlcPlayer;
             sessionPlayer.setEventListener(event -> {
+                updateCctvPlaybackFromEvent(event, 2, sessionPlayer);
                 if (event.type == org.videolan.libvlc.MediaPlayer.Event.EncounteredError) {
                     mainHandler.postDelayed(() -> {
                         if (!isFinishing() && activityResumed && ipWebcam2VlcPlayer == sessionPlayer
@@ -1313,6 +1337,7 @@ public class MainActivity extends Activity {
 
     private void stopCctv02Vlc() {
         mainHandler.removeCallbacks(cctv02SnapshotTicker);
+        setCctvPlaybackActive(2, false);
         if (ipWebcam2VlcPlayer != null) {
             try { ipWebcam2VlcPlayer.stop(); } catch (Exception ignored) { }
             try { ipWebcam2VlcPlayer.detachViews(); } catch (Exception ignored) { }
@@ -1353,6 +1378,8 @@ public class MainActivity extends Activity {
                 ipWebcam3Vlc = new LibVLC(this, options);
                 ipWebcam3VlcPlayer = new org.videolan.libvlc.MediaPlayer(ipWebcam3Vlc);
                 ipWebcam3VlcPlayer.attachViews(videoLayout, null, true, false);
+                final org.videolan.libvlc.MediaPlayer sessionPlayer = ipWebcam3VlcPlayer;
+                sessionPlayer.setEventListener(event -> updateCctvPlaybackFromEvent(event, 3, sessionPlayer));
                 Media media = new Media(ipWebcam3Vlc, Uri.parse(route));
                 media.addOption(":network-caching=350");
                 ipWebcam3VlcPlayer.setMedia(media); media.release(); ipWebcam3VlcPlayer.play();
@@ -1384,6 +1411,7 @@ public class MainActivity extends Activity {
             ipWebcam3VlcPlayer.attachViews(videoLayout, null, true, false);
             final org.videolan.libvlc.MediaPlayer sessionPlayer = ipWebcam3VlcPlayer;
             sessionPlayer.setEventListener(event -> {
+                updateCctvPlaybackFromEvent(event, 3, sessionPlayer);
                 if (event.type == org.videolan.libvlc.MediaPlayer.Event.EncounteredError) {
                     mainHandler.post(() -> checkCctv03RejectedCredentials(sessionPlayer, ip, credentials));
                 }
@@ -1551,6 +1579,7 @@ public class MainActivity extends Activity {
 
     private void stopCctv03Vlc() {
         mainHandler.removeCallbacks(cctv03SnapshotTicker);
+        setCctvPlaybackActive(3, false);
         if (ipWebcam3VlcPlayer != null) {
             try { ipWebcam3VlcPlayer.stop(); } catch (Exception ignored) { }
             try { ipWebcam3VlcPlayer.detachViews(); } catch (Exception ignored) { }
@@ -1588,6 +1617,7 @@ public class MainActivity extends Activity {
 
     private void stopIpWebcamVlc() {
         mainHandler.removeCallbacks(cctv01SnapshotTicker);
+        setCctvPlaybackActive(1, false);
         if (ipWebcamVlcPlayer != null) {
             try { ipWebcamVlcPlayer.stop(); } catch (Exception ignored) { }
             try { ipWebcamVlcPlayer.detachViews(); } catch (Exception ignored) { }
@@ -1618,10 +1648,10 @@ public class MainActivity extends Activity {
     }
     private boolean snapshotFeedCanCapture(int camera) {
         FrameLayout frame = camera == 1 ? ipWebcamVlcFrame : camera == 2 ? ipWebcam2VlcFrame : ipWebcam3VlcFrame;
-        org.videolan.libvlc.MediaPlayer player = camera == 1 ? ipWebcamVlcPlayer
-                : camera == 2 ? ipWebcam2VlcPlayer : ipWebcam3VlcPlayer;
+        boolean playerReady = camera == 1 ? ipWebcamVlcPlayer != null
+                : camera == 2 ? ipWebcam2VlcPlayer != null : ipWebcam3VlcPlayer != null;
         return activityResumed && cctvVlcFeedsAllowedOnActiveScreen && frame != null
-                && frame.getVisibility() == View.VISIBLE && player != null && player.isPlaying();
+                && frame.getVisibility() == View.VISIBLE && playerReady && cctvPlaybackActive[camera - 1];
     }
 
     private long nextSnapshotCheckDelay(int camera) {
@@ -1642,9 +1672,8 @@ public class MainActivity extends Activity {
                 ? ipWebcamVlcPlayer != null && ipWebcamVlcLayout != null && ipWebcamVlcFrame != null && ipWebcamVlcFrame.getVisibility() == View.VISIBLE
                 : camera == 2 ? ipWebcam2VlcPlayer != null && ipWebcam2VlcLayout != null && ipWebcam2VlcFrame != null && ipWebcam2VlcFrame.getVisibility() == View.VISIBLE
                 : ipWebcam3VlcPlayer != null && ipWebcam3VlcLayout != null && ipWebcam3VlcFrame != null && ipWebcam3VlcFrame.getVisibility() == View.VISIBLE;
-        org.videolan.libvlc.MediaPlayer player = camera == 1 ? ipWebcamVlcPlayer
-                : camera == 2 ? ipWebcam2VlcPlayer : ipWebcam3VlcPlayer;
-        if (!activityResumed || !ready || !cctvVlcFeedsAllowedOnActiveScreen || !player.isPlaying() || !snapshotDue(camera)) return;
+        if (!activityResumed || !ready || !cctvVlcFeedsAllowedOnActiveScreen
+                || !cctvPlaybackActive[camera - 1] || !snapshotDue(camera)) return;
         String activePlot = safePlotId(getPrefs().getString(PREF_ACTIVE_PLOT_ID, DEFAULT_PLOT_ID));
         if (!isFeedFolderReady(activePlot)) {
             String warningKey = "feed_folder_not_ready_" + activePlot + "_" + camera;
@@ -1655,66 +1684,9 @@ public class MainActivity extends Activity {
             }
             return;
         }
-        // RTSP is already decoded by VLC. Do not probe it as an HTTP MJPEG feed.
-        String streamUrl = cctvStreamUrl(camera);
-        boolean rtsp = streamUrl.regionMatches(true, 0, "rtsp://", 0, 7)
-                || streamUrl.regionMatches(true, 0, "rtsps://", 0, 8);
-        if (rtsp || camera == 3) {
-            captureCctvVlcFrame(camera);
-            return;
-        }
-        try {
-            cctvSnapshotWorker.execute(() -> {
-                boolean available = isIpWebcamFrameAvailable(camera);
-                runOnUiThread(() -> {
-                    if (!activityResumed || isFinishing()) return;
-                    if (available) {
-                        captureCctvVlcFrame(camera);
-                    } else {
-                        notifyFeedCaptureStatus("IP Webcam for CCTV" + String.format(Locale.US, "%02d", camera) + " is unavailable; snapshot skipped.");
-                    }
-                });
-            });
-        } catch (Exception ignored) { }
-    }
-
-    private boolean isIpWebcamFrameAvailable(int camera) {
-        HttpURLConnection connection = null;
-        try {
-            String streamUrl = cctvStreamUrl(camera);
-            if (streamUrl.isEmpty()) return false;
-            connection = (HttpURLConnection) new URL(streamUrl).openConnection();
-            connection.setRequestMethod("GET");
-            connection.setRequestProperty("Accept", "multipart/x-mixed-replace, image/jpeg");
-            connection.setConnectTimeout(2500);
-            connection.setReadTimeout(2500);
-            connection.setUseCaches(false);
-            connection.setInstanceFollowRedirects(false);
-            if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) return false;
-
-            // A live MJPEG response can return HTTP 200 while the camera has stopped
-            // producing frames. Require the start of a JPEG frame before capturing VLC.
-            try (InputStream stream = connection.getInputStream()) {
-                int previous = -1;
-                int scanned = 0;
-                byte[] buffer = new byte[2048];
-                while (scanned < 16 * 1024) {
-                    int count = stream.read(buffer, 0, Math.min(buffer.length, 16 * 1024 - scanned));
-                    if (count <= 0) return false;
-                    for (int i = 0; i < count; i++) {
-                        int current = buffer[i] & 0xFF;
-                        if (previous == 0xFF && current == 0xD8) return true;
-                        previous = current;
-                    }
-                    scanned += count;
-                }
-            }
-        } catch (Exception ignored) {
-            return false;
-        } finally {
-            if (connection != null) connection.disconnect();
-        }
-        return false;
+        // VLC already owns the live stream. Capture from its decoded output rather
+        // than opening a second MJPEG connection that can compete with playback.
+        captureCctvVlcFrame(camera);
     }
 
 
@@ -1723,10 +1695,8 @@ public class MainActivity extends Activity {
                 ? ipWebcamVlcPlayer != null && ipWebcamVlcLayout != null && ipWebcamVlcFrame != null && ipWebcamVlcFrame.getVisibility() == View.VISIBLE
                 : camera == 2 ? ipWebcam2VlcPlayer != null && ipWebcam2VlcLayout != null && ipWebcam2VlcFrame != null && ipWebcam2VlcFrame.getVisibility() == View.VISIBLE
                 : ipWebcam3VlcPlayer != null && ipWebcam3VlcLayout != null && ipWebcam3VlcFrame != null && ipWebcam3VlcFrame.getVisibility() == View.VISIBLE;
-        org.videolan.libvlc.MediaPlayer player = camera == 1 ? ipWebcamVlcPlayer
-                : camera == 2 ? ipWebcam2VlcPlayer : ipWebcam3VlcPlayer;
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N || !activityResumed || !ready
-                || !cctvVlcFeedsAllowedOnActiveScreen || !player.isPlaying()) return;
+                || !cctvVlcFeedsAllowedOnActiveScreen || !cctvPlaybackActive[camera - 1]) return;
         final String capturePlotId = safePlotId(getPrefs().getString(PREF_ACTIVE_PLOT_ID, DEFAULT_PLOT_ID));
         VLCVideoLayout layout = camera == 1 ? ipWebcamVlcLayout : camera == 2 ? ipWebcam2VlcLayout : ipWebcam3VlcLayout;
         SurfaceView surface = findVlcSurfaceView(layout);
@@ -5577,6 +5547,22 @@ public class MainActivity extends Activity {
             while ((read = input.read(buffer)) != -1) output.write(buffer, 0, read);
             String html = output.toString(StandardCharsets.UTF_8.name())
                     .replace("{{GROWPLOT_VERSION}}", "v" + BuildConfig.VERSION_NAME);
+            // Inline curated crop profiles because loadDataWithBaseURL does not serve ordinary
+            // Android assets at relative URLs. This keeps Add Crop guides available offline.
+            try (InputStream cropGuidesInput = getAssets().open("farm-crop-guides.js");
+                 ByteArrayOutputStream cropGuidesOutput = new ByteArrayOutputStream()) {
+                byte[] cropGuideBuffer = new byte[8192];
+                int cropGuideRead;
+                while ((cropGuideRead = cropGuidesInput.read(cropGuideBuffer)) != -1) {
+                    cropGuidesOutput.write(cropGuideBuffer, 0, cropGuideRead);
+                }
+                String cropGuidesScript = cropGuidesOutput.toString(StandardCharsets.UTF_8.name());
+                String externalCropGuidesTag = "<script src=\"farm-crop-guides.js\"></script>";
+                if (!html.contains(externalCropGuidesTag)) {
+                    throw new IllegalStateException("Dashboard HTML is missing the crop-guide script tag");
+                }
+                html = html.replace(externalCropGuidesTag, "<script>" + cropGuidesScript + "</script>");
+            }
             // Inline the packaged CV engine so WebView never needs to fetch leaf-cv.js.
             try (InputStream cvInput = getAssets().open("leaf-cv.js");
                  ByteArrayOutputStream cvOutput = new ByteArrayOutputStream()) {

@@ -1,12 +1,14 @@
-# GrowPlot — v0.7.02 Build 04
+# GrowPlot — v0.7.02 Build 07
 
 GrowPlot is an Android farm-management application with CCTV monitoring, Google Drive image feeds, A.I Plant Health, diagnosis workflows and plot management.
 
-**Current source version:** v0.7.02 Build 04 (`versionCode=269`, Android package `com.growplot.farm`). Historical Price now filters by the selected calendar date and shows crop and price columns only. The curated crop guide JavaScript syntax is fixed so turmeric / kunyit and ginger / halia details and credited sample photos load. GitHub ARM64 build and verification pending.
+**Current source version:** v0.7.02 Build 07 (`versionCode=272`, Android package `com.growplot.farm`). Home camera cards place the Malay and scientific plant names first, then show crop-planning dates and status plus the latest OpenCV, Vertex, and Pl@ntNet summaries. Historical Price filters by the selected calendar date. Add Crop includes curated turmeric / kunyit and ginger / halia guides. GitHub Actions ARM64 run #543 passed compilation, package verification, and stable signing. Android tablet performance verification remains pending.
 
 ## Live CCTV snapshot capture
 
 For each visible, playing live camera, GrowPlot attempts a snapshot when its configured interval has elapsed since that camera's last successful Drive save. Overdue snapshots are attempted shortly after the feed becomes available. Hidden feeds retry visibility checks every 30 seconds; an unconnected folder is rechecked every 60 seconds. The app must remain foregrounded with Home and the live camera visible.
+
+The native VLC player is the only live stream connection. The WebView card displays the latest saved snapshot, while VLC playback events update camera status and scheduled snapshots are copied from the decoded player output. This avoids opening a second MJPEG connection for the same camera or polling playback state every second. Playback events confirm that VLC reports the stream as playing; they do not prove that the camera image is fresh.
 
 ## Confirmed species on home
 

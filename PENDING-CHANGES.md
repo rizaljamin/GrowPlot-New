@@ -1,8 +1,19 @@
-## Pending — Historical Price table and crop-guide loading
+## Completed — Build 04 Marketplace table
 
 - Hide the date column and remove the all-dates view; the calendar picker selects the date, defaulting to the latest available report.
-- Fix the extra comma in the curated crop-guide asset that prevented its JavaScript from loading, so turmeric / kunyit and ginger / halia populate their details and credited photos.
-- Build and tablet verification pending.
+- GitHub Actions run 40073242925 passed the ARM64 build, manifest/package checks, and stable signing. The Add Crop guide still did not load in the Android WebView; Build 05 inlines the asset into the page.
+
+## Pending — crop and diagnosis dashboard summary
+
+- Replace the “Latest vs previous frame” card with a crop summary scoped to the current plot, greenhouse, and camera section. Show the Malay and scientific plant names first, followed by crop name, seedling-ready date, field planting date, and crop status from Crop Planning.
+- Show the latest saved diagnosis in three channels: OpenCV, Vertex, and Pl@ntNet; refresh the summary when planting records or diagnosis results update.
+- ARM64 build and Android device verification pending.
+
+## Completed — Build 05 crop guide loading
+
+- Inline curated crop data into Android's WebView page so it does not rely on fetching a relative asset URL.
+- Backfill saved crops that match curated guides with missing scientific names, maturity ranges, sources, and credited sample photos. Add a credited lemongrass / serai sample photo.
+- GitHub Actions run 40074366819 passed the ARM64 build, regression suite, manifest checks, and stable signing. APK SHA-256: `e55d78fe0a39ec697d777438a1d4fea6575717b815cf5693a88a0047e88cf7f6`. [Build artifact](https://github.com/rizaljamin/GrowPlot-New/actions/runs/40074366819/artifacts/12552408485). Device verification pending.
 
 ## Completed — curated common-crop profiles (Build 03)
 

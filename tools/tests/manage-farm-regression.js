@@ -126,6 +126,7 @@ const farmContext = {
   plots: [{ id: 'plot-1', name: 'Plot 1' }],
   farmEscape: (value) => String(value ?? ''), plotLabel: (plot) => plot.name,
   farmScopeMatches: () => true, farmScopeFilterMarkup: () => '',
+  farmHydrateCustomCropGuides: () => {},
   farmDateLabel: (value) => String(value || '—'), farmExpectedDate: () => null, farmHarvestStart: () => null,
   saveFarmPlanting: () => {}, farmAction: () => {},
   farmAddCropPopupMarkup: () => '<div id="farmAddCropPopup"></div>',
