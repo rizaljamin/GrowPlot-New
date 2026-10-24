@@ -1,8 +1,8 @@
-# GrowPlot — v0.7.02 Build 03
+# GrowPlot — v0.7.02 Build 04
 
 GrowPlot is an Android farm-management application with CCTV monitoring, Google Drive image feeds, A.I Plant Health, diagnosis workflows and plot management.
 
-**Current source version:** v0.7.02 Build 03 (`versionCode=268`, Android package `com.growplot.farm`). Add Crop now includes curated turmeric / kunyit and ginger / halia profiles, credited sample photos, maturity windows, and planting and harvest details. GitHub Actions run 40072343906 passed ARM64 build, package checks, regression checks, and stable signing. APK SHA-256: `55ce84fb5240334296a19ff8935bacb529b1ebcca5abd7df910a9124999e62c8`. [Build artifact](https://github.com/rizaljamin/GrowPlot-New/actions/runs/40072343906/artifacts/12552106169). Tablet verification is pending. Pl@ntNet and YOLO are unavailable in this APK because their credentials are not configured.
+**Current source version:** v0.7.02 Build 04 (`versionCode=269`, Android package `com.growplot.farm`). Historical Price now filters by the selected calendar date and shows crop and price columns only. The curated crop guide JavaScript syntax is fixed so turmeric / kunyit and ginger / halia details and credited sample photos load. GitHub ARM64 build and verification pending.
 
 ## Live CCTV snapshot capture
 

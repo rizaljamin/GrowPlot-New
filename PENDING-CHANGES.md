@@ -1,3 +1,9 @@
+## Pending — Historical Price table and crop-guide loading
+
+- Hide the date column and remove the all-dates view; the calendar picker selects the date, defaulting to the latest available report.
+- Fix the extra comma in the curated crop-guide asset that prevented its JavaScript from loading, so turmeric / kunyit and ginger / halia populate their details and credited photos.
+- Build and tablet verification pending.
+
 ## Completed — curated common-crop profiles (Build 03)
 
 - Add direct crop guides for turmeric / kunyit and ginger / halia, with scientific names, source-linked maturity ranges, planting and harvest details, and credited photos.
