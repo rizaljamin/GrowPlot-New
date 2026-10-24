@@ -1,3 +1,9 @@
+## Pending — curated common-crop profiles
+
+- Add direct crop guides for turmeric / kunyit and improve ginger / halia aliases, including scientific name, harvest window, planting material, harvest part, source note, and credited sample photos.
+- Clear previous lookup fields and photos when the common name changes so details from another crop cannot be added accidentally.
+- Build and device photo-loading checks are pending; release version remains v0.7.02 Build 02 until the next bundled enhancement release.
+
 ## Build 29 — Save diagnosis photos with Firebase history
 - Copy new diagnosis photos and Drive-cached diagnosis photos to the signed-in user's Firebase Storage area.
 - Store photo references with the diagnosis-history Firestore record and display linked photos when a record is selected.
