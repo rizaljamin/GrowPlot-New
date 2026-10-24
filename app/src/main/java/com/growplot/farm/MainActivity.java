@@ -3073,7 +3073,7 @@ public class MainActivity extends Activity {
                         .addOnFailureListener(error -> sendDiagnosisPhotoCloudSaved(camera, plotId, fileName, path, "", false,
                                 "Photo uploaded, but Firebase did not return its download URL.")))
                 .addOnFailureListener(error -> sendDiagnosisPhotoCloudSaved(camera, plotId, fileName, path, "", false,
-                        "Firebase photo upload failed: " + diagnosisCloudError(error)));
+                        "Firebase photo upload failed: " + safeErrorMessage(error)));
     }
 
     private void updateDiagnosisMediaFirebaseInfo(int camera, String plotId, String fileName, String path, String url, String status) {
