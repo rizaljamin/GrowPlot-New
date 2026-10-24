@@ -1,3 +1,7 @@
+2026-10-24 | v0.7.01 Build 22 | versionCode 257 | com.growplot.farm
+Changes: Make all live CCTV snapshot timers due-aware. When a camera becomes visible and active, overdue captures are attempted promptly; a missed frame or Drive save is retried without waiting another full snapshot interval. Hidden feed and missing-folder checks back off while the app remains foregrounded. The next interval is measured from a successful save.
+Validation: CCTV snapshot scheduler regression, full ARM64 build gate, signing, package/version, alignment and artifact checks pending. Tablet camera and Google Drive upload verification pending.
+
 2026-10-23 | v0.7.01 Build 19 | versionCode 254 | com.growplot.farm
 Changes: Google Drive authorization is pinned to the signed-in GrowPlot account and the returned Drive account is verified before folder browsing. The suggested default is now that user's Projects/GrowPlot/Image_Feed/<email>/<plot> folder, placed first and selected, while other accessible folders remain selectable. Stale paths saved for another GrowPlot account are no longer shown as this user's feed path.
 Validation: GitHub Actions ARM64 run #487 passed regression, package/version and signing checks and uploaded the APK. SHA-256: `32c3e20a3b86885a3ade5468e0bba4f8e90349f3f43719053dd1203cc93090e2`. Stable signing matched. Source commit: `10949722899d7ddcfbae0ea88402ce8ffa7765ec`. Google Drive authorization, listing, scan, and upload still require verification on the Android tablet.
