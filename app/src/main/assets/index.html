@@ -376,7 +376,7 @@ function marketShortlistKey(){return 'growplotMarketShortlist:'+selectedPlotId}
 function marketBuyerKey(){return 'growplotMarketBuyers:'+selectedPlotId}
 function marketReadArray(key){try{const value=JSON.parse(localStorage.getItem(key)||'[]');return Array.isArray(value)?value:[]}catch(e){return []}}
 function marketShortlist(){let list=marketReadArray(marketShortlistKey()).filter(id=>farmCropCatalog.some(c=>c.id===id));if(!list.length){const planted=[...new Set(farmPlantings.filter(p=>String(p.plotId||'')===String(selectedPlotId)).map(p=>p.cropId).filter(id=>farmCropCatalog.some(c=>c.id===id)))];list=planted.length?planted:farmCropCatalog.map(c=>c.id);try{localStorage.setItem(marketShortlistKey(),JSON.stringify(list))}catch(e){}}return list}
-function marketSwitchTab(tab){marketActiveTab=tab==='buyers'?'buyers':'prices';renderMarketplace()}
+function marketSwitchTab(tab){marketActiveTab=tab==='buyers'?'buyers':'prices';if(marketActiveTab==='prices'){marketSelectedDate='';marketShowAllDates=false}renderMarketplace()}
 function marketAddCrop(){const select=document.getElementById('marketAddCropSelect'),id=select&&select.value;if(!id)return;const list=marketShortlist();if(!list.includes(id))list.push(id);try{localStorage.setItem(marketShortlistKey(),JSON.stringify(list))}catch(e){}renderMarketplace()}
 function marketRemoveCrop(id){const list=marketShortlist().filter(x=>x!==id);try{localStorage.setItem(marketShortlistKey(),JSON.stringify(list))}catch(e){}renderMarketplace()}
 function marketHistoryDateChanged(date){marketSelectedDate=date||'';marketShowAllDates=!marketSelectedDate;marketRenderHistoryTable()}
