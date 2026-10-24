@@ -2035,6 +2035,7 @@ public class MainActivity extends Activity {
         writeFarmDriveJson(treeUri, userFolderId, "farm-management.json", management);
         JSONObject response = new JSONObject(); response.put("ok", true); response.put("userId", userId);
         response.put("path", "/db/userdata/" + userId); response.put("scopeCount", scopes.size());
+        response.put("cropCount", customCrops.length());
         return response;
     }
 

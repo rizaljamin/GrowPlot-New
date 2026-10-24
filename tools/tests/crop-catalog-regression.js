@@ -12,4 +12,6 @@ assert.ok(html.includes("localStorage.setItem('growplotCustomCropCatalog_v1'")&&
 assert.ok(html.includes('Maturity timeframe not available')&&html.includes('harvest date estimates are disabled'),'unknown maturity is not fabricated and does not create a false harvest date');
 assert.ok(html.includes('Maturity reference URL')&&html.includes('Department of Agriculture Malaysia'),'crop maturity details retain their reference');
 assert.ok(java.includes('management.optJSONArray("customCrops")')&&java.includes('management.put("customCrops", customCrops)'),'Google Drive saves and recalls the custom crop catalog');
+assert.ok(java.includes('writeFarmDriveJson(treeUri, userFolderId, "farm-management.json", management)')&&java.includes('response.put("cropCount", customCrops.length())'),'crop catalog saves with farm data in the Google Drive database');
+assert.ok(html.includes('syncFarmPlantingsToDrive();const saved=document.getElementById(\'farmSaveStatus\')'),'adding a crop immediately syncs the shared Drive database');
 console.log('Manage Farm add-crop and crop-catalog persistence regression checks passed.');
