@@ -1,6 +1,6 @@
 2026-10-24 | v0.7.02 Build 02 | versionCode 267 | com.growplot.farm
 Changes: Add custom crop creation beside the Crop Planning selector. Common-name lookup fills scientific taxonomy and sample photos; curated Malaysian crop guidance supplies sourced maturity ranges, including lemongrass at 180–240 days. Save custom crops locally and to Google Drive. Add a calendar date filter to Marketplace Historical Price, defaulting to the latest report date.
-Validation: Crop catalog and Marketplace regression checks passed; inline app JavaScript syntax passed. ARM64 build and tablet verification pending.
+Validation: GitHub Actions run #531 passed regression checks, ARM64 compilation, manifest/package verification, and stable signing. APK SHA-256: a804b0e3bded2140313318888bc78ea589ecb4194c9f88a6eea0ef88079e6f2e. Source commit: 4ac292613675b66fa4a8d8cc8e995951c5487a0f. Tablet verification pending. [APK artifact](https://github.com/rizaljamin/GrowPlot-New/actions/runs/40069874129/artifacts/12549854660).
 
 2026-10-24 | v0.7.01 Build 29 | versionCode 264 | com.growplot.farm
 Changes: Copy diagnosis photos to Firebase Storage under the signed-in user's path and attach their download references to diagnosis history in Firestore. Existing Google Drive diagnosis media remains supported. Storage rules restrict access to the owning user and accept image files under 20 MB.
