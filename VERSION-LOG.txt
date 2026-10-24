@@ -1,6 +1,6 @@
 2026-10-24 | v0.7.01 Build 25 | versionCode 260 | com.growplot.farm
 Changes: Trigger the encrypted Pl@ntNet key for species identification and disease analysis when Run diagnosis is tapped. Decouple the provider request from Vertex authentication and avoid a duplicate Vertex call. Group the separate Kindwise plant.id and crop.health key fields under one heading with one Kindwise account link.
-Validation: Pl@ntNet key-flow, Kindwise settings, OpenCV/Vertex, and full ARM64 package checks pending. Real API-key validation and tablet test pending.
+Validation: GitHub Actions run #516 passed provider/settings regressions, ARM64 compilation, package/version/alignment verification and artifact upload. Stable signing and Firebase OAuth signer checks passed. APK SHA-256: `1b6539640ab61fc5391f97ca5231225681b878a9f9416176f221c2087df4f4c7`. Source commit: `310fb76c8bc03ca1e933b61c8ff5c2fbb6c2af43`. Tablet provider response, saved-key validity, and diagnosis UI still need on-device verification. APK artifact: https://github.com/rizaljamin/GrowPlot-New/actions/runs/40058909549/artifacts/12547040601
 
 2026-10-24 | v0.7.01 Build 24 | versionCode 259 | com.growplot.farm
 Changes: In addition to restoring confirmed species per plot and camera, show the latest saved diagnosis species candidate on the corresponding home card when no confirmed identity exists. Label the candidate as not confirmed. Includes due-aware CCTV snapshot retries.

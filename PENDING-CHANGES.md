@@ -1,9 +1,9 @@
-## Build 25 — connect Pl@ntNet analysis and simplify Kindwise settings
+## Completed — Build 25 connect Pl@ntNet analysis and simplify Kindwise settings
 - Start Pl@ntNet species and disease analysis when Run diagnosis is tapped, reading the encrypted API key from Settings.
 - Keep Pl@ntNet provider requests independent from Vertex OAuth and avoid a duplicate Vertex call.
 - Group Kindwise plant.id and crop.health keys under one heading and one account link while preserving distinct key fields.
 - Add key-flow and settings regressions to the build gate.
-- ARM64 build, API-key validation, and tablet verification pending.
+- GitHub Actions run #516 passed provider/settings regressions, ARM64 build, stable signing, package/version/alignment checks, and artifact upload. APK SHA-256: `1b6539640ab61fc5391f97ca5231225681b878a9f9416176f221c2087df4f4c7`; source commit: `310fb76c8bc03ca1e933b61c8ff5c2fbb6c2af43`. The saved user key and live provider response still require tablet verification. [Download the Build 25 ARM64 artifact](https://github.com/rizaljamin/GrowPlot-New/actions/runs/40058909549/artifacts/12547040601).
 
 ## Completed — Build 24 home species suggestions
 - When no confirmed identity is stored, show the latest species candidate saved by diagnosis for that plot and CCTV camera.
