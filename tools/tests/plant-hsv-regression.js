@@ -92,7 +92,7 @@ assert.match(html,/provider\?\.result\?\.classification\?\.suggestions/,'ranked 
 assert.match(html,/if\(!chosen\?\.confirmedAt\|\|chosen\?\.source==='plantnet_image'\)chosen=null/,'legacy Pl@ntNet-only confirmations must not remain marked as verified');
 assert.match(html,/Plant identity unverified · <i>Species not confirmed<\/i>/,'identity must remain explicitly unverified until a new candidate is selected');
 assert.match(html,/source:choice\.provider\|\|'user_manual'/,'candidate selection must retain provider or manual-selection provenance');
-assert.match(html,/Kindwise plant\.id API key/,'Plant.id must have a separate API key setting');
+assert.match(html,/Plant identification · plant\.id API key/,'Plant.id must have a separate API key setting');
 assert.match(html,/diagnosisVisualReviewShortlists=\{2:\[/,'the manually reviewed shortlist for the supplied CCTV02 photo must be present in the plant identity section');
 assert.match(html,/Ginger \/ Halia[\s\S]*?Zingiber officinale[\s\S]*?Galangal \/ Lengkuas[\s\S]*?Alpinia galanga[\s\S]*?Turmeric \/ Kunyit[\s\S]*?Curcuma longa/,'the visual-review shortlist must include ginger, galangal, and turmeric with scientific names');
 assert.match(html,/Visual review shortlist/,'manual visual candidates must be labeled as non-model suggestions');
