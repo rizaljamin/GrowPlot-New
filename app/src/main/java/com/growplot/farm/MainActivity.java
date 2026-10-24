@@ -5577,6 +5577,22 @@ public class MainActivity extends Activity {
             while ((read = input.read(buffer)) != -1) output.write(buffer, 0, read);
             String html = output.toString(StandardCharsets.UTF_8.name())
                     .replace("{{GROWPLOT_VERSION}}", "v" + BuildConfig.VERSION_NAME);
+            // Inline curated crop profiles because loadDataWithBaseURL does not serve ordinary
+            // Android assets at relative URLs. This keeps Add Crop guides available offline.
+            try (InputStream cropGuidesInput = getAssets().open("farm-crop-guides.js");
+                 ByteArrayOutputStream cropGuidesOutput = new ByteArrayOutputStream()) {
+                byte[] cropGuideBuffer = new byte[8192];
+                int cropGuideRead;
+                while ((cropGuideRead = cropGuidesInput.read(cropGuideBuffer)) != -1) {
+                    cropGuidesOutput.write(cropGuideBuffer, 0, cropGuideRead);
+                }
+                String cropGuidesScript = cropGuidesOutput.toString(StandardCharsets.UTF_8.name());
+                String externalCropGuidesTag = "<script src=\"farm-crop-guides.js\"></script>";
+                if (!html.contains(externalCropGuidesTag)) {
+                    throw new IllegalStateException("Dashboard HTML is missing the crop-guide script tag");
+                }
+                html = html.replace(externalCropGuidesTag, "<script>" + cropGuidesScript + "</script>");
+            }
             // Inline the packaged CV engine so WebView never needs to fetch leaf-cv.js.
             try (InputStream cvInput = getAssets().open("leaf-cv.js");
                  ByteArrayOutputStream cvOutput = new ByteArrayOutputStream()) {
