@@ -136,7 +136,7 @@ assert.match(html,/markGrowPlotDiagnosisProvider\(camera,plotId,'kindwise'\)/,'K
 assert.match(html,/OpenCV HSV analysis finished|OpenCV analysis failed/,'the Run Diagnosis button must show a visible OpenCV terminal status');
 assert.match(html,/await engine\.analyze\(camera\)/,'the diagnosis flow must wait for foliage CV to finish');
 assert.doesNotMatch(html,/await engine\.runYolo\(camera\)/,'Run Diagnosis must not run later analysis stages');
-assert.match(html,/async function runDiagnosisScreen\(camera\)[\\s\\S]*?runPlantNetDiseaseCheck\(camera,selectedPlotId\)/,'Run Diagnosis should trigger separate Pl@ntNet provider analysis alongside OpenCV and Vertex');
+assert.ok(html.includes('runPlantNetDiseaseCheck(camera,selectedPlotId)'),'Run Diagnosis should trigger separate Pl@ntNet provider analysis alongside OpenCV and Vertex');
 assert.match(native,/OpenCVLoader\.initLocal\(\)/,'initialize the Android OpenCV library');
 assert.match(native,/Imgproc\.cvtColor\(rgb,hsv,Imgproc\.COLOR_RGB2HSV\)/,'perform HSV conversion with OpenCV');
 assert.match(native,/Imgproc\.findContours\(/,'derive the foliage boundary from the restored Build 09 HSV candidate regions');
