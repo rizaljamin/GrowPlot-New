@@ -1,8 +1,13 @@
-## Build 22 — repair due live-camera snapshot retries
+## Build 23 — reflect diagnosis-confirmed species on the home screen
+- Restore the species confirmed for the selected plot and CCTV camera before rendering the home cards.
+- Reset to camera defaults when switching plots so one plot's species cannot appear on another.
+- Update the current home card immediately after confirmation and cover persistence/rendering with a focused regression.
+- Build and Android tablet verification pending.
+
+## Completed — Build 22 due live-camera snapshot retries
 - Measure each live camera's next capture from its last successful Drive save; attempt overdue captures shortly after feed visibility returns.
 - Retry due captures after PixelCopy or Drive failures; recheck disconnected folder access while GrowPlot remains open.
-- Back off while a camera is hidden and register a focused scheduler regression in the ARM64 build gate.
-- Build and Android tablet verification pending.
+- Build 22 ARM64 run #510 passed regression, build, stable signing, package/version, alignment and artifact upload. On-device camera and Drive behavior still need testing.
 
 ## Build 15 — retry directly shared Projects folder lookup
 - Preserve Build 14's shared-drive search and folder creation support.

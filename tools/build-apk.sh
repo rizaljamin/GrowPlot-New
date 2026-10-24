@@ -56,6 +56,7 @@ node "$ROOT/tools/tests/yolo-regression.js" || fail "YOLO integration regression
 node "$ROOT/tools/tests/vertex-opencv-regression.js" || fail "OpenCV and Vertex wiring regression check failed"
 node "$ROOT/tools/tests/feed-history-regression.js" || fail "Feed-history regression check failed"
 node "$ROOT/tools/tests/cctv-snapshot-scheduler-regression.js" || fail "CCTV snapshot scheduler regression check failed"
+node "$ROOT/tools/tests/confirmed-species-home-regression.js" || fail "Confirmed-species home-label regression check failed"
 node "$ROOT/tools/tests/timeline-persistence-regression.js" || fail "Timeline persistence regression check failed"
 
 cd "$ROOT"
