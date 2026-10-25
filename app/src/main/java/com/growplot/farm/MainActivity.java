@@ -1601,6 +1601,7 @@ public class MainActivity extends Activity {
     }
 
     private final java.util.Set<String> snapshotInFlight = java.util.Collections.synchronizedSet(new java.util.HashSet<>());
+    private final java.util.Set<String> snapshotDriveCheckInFlight = java.util.Collections.synchronizedSet(new java.util.HashSet<>());
 
     private String snapshotFlightKey(int camera,String plotId) {
         return safePlotId(plotId)+"|"+camera;
@@ -1644,7 +1645,8 @@ public class MainActivity extends Activity {
                 : ipWebcam3VlcPlayer != null && ipWebcam3VlcLayout != null && ipWebcam3VlcFrame != null && ipWebcam3VlcFrame.getVisibility() == View.VISIBLE;
         org.videolan.libvlc.MediaPlayer player = camera == 1 ? ipWebcamVlcPlayer
                 : camera == 2 ? ipWebcam2VlcPlayer : ipWebcam3VlcPlayer;
-        if (!activityResumed || !ready || !cctvVlcFeedsAllowedOnActiveScreen || !player.isPlaying() || !snapshotDue(camera)) return;
+        if (!activityResumed || !ready || !cctvVlcFeedsAllowedOnActiveScreen || player == null
+                || !player.isPlaying() || !snapshotDue(camera)) return;
         String activePlot = safePlotId(getPrefs().getString(PREF_ACTIVE_PLOT_ID, DEFAULT_PLOT_ID));
         if (!isFeedFolderReady(activePlot)) {
             String warningKey = "feed_folder_not_ready_" + activePlot + "_" + camera;
@@ -1655,6 +1657,122 @@ public class MainActivity extends Activity {
             }
             return;
         }
+        // Verify the saved Drive destination and its authorization before capturing a frame.
+        // This avoids treating a cached folder ID as proof that Drive is still reachable.
+        verifySnapshotDriveConnection(camera, activePlot);
+    }
+
+    private void verifySnapshotDriveConnection(int camera, String plotId) {
+        String flightKey = snapshotFlightKey(camera, plotId);
+        if (!snapshotDriveCheckInFlight.add(flightKey)) return;
+
+        String apiFolderId = driveApiFolderForSignedInUser(plotId);
+        if (apiFolderId != null && !apiFolderId.isEmpty()) {
+            String token = googleDriveAccessToken;
+            if (token == null || token.trim().isEmpty()
+                    || System.currentTimeMillis() - googleDriveTokenIssuedAt >= 45 * 60_000L) {
+                snapshotDriveCheckInFlight.remove(flightKey);
+                String savedName = getPrefs().getString(DRIVE_API_FOLDER_NAME_KEY_PREFIX + plotId, pickerDefaultFolderName);
+                if (!driveAuthorizationInProgress) {
+                    pendingDriveReconnectOnly = true;
+                    notifyFeedCaptureStatus("CCTV" + String.format(Locale.US, "%02d", camera)
+                            + " snapshot paused while Google Drive reconnects.");
+                    authorizeAndConnectDriveFeed(plotId, savedName);
+                }
+                return;
+            }
+
+            cctvSnapshotWorker.execute(() -> {
+                try {
+                    String path = "/drive/v3/files/" + URLEncoder.encode(apiFolderId, "UTF-8")
+                            + "?fields=id,mimeType,trashed&supportsAllDrives=true";
+                    JSONObject folder = driveApiJsonRequest("GET", path, null);
+                    if (!"application/vnd.google-apps.folder".equals(folder.optString("mimeType"))
+                            || folder.optBoolean("trashed", false)) {
+                        throw new IllegalStateException("The saved Google Drive destination is no longer an active folder. Reconnect it in Settings.");
+                    }
+                    getPrefs().edit().remove("snapshot_drive_error_" + plotId + "_" + camera).apply();
+                    mainHandler.post(() -> {
+                        snapshotDriveCheckInFlight.remove(flightKey);
+                        if (snapshotDue(camera) && activeSnapshotPlotMatches(plotId)) {
+                            captureSnapshotFromAvailableFeed(camera);
+                        }
+                    });
+                } catch (Exception error) {
+                    String message = error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage();
+                    mainHandler.post(() -> {
+                        snapshotDriveCheckInFlight.remove(flightKey);
+                        if (message.contains("Drive API HTTP 401")) {
+                            String savedName = getPrefs().getString(DRIVE_API_FOLDER_NAME_KEY_PREFIX + plotId, pickerDefaultFolderName);
+                            if (!driveAuthorizationInProgress) {
+                                pendingDriveReconnectOnly = true;
+                                notifyFeedCaptureStatus("CCTV" + String.format(Locale.US, "%02d", camera)
+                                        + " snapshot paused because Google Drive authorization expired; reconnecting.");
+                                authorizeAndConnectDriveFeed(plotId, savedName);
+                            }
+                            return;
+                        }
+                        String errorKey = "snapshot_drive_error_" + plotId + "_" + camera;
+                        String previous = getPrefs().getString(errorKey, "");
+                        if (!message.equals(previous)) {
+                            getPrefs().edit().putString(errorKey, message).apply();
+                            notifyFeedCaptureStatus("CCTV" + String.format(Locale.US, "%02d", camera)
+                                    + " snapshot paused: Google Drive connection check failed: " + message
+                                    + ". Reconnect the plot folder in Settings, then GrowPlot will retry.");
+                        }
+                    });
+                }
+            });
+            return;
+        }
+
+        // Legacy Android folder grants also need a live provider check; a persisted permission
+        // alone can outlive a moved, deleted, or revoked Drive folder.
+        cctvSnapshotWorker.execute(() -> {
+            try {
+                String treeText = getPrefs().getString(feedTreeKey(plotId), null);
+                String folderId = getPrefs().getString(feedFolderDocumentKey(plotId), null);
+                if (treeText == null || folderId == null) throw new IllegalStateException("The image-feed folder is not configured for this plot");
+                Uri treeUri = Uri.parse(treeText);
+                if (!hasPersistedReadWriteGrant(treeUri)) throw new IllegalStateException("Saved Google Drive folder access is unavailable; reconnect the feed in Settings");
+                Uri folderUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, folderId);
+                String[] columns = {DocumentsContract.Document.COLUMN_MIME_TYPE};
+                try (Cursor cursor = getContentResolver().query(folderUri, columns, null, null, null)) {
+                    if (cursor == null || !cursor.moveToFirst()
+                            || !DocumentsContract.Document.MIME_TYPE_DIR.equals(cursor.getString(0))) {
+                        throw new IllegalStateException("The saved Google Drive destination is not an accessible folder. Reconnect it in Settings.");
+                    }
+                }
+                getPrefs().edit().remove("snapshot_drive_error_" + plotId + "_" + camera).apply();
+                mainHandler.post(() -> {
+                    snapshotDriveCheckInFlight.remove(flightKey);
+                    if (snapshotDue(camera) && activeSnapshotPlotMatches(plotId)) {
+                        captureSnapshotFromAvailableFeed(camera);
+                    }
+                });
+            } catch (Exception error) {
+                String message = error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage();
+                mainHandler.post(() -> {
+                    snapshotDriveCheckInFlight.remove(flightKey);
+                    String errorKey = "snapshot_drive_error_" + plotId + "_" + camera;
+                    if (!message.equals(getPrefs().getString(errorKey, ""))) {
+                        getPrefs().edit().putString(errorKey, message).apply();
+                        notifyFeedCaptureStatus("CCTV" + String.format(Locale.US, "%02d", camera)
+                                + " snapshot paused: Google Drive connection check failed: " + message
+                                + ". Reconnect the plot folder in Settings, then GrowPlot will retry.");
+                    }
+                });
+            }
+        });
+    }
+
+    private boolean activeSnapshotPlotMatches(String plotId) {
+        return safePlotId(getPrefs().getString(PREF_ACTIVE_PLOT_ID, DEFAULT_PLOT_ID)).equals(safePlotId(plotId))
+                && activityResumed && cctvVlcFeedsAllowedOnActiveScreen;
+    }
+
+    private void captureSnapshotFromAvailableFeed(int camera) {
+        if (!snapshotDue(camera) || !snapshotFeedCanCapture(camera)) return;
         // RTSP is already decoded by VLC. Do not probe it as an HTTP MJPEG feed.
         String streamUrl = cctvStreamUrl(camera);
         boolean rtsp = streamUrl.regionMatches(true, 0, "rtsp://", 0, 7)
