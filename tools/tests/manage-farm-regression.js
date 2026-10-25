@@ -145,10 +145,12 @@ vm.runInContext(script.slice(farmStart, renderEnd), farmContext);
 vm.runInContext('renderManageFarm()', farmContext);
 assert.equal(farmRoot.hidden, false, 'opening Manage Farm reveals its content');
 assert.match(farmRoot.innerHTML, /Crop Planning/);
-assert.match(farmRoot.innerHTML, /Irrigation &amp; Fertiliser/);
+assert.doesNotMatch(farmRoot.innerHTML, /Irrigation &amp; Fertiliser/, 'irrigation and fertiliser no longer have a separate tab');
 assert.match(farmRoot.innerHTML, /Maintenance/);
 
-assert.match(script, /a\.scheduledDate\|\|a\.startDate/ , 'irrigation schedules sort by first scheduled date');
+assert.match(script, /function farmManagementRecords\(\)[\s\S]*?scheduledDate[\s\S]*?scheduledTime/, 'maintenance items sort by scheduled date and time');
+assert.match(script, /Waterings per day[\s\S]*?Once daily[\s\S]*?Twice daily[\s\S]*?Three times daily/, 'watering supports one to three times daily');
+assert.match(script, /function farmMigrateLegacyIrrigationSchedules\(\)[\s\S]*?legacyIrrigationId/, 'existing irrigation schedules migrate into maintenance records');
 const manifest = fs.readFileSync('app/src/main/AndroidManifest.xml', 'utf8');
 const java = fs.readFileSync('app/src/main/java/com/growplot/farm/MainActivity.java', 'utf8');
 assert.match(manifest, /android\.permission\.ACCESS_FINE_LOCATION/, 'GrowPlot declares foreground GPS access');
@@ -156,4 +158,4 @@ assert.match(manifest, /android\.permission\.ACCESS_COARSE_LOCATION/, 'GrowPlot 
 assert.doesNotMatch(manifest, /android\.permission\.ACCESS_BACKGROUND_LOCATION/, 'map use does not request unnecessary background location');
 assert.match(java, /googleMaps\.setPackage\("com\.google\.android\.apps\.maps"\)/, 'plot map links prefer the Google Maps app');
 assert.match(java, /catch \(Exception mapsUnavailable\)[\s\S]*?new Intent\(Intent\.ACTION_VIEW, maps\)/, 'plot map links fall back to the web map when the app is unavailable');
-console.log('PASS: farm scope filters, Plot default, shared plot management, due cues, completion dates, irrigation ordering, and Google Maps routing/location permissions.');
+console.log('PASS: farm scope filters, Plot default, shared plot management, due cues, completion dates, watering schedule options, legacy irrigation migration, and Google Maps routing/location permissions.');
