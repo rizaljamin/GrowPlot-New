@@ -1,6 +1,6 @@
 2026-10-25 | v0.7.02 Build 07 | versionCode 272 | com.growplot.farm
 Changes: When a CCTV snapshot upload detects a missing or rejected Drive access token, clear the stale token, request Google Drive authorization again, and resume scheduled capture after reconnecting. Build identity follows the user's installed Build 06.
-Validation: GitHub Actions ARM64 build and release checks pending. Live Google Drive and Android tablet verification pending.
+Validation: GitHub Actions run #552 passed ARM64 build, regressions, package/version/signature checks, and artifact upload. Live Google Drive authorization/upload and Android tablet verification pending. Source commit: b0dc8f9fb29e23200a32d3fdc553f9a019fcb69d.
 
 2026-10-25 | v0.7.02 Build 05 | versionCode 270 | com.growplot.farm
 Changes: Before each due CCTV snapshot, verify the saved Drive folder and authorization; renew expired Drive authorization and pause with a specific connection error if the destination is inaccessible. Combine irrigation and fertiliser planning under the plot-anchored Maintenance tab. Add Watering and Fertilising task types with date/time fields, one to three daily watering times, and migrate existing irrigation schedules while retaining their plot, timing, method, duration, fertiliser details, and recurrence.
