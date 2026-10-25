@@ -1,8 +1,8 @@
-# GrowPlot — v0.7.02 Build 07
+# GrowPlot — v0.7.02 Build 08
 
 GrowPlot is an Android farm-management application with CCTV monitoring, Google Drive image feeds, A.I Plant Health, diagnosis workflows and plot management.
 
-**Current source version:** v0.7.02 Build 07 (`versionCode=272`, Android package `com.growplot.farm`). If a snapshot upload finds a missing or expired Google Drive token, GrowPlot now clears the stale token, reopens Drive authorization, and resumes scheduled snapshots after reconnection. Irrigation and fertiliser remain plot-anchored Maintenance items with daily watering times and migration of existing schedules. ARM64 build and package checks passed in GitHub Actions run #552 (source `b0dc8f9fb29e23200a32d3fdc553f9a019fcb69d`). Live Google Drive authorization/upload and tablet verification pending.
+**Current source version:** v0.7.02 Build 08 (`versionCode=272`, Android package `com.growplot.farm`). After Firebase profile load, GrowPlot immediately connects the assigned plot's Google Drive Image Feed before opening Home. If no plot is marked selected, it uses the first assigned plot. Snapshot upload also refreshes missing or rejected Drive authorization and retries after reconnection. Irrigation and fertiliser remain plot-anchored Maintenance items with daily watering times and migration of existing schedules. Build 08 ARM64 build and package checks pending. Live Google Drive authorization/upload and tablet verification pending.
 
 ## Live CCTV snapshot capture
 
