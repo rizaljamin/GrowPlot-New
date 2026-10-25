@@ -3,7 +3,8 @@
 - Start the assigned plot's Google Drive Image Feed authorization immediately after Firebase profile load, before Home camera streams start.
 - If the profile has no selected plot, choose the first assigned plot automatically, then connect its Drive folder.
 - Keep scheduled snapshots gated on a ready Drive destination; renew missing/rejected authorization and retry after reconnection.
-- Next installable: v0.7.02 Build 08 / versionCode 273. GitHub ARM64 build pending; live Drive and tablet verification pending.
+- Build identity: v0.7.02 Build 08 / versionCode 273. GitHub Actions run #556 passed regressions, ARM64 build, package/version/signature checks, and artifact upload from source commit d1c70e898c4ab70de627fdf7098f40cd1efeb359. [Build 08 ARM64 artifact](https://github.com/rizaljamin/GrowPlot-New/actions/runs/40157286344/artifacts/12584657134).
+- Live Drive authorization/upload and tablet verification pending.
 
 ## Completed — Build 07 snapshot authorization recovery
 
