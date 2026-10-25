@@ -4,7 +4,8 @@
 - Remove the separate Irrigation & Fertiliser tab and manage Watering, Fertilising, Weeding, Pruning, and other farm tasks in Maintenance.
 - Require the plot selection first; save each item with date/time. Watering supports once, twice, or three times daily.
 - Migrate existing irrigation schedules into maintenance records while retaining plot, timing, method, duration, fertiliser details, and recurrence.
-- Source commits: 6dd89f278c9ce44fab8d479f953d0651d4f3c8d4, 9ad42aa8d5c31212f13c9016173a600613fc54c9, and 834a2556dfbed80378334cfec5fcc785d79f38ac. ARM64 build and Android/Drive tablet verification pending.
+- Source commits: 6dd89f278c9ce4 through 5014d3c80a9d
+- GitHub Actions run #550 passed the ARM64 build and release package checks; live Google Drive and tablet verification remain pending.4fab8d479f953d0651d4f3c8d4, 9ad42aa8d5c31212f13c9016173a600613fc54c9, and 834a2556dfbed80378334cfec5fcc785d79f38ac. ARM64 build and Android/Drive tablet verification pending.
 
 ## Pending — Historical Price table and crop-guide loading
 
