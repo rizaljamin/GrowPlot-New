@@ -32,8 +32,6 @@ public final class AccountApiBridge {
     private final FirebaseFirestore db=FirebaseFirestore.getInstance();
     public AccountApiBridge(Activity activity, WebView web){this.activity=activity;this.web=web;}
     @JavascriptInterface public boolean configured(){return com.google.firebase.FirebaseApp.getApps(activity).size()>0;}
-    @JavascriptInterface public boolean isDevelopmentBuild(){return BuildConfig.DEBUG;}
-    @JavascriptInterface public boolean verifyLocalAdminTestLogin(){return BuildConfig.DEBUG;}
     @JavascriptInterface public void logout(){auth.signOut();}
     @JavascriptInterface public void startGoogleSignIn(){
         activity.runOnUiThread(()->{
@@ -395,9 +393,8 @@ public final class AccountApiBridge {
                 // Privileged plot discovery requires an authenticated Firebase custom claim,
                 // never a locally editable role or power-user UI toggle.
                 user.getIdToken(false).addOnSuccessListener(token->{
-                    boolean powerUser="rizaljamin@gmail.com".equalsIgnoreCase(user.getEmail())
-                        && (Boolean.TRUE.equals(token.getClaims().get("powerUser"))
-                        || Boolean.TRUE.equals(token.getClaims().get("admin")));
+                    boolean powerUser=Boolean.TRUE.equals(token.getClaims().get("powerUser"))
+                        || Boolean.TRUE.equals(token.getClaims().get("admin"));
                     db.collection("users").document(user.getUid()).get().addOnSuccessListener(profile->{
                     db.collection("plots").get()
                       .addOnSuccessListener(owned->{
