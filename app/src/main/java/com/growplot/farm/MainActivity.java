@@ -1884,8 +1884,28 @@ public class MainActivity extends Activity {
                     scanSnapshotFolder(plotId);
                 });
             } catch (Exception error) {
-                runOnUiThread(() -> notifyFeedCaptureStatus("CCTV" + String.format(Locale.US, "%02d", camera) + " frame could not be saved to the selected plot Google Drive image feed: "
-                        + (error.getMessage() == null ? "check the saved folder permission" : error.getMessage())));
+                String failure = error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage();
+                boolean driveAuthExpired = failure.contains("Google Drive authorization is not active")
+                        || failure.contains("Drive API HTTP 401");
+                if (driveAuthExpired) {
+                    googleDriveAccessToken = null;
+                    googleDriveTokenIssuedAt = 0L;
+                }
+                runOnUiThread(() -> {
+                    if (driveAuthExpired && driveApiFolderForSignedInUser(plotId) != null) {
+                        String savedName = getPrefs().getString(
+                                DRIVE_API_FOLDER_NAME_KEY_PREFIX + plotId, pickerDefaultFolderName);
+                        if (!driveAuthorizationInProgress) {
+                            pendingDriveReconnectOnly = true;
+                            notifyFeedCaptureStatus("CCTV" + String.format(Locale.US, "%02d", camera)
+                                    + " snapshot paused while Google Drive reconnects; it will retry automatically.");
+                            authorizeAndConnectDriveFeed(plotId, savedName);
+                        }
+                    } else {
+                        notifyFeedCaptureStatus("CCTV" + String.format(Locale.US, "%02d", camera)
+                                + " frame could not be saved to the selected plot Google Drive image feed: " + failure);
+                    }
+                });
             } finally {
                 snapshotInFlight.remove(key);
                 if (!frame.isRecycled()) frame.recycle();
