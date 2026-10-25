@@ -1,10 +1,16 @@
-## Build 07 — Recover Google Drive authorization during snapshot upload
+## Build 08 — Connect Drive before camera snapshots
 
-- If snapshot upload detects that the Drive token is missing or rejected, clear the stale token, request authorization again, and let the scheduled capture retry after reconnection.
-- The user confirmed the installed app is Build 06; the next APK is v0.7.02 Build 07 / versionCode 272.
-- Source commit: cad137daaf95237e7d6aef64e6e0d90ef4cedbd2.
-- GitHub Actions run #552 passed regressions, ARM64 build, package/version/signature checks, and artifact upload. Source commit: b0dc8f9fb29e23200a32d3fdc553f9a019fcb69d. [Build 07 ARM64 artifact](https://github.com/rizaljamin/GrowPlot-New/actions/runs/40156682571/artifacts/12585710096).
-- Live Google Drive authorization/upload and Android tablet verification pending.
+- Start the assigned plot's Google Drive Image Feed authorization immediately after Firebase profile load, before Home camera streams start.
+- If the profile has no selected plot, choose the first assigned plot automatically, then connect its Drive folder.
+- Keep scheduled snapshots gated on a ready Drive destination; renew missing/rejected authorization and retry after reconnection.
+- Next installable: v0.7.02 Build 08 / versionCode 273. GitHub ARM64 build pending; live Drive and tablet verification pending.
+
+## Completed — Build 07 snapshot authorization recovery
+
+- Snapshot uploads clear missing/rejected Drive tokens, request authorization again, and allow scheduled snapshots to retry after reconnection.
+- User confirmed installed Build 06, so this release used Build 07 / versionCode 272.
+- GitHub Actions run #552 passed ARM64 build and release checks. Source commit: b0dc8f9fb29e23200a32d3fdc553f9a019fcb69d. [Build 07 ARM64 artifact](https://github.com/rizaljamin/GrowPlot-New/actions/runs/40156682571/artifacts/12585710096).
+- Real tablet Drive reconnection remained unverified.
 
 ## Completed — Build 05 Drive preflight and plot maintenance workflow
 
