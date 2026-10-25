@@ -3564,9 +3564,6 @@ public class MainActivity extends Activity {
     }
 
     private final class SnapshotBridge {
-        @JavascriptInterface public void loginAdminOtpDemo(String password) {
-            runOnUiThread(() -> AdminOtpDemo.login(MainActivity.this, password, () -> web.evaluateJavascript("window.GrowPlotAdminVerified&&window.GrowPlotAdminVerified()", null)));
-        }
         @JavascriptInterface public void requestAdminActivationDemo() {
             runOnUiThread(() -> AdminActivationDemo.request(MainActivity.this));
         }
