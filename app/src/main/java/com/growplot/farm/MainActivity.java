@@ -462,6 +462,14 @@ public class MainActivity extends Activity {
                 } catch (Exception onboardingError) {
                     android.util.Log.w("GrowPlot", "New-user onboarding preview could not load", onboardingError);
                 }
+                try (InputStream summaryInput = getAssets().open("plot-cctv-summary.js");
+                     ByteArrayOutputStream summaryBytes = new ByteArrayOutputStream()) {
+                    byte[] summaryBuffer = new byte[4096]; int summaryRead;
+                    while ((summaryRead = summaryInput.read(summaryBuffer)) != -1) summaryBytes.write(summaryBuffer, 0, summaryRead);
+                    view.evaluateJavascript(summaryBytes.toString(StandardCharsets.UTF_8.name()), null);
+                } catch (Exception summaryError) {
+                    android.util.Log.e("GrowPlot", "Plot/CCTV summary could not load", summaryError);
+                }
                 try (InputStream accountInput = getAssets().open("account-login.js"); ByteArrayOutputStream accountBytes = new ByteArrayOutputStream()) {
                     byte[] accountBuffer = new byte[8192]; int accountRead;
                     while ((accountRead = accountInput.read(accountBuffer)) != -1) accountBytes.write(accountBuffer, 0, accountRead);
