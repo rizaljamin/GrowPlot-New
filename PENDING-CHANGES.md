@@ -1,3 +1,10 @@
+## Pending — Put watering and fertilising under Maintenance
+
+- Remove the separate Irrigation & Fertiliser tab; add Watering and Fertilising as maintenance types alongside weeding, pruning, and the existing farm tasks.
+- Put Plot first in the form, then maintenance type, date and time. Watering records support one, two, or three daily times and preserve the selected plot/greenhouse/section.
+- Migrate existing irrigation schedules into dated Watering maintenance items, retaining their time, method, duration, fertiliser details, and recurrence before syncing the old schedule list as empty.
+- Source commits: 9ad42aa8d5c31212f13c9016173a600613fc54c9 and initialization-order correction 834a2556dfbed80378334cfec5fcc785d79f38ac. Build and tablet verification pending.
+
 ## Pending — Check Drive connectivity before CCTV snapshots
 
 - Before each due snapshot is captured, validate the saved Drive folder and its write-session access; check Drive API folder metadata or verify the persisted Android folder grant and document.
