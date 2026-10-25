@@ -1,3 +1,7 @@
+2026-10-25 | v0.7.02 Build 10 | versionCode 275 | com.growplot.farm
+Preparation: Upgrade compileSdk/targetSdk to API 36, Android Gradle Plugin to 8.9.1 and Gradle to 8.11.1. Add a signed Play App Bundle build script and manual GitHub Actions workflow for Internal testing.
+Validation: Preparation only. Signed AAB not generated because the Play upload keystore is not configured in this sandbox. Do not upload until the generated AAB signer matches the certificate registered in Play Console.
+
 2026-10-25 | v0.7.02 Build 09 | versionCode 274 | com.growplot.farm
 Changes: Replace the Home frame-comparison block with a compact Plot/CCTV Summary showing plant identity first and the latest available OpenCV, Vertex, and Pl@ntNet diagnosis results per CCTV. Remove the local development-only Power User login shortcut. Determine Firebase power-user access from trusted `powerUser` or `admin` custom claims for any account, with no email allowlist.
 Validation: GitHub Actions run #572 passed regression checks, ARM64 build, release manifest/package checks, and artifact upload. Source commit: 6448e4a23fcac35e0532f243507e02cb50e8ef61. APK: `v0.7.02-build-09-GrowPlot-arm64-stable.apk`; SHA-256 `d460a5cb36ec2b6bd6efef234a755f5698cf606466ceeef11a3e8e5ec7cf9298`; artifact ID 12586390088. Signing certificate matches the current GrowPlot stable certificate. Physical Android device verification pending.

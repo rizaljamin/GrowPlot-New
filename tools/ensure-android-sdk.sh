@@ -39,17 +39,28 @@ if [[ ! -f "$SDK_ROOT/licenses/android-sdk-license" ]]; then
   set -o pipefail
 fi
 
-if [[ ! -f "$SDK_ROOT/platforms/android-35/android.jar" \
-      || ! -x "$SDK_ROOT/build-tools/35.0.0/aapt" \
-      || ! -x "$SDK_ROOT/build-tools/35.0.0/apksigner" \
+if [[ ! -f "$SDK_ROOT/platforms/android-36/android.jar" \
+      || ! -x "$SDK_ROOT/build-tools/36.0.0/aapt" \
+      || ! -x "$SDK_ROOT/build-tools/36.0.0/apksigner" \
       || ! -x "$SDK_ROOT/platform-tools/adb" ]]; then
   "$SDKMANAGER" --sdk_root="$SDK_ROOT" --install \
-    'platforms;android-35' 'build-tools;35.0.0' 'platform-tools' >/dev/null
+    'platforms;android-36' 'build-tools;36.0.0' 'platform-tools' >/dev/null
 fi
 
-[[ -f "$SDK_ROOT/platforms/android-35/android.jar" ]] || fail "Android API 35 platform is missing"
-[[ -x "$SDK_ROOT/build-tools/35.0.0/aapt" ]] || fail "Android build-tools 35.0.0 are missing"
-[[ -x "$SDK_ROOT/build-tools/35.0.0/apksigner" ]] || fail "Android apksigner is missing"
+# Some current SDK Manager platform archives retain their top-level android-36/ directory
+# inside the installed package directory. Expose those files at the SDK-standard platform root.
+PLATFORM_ROOT="$SDK_ROOT/platforms/android-36"
+if [[ ! -f "$PLATFORM_ROOT/android.jar" && -f "$PLATFORM_ROOT/android-36/android.jar" ]]; then
+  for platform_item in "$PLATFORM_ROOT/android-36"/*; do
+    [[ -e "$platform_item" ]] || continue
+    platform_name="${platform_item##*/}"
+    [[ -e "$PLATFORM_ROOT/$platform_name" ]] || ln -s "$platform_item" "$PLATFORM_ROOT/$platform_name"
+  done
+fi
+
+[[ -f "$SDK_ROOT/platforms/android-36/android.jar" ]] || fail "Android API 36 platform is missing"
+[[ -x "$SDK_ROOT/build-tools/36.0.0/aapt" ]] || fail "Android build-tools 36.0.0 are missing"
+[[ -x "$SDK_ROOT/build-tools/36.0.0/apksigner" ]] || fail "Android apksigner is missing"
 
 # Persist the SDK location for direct `./gradlew` calls in later project sessions.
 python3 - "$ROOT/local.properties" "$SDK_ROOT" <<'PY'

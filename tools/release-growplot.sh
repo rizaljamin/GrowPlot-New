@@ -80,8 +80,8 @@ CERT="$("$APKSIGNER" verify --print-certs "$APK" | sed -n 's/.*certificate SHA-2
 EXPECTED_CERT="$(printf '%s' "$EXPECTED_CERT" | tr '[:upper:]' '[:lower:]')"
 [[ -n "$CERT" ]] || fail "could not read APK signing certificate"
 [[ "$CERT" == "$EXPECTED_CERT" ]] || fail "APK is signed with $CERT, expected the current GrowPlot stable certificate $EXPECTED_CERT. No release files were published."
-ZIPALIGN="$ANDROID_HOME/build-tools/35.0.0/zipalign"
-[[ -x "$ZIPALIGN" ]] || fail "zipalign not found under $ANDROID_HOME/build-tools/35.0.0"
+ZIPALIGN="$ANDROID_HOME/build-tools/36.0.0/zipalign"
+[[ -x "$ZIPALIGN" ]] || fail "zipalign not found under $ANDROID_HOME/build-tools/36.0.0"
 "$ZIPALIGN" -c -v 4 "$APK" >/dev/null || fail "APK alignment check failed"
 
 BADGING_TOOL="$(find "$SDK_TOOLS" -type f -name aapt -print 2>/dev/null | sort -V | tail -n1)"

@@ -1,0 +1,68 @@
+name: Build GrowPlot Play AAB
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/play-aab.yml'
+      - 'app/**'
+      - 'build.gradle'
+      - 'gradle/**'
+      - 'gradlew'
+      - 'tools/build-play-aab.sh'
+      - 'tools/ensure-android-sdk.sh'
+      - 'version.properties'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    env:
+      GRADLE_OPTS: '-Dorg.gradle.daemon=false -Dorg.gradle.workers.max=1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Restore Play upload key or current stable GrowPlot key
+        env:
+          PLAY_KEYSTORE_BASE64: ${{ secrets.GROWPLOT_PLAY_UPLOAD_KEYSTORE_BASE64 || secrets.GROWPLOT_SIGNING_KEYSTORE_BASE64 }}
+          PLAY_STORE_PASSWORD: ${{ secrets.GROWPLOT_PLAY_UPLOAD_KEYSTORE_PASSWORD || secrets.GROWPLOT_SIGNING_STORE_PASSWORD }}
+          PLAY_KEY_PASSWORD: ${{ secrets.GROWPLOT_PLAY_UPLOAD_KEY_PASSWORD || secrets.GROWPLOT_SIGNING_KEY_PASSWORD }}
+          PLAY_KEY_ALIAS: ${{ secrets.GROWPLOT_PLAY_UPLOAD_KEY_ALIAS || secrets.GROWPLOT_SIGNING_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          [[ -n "$PLAY_KEYSTORE_BASE64" && -n "$PLAY_STORE_PASSWORD" && -n "$PLAY_KEY_ALIAS" ]]
+          umask 077
+          printf '%s' "$PLAY_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/growplot-play-upload.jks"
+          keytool -list -keystore "$RUNNER_TEMP/growplot-play-upload.jks" \
+            -storepass "$PLAY_STORE_PASSWORD" -alias "$PLAY_KEY_ALIAS" >/dev/null
+          {
+            echo "GROWPLOT_PLAY_UPLOAD_KEYSTORE=$RUNNER_TEMP/growplot-play-upload.jks"
+            echo "GROWPLOT_PLAY_UPLOAD_KEY_ALIAS=$PLAY_KEY_ALIAS"
+            echo "GROWPLOT_PLAY_UPLOAD_KEYSTORE_PASSWORD=$PLAY_STORE_PASSWORD"
+            echo "GROWPLOT_PLAY_UPLOAD_KEY_PASSWORD=${PLAY_KEY_PASSWORD:-$PLAY_STORE_PASSWORD}"
+          } >> "$GITHUB_ENV"
+      - name: Build signed API 36 AAB
+        env:
+          GROWPLOT_PLANTNET_API_KEY: ${{ secrets.GROWPLOT_PLANTNET_API_KEY }}
+          GROWPLOT_EXPECTED_PLAY_UPLOAD_CERT_SHA256: ${{ secrets.GROWPLOT_EXPECTED_PLAY_UPLOAD_CERT_SHA256 }}
+        run: |
+          chmod +x gradlew tools/*.sh
+          ./tools/build-play-aab.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GrowPlot-${{ github.sha }}-Play-AAB
+          path: |
+            release/*.aab
+            release/*play-aab-manifest.txt
+          if-no-files-found: error
+          retention-days: 30

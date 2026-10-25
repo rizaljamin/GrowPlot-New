@@ -64,9 +64,9 @@ node "$ROOT/tools/tests/crop-catalog-regression.js" || fail "Manage Farm crop-ca
 node "$ROOT/tools/tests/timeline-persistence-regression.js" || fail "Timeline persistence regression check failed"
 
 cd "$ROOT"
-APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
-AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
-ZIPALIGN="$ANDROID_HOME/build-tools/35.0.0/zipalign"
+APKSIGNER="$ANDROID_HOME/build-tools/36.0.0/apksigner"
+AAPT="$ANDROID_HOME/build-tools/36.0.0/aapt"
+ZIPALIGN="$ANDROID_HOME/build-tools/36.0.0/zipalign"
 ./gradlew --no-daemon --max-workers=1 -Pandroid.useAndroidX=true -PgrowplotAbi=arm64-v8a clean assembleDebug
 APK="$ROOT/app/build/outputs/apk/debug/app-debug.apk"
 [[ -s "$APK" ]] || fail "Gradle completed without producing the expected ARM64 debug APK"

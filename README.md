@@ -1,8 +1,14 @@
-# GrowPlot — v0.7.02 Build 09
+# GrowPlot — v0.7.02 Build 10 (Play AAB preparation)
+
+## Google Play internal testing AAB
+
+The Play testing build targets API 36 and is created with `tools/build-play-aab.sh` or the manual GitHub Actions workflow **Build GrowPlot Play AAB**. Configure a Play Console upload keystore and alias in the local `GROWPLOT_PLAY_UPLOAD_*` environment variables or GitHub Actions secrets. If no separate Play upload key is supplied, the workflow uses the existing stable GrowPlot signing key; confirm that its certificate is the upload certificate registered in Play Console before uploading. Set `GROWPLOT_EXPECTED_PLAY_UPLOAD_CERT_SHA256` to the certificate shown in Play Console so the script can reject a signer mismatch. The workflow produces a signed AAB artifact; it does not upload or publish to Play Console.
+
+After the AAB is uploaded to the Internal testing track, add tester accounts and share the opt-in link from Play Console. Keep the Google Play app-signing certificate separate from the upload certificate; add the Play app-signing SHA-1 to Firebase if Google sign-in needs to work for Play-installed builds.
 
 GrowPlot is an Android farm-management application with CCTV monitoring, Google Drive image feeds, A.I Plant Health, diagnosis workflows and plot management.
 
-**Current source version:** v0.7.02 Build 09 (`versionCode=274`, Android package `com.growplot.farm`). Home now shows a compact Plot/CCTV Summary with plant identity first and the latest OpenCV, Vertex, and Pl@ntNet results for each camera. The local development-only Power User login shortcut is removed. Firebase power-user access is evaluated from trusted `powerUser` or `admin` custom claims for any account, without a hard-coded email allowlist. Build 09 ARM64 build and package verification passed in GitHub Actions run #572 (source `6448e4a23fcac35e0532f243507e02cb50e8ef61`). APK artifact: [download from run #572](https://github.com/rizaljamin/GrowPlot-New/actions/runs/40159381248/artifacts/12586390088). The APK matches the current GrowPlot signing certificate; Android device verification remains pending. Build 08 Drive authorization and Maintenance changes are described below.
+**Current source target:** v0.7.02 Build 10 (`versionCode=275`, Android package `com.growplot.farm`), prepared to target API 36 and build a Play upload AAB. Build 10 is preparation only; no signed AAB has been generated yet. The latest validated ARM64 APK remains Build 09. It shows a compact Plot/CCTV Summary with plant identity first and the latest OpenCV, Vertex, and Pl@ntNet results for each camera. The local development-only Power User login shortcut is removed. Firebase power-user access uses trusted `powerUser` or `admin` custom claims, with no hard-coded email allowlist. Build 09 passed its GitHub Actions build and package checks in run #572 (source `6448e4a23fcac35e0532f243507e02cb50e8ef61`). APK artifact: [download from run #572](https://github.com/rizaljamin/GrowPlot-New/actions/runs/40159381248/artifacts/12586390088). Android device verification remains pending. Build 08 Drive authorization and Maintenance changes are described below.
 
 ## Live CCTV snapshot capture
 
