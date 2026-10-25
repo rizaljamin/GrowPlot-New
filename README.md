@@ -1,12 +1,16 @@
-# GrowPlot — v0.7.02 Build 04
+# GrowPlot — v0.7.02 Build 05
 
 GrowPlot is an Android farm-management application with CCTV monitoring, Google Drive image feeds, A.I Plant Health, diagnosis workflows and plot management.
 
-**Current source version:** v0.7.02 Build 04 (`versionCode=269`, Android package `com.growplot.farm`). Historical Price now filters by the selected calendar date and shows crop and price columns only. The curated crop guide JavaScript syntax is fixed so turmeric / kunyit and ginger / halia details and credited sample photos load. GitHub ARM64 build and verification pending.
+**Current source version:** v0.7.02 Build 05 (`versionCode=270`, Android package `com.growplot.farm`). CCTV snapshots now check the saved Google Drive destination before capture. Irrigation and fertiliser records are managed as plot-anchored maintenance items, with daily watering times and migration of existing schedules. ARM64 build and tablet verification pending.
 
 ## Live CCTV snapshot capture
 
 For each visible, playing live camera, GrowPlot attempts a snapshot when its configured interval has elapsed since that camera's last successful Drive save. Overdue snapshots are attempted shortly after the feed becomes available. Hidden feeds retry visibility checks every 30 seconds; an unconnected folder is rechecked every 60 seconds. The app must remain foregrounded with Home and the live camera visible.
+
+## Plot maintenance
+
+Watering, fertilising, weeding, pruning, and other farm work are recorded under Manage Farm → Maintenance. Each item is tied to a plot and has a scheduled date and time. Watering can be scheduled once, twice, or three times per day. Existing irrigation schedules migrate into Maintenance and retain their saved details.
 
 ## Confirmed species on home
 
