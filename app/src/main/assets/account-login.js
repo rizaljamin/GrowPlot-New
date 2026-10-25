@@ -80,13 +80,6 @@ function installPasswordReset(){
  });
 }
 addPasswordVisibilityToggles();installPasswordReset();
-const adminTestLoginButton=document.getElementById('adminTestLoginBtn');
-if(adminTestLoginButton){adminTestLoginButton.textContent='Login as Power User';adminTestLoginButton.hidden=!(api&&api.isDevelopmentBuild&&api.isDevelopmentBuild());}
-if(adminTestLoginButton)adminTestLoginButton.addEventListener('click',function(){
- if(!api||!api.verifyLocalAdminTestLogin||!api.verifyLocalAdminTestLogin()){msg('Admin test login is unavailable in this build.');return;}
- msg('Signed in to the local development admin session. Firebase was not used.');
- if(typeof window.GrowPlotAdminVerified==='function')window.GrowPlotAdminVerified();
-});
 function goHome(){setTimeout(()=>window.GrowPlotRefreshHomeStreams?.(),300);const oldPage=document.getElementById('growplotUserManagementPage');if(oldPage)oldPage.remove();const auth=document.getElementById('authScreen');if(auth)auth.hidden=true;if(typeof returnHome==='function')returnHome();else if(typeof render==='function')render();}
 // Owner-scoped Home dropdown: only the Demo Plot plus Firebase-authorized plots.
 // Plot dropdown logic is loaded separately; show Demo only until the module is ready.
