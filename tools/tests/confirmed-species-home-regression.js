@@ -10,11 +10,15 @@ assert.match(html, /function loadConfirmedPlantIds\(plotId=selectedPlotId\)[\s\S
   'only user-confirmed species saved for the active plot are restored to camera labels');
 assert.match(html, /function render\(\)\{[\s\S]*?loadConfirmedPlantIds\(selectedPlotId\);[\s\S]*?cameraRoot\.innerHTML=''/,
   'home camera cards hydrate confirmed species before rendering');
-assert.match(html, /function updateCameraSpeciesDisplay\(camera\)[\s\S]*?querySelector\('\.plant-id b'\)[\s\S]*?querySelector\('\.plant-id em'\)/,
-  'the currently rendered home card updates immediately after confirmation');
+assert.match(html, /function updateCameraSpeciesDisplay\(camera\)\{window\.renderPlotCctvSummary\?\.\(Number\(camera\)\);\}/,
+  'the currently rendered Plot/CCTV summary updates immediately after confirmation');
+const summary = fs.readFileSync('app/src/main/assets/plot-cctv-summary.js', 'utf8');
+assert.match(html, /data-plot-cctv-summary/, 'each Home CCTV card has a Plot/CCTV summary slot');
+assert.match(summary, /plant\.identitySuggested\?'Suggested plant: ':'Plant: '/,
+  'plant identity is shown first and unconfirmed suggestions are labeled');
 assert.match(html, /function loadConfirmedPlantIds\(plotId=selectedPlotId\)[\s\S]*?plant\.identityConfirmed=true;return\}let suggestion=null[\s\S]*?diagnosisSpeciesCandidates\(report\)\[0\][\s\S]*?plant\.identitySuggested=true/,
   'when identity is not confirmed, the home card can show the diagnosis candidate clearly marked unconfirmed');
-assert.match(html, /plant\.identitySuggested\?'DIAGNOSIS SUGGESTION · NOT CONFIRMED'/,
+assert.match(summary, /plant\.identitySuggested\?'Suggested plant: ':'Plant: '/,
   'suggested species on the home card is explicitly labeled as not confirmed');
 assert.match(html, /function confirmDiagnosisSpeciesChoice\(camera,choice\)[\s\S]*?localStorage\.setItem\(diagnosisSpeciesKey\(camera\),JSON\.stringify\(confirmed\)\)[\s\S]*?loadConfirmedPlantIds\(selectedPlotId\);updateCameraSpeciesDisplay\(camera\)/,
   'diagnosis confirmation persists and refreshes the matching home species label');
