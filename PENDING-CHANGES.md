@@ -1,15 +1,10 @@
-## Pending — Put watering and fertilising under Maintenance
+## Build 05 — Drive preflight and plot maintenance workflow
 
-- Remove the separate Irrigation & Fertiliser tab; add Watering and Fertilising as maintenance types alongside weeding, pruning, and the existing farm tasks.
-- Put Plot first in the form, then maintenance type, date and time. Watering records support one, two, or three daily times and preserve the selected plot/greenhouse/section.
-- Migrate existing irrigation schedules into dated Watering maintenance items, retaining their time, method, duration, fertiliser details, and recurrence before syncing the old schedule list as empty.
-- Source commits: 9ad42aa8d5c31212f13c9016173a600613fc54c9 and initialization-order correction 834a2556dfbed80378334cfec5fcc785d79f38ac. Build and tablet verification pending.
-
-## Pending — Check Drive connectivity before CCTV snapshots
-
-- Before each due snapshot is captured, validate the saved Drive folder and its write-session access; check Drive API folder metadata or verify the persisted Android folder grant and document.
-- If the Drive API token is expired, request authorization again and retry on the next snapshot check. If the folder is unavailable, pause saving and report the specific connection failure instead of relying on a cached folder ID.
-- Source committed as 6dd89f278c9ce44fab8d479f953d0651d4f3c8d4. ARM64 build and live Android/Drive verification pending; follow the project batching rule before producing the next APK.
+- Before each due CCTV snapshot, validate the saved Drive folder and authorization. Renew expired Drive authorization and stop the attempt with a specific error when the destination is inaccessible.
+- Remove the separate Irrigation & Fertiliser tab and manage Watering, Fertilising, Weeding, Pruning, and other farm tasks in Maintenance.
+- Require the plot selection first; save each item with date/time. Watering supports once, twice, or three times daily.
+- Migrate existing irrigation schedules into maintenance records while retaining plot, timing, method, duration, fertiliser details, and recurrence.
+- Source commits: 6dd89f278c9ce44fab8d479f953d0651d4f3c8d4, 9ad42aa8d5c31212f13c9016173a600613fc54c9, and 834a2556dfbed80378334cfec5fcc785d79f38ac. ARM64 build and Android/Drive tablet verification pending.
 
 ## Pending — Historical Price table and crop-guide loading
 
