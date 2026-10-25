@@ -3695,6 +3695,9 @@ public class MainActivity extends Activity {
             pickerPlotId = safePlotId(plotId);
             pickerDefaultFolderName = safeFolderName(folderName);
             pickerCreatesDefaultFeed = true;
+            // A login-driven folder connection supersedes any snapshot-only refresh already in flight.
+            pendingDriveFolderBrowse = false;
+            pendingDriveReconnectOnly = false;
             getPrefs().edit().putString(PREF_ACTIVE_PLOT_ID, pickerPlotId).apply();
             runOnUiThread(() -> authorizeAndConnectDriveFeed(pickerPlotId, pickerDefaultFolderName));
         }
