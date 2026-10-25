@@ -26,3 +26,9 @@
 - Record verification performed and remaining device checks before claiming a release is verified. Never claim governance or artifacts were saved unless the remote write succeeded.
 
 - Generate only the ARM64 (`arm64-v8a`) APK moving forward. Do not generate a universal APK unless the user explicitly changes this policy.
+## UI window and overlay standard
+
+- Every new app window, modal, prompt, dialog, drawer, or other foreground surface must define how it takes priority over inactive content and how it returns to the prior screen when closed.
+- Keep the active surface fully visible and interactive. Native Android views such as VLC/SurfaceView content cannot be layered reliably by WebView CSS; hide or pause those views while a foreground overlay is active, then restore them after it closes.
+- Use a shared foreground-state mechanism rather than a one-off fix for a single prompt. Cover HTML dialogs, app modals, account/full-screen panels, and future overlay types.
+- For each new window or prompt, validate both open and close transitions with a regression check. When native video or camera surfaces are present, include a tablet/device check before claiming the layout is verified.
