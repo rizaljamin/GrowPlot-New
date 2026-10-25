@@ -31,8 +31,9 @@ export GROWPLOT_PLAY_UPLOAD_KEYSTORE="$PLAY_KEYSTORE"
 export GROWPLOT_PLAY_UPLOAD_KEY_ALIAS="$PLAY_ALIAS"
 export GROWPLOT_PLAY_UPLOAD_KEYSTORE_PASSWORD="$PLAY_STORE_PASSWORD"
 export GROWPLOT_PLAY_UPLOAD_KEY_PASSWORD="$PLAY_KEY_PASSWORD"
-[[ -n "${GROWPLOT_PLANTNET_API_KEY:-}" ]] || fail "Pl@ntNet key is required for this GrowPlot build"
-export ORG_GRADLE_PROJECT_growplotPlantNetApiKey="$GROWPLOT_PLANTNET_API_KEY"
+if [[ -n "${GROWPLOT_PLANTNET_API_KEY:-}" ]]; then
+  export ORG_GRADLE_PROJECT_growplotPlantNetApiKey="$GROWPLOT_PLANTNET_API_KEY"
+fi
 
 IDENTITY="$ROOT/version.properties"
 VERSION_NAME="$(sed -n 's/^versionName=//p' "$IDENTITY" | head -n1)"
