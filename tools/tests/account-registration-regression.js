@@ -8,7 +8,7 @@ const inputs = (form) => [...form.matchAll(/<input\b[^>]*\bname="([^"]+)"/g)].ma
 assert.deepEqual(inputs(login), ['email', 'password'], 'login uses email and password only');
 assert.deepEqual(inputs(create), ['email', 'password', 'confirmPassword'], 'registration keeps confirm password and removes username');
 assert.match(html, /id="googleRegisterBtn"/, 'registration offers Google sign-in');
-assert.match(html, /id="adminTestLoginBtn"[^>]*hidden/, 'admin test-login button starts hidden until native debug-build confirmation');
+assert.doesNotMatch(html, /adminTestLoginBtn|Login as Power User|Admin test login/, 'login has no local Power User shortcut');
 
 const account = fs.readFileSync('app/src/main/assets/account-login.js', 'utf8');
 assert.match(account, /form\.elements\.password\.value!==form\.elements\.confirmPassword\.value/, 'registration checks password confirmation');
@@ -16,9 +16,7 @@ assert.match(account, /api\.startGoogleSignIn\(\)/, 'Google button calls the nat
 assert.match(account, /className='growplot-password-toggle'/, 'password fields get eye visibility controls');
 assert.match(account, /wrapper\.appendChild\(toggle\)/, 'eye visibility controls are placed inside the password field');
 assert.match(account, /id='forgotPasswordBtn'/, 'login has a password-reset action');
-assert.match(account, /api\.isDevelopmentBuild\(\)/, 'admin test-login button is revealed only for a native development build');
-assert.match(account, /verifyLocalAdminTestLogin\(\)/, 'admin test login asks the native bridge to validate local development access');
-assert.match(account, /GrowPlotAdminVerified\(\)/, 'successful local test login opens the existing local demo-admin session');
+assert.doesNotMatch(account, /adminTestLoginBtn|verifyLocalAdminTestLogin|GrowPlotAdminVerified|Login as Power User/, 'account flow has no local Power User shortcut');
 assert.match(account, /This ID is already a registered member/, 'duplicate email shows the requested guidance');
 assert.match(account, /registrationForgotPasswordBtn/, 'duplicate-email guidance offers password reset');
 assert.match(account, /Registration date/,'My Account displays registration date');
@@ -47,8 +45,9 @@ assert.match(account, /back\.onclick=\(\)=>\{closeUserPage\(\);goHome\(\);\}/, '
 
 const bridge = fs.readFileSync('app/src/main/java/com/growplot/farm/AccountApiBridge.java', 'utf8');
 assert.match(bridge, /@JavascriptInterface public void startGoogleSignIn\(\)/, 'Android bridge exposes Google sign-in');
-assert.match(bridge, /@JavascriptInterface public boolean isDevelopmentBuild\(\)\{return BuildConfig\.DEBUG;\}/, 'admin test-login availability follows the Android debug build flag');
-assert.match(bridge, /@JavascriptInterface public boolean verifyLocalAdminTestLogin\(\)\{return BuildConfig\.DEBUG;\}/, 'local admin test access is available only in development builds');
+assert.doesNotMatch(bridge, /isDevelopmentBuild|verifyLocalAdminTestLogin/, 'Android bridge exposes no local Power User login bypass');
+assert.match(bridge, /boolean powerUser=Boolean\.TRUE\.equals\(token\.getClaims\(\)\.get\("powerUser"\)\)/, 'any Firebase user can receive privilege from a trusted powerUser custom claim');
+assert.doesNotMatch(bridge, /rizaljamin@gmail\.com/, 'power-user claim is not tied to one email address');
 assert.match(bridge, /GetSignInWithGoogleOption/, 'explicit Google button uses direct Google sign-in');
 assert.match(bridge, /GoogleAuthProvider\.getCredential\(google\.getIdToken\(\),null\)/, 'Google ID token is exchanged for Firebase Auth credentials');
 assert.match(bridge, /auth\.signInWithEmailAndPassword\(email,password\)/, 'email/password login submits the entered credentials to Firebase');
