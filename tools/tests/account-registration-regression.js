@@ -8,7 +8,7 @@ const inputs = (form) => [...form.matchAll(/<input\b[^>]*\bname="([^"]+)"/g)].ma
 assert.deepEqual(inputs(login), ['email', 'password'], 'login uses email and password only');
 assert.deepEqual(inputs(create), ['email', 'password', 'confirmPassword'], 'registration keeps confirm password and removes username');
 assert.match(html, /id="googleRegisterBtn"/, 'registration offers Google sign-in');
-assert.doesNotMatch(html, /adminTestLoginBtn|Login as Power User|Admin test login/, 'login has no local Power User shortcut');
+assert.doesNotMatch(html, /adminTestLoginBtn|Login as Power User|Admin test login/i, 'login has no local Power User shortcut or stale notice');
 
 const account = fs.readFileSync('app/src/main/assets/account-login.js', 'utf8');
 assert.match(account, /form\.elements\.password\.value!==form\.elements\.confirmPassword\.value/, 'registration checks password confirmation');
@@ -48,6 +48,9 @@ assert.match(bridge, /@JavascriptInterface public void startGoogleSignIn\(\)/, '
 assert.doesNotMatch(bridge, /isDevelopmentBuild|verifyLocalAdminTestLogin/, 'Android bridge exposes no local Power User login bypass');
 assert.match(bridge, /boolean powerUser=Boolean\.TRUE\.equals\(token\.getClaims\(\)\.get\("powerUser"\)\)/, 'any Firebase user can receive privilege from a trusted powerUser custom claim');
 assert.doesNotMatch(bridge, /rizaljamin@gmail\.com/, 'power-user claim is not tied to one email address');
+const activity = fs.readFileSync('app/src/main/java/com/growplot/farm/MainActivity.java', 'utf8');
+assert.doesNotMatch(activity, /loginAdminOtpDemo/, 'native bridge has no legacy local OTP Power User login');
+assert.equal(fs.existsSync('app/src/main/java/com/growplot/farm/AdminOtpDemo.java'), false, 'obsolete local admin OTP demo is removed');
 assert.match(bridge, /GetSignInWithGoogleOption/, 'explicit Google button uses direct Google sign-in');
 assert.match(bridge, /GoogleAuthProvider\.getCredential\(google\.getIdToken\(\),null\)/, 'Google ID token is exchanged for Firebase Auth credentials');
 assert.match(bridge, /auth\.signInWithEmailAndPassword\(email,password\)/, 'email/password login submits the entered credentials to Firebase');
