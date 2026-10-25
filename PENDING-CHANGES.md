@@ -1,3 +1,9 @@
+## Pending — Check Drive connectivity before CCTV snapshots
+
+- Before each due snapshot is captured, validate the saved Drive folder and its write-session access; check Drive API folder metadata or verify the persisted Android folder grant and document.
+- If the Drive API token is expired, request authorization again and retry on the next snapshot check. If the folder is unavailable, pause saving and report the specific connection failure instead of relying on a cached folder ID.
+- Source committed as 6dd89f278c9ce44fab8d479f953d0651d4f3c8d4. ARM64 build and live Android/Drive verification pending; follow the project batching rule before producing the next APK.
+
 ## Pending — Historical Price table and crop-guide loading
 
 - Hide the date column and remove the all-dates view; the calendar picker selects the date, defaulting to the latest available report.
