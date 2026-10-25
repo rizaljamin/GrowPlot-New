@@ -220,8 +220,11 @@ function saveNotice(message,success){
 }
 function connectAssignedImageFeed(data){
  const plotsForUser=Array.isArray(data&&data.plots)?data.plots.filter(p=>p&&p.id&&String(p.id)!=='plot-1'):[];
- const plot=plotsForUser.find(p=>String(p.id)===String(data.selectedPlotId||''));
- if(!plot){saveNotice('Image Feed not connected: this account has no assigned plot selected.',false);return;}
+ const preferredPlotId=String(data&&data.selectedPlotId||selectedPlotId||'');
+ const plot=plotsForUser.find(p=>String(p.id)===preferredPlotId)||plotsForUser[0];
+ if(!plot){saveNotice('Image Feed not connected: assign a plot to this account first.',false);return;}
+ selectedPlotId=String(plot.id);
+ if(typeof fillPlotSelectors==='function')fillPlotSelectors();
  const user=window.GrowPlotCurrentUser||currentUser;
  const attempt=String(user&&(user.uid||user.id)||'')+'|'+String(plot.id);
  if(window.__growPlotImageFeedLoginAttempt===attempt)return;
@@ -320,7 +323,7 @@ window.GrowPlotAccountResponse=function(response){
    window.GrowPlotReloadOwnedDevices();
    setTimeout(syncAuthorizedHomePlots,0);
    setTimeout(()=>window.dispatchEvent(new Event('growplot-plot-profile-updated')),0);
-   setTimeout(()=>connectAssignedImageFeed(data),900);
+   connectAssignedImageFeed(data);
    // Never replace the Demo Plot with a stale device-local user record.
    if(Array.isArray(data.plots)&&data.plots.length){
      if(typeof plots!=='undefined'&&Array.isArray(plots)){
