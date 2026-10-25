@@ -1,0 +1,21 @@
+(function(){
+'use strict';
+if(!document.getElementById('plotCctvSummaryStyle')){
+ const style=document.createElement('style');style.id='plotCctvSummaryStyle';
+ style.textContent='.plot-cctv-summary{margin:5px 0;padding:6px;background:#fff;border:1px solid #e4ece5;border-radius:7px}.plot-cctv-summary-title{display:block;margin-bottom:4px;color:#52705b;font-size:8px;font-weight:850;text-transform:uppercase;letter-spacing:.25px}.plot-cctv-plant{padding:4px 5px;margin-bottom:4px;border-radius:5px;background:#f1f7f2;color:#304f3c;font-size:9px;line-height:1.3}.plot-cctv-plant b{color:#174a35}.plot-cctv-diagnosis{display:grid;gap:3px}.plot-cctv-source{font-size:8px;line-height:1.3;color:#526358;overflow-wrap:anywhere}.plot-cctv-source b{color:#304f3c}.plot-cctv-empty{font-size:8px;color:#718078;line-height:1.3}';
+ document.head.appendChild(style)
+}
+function read(key){try{return JSON.parse(localStorage.getItem(key)||'null')}catch(e){return null}}
+function short(value,max=105){const text=String(value||'').replace(/\s+/g,' ').trim();return text.length>max?text.slice(0,max-1)+'…':text}
+window.renderPlotCctvSummary=function(camera,plotId=selectedPlotId){
+ const card=cameraRoot&&cameraRoot.children[Number(camera)-1],box=card&&card.querySelector('[data-plot-cctv-summary]');if(!box)return;
+ const plant=plantIds[Number(camera)-1]||{},plantNode=box.querySelector('[data-summary="plant"]'),diagnosisNode=box.querySelector('[data-summary="diagnosis"]');
+ if(plantNode){const identity=short([plant.malay,plant.scientific&&plant.scientific!==plant.malay?' · '+plant.scientific:''].filter(Boolean).join('')||'Plant species not recorded',120);plantNode.innerHTML='<b>'+escapeDiagnosisText(plant.identitySuggested?'Suggested plant: ':'Plant: ')+'</b>'+escapeDiagnosisText(identity)}
+ const history=diagnosisHistoryFor(Number(camera),plotId),latest=history[0]||{},result=latest.result||{},analysis=read('growplotAnalysis:'+plotId+':cctv'+camera)||{},cv=result.openCvAnalysis||analysis.openCvAnalysis||analysis,vertex=read(diagnosisVertexKey(camera,plotId))||result.vertexResponse||analysis.vertexResponse,plantNet=read(diagnosisProviderKey(camera,plotId))||result.plantNetResponse||latest.providerResult||analysis.plantNetResponse,rows=[];
+ if(cv&&(cv.ok!==undefined||cv.greenPercent!==undefined||cv.colorPercentages||cv.findings||cv.summary||result.metrics)){let detail=short(cv.summary||cv.deepSummary||cv.findings?.[0]||'');if(!detail){const colors=cv.colorPercentages||{},values=[['Green',cv.greenPercent??colors.green],['Yellow',cv.yellowPercent??colors.yellow],['Brown',cv.brownPercent??colors.brown]].filter(x=>x[1]!==undefined&&x[1]!==null).map(x=>x[0]+' '+String(x[1]).replace(/%$/,'')+'%');detail=values.join(' · ')||short(result.metrics||'Screening complete')}rows.push(['OpenCV',detail||'Screening complete'])}
+ if(vertex){const a=vertex.analysis||{},detail=vertex.status==='pending'?'Processing':vertex.status==='ok'?short(a.health_assessment||a.observed_signs?.[0]||a.plant_description||(['green','yellow','brown'].filter(k=>a.color_breakdown_percent?.[k]!=null).map(k=>k+' '+a.color_breakdown_percent[k]+'%').join(' · '))||'Assessment received'):short(vertex.message||'Result unavailable');rows.push(['Vertex',detail])}
+ if(plantNet){const items=Array.isArray(plantNet.results)?plantNet.results:[],top=items[0],label=top&&(top.label||top.disease||top.commonName||top.description||top.name||top.code),score=top&&Number(top.score??top.confidence),detail=plantNet.status==='pending'?'Processing':plantNet.status==='ok'?(label?short(label+(Number.isFinite(score)?' · '+Math.round(score*100)+'%':'')):'No ranked disease candidates'):short(plantNet.message||'Result unavailable');rows.push(['Pl@ntNet',detail])}
+ diagnosisNode.innerHTML=rows.length?rows.map(([name,detail])=>'<span class="plot-cctv-source"><b>'+escapeDiagnosisText(name)+':</b> '+escapeDiagnosisText(detail)+'</span>').join(''):'<span class="plot-cctv-empty">No diagnosis results yet.</span>'
+};
+for(let camera=1;camera<=6;camera++)window.renderPlotCctvSummary(camera)
+})();
