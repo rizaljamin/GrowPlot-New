@@ -1,3 +1,7 @@
+2026-10-25 | v0.7.02 Build 08 | versionCode 273 | com.growplot.farm
+Changes: Start Google Drive Image Feed authorization immediately after Firebase profile load and before opening the camera dashboard. If Firebase has no selected plot, automatically use the first assigned plot. Continue to gate scheduled snapshots on Drive access and retry after reconnection.
+Validation: GitHub Actions ARM64 build and release checks pending. Live Google Drive authorization/upload and Android tablet verification pending.
+
 2026-10-25 | v0.7.02 Build 07 | versionCode 272 | com.growplot.farm
 Changes: When a CCTV snapshot upload detects a missing or rejected Drive access token, clear the stale token, request Google Drive authorization again, and resume scheduled capture after reconnecting. Build identity follows the user's installed Build 06.
 Validation: GitHub Actions run #552 passed ARM64 build, regressions, package/version/signature checks, and artifact upload. Live Google Drive authorization/upload and Android tablet verification pending. Source commit: b0dc8f9fb29e23200a32d3fdc553f9a019fcb69d.
