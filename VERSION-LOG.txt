@@ -1,3 +1,7 @@
+2026-10-25 | v0.7.02 Build 09 | versionCode 274 | com.growplot.farm
+Changes: Replace the Home frame-comparison block with a compact Plot/CCTV Summary showing plant identity first and the latest available OpenCV, Vertex, and Pl@ntNet diagnosis results per CCTV. Remove the local development-only Power User login shortcut. Determine Firebase power-user access from trusted `powerUser` or `admin` custom claims for any account, with no email allowlist.
+Validation: ARM64 build/package validation pending. Source commits include Home summary, login shortcut removal, and custom-claim authorization. Physical Android device verification pending.
+
 2026-10-25 | v0.7.02 Build 08 | versionCode 273 | com.growplot.farm
 Changes: Start Google Drive Image Feed authorization immediately after Firebase profile load and before opening the camera dashboard. If Firebase has no selected plot, automatically use the first assigned plot. Continue to gate scheduled snapshots on Drive access and retry after reconnection.
 Validation: GitHub Actions run #556 passed regressions, ARM64 build, package/version/signature checks, and artifact upload. Source commit: d1c70e898c4ab70de627fdf7098f40cd1efeb359. Live Google Drive authorization/upload and Android tablet verification pending.
