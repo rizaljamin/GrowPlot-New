@@ -1,4 +1,4 @@
-# GrowPlot — v0.7.02 Build 11
+# GrowPlot — v0.7.02 Build 12
 
 ## Google Play internal testing AAB
 
@@ -8,7 +8,7 @@ After the AAB is uploaded to the Internal testing track, add tester accounts and
 
 GrowPlot is an Android farm-management application with CCTV monitoring, Google Drive image feeds, A.I Plant Health, diagnosis workflows and plot management.
 
-**Current source target:** v0.7.02 Build 11 (`versionCode=276`, Android package `com.growplot.farm`), prepared to target API 36 and build a Play upload AAB. Build 11 fixes duplicate diagnosis-photo merging/removal, selects the newest saved photo consistently across OpenCV and provider analysis, and records its comparison with the previous diagnosis when one exists. The last successful ARM64 APK is Build 10 from GitHub Actions run #574 (source `5c1f9f86e61de942fee1af64a9a5222b8befd194`, artifact ID `12587229679`). Build 10 was Play AAB preparation only; no signed AAB was generated. The local development-only Power User login shortcut is removed. Firebase power-user access uses trusted `powerUser` or `admin` custom claims, with no hard-coded email allowlist. Android device verification remains pending. Build 08 Drive authorization and Maintenance changes are described below.
+**Current source target:** v0.7.02 Build 12 (`versionCode=277`, Android package `com.growplot.farm`), prepared to target API 36 and build a Play upload AAB. Build 12 restores an inline fallback for loading diagnosis photos so the A.I Health and diagnosis screens still open if the enhanced media asset has not loaded. Build 11 photo deduplication, newest-photo selection, and previous-diagnosis comparison remain active when that asset loads. Android device verification is pending.
 
 ## Live CCTV snapshot capture
 

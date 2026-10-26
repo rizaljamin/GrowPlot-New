@@ -1,3 +1,7 @@
+2026-10-26 | v0.7.02 Build 12 | versionCode 277 | com.growplot.farm
+Changes: Restore an inline diagnosis-photo loader fallback so opening A.I Health and Diagnosis does not depend on the separate diagnosis-media asset loading first. Keep enhanced duplicate removal and stale-Drive filtering when that asset is available.
+Validation: Pending GitHub ARM64 build and Android device verification.
+
 2026-10-26 | v0.7.02 Build 11 | versionCode 276 | com.growplot.farm
 Changes: Merge the local-device and Google Drive references for the same diagnosis photo so the photo has one removable entry. Keep a deleted Drive item hidden if the provider briefly returns a stale listing. Select the newest saved diagnosis photo by modification time for OpenCV, Vertex, Pl@ntNet, and Kindwise; store the exact photo used and compare its OpenCV green, yellow, and brown pixel percentages with the previous diagnosis when available.
 Validation: Targeted diagnosis-photo, Pl@ntNet, Firebase history, Vertex/OpenCV and JavaScript syntax checks passed. GitHub ARM64 build and Android device verification pending.
