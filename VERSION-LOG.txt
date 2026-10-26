@@ -1,3 +1,7 @@
+2026-10-26 | v0.7.02 Build 11 | versionCode 276 | com.growplot.farm
+Changes: Merge the local-device and Google Drive references for the same diagnosis photo so the photo has one removable entry. Keep a deleted Drive item hidden if the provider briefly returns a stale listing. Select the newest saved diagnosis photo by modification time for OpenCV, Vertex, Pl@ntNet, and Kindwise; store the exact photo used and compare its OpenCV green, yellow, and brown pixel percentages with the previous diagnosis when available.
+Validation: Targeted diagnosis-photo, Pl@ntNet, Firebase history, Vertex/OpenCV and JavaScript syntax checks passed. GitHub ARM64 build and Android device verification pending.
+
 2026-10-25 | v0.7.02 Build 10 | versionCode 275 | com.growplot.farm
 Preparation: Upgrade compileSdk/targetSdk to API 36, Android Gradle Plugin to 8.9.1 and Gradle to 8.11.1. Add a signed Play App Bundle build script and manual GitHub Actions workflow for Internal testing.
 Validation: Preparation only. Signed AAB not generated because the Play upload keystore is not configured in this sandbox. Do not upload until the generated AAB signer matches the certificate registered in Play Console.

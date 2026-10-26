@@ -46,6 +46,7 @@ scripts = re.findall(r'<script(?:\s[^>]*)?>(.*?)</script\s*>', html, flags=re.S|
 print('\n'.join(scripts))
 PY
 node --check "$TEMP_JS" || fail "inline JavaScript syntax check failed"
+node --check "$ROOT/app/src/main/assets/diagnosis-media.js" || fail "diagnosis-media JavaScript syntax check failed"
 node "$ROOT/tools/tests/kindwise-regression.js" || fail "Kindwise integration regression check failed"
 node "$ROOT/tools/tests/plantnet-analysis-regression.js" || fail "Pl@ntNet analysis integration regression check failed"
 node "$ROOT/tools/tests/manage-farm-regression.js" || fail "Manage Farm regression check failed"
@@ -59,6 +60,7 @@ node "$ROOT/tools/tests/feed-history-regression.js" || fail "Feed-history regres
 node "$ROOT/tools/tests/cctv-snapshot-scheduler-regression.js" || fail "CCTV snapshot scheduler regression check failed"
 node "$ROOT/tools/tests/confirmed-species-home-regression.js" || fail "Confirmed-species home-label regression check failed"
 node "$ROOT/tools/tests/diagnosis-history-firebase-regression.js" || fail "Firebase diagnosis-history regression check failed"
+node "$ROOT/tools/tests/diagnosis-photo-regression.js" || fail "Diagnosis-photo regression check failed"
 node "$ROOT/tools/tests/marketplace-regression.js" || fail "Marketplace regression check failed"
 node "$ROOT/tools/tests/crop-catalog-regression.js" || fail "Manage Farm crop-catalog regression check failed"
 node "$ROOT/tools/tests/timeline-persistence-regression.js" || fail "Timeline persistence regression check failed"
