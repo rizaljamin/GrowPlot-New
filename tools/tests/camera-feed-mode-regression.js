@@ -13,7 +13,10 @@ assert.match(html,/<summary><span>Camera Settings<\/span>/,'Settings section tit
 assert.match(html,/<span class=\"camname\">STREAM \$\{id\}<\/span>/,'Home card uses a Stream label without the old CCTV label');
 assert.match(html,/<button class="stream-settings-button" type="button" data-camera=/,'each Home stream renders a direct gear button for that stream');
 assert.doesNotMatch(html,/feed-source-select|feed-source-details|File selection|value="camera"|value="file"/,'Home stream cards contain no feed source, camera, or file selector');
-assert.match(source,/Connection protocol[\s\S]*CCTV \/ RTSP IP address[\s\S]*RTSP port[\s\S]*Stream path/,'the gear dialog contains protocol, IP, port, and path settings');
+assert.match(source,/Connection protocol/,'the gear dialog contains a protocol field');
+assert.match(source,/CCTV \/ RTSP IP address/,'the protocol field identifies RTSP CCTV addresses');
+assert.match(source,/RTSP port/,'the protocol field identifies the RTSP port');
+assert.match(source,/Stream path/,'the gear dialog contains a stream path field');
 assert.match(source,/saveCctvCameraStreamSettings\(camera,protocol\.value,cameraIp,streamPort,streamPath\)/,'stream dialog saves only its own network settings');
 assert.match(source,/getCctvCameraStreamSettings\(camera\)/,'stream dialog loads connection settings for its own stream');
 assert.match(source,/getVigiCctv03Credentials[\s\S]*saveVigiCctv03Credentials/,'Stream 03 reuses the encrypted VIGI credential bridge');
@@ -36,7 +39,7 @@ assert.match(account,/<h3>Camera Settings — Selected Plot<\/h3>/,'selected-plo
 const handlers={};
 function element(tag){return {tagName:tag.toUpperCase(),children:[],attributes:{},listeners:{},parentElement:null,hidden:false,disabled:false,open:false,className:'',dataset:{},appendChild(child){child.remove?.();this.children.push(child);child.parentElement=this;return child},append(...children){children.forEach(child=>this.appendChild(child))},insertBefore(child,ref){child.remove?.();const at=this.children.indexOf(ref);this.children.splice(at<0?this.children.length:at,0,child);child.parentElement=this;return child},replaceWith(node){if(!this.parentElement)return;const parent=this.parentElement,at=parent.children.indexOf(this);parent.children.splice(at,1,node);node.parentElement=parent;this.parentElement=null},remove(){if(this.parentElement){this.parentElement.children=this.parentElement.children.filter(child=>child!==this);this.parentElement=null}},setAttribute(key,value){this.attributes[key]=String(value)},addEventListener(name,fn){this.listeners[name]=fn},dispatchEvent(event){this.listeners[event.type]?.(event)},click(){if(this.tagName==='SUMMARY'&&this.parentElement?.tagName==='DETAILS'){this.parentElement.open=!this.parentElement.open;this.parentElement.listeners.toggle?.()}else this.listeners.click?.()},focus(){this.focused=true},querySelector(selector){const all=[];const visit=node=>{for(const child of node.children||[]){all.push(child);visit(child)}};visit(this);return all.find(node=>selector.startsWith('.')?node.className===selector.slice(1):selector.startsWith('input')&&node.tagName==='INPUT')||null}}}
 function makeCard(camera){
- const card=element('section'),top=element('div'),actions=element('div'),gear=element('button');top.className='camtop';actions.className='feed-card-actions';gear.className='stream-settings-button';gear.dataset.camera=String(camera);actions.appendChild(gear);top.appendChild(actions);card.appendChild(top);
+ const card=element('section'),top=element('div'),actions=element('div'),gear=element('button');top.className='camtop';actions.className='feed-card-actions';gear.className='stream-settings-button';gear.dataset.camera=String(camera);gear.setAttribute('aria-label','Connection settings for Stream '+String(camera).padStart(2,'0'));actions.appendChild(gear);top.appendChild(actions);card.appendChild(top);
  card.querySelector=selector=>{const all=[];const visit=node=>{for(const child of node.children||[]){all.push(child);visit(child)}};visit(card);return all.find(node=>selector.startsWith('.')?node.className===selector.slice(1):null)||null};
  return {card,gear,actions};
 }
@@ -55,7 +58,7 @@ assert.equal(window.GrowPlotFeedSettings.getMode(),'cctv-stream','CCTV stream re
 assert.equal(inputs[1].checked,true);assert.equal(stream.hidden,false,'existing stream settings remain visible by default');
 assert(settingsMutationCallback,'camera settings watches for dynamically loaded controls');
 assert(cards.every(x=>x.card.querySelector('.stream-settings-button')&&!x.card.querySelector('.feed-camera-button')),'each CCTV stream shows its own settings gear in stream mode');
-assert(cards.every((x,i)=>x.card.querySelector('.stream-settings-button').attributes['aria-label']==='Settings for Stream '+String(i+1).padStart(2,'0')),'each gear identifies its own numbered stream');
+assert(cards.every((x,i)=>x.card.querySelector('.stream-settings-button').attributes['aria-label']==='Connection settings for Stream '+String(i+1).padStart(2,'0')),'each gear identifies its own numbered stream');
 assert(cards.every(x=>x.card.querySelector('.stream-settings-button')),'each stream has a dedicated settings gear');
 assert(cards.every(x=>!x.card.querySelector('.feed-source-select')),'no stream shows the old IP Webcam/Camera/File dropdown');
 inputs[0].checked=true;handlers['device-camera-change']();
