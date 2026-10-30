@@ -45,6 +45,7 @@ assert.equal(window.GrowPlotFeedSettings.getMode(),'cctv-stream','CCTV stream re
 assert.equal(inputs[1].checked,true);assert.equal(stream.hidden,false,'existing stream settings remain visible by default');
 assert(settingsMutationCallback,'camera settings watches for dynamically loaded controls');
 assert(cards.every(x=>x.card.querySelector('.feed-settings-button')&&!x.card.querySelector('.feed-camera-button')),'each CCTV stream shows its own settings gear in stream mode');
+assert(cards.every((x,i)=>x.card.querySelector('.feed-settings-button').attributes['aria-label']==='Settings for Stream '+String(i+1).padStart(2,'0')),'each gear identifies its own numbered stream');
 const gear=cards[0].card.querySelector('.feed-settings-button'),streamSettings=cards[0].card.querySelector('.feed-source-details');
 assert(streamSettings&&streamSettings.querySelector('.feed-source-select')===cards[0].select,'the gear opens settings for that stream only');
 gear.click();assert.equal(streamSettings.open,true,'tapping the gear opens the per-stream settings panel');

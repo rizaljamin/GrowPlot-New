@@ -36,10 +36,10 @@
    let actions=card.querySelector('.feed-card-actions');
    if(!settings){
     settings=document.createElement('details');settings.className='feed-source-details';
-    const summary=document.createElement('summary');summary.className='feed-settings-button';summary.title='Settings for this stream';summary.setAttribute('aria-label','Settings for Stream '+String(select.dataset.camera||''));
+    const streamId=String(select.dataset.camera||'').padStart(2,'0'),summary=document.createElement('summary');summary.className='feed-settings-button';summary.title='Settings for Stream '+streamId;summary.setAttribute('aria-label','Settings for Stream '+streamId);
     summary.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="m19.4 15 .1.1a1.7 1.7 0 1 1-2.4 2.4L17 17.4a1.7 1.7 0 0 0-2.9 1.2v.2a1.7 1.7 0 1 1-3.4 0v-.2a1.7 1.7 0 0 0-2.9-1.2l-.1.1a1.7 1.7 0 1 1-2.4-2.4l.1-.1a1.7 1.7 0 0 0-1.2-2.9H4a1.7 1.7 0 1 1 0-3.4h.2a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a1.7 1.7 0 1 1 2.4-2.4l.1.1a1.7 1.7 0 0 0 2.9-1.2V2a1.7 1.7 0 1 1 3.4 0v.2a1.7 1.7 0 0 0 2.9 1.2l.1-.1a1.7 1.7 0 1 1 2.4 2.4l-.1.1a1.7 1.7 0 0 0 1.2 2.9h.2a1.7 1.7 0 1 1 0 3.4h-.2a1.7 1.7 0 0 0-1.2 2.9Z"/></svg>';
     const panel=document.createElement('div');panel.className='feed-source-panel';
-    const heading=document.createElement('strong');heading.textContent='Stream '+String(select.dataset.camera||'')+' Settings';
+    const heading=document.createElement('strong');heading.textContent='Stream '+streamId+' Settings';
     const choiceLabel=document.createElement('label');choiceLabel.textContent='Image source';choiceLabel.appendChild(select);panel.append(heading,choiceLabel);settings.append(summary,panel);
     settings.addEventListener('toggle',()=>summary.setAttribute('aria-expanded',String(settings.open)));
     select.addEventListener('change',()=>{settings.open=false});
