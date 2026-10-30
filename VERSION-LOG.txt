@@ -1,3 +1,5 @@
+2026-10-30 | v0.8.00 Build 6 (versionCode 283) | Refresh the saved feed mode after Settings rebuilds camera fields on open. Keep the CCTV radio grouped above its settings card; CCTV mode enables all card items and Device Camera disables them while leaving the radio selectable. Add a regression check for the Settings loader path. GitHub ARM64 build and Android device verification pending.
+
 2026-10-30 | v0.8.00 Build 5 (versionCode 282) | Put the CCTV stream radio at the top of its camera settings card. Selecting CCTV stream enables all card controls, including camera addresses and VIGI credentials; selecting Device Camera disables the card contents while keeping the CCTV radio available to switch back. GitHub ARM64 build and Android device verification pending.
 
 2026-10-30 | v0.8.00 Build 4 (versionCode 281) | Reapply Camera Settings mode whenever CCTV controls are created dynamically. Device Camera disables the complete CCTV setup; CCTV stream enables only camera IP addresses and their save button. Add regression coverage for controls added after mode initialization. GitHub ARM64 build and Android device verification pending.

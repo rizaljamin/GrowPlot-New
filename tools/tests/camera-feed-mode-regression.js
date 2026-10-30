@@ -12,6 +12,8 @@ assert.match(html,/legend>Image Feed:/,'Settings exposes the requested Image Fee
 assert.match(html,/name="homeFeedMode" value="device-camera"[^>]*>\s*Device Camera/,'Device Camera radio is present');
 assert.match(html,/id="cctvStreamConfiguration" class="cctv-stream-card"><label class="cctv-stream-choice"><input type="radio" name="homeFeedMode" value="cctv-stream" checked> CCTV stream/,'CCTV stream radio is grouped in its camera settings card');
 assert.match(html,/id="cctvStreamControls"/,'camera addresses and related controls are grouped in the CCTV card');
+const cctvLoader=html.split('\n').find(line=>line.startsWith('function loadCctvCameraIpSettings()'));
+assert.match(cctvLoader,/GrowPlotFeedSettings\.refresh\(\)/,'opening Settings reapplies the mode after it rebuilds camera fields');
 assert.match(html,/id="cctvStreamConfiguration"/,'existing CCTV stream configuration is kept in its own panel');
 assert.match(html,/CCTV stream to use the camera settings card below/,'settings explains the two feed-mode choices');
 const ipSaveHandler=html.match(/document\.getElementById\('saveCctvIps'\)\.addEventListener\('click',\(\)=>\{.*?\}\);/);
