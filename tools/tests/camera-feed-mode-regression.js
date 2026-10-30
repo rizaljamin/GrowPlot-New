@@ -24,10 +24,10 @@ assert.match(account,/title\.textContent='Camera Settings'/,'demo camera setting
 assert.match(account,/<h3>Camera Settings — Selected Plot<\/h3>/,'selected-plot camera settings title is renamed');
 
 const handlers={};
+function element(tag){return {tagName:tag.toUpperCase(),children:[],attributes:{},listeners:{},parentElement:null,hidden:false,disabled:false,open:false,className:'',dataset:{},appendChild(child){child.remove?.();this.children.push(child);child.parentElement=this;return child},append(...children){children.forEach(child=>this.appendChild(child))},insertBefore(child,ref){child.remove?.();const at=this.children.indexOf(ref);this.children.splice(at<0?this.children.length:at,0,child);child.parentElement=this;return child},replaceWith(node){if(!this.parentElement)return;const parent=this.parentElement,at=parent.children.indexOf(this);parent.children.splice(at,1,node);node.parentElement=parent;this.parentElement=null},remove(){if(this.parentElement){this.parentElement.children=this.parentElement.children.filter(child=>child!==this);this.parentElement=null}},setAttribute(key,value){this.attributes[key]=String(value)},addEventListener(name,fn){this.listeners[name]=fn},dispatchEvent(event){this.listeners[event.type]?.(event)},click(){if(this.tagName==='SUMMARY'&&this.parentElement?.tagName==='DETAILS'){this.parentElement.open=!this.parentElement.open;this.parentElement.listeners.toggle?.()}else this.listeners.click?.()},focus(){this.focused=true},querySelector(selector){const all=[];const visit=node=>{for(const child of node.children||[]){all.push(child);visit(child)}};visit(this);return all.find(node=>selector.startsWith('.')?node.className===selector.slice(1):selector.startsWith('input')&&node.tagName==='INPUT')||null}}}
 function makeCard(camera){
- const select={dataset:{camera:String(camera)},hidden:false,addEventListener(){},remove(){this.removed=true}};
- const label={children:[select],insertBefore(node){this.children.unshift(node);node.parentElement=this}};
- const card={querySelector(selector){return selector==='.feed-source-label'?label:selector==='.feed-source-select'?select:label.children.find(x=>x.className==='feed-camera-button')||null}};
+ const card=element('section'),top=element('div'),label=element('label'),select=element('select');top.className='camtop';label.className='feed-source-label';select.className='feed-source-select';select.dataset.camera=String(camera);select.value='cctv';label.appendChild(select);top.appendChild(label);card.appendChild(top);
+ card.querySelector=selector=>{const all=[];const visit=node=>{for(const child of node.children||[]){all.push(child);visit(child)}};visit(card);return all.find(node=>selector.startsWith('.')?node.className===selector.slice(1):null)||null};
  return {card,label,select};
 }
 const cards=Array.from({length:6},(_,i)=>makeCard(i+1)),inputs=[{value:'device-camera',disabled:false},{value:'cctv-stream',disabled:false}];
@@ -37,14 +37,19 @@ let controlsReady=false,settingsMutationCallback=null;
 const stream={hidden:false,attributes:{},setAttribute(key,value){this.attributes[key]=value}},streamControls={disabled:false,attributes:{},setAttribute(key,value){this.attributes[key]=value},querySelectorAll(){return controlsReady?[...cameraControls,username,password,save]:[]}},styleHost={appendChild(node){this.node=node}};
 const store=new Map(),captures=[];
 inputs.forEach(input=>{input.addEventListener=(name,fn)=>{handlers[input.value+'-'+name]=fn}});
-const document={readyState:'complete',head:styleHost,addEventListener(){},createElement(tag){return {tag,attributes:{},listeners:{},setAttribute(k,v){this.attributes[k]=v},addEventListener(k,fn){this.listeners[k]=fn},remove(){this.removed=true;if(this.parentElement)this.parentElement.children=this.parentElement.children.filter(child=>child!==this)},click(){this.listeners.click?.()},innerHTML:''}},getElementById(id){if(id==='cctvStreamConfiguration')return stream;if(id==='cctvStreamControls')return streamControls;if(id==='plot')return {value:'plot-7'};if(id==='cameraFeedModeStyles')return styleHost.node||null;return null},querySelectorAll(selector){return selector==='.camera'?cards.map(x=>x.card):selector==='input[name="homeFeedMode"]'?inputs:[]}};
+const document={readyState:'complete',head:styleHost,addEventListener(){},createElement:tag=>element(tag),getElementById(id){if(id==='cctvStreamConfiguration')return stream;if(id==='cctvStreamControls')return streamControls;if(id==='plot')return {value:'plot-7'};if(id==='cameraFeedModeStyles')return styleHost.node||null;return null},querySelectorAll(selector){return selector==='.camera'?cards.map(x=>x.card):selector==='input[name="homeFeedMode"]'?inputs:[]}};
 const window={GrowPlotBridge:{captureFeedPhoto:(camera,plotId)=>captures.push([camera,plotId])},render(){},showSaveToast(){}};
 const context={window,document,localStorage:{getItem:key=>store.has(key)?store.get(key):null,setItem:(key,value)=>store.set(key,String(value))},MutationObserver:class{constructor(callback){settingsMutationCallback=callback}observe(target,options){assert.equal(target,streamControls);assert.equal(options.childList,true);assert.equal(options.subtree,true)}},Number,String};
 vm.runInNewContext(source,context);
 assert.equal(window.GrowPlotFeedSettings.getMode(),'cctv-stream','CCTV stream remains the default mode');
 assert.equal(inputs[1].checked,true);assert.equal(stream.hidden,false,'existing stream settings remain visible by default');
 assert(settingsMutationCallback,'camera settings watches for dynamically loaded controls');
-assert(cards.every(x=>!x.select.hidden&&!x.card.querySelector('.feed-camera-button')),'CCTV stream preserves existing channel controls');
+assert(cards.every(x=>x.card.querySelector('.feed-settings-button')&&!x.card.querySelector('.feed-camera-button')),'each CCTV stream shows its own settings gear in stream mode');
+const gear=cards[0].card.querySelector('.feed-settings-button'),streamSettings=cards[0].card.querySelector('.feed-source-details');
+assert(streamSettings&&streamSettings.querySelector('.feed-source-select')===cards[0].select,'the gear opens settings for that stream only');
+gear.click();assert.equal(streamSettings.open,true,'tapping the gear opens the per-stream settings panel');
+assert(cards.slice(1).every(x=>!x.card.querySelector('.feed-source-details').open),'opening one stream gear leaves all other stream settings closed');
+cards[0].select.dispatchEvent({type:'change'});assert.equal(streamSettings.open,false,'choosing a feed source closes that stream settings panel');
 inputs[0].checked=true;handlers['device-camera-change']();
 assert.equal(window.GrowPlotFeedSettings.getMode(),'device-camera','radio selection is persisted');
 assert.equal(stream.hidden,false,'the CCTV setup remains displayed for visibility');
@@ -55,7 +60,7 @@ assert.equal(streamControls.disabled,true,'native fieldset blocks current and dy
 controlsReady=true;settingsMutationCallback();
 assert(cameraControls.every(control=>control.disabled),'device-camera mode disables all six CCTV IP fields');
 assert(username.disabled&&password.disabled&&save.disabled,'device-camera mode disables credentials and save controls');
-assert(cards.every(x=>x.select.hidden&&x.card.querySelector('.feed-camera-button')),'all six channels show a device-camera button');
+assert(cards.every(x=>x.card.querySelector('.feed-camera-button')&&x.card.querySelector('.feed-settings-button')),'device-camera mode keeps the capture button and stream settings gear on all six channels');
 cards[4].card.querySelector('.feed-camera-button').click();
 assert.deepEqual(captures,[[5,'plot-7']],'the channel button opens the native camera for that channel and plot');
 inputs[1].checked=true;handlers['cctv-stream-change']();
@@ -68,6 +73,6 @@ assert.equal(streamControls.disabled,false,'native fieldset re-enables the CCTV 
 assert(cameraControls.every(control=>!control.disabled),'switching back enables all six CCTV IP fields');
 assert.equal(save.disabled,false,'switching back enables saving the IP addresses');
 assert(!username.disabled&&!password.disabled,'CCTV mode enables the VIGI credentials with the rest of the card');
-assert(cards.every(x=>!x.select.hidden&&!x.card.querySelector('.feed-camera-button')),'all six channels return to their existing stream controls');
+assert(cards.every(x=>x.card.querySelector('.feed-settings-button')&&!x.card.querySelector('.feed-camera-button')),'all six channels keep their settings gear when CCTV mode returns');
 assert.equal(captures.length,1,'changing feed mode does not start a camera or clear saved CCTV settings');
 console.log('PASS: CCTV radio grouping, complete card enable/disable behavior, dynamic controls, all six camera actions, and saved mode.');
