@@ -129,6 +129,9 @@ public class MainActivity extends Activity {
     private static final String PREF_INTERVAL = "refresh_interval_minutes";
     private static final String PREF_CCTV_SNAPSHOT_INTERVAL_MILLIS = "cctv_snapshot_interval_millis";
     private static final String PREF_CCTV_IP_PREFIX = "cctv_ip_plot-1_";
+    private static final String PREF_CCTV_PROTOCOL_PREFIX = "cctv_protocol_";
+    private static final String PREF_CCTV_PORT_PREFIX = "cctv_port_";
+    private static final String PREF_CCTV_PATH_PREFIX = "cctv_path_";
     private static final String PREF_VIGI_CCTV03_CREDENTIALS = "vigi_cctv03_credentials_encrypted";
     private static final String VIGI_CCTV03_KEY_ALIAS = "GrowPlotVigiCctv03";
     private static final String PREF_TIMELINE_INTERVAL = "photo_timeline_interval";
@@ -691,10 +694,28 @@ public class MainActivity extends Activity {
         }).addOnFailureListener(e -> { assignedStreamsLoading=false; android.util.Log.w("GrowPlotStreams","Privilege verification failed",e); });
     }
 
+    private String cctvStreamProtocol(int camera) {
+        String fallback = camera == 3 ? "rtsp" : "http";
+        String protocol = getPrefs().getString(PREF_CCTV_PROTOCOL_PREFIX + camera, fallback).toLowerCase(Locale.US);
+        return protocol.equals("http") || protocol.equals("https") || protocol.equals("rtsp") ? protocol : fallback;
+    }
+
+    private int cctvStreamPort(int camera) {
+        int fallback = camera == 3 ? 554 : 8080;
+        int port = getPrefs().getInt(PREF_CCTV_PORT_PREFIX + camera, fallback);
+        return port >= 1 && port <= 65535 ? port : fallback;
+    }
+
+    private String cctvStreamPath(int camera) {
+        String fallback = camera == 3 ? "/stream1" : "/videofeed";
+        String path = getPrefs().getString(PREF_CCTV_PATH_PREFIX + camera, fallback).trim();
+        return path.startsWith("/") && !path.contains("..") && !path.matches(".*[?#@].*") ? path : fallback;
+    }
+
     private String cctvStreamUrl(int camera) {
         if (userStreamMode) return assignedStreamUrls[camera] == null ? "" : assignedStreamUrls[camera];
         String ip = cctvIp(camera);
-        return ip.isEmpty() ? "" : "http://" + ip + ":8080/videofeed";
+        return ip.isEmpty() ? "" : cctvStreamProtocol(camera) + "://" + ip + ":" + cctvStreamPort(camera) + cctvStreamPath(camera);
     }
 
     private String[] vigiCctv03Credentials() {
@@ -1367,17 +1388,19 @@ public class MainActivity extends Activity {
             } catch (Exception error) { stopCctv03Vlc(); }
             return;
         }
+        String route = cctvStreamUrl(3);
         String ip = cctvIp(3);
         String[] credentials = vigiCctv03Credentials();
+        boolean rtsp = route.startsWith("rtsp://") || route.startsWith("rtsps://");
         for (int i = videoLayout.getChildCount() - 1; i >= 0; i--) {
             View child = videoLayout.getChildAt(i);
             if (child instanceof TextView) videoLayout.removeViewAt(i);
         }
-        if (ip.isEmpty()) {
-            showCctv03VigiMessage(videoLayout, "Set the CCTV03 VIGI IP address in Settings");
+        if (route.isEmpty()) {
+            showCctv03VigiMessage(videoLayout, "Set the CCTV03 IP address in Stream 03 Settings");
             return;
         }
-        if (credentials[0].isEmpty() || credentials[1].isEmpty() || cctv03CredentialsRejected) {
+        if (rtsp && (credentials[0].isEmpty() || credentials[1].isEmpty() || cctv03CredentialsRejected)) {
             showCctv03VigiMessage(videoLayout, "Enter the VIGI camera account to connect");
             promptForCctv03VigiCredentials();
             return;
@@ -1391,16 +1414,21 @@ public class MainActivity extends Activity {
             ipWebcam3VlcPlayer = new org.videolan.libvlc.MediaPlayer(ipWebcam3Vlc);
             ipWebcam3VlcPlayer.attachViews(videoLayout, null, true, false);
             final org.videolan.libvlc.MediaPlayer sessionPlayer = ipWebcam3VlcPlayer;
-            sessionPlayer.setEventListener(event -> {
-                if (event.type == org.videolan.libvlc.MediaPlayer.Event.EncounteredError) {
-                    mainHandler.post(() -> checkCctv03RejectedCredentials(sessionPlayer, ip, credentials));
-                }
-            });
-            String rtspUrl = "rtsp://" + Uri.encode(credentials[0]) + ":" + Uri.encode(credentials[1])
-                    + "@" + ip + ":554/stream1";
-            Media media = new Media(ipWebcam3Vlc, Uri.parse(rtspUrl));
-            media.addOption(":rtsp-user=" + credentials[0]);
-            media.addOption(":rtsp-pwd=" + credentials[1]);
+            if (rtsp) {
+                sessionPlayer.setEventListener(event -> {
+                    if (event.type == org.videolan.libvlc.MediaPlayer.Event.EncounteredError) {
+                        mainHandler.post(() -> checkCctv03RejectedCredentials(sessionPlayer, ip, credentials));
+                    }
+                });
+                int schemeEnd = route.indexOf("://") + 3;
+                route = route.substring(0, schemeEnd) + Uri.encode(credentials[0]) + ":" + Uri.encode(credentials[1])
+                        + "@" + route.substring(schemeEnd);
+            }
+            Media media = new Media(ipWebcam3Vlc, Uri.parse(route));
+            if (rtsp) {
+                media.addOption(":rtsp-user=" + credentials[0]);
+                media.addOption(":rtsp-pwd=" + credentials[1]);
+            }
             media.addOption(":network-caching=500");
             media.addOption(":live-caching=500");
             ipWebcam3VlcPlayer.setMedia(media);
@@ -3579,6 +3607,39 @@ public class MainActivity extends Activity {
         @JavascriptInterface public void requestAdminActivationDemo() {
             runOnUiThread(() -> AdminActivationDemo.request(MainActivity.this));
         }
+        @JavascriptInterface public String getCctvCameraStreamSettings(int camera) {
+            if (camera < 1 || camera > 6) return "{}";
+            try {
+                return new JSONObject().put("ip", cctvIp(camera))
+                        .put("protocol", cctvStreamProtocol(camera))
+                        .put("port", cctvStreamPort(camera))
+                        .put("path", cctvStreamPath(camera)).toString();
+            } catch (Exception ignored) { return "{}"; }
+        }
+
+        @JavascriptInterface public boolean saveCctvCameraStreamSettings(int camera, String protocol, String ip, int port, String path) {
+            if (camera < 1 || camera > 6 || protocol == null || ip == null || path == null) return false;
+            String scheme = protocol.trim().toLowerCase(Locale.US);
+            String address = ip.trim();
+            String routePath = path.trim();
+            if (!(scheme.equals("http") || scheme.equals("https") || scheme.equals("rtsp"))) return false;
+            if (port < 1 || port > 65535 || !isPrivateIpv4OrBlank(address)) return false;
+            if (camera <= 3 && address.isEmpty()) return false;
+            if (!routePath.startsWith("/") || routePath.contains("..") || routePath.matches(".*[?#@].*")) return false;
+            SharedPreferences.Editor editor = getPrefs().edit()
+                    .putString(PREF_CCTV_IP_PREFIX + String.format(Locale.US, "%02d", camera), address)
+                    .putString(PREF_CCTV_PROTOCOL_PREFIX + camera, scheme)
+                    .putInt(PREF_CCTV_PORT_PREFIX + camera, port)
+                    .putString(PREF_CCTV_PATH_PREFIX + camera, routePath);
+            editor.apply();
+            if (camera <= 3) runOnUiThread(() -> {
+                if (camera == 1) reconnectIpWebcamVlc();
+                else if (camera == 2) reconnectCctv02Vlc();
+                else reconnectCctv03Vlc();
+            });
+            return true;
+        }
+
         @JavascriptInterface public String getCctvCameraIpAddresses() {
             JSONArray addresses = new JSONArray();
             for (int camera = 1; camera <= 6; camera++) addresses.put(cctvIp(camera));
