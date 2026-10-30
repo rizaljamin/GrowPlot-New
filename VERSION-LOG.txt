@@ -1,3 +1,5 @@
+2026-10-30 | v0.8.00 Build 5 (versionCode 282) | Put the CCTV stream radio at the top of its camera settings card. Selecting CCTV stream enables all card controls, including camera addresses and VIGI credentials; selecting Device Camera disables the card contents while keeping the CCTV radio available to switch back. GitHub ARM64 build and Android device verification pending.
+
 2026-10-30 | v0.8.00 Build 4 (versionCode 281) | Reapply Camera Settings mode whenever CCTV controls are created dynamically. Device Camera disables the complete CCTV setup; CCTV stream enables only camera IP addresses and their save button. Add regression coverage for controls added after mode initialization. GitHub ARM64 build and Android device verification pending.
 
 2026-10-30 | v0.8.00 Build 3 (versionCode 280) | Home feed cards now read STREAM 01–06 and remove the old SECTION/CCTV label. Add a card-label regression assertion. GitHub ARM64 build and Android device verification pending.
