@@ -47,6 +47,7 @@ print('\n'.join(scripts))
 PY
 node --check "$TEMP_JS" || fail "inline JavaScript syntax check failed"
 node --check "$ROOT/app/src/main/assets/diagnosis-media.js" || fail "diagnosis-media JavaScript syntax check failed"
+node --check "$ROOT/app/src/main/assets/camera-feed-settings.js" || fail "camera-feed settings JavaScript syntax check failed"
 node "$ROOT/tools/tests/kindwise-regression.js" || fail "Kindwise integration regression check failed"
 node "$ROOT/tools/tests/plantnet-analysis-regression.js" || fail "Pl@ntNet analysis integration regression check failed"
 node "$ROOT/tools/tests/manage-farm-regression.js" || fail "Manage Farm regression check failed"
@@ -57,6 +58,7 @@ node "$ROOT/tools/tests/plant-hsv-regression.js" || fail "Plant HSV regression c
 node "$ROOT/tools/tests/yolo-regression.js" || fail "YOLO integration regression check failed"
 node "$ROOT/tools/tests/vertex-opencv-regression.js" || fail "OpenCV and Vertex wiring regression check failed"
 node "$ROOT/tools/tests/feed-history-regression.js" || fail "Feed-history regression check failed"
+node "$ROOT/tools/tests/camera-feed-mode-regression.js" || fail "Camera-feed mode regression check failed"
 node "$ROOT/tools/tests/cctv-snapshot-scheduler-regression.js" || fail "CCTV snapshot scheduler regression check failed"
 node "$ROOT/tools/tests/confirmed-species-home-regression.js" || fail "Confirmed-species home-label regression check failed"
 node "$ROOT/tools/tests/diagnosis-history-firebase-regression.js" || fail "Firebase diagnosis-history regression check failed"

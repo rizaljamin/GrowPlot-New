@@ -1,0 +1,46 @@
+'use strict';
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const vm=require('node:vm');
+const html=fs.readFileSync('app/src/main/assets/index.html','utf8');
+const account=fs.readFileSync('app/src/main/assets/account-login.js','utf8');
+const source=fs.readFileSync('app/src/main/assets/camera-feed-settings.js','utf8');
+assert.match(html,/<summary><span>Camera Settings<\/span>/,'Settings section title is Camera Settings');
+assert.match(html,/legend>Image Feed:/,'Settings exposes the requested Image Feed title');
+assert.match(html,/name="homeFeedMode" value="device-camera"[^>]*>\s*Device Camera/,'Device Camera radio is present');
+assert.match(html,/name="homeFeedMode" value="cctv-stream"[^>]*>\s*CCTV stream/,'CCTV stream radio is present');
+assert.match(html,/id="cctvStreamConfiguration"/,'existing CCTV stream configuration is kept in its own panel');
+assert.match(html,/<script src="camera-feed-settings\.js"><\/script>/,'camera mode controller is loaded as a separate asset');
+assert.match(account,/title\.textContent='Camera Settings'/,'demo camera settings title is renamed');
+assert.match(account,/<h3>Camera Settings — Selected Plot<\/h3>/,'selected-plot camera settings title is renamed');
+
+const handlers={};
+function makeCard(camera){
+ const select={dataset:{camera:String(camera)},hidden:false,addEventListener(){},remove(){this.removed=true}};
+ const label={children:[select],insertBefore(node){this.children.unshift(node);node.parentElement=this}};
+ const card={querySelector(selector){return selector==='.feed-source-label'?label:selector==='.feed-source-select'?select:label.children.find(x=>x.className==='feed-camera-button')||null}};
+ return {card,label,select};
+}
+const cards=Array.from({length:6},(_,i)=>makeCard(i+1)),inputs=[{value:'device-camera'},{value:'cctv-stream'}];
+const stream={hidden:false},styleHost={appendChild(node){this.node=node}};
+const store=new Map(),captures=[];
+inputs.forEach(input=>{input.addEventListener=(name,fn)=>{handlers[input.value+'-'+name]=fn}});
+const document={readyState:'complete',head:styleHost,addEventListener(){},createElement(tag){return {tag,attributes:{},listeners:{},setAttribute(k,v){this.attributes[k]=v},addEventListener(k,fn){this.listeners[k]=fn},remove(){this.removed=true;if(this.parentElement)this.parentElement.children=this.parentElement.children.filter(child=>child!==this)},click(){this.listeners.click?.()},innerHTML:''}},getElementById(id){if(id==='cctvStreamConfiguration')return stream;if(id==='plot')return {value:'plot-7'};if(id==='cameraFeedModeStyles')return styleHost.node||null;return null},querySelectorAll(selector){return selector==='.camera'?cards.map(x=>x.card):selector==='input[name="homeFeedMode"]'?inputs:[]}};
+const window={GrowPlotBridge:{captureFeedPhoto:(camera,plotId)=>captures.push([camera,plotId])},render(){},showSaveToast(){}};
+const context={window,document,localStorage:{getItem:key=>store.has(key)?store.get(key):null,setItem:(key,value)=>store.set(key,String(value))},Number,String};
+vm.runInNewContext(source,context);
+assert.equal(window.GrowPlotFeedSettings.getMode(),'cctv-stream','CCTV stream remains the default mode');
+assert.equal(inputs[1].checked,true);assert.equal(stream.hidden,false,'existing stream settings remain visible by default');
+assert(cards.every(x=>!x.select.hidden&&!x.card.querySelector('.feed-camera-button')),'CCTV stream preserves existing channel controls');
+inputs[0].checked=true;handlers['device-camera-change']();
+assert.equal(window.GrowPlotFeedSettings.getMode(),'device-camera','radio selection is persisted');
+assert.equal(stream.hidden,true,'device camera mode hides the CCTV-only IP and VLC fields');
+assert(cards.every(x=>x.select.hidden&&x.card.querySelector('.feed-camera-button')),'all six channels show a device-camera button');
+cards[4].card.querySelector('.feed-camera-button').click();
+assert.deepEqual(captures,[[5,'plot-7']],'the channel button opens the native camera for that channel and plot');
+inputs[1].checked=true;handlers['cctv-stream-change']();
+assert.equal(window.GrowPlotFeedSettings.getMode(),'cctv-stream','switching back to CCTV stream is persisted');
+assert.equal(stream.hidden,false,'switching back restores the existing CCTV settings panel');
+assert(cards.every(x=>!x.select.hidden&&!x.card.querySelector('.feed-camera-button')),'all six channels return to their existing stream controls');
+assert.equal(captures.length,1,'changing feed mode does not start a camera or clear saved CCTV settings');
+console.log('PASS: Camera Settings mode, all six device-camera actions, persisted selection, and restored CCTV controls.');

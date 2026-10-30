@@ -1,6 +1,6 @@
-# GrowPlot — v0.7.02 Build 12
+# GrowPlot — v0.8.00 Build 1
 
-## Google Play internal testing AAB
+## Optional manual Google Play internal-testing AAB
 
 The Play testing build targets API 36 and is created with `tools/build-play-aab.sh` or the manual GitHub Actions workflow **Build GrowPlot Play AAB**. Configure a Play Console upload keystore and alias in the local `GROWPLOT_PLAY_UPLOAD_*` environment variables or GitHub Actions secrets. If no separate Play upload key is supplied, the workflow uses the existing stable GrowPlot signing key; confirm that its certificate is the upload certificate registered in Play Console before uploading. Set `GROWPLOT_EXPECTED_PLAY_UPLOAD_CERT_SHA256` to the certificate shown in Play Console so the script can reject a signer mismatch. The workflow produces a signed AAB artifact; it does not upload or publish to Play Console.
 
@@ -8,7 +8,7 @@ After the AAB is uploaded to the Internal testing track, add tester accounts and
 
 GrowPlot is an Android farm-management application with CCTV monitoring, Google Drive image feeds, A.I Plant Health, diagnosis workflows and plot management.
 
-**Current source target:** v0.7.02 Build 12 (`versionCode=277`, Android package `com.growplot.farm`), prepared to target API 36 and build a Play upload AAB. Build 12 restores an inline fallback for loading diagnosis photos so the A.I Health and diagnosis screens still open if the enhanced media asset has not loaded. Build 11 photo deduplication, newest-photo selection, and previous-diagnosis comparison remain active when that asset loads. Android device verification is pending.
+**Current source target:** v0.8.00 Build 1 (`versionCode=278`, Android package `com.growplot.farm`). Settings → Camera Settings → Image Feed now offers Device Camera and CCTV stream. Device Camera shows a camera capture icon on each of the six Home channels; CCTV stream preserves the existing per-camera stream controls and configuration. The ARM64 APK workflow builds on main updates. Play AAB creation remains manual-only. Android device verification is pending.
 
 ## Live CCTV snapshot capture
 

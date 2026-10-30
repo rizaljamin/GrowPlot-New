@@ -1,17 +1,6 @@
 name: Build GrowPlot Play AAB
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/play-aab.yml'
-      - 'app/**'
-      - 'build.gradle'
-      - 'gradle/**'
-      - 'gradlew'
-      - 'tools/build-play-aab.sh'
-      - 'tools/ensure-android-sdk.sh'
-      - 'version.properties'
   workflow_dispatch:
 
 permissions:
