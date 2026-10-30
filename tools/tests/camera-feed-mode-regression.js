@@ -7,6 +7,8 @@ const account=fs.readFileSync('app/src/main/assets/account-login.js','utf8');
 const source=fs.readFileSync('app/src/main/assets/camera-feed-settings.js','utf8');
 assert.match(html,/<summary><span>Camera Settings<\/span>/,'Settings section title is Camera Settings');
 assert.match(html,/<span class=\"camname\">STREAM \$\{id\}<\/span>/,'Home card uses a Stream label without the old CCTV label');
+assert.match(html,/<details class="feed-source-details"><summary class="feed-settings-button"[^>]*>[\s\S]*?<div class="feed-source-panel"><strong>Stream \$\{id\} Settings<\/strong><label>Image source<select class="feed-source-select"/,'each Home stream renders its gear directly and keeps the source selector inside its settings panel');
+assert.doesNotMatch(html,/<label class="feed-source-label"><select class="feed-source-select"/,'Home no longer renders the yellow source dropdown as a card-header control');
 assert.doesNotMatch(html,/<span class=\"camname\">SECTION \$\{id\} · CCTV/,'Home card removes the old Section/CCTV label');
 assert.match(html,/legend>Image Feed:/,'Settings exposes the requested Image Feed title');
 assert.match(html,/name="homeFeedMode" value="device-camera"[^>]*>\s*Device Camera/,'Device Camera radio is present');
