@@ -6,6 +6,8 @@ const html=fs.readFileSync('app/src/main/assets/index.html','utf8');
 const account=fs.readFileSync('app/src/main/assets/account-login.js','utf8');
 const source=fs.readFileSync('app/src/main/assets/camera-feed-settings.js','utf8');
 assert.match(html,/<summary><span>Camera Settings<\/span>/,'Settings section title is Camera Settings');
+assert.match(html,/<span class=\"camname\">STREAM \$\{id\}<\/span>/,'Home card uses a Stream label without the old CCTV label');
+assert.doesNotMatch(html,/<span class=\"camname\">SECTION \$\{id\} · CCTV/,'Home card removes the old Section/CCTV label');
 assert.match(html,/legend>Image Feed:/,'Settings exposes the requested Image Feed title');
 assert.match(html,/name="homeFeedMode" value="device-camera"[^>]*>\s*Device Camera/,'Device Camera radio is present');
 assert.match(html,/name="homeFeedMode" value="cctv-stream"[^>]*>\s*CCTV stream/,'CCTV stream radio is present');
