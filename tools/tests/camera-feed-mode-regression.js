@@ -12,6 +12,8 @@ assert.match(java,/cctvStreamProtocol\(camera\)[\s\S]*cctvStreamPort\(camera\)[\
 assert.match(html,/<summary><span>Camera Settings<\/span>/,'Settings section title is Camera Settings');
 assert.match(html,/<span class=\"camname\">STREAM \$\{id\}<\/span>/,'Home card uses a Stream label without the old CCTV label');
 assert.match(html,/<button class="stream-settings-button" type="button" data-camera=/,'each Home stream renders a direct gear button for that stream');
+assert.match(html,/class="stream-settings-button"[^>]*>\s*<span aria-hidden="true">⚙<\/span><\/button>/,'the gear icon is visible in the card markup without the settings script');
+assert.match(html,/\.stream-settings-button\{display:inline-grid/,'the gear button has inline page styling independent of JavaScript');
 assert.doesNotMatch(html,/feed-source-select|feed-source-details|File selection|value="camera"|value="file"/,'Home stream cards contain no feed source, camera, or file selector');
 assert.match(source,/Connection protocol/,'the gear dialog contains a protocol field');
 assert.match(source,/CCTV \/ RTSP IP address/,'the protocol field identifies RTSP CCTV addresses');
