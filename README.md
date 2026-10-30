@@ -1,4 +1,4 @@
-# GrowPlot — v0.8.00 Build 8
+# GrowPlot — v0.8.00 Build 9
 
 ## Optional manual Google Play internal-testing AAB
 
@@ -8,7 +8,7 @@ After the AAB is uploaded to the Internal testing track, add tester accounts and
 
 GrowPlot is an Android farm-management application with CCTV monitoring, Google Drive image feeds, A.I Plant Health, diagnosis workflows and plot management.
 
-**Current source target:** v0.8.00 Build 8 (`versionCode=285`, Android package `com.growplot.farm`). Settings → Camera Settings → Image Feed now offers Device Camera and CCTV stream. Device Camera shows a camera capture icon on each of the six Home channels. The CCTV stream radio is grouped at the top of its settings card. CCTV stream enables all controls in the card; Device Camera disables the card contents while leaving the CCTV radio available to switch back. Home feed cards are labeled STREAM 01–06. The ARM64 APK workflow builds on main updates. Play AAB creation remains manual-only. Android device verification is pending.
+**Current source target:** v0.8.00 Build 9 (`versionCode=286`, Android package `com.growplot.farm`). Settings → Camera Settings → Image Feed now offers Device Camera and CCTV stream. Device Camera shows a camera capture icon on each of the six Home channels. The CCTV stream radio is grouped at the top of its settings card. CCTV stream enables all controls in the card; Device Camera disables the card contents while leaving the CCTV radio available to switch back. Home feed cards are labeled STREAM 01–06. The ARM64 APK workflow builds on main updates. Play AAB creation remains manual-only. Android device verification is pending.
 
 ## Live CCTV snapshot capture
 
