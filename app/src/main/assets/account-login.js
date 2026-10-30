@@ -81,6 +81,16 @@ function installPasswordReset(){
 }
 addPasswordVisibilityToggles();installPasswordReset();
 function goHome(){setTimeout(()=>window.GrowPlotRefreshHomeStreams?.(),300);const oldPage=document.getElementById('growplotUserManagementPage');if(oldPage)oldPage.remove();const auth=document.getElementById('authScreen');if(auth)auth.hidden=true;if(typeof returnHome==='function')returnHome();else if(typeof render==='function')render();}
+let homeGreenhousePlotId='';
+function syncHomeGreenhouseOptions(plotId){
+ const select=document.getElementById('gh'),id=String(plotId||'');if(!select)return;
+ const plot=typeof plots!=='undefined'&&Array.isArray(plots)?plots.find(p=>String(p.id)===id):null;
+ const raw=Number(plot?.greenhouseCount),count=Number.isFinite(raw)&&raw>0?Math.min(100,Math.floor(raw)):1,old=select.value;
+ select.replaceChildren();for(let i=1;i<=count;i++){const option=document.createElement('option');option.value=String(i);option.textContent='Greenhouse '+i;select.appendChild(option)}
+ const keep=Number(old),valid=Number.isInteger(keep)&&keep>=1&&keep<=count,desired=homeGreenhousePlotId===id&&valid?String(keep):'1';
+ select.value=desired;homeGreenhousePlotId=id;
+ if(old!==desired)select.dispatchEvent(new Event('change',{bubbles:true}));
+}
 // Owner-scoped Home dropdown: only the Demo Plot plus Firebase-authorized plots.
 // Plot dropdown logic is loaded separately; show Demo only until the module is ready.
 function syncAuthorizedHomePlots(){
@@ -103,6 +113,7 @@ function syncAuthorizedHomePlots(){
   select.replaceChildren();choices.forEach((p,i)=>{const o=document.createElement('option');o.value=String(p.id);o.textContent=labels[i];select.appendChild(o);});
  }
  select.value=desired;
+ syncHomeGreenhouseOptions(desired);
  if(typeof selectedPlotId!=='undefined'&&selectedPlotId!==desired)selectedPlotId=desired;
  if(old!==desired){select.dispatchEvent(new Event('change',{bubbles:true}));window.GrowPlotRefreshHomeStreams?.();}
 }
