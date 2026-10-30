@@ -11,9 +11,9 @@ assert.doesNotMatch(html,/<span class=\"camname\">SECTION \$\{id\} · CCTV/,'Hom
 assert.match(html,/legend>Image Feed:/,'Settings exposes the requested Image Feed title');
 assert.match(html,/name="homeFeedMode" value="device-camera"[^>]*>\s*Device Camera/,'Device Camera radio is present');
 assert.match(html,/id="cctvStreamConfiguration" class="cctv-stream-card"><label class="cctv-stream-choice"><input type="radio" name="homeFeedMode" value="cctv-stream" checked> CCTV stream/,'CCTV stream radio is grouped in its camera settings card');
-assert.match(html,/id="cctvStreamControls"/,'camera addresses and related controls are grouped in the CCTV card');
+assert.match(html,/<fieldset id="cctvStreamControls" class="cctv-stream-controls">/,'camera controls use a native disabled fieldset');
 const cctvLoader=html.split('\n').find(line=>line.startsWith('function loadCctvCameraIpSettings()'));
-assert.match(cctvLoader,/GrowPlotFeedSettings\.refresh\(\)/,'opening Settings reapplies the mode after it rebuilds camera fields');
+assert.match(cctvLoader,/GrowPlotFeedSettings\.refresh\(\)/,'opening Settings reapplies the fieldset mode after it rebuilds camera fields');
 assert.match(html,/id="cctvStreamConfiguration"/,'existing CCTV stream configuration is kept in its own panel');
 assert.match(html,/CCTV stream to use the camera settings card below/,'settings explains the two feed-mode choices');
 const ipSaveHandler=html.match(/document\.getElementById\('saveCctvIps'\)\.addEventListener\('click',\(\)=>\{.*?\}\);/);
@@ -34,7 +34,7 @@ const cards=Array.from({length:6},(_,i)=>makeCard(i+1)),inputs=[{value:'device-c
 const cameraControls=Array.from({length:6},(_,i)=>({id:'cctvIp'+(i+1),disabled:false,matches(selector){return selector==='input[id^="cctvIp"]'}}));
 const username={id:'vigiCctv03Username',disabled:false,matches(){return false}},password={id:'vigiCctv03Password',disabled:false,matches(){return false}},save={id:'saveCctvIps',disabled:false,matches(){return false}};
 let controlsReady=false,settingsMutationCallback=null;
-const stream={hidden:false,attributes:{},setAttribute(key,value){this.attributes[key]=value}},streamControls={attributes:{},setAttribute(key,value){this.attributes[key]=value},querySelectorAll(){return controlsReady?[...cameraControls,username,password,save]:[]}},styleHost={appendChild(node){this.node=node}};
+const stream={hidden:false,attributes:{},setAttribute(key,value){this.attributes[key]=value}},streamControls={disabled:false,attributes:{},setAttribute(key,value){this.attributes[key]=value},querySelectorAll(){return controlsReady?[...cameraControls,username,password,save]:[]}},styleHost={appendChild(node){this.node=node}};
 const store=new Map(),captures=[];
 inputs.forEach(input=>{input.addEventListener=(name,fn)=>{handlers[input.value+'-'+name]=fn}});
 const document={readyState:'complete',head:styleHost,addEventListener(){},createElement(tag){return {tag,attributes:{},listeners:{},setAttribute(k,v){this.attributes[k]=v},addEventListener(k,fn){this.listeners[k]=fn},remove(){this.removed=true;if(this.parentElement)this.parentElement.children=this.parentElement.children.filter(child=>child!==this)},click(){this.listeners.click?.()},innerHTML:''}},getElementById(id){if(id==='cctvStreamConfiguration')return stream;if(id==='cctvStreamControls')return streamControls;if(id==='plot')return {value:'plot-7'};if(id==='cameraFeedModeStyles')return styleHost.node||null;return null},querySelectorAll(selector){return selector==='.camera'?cards.map(x=>x.card):selector==='input[name="homeFeedMode"]'?inputs:[]}};
@@ -51,6 +51,7 @@ assert.equal(stream.hidden,false,'the CCTV setup remains displayed for visibilit
 assert.equal(stream.attributes['aria-disabled'],'true','device-camera mode marks the CCTV card disabled');
 assert.equal(inputs[1].disabled,false,'CCTV radio remains enabled so users can switch modes');
 assert.equal(streamControls.attributes['aria-disabled'],'true','device-camera mode disables the CCTV settings body');
+assert.equal(streamControls.disabled,true,'native fieldset blocks current and dynamically added descendants');
 controlsReady=true;settingsMutationCallback();
 assert(cameraControls.every(control=>control.disabled),'device-camera mode disables all six CCTV IP fields');
 assert(username.disabled&&password.disabled&&save.disabled,'device-camera mode disables credentials and save controls');
@@ -63,6 +64,7 @@ assert.equal(stream.hidden,false,'switching back keeps the existing CCTV setting
 assert.equal(stream.attributes['aria-disabled'],'false','CCTV mode re-enables its camera card');
 assert.equal(inputs[1].disabled,false,'CCTV radio remains selectable');
 assert.equal(streamControls.attributes['aria-disabled'],'false','CCTV mode enables the full settings body');
+assert.equal(streamControls.disabled,false,'native fieldset re-enables the CCTV settings card');
 assert(cameraControls.every(control=>!control.disabled),'switching back enables all six CCTV IP fields');
 assert.equal(save.disabled,false,'switching back enables saving the IP addresses');
 assert(!username.disabled&&!password.disabled,'CCTV mode enables the VIGI credentials with the rest of the card');

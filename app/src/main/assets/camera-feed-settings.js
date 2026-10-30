@@ -13,7 +13,7 @@
  function addStyles(){
   if(document.getElementById('cameraFeedModeStyles'))return;
   const style=document.createElement('style');style.id='cameraFeedModeStyles';
-  style.textContent='.feed-camera-button{display:inline-grid;place-items:center;width:30px;height:28px;padding:4px;border:1px solid #b9d4c0;border-radius:8px;background:#eef7f0;color:#174a35;cursor:pointer}.feed-camera-button svg{width:18px;height:18px}.feed-camera-button:focus-visible{outline:2px solid #438b61;outline-offset:2px}.feed-source-select[hidden]{display:none}.cctv-stream-card{margin:10px 0 0;padding:10px;border:1px solid #d9e5dc;border-radius:10px;background:#f7faf7}.cctv-stream-choice{display:flex;align-items:center;gap:6px;padding:1px 1px 8px;color:#174a35;font-size:12px;font-weight:800}.cctv-stream-choice input{accent-color:#176b48}#cctvStreamControls[aria-disabled="true"]{opacity:.52}#cctvStreamControls :disabled{opacity:.55;cursor:not-allowed}.feed-mode-choice{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0;padding:9px 10px;border:1px solid #d9e5dc;border-radius:9px;background:#f7faf7}.feed-mode-choice legend{padding:0 4px;color:#174a35;font-size:12px;font-weight:800}.feed-mode-choice label{display:flex;align-items:center;gap:6px;color:#355243;font-size:12px;font-weight:700}.feed-mode-choice input{accent-color:#176b48}.feed-mode-note{flex-basis:100%;margin:0;color:#617166;font-size:10px;line-height:1.4}';
+  style.textContent='.feed-camera-button{display:inline-grid;place-items:center;width:30px;height:28px;padding:4px;border:1px solid #b9d4c0;border-radius:8px;background:#eef7f0;color:#174a35;cursor:pointer}.feed-camera-button svg{width:18px;height:18px}.feed-camera-button:focus-visible{outline:2px solid #438b61;outline-offset:2px}.feed-source-select[hidden]{display:none}.cctv-stream-card{margin:10px 0 0;padding:10px;border:1px solid #d9e5dc;border-radius:10px;background:#f7faf7}.cctv-stream-choice{display:flex;align-items:center;gap:6px;padding:1px 1px 8px;color:#174a35;font-size:12px;font-weight:800}.cctv-stream-choice input{accent-color:#176b48}.cctv-stream-controls{min-width:0;margin:0;padding:0;border:0}#cctvStreamControls[disabled]{opacity:.52}#cctvStreamControls :disabled{opacity:.55;cursor:not-allowed}.feed-mode-choice{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0;padding:9px 10px;border:1px solid #d9e5dc;border-radius:9px;background:#f7faf7}.feed-mode-choice legend{padding:0 4px;color:#174a35;font-size:12px;font-weight:800}.feed-mode-choice label{display:flex;align-items:center;gap:6px;color:#355243;font-size:12px;font-weight:700}.feed-mode-choice input{accent-color:#176b48}.feed-mode-note{flex-basis:100%;margin:0;color:#617166;font-size:10px;line-height:1.4}';
   document.head.appendChild(style);
  }
  function applyMode(){
@@ -25,6 +25,7 @@
   }
   if(streamControls){
    streamControls.setAttribute('aria-disabled',String(deviceCamera));
+   streamControls.disabled=deviceCamera;
    for(const control of streamControls.querySelectorAll('input,button,select,textarea')){
     control.disabled=deviceCamera;
    }
