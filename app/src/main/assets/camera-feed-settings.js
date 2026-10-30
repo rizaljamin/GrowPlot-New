@@ -13,12 +13,21 @@
  function addStyles(){
   if(document.getElementById('cameraFeedModeStyles'))return;
   const style=document.createElement('style');style.id='cameraFeedModeStyles';
-  style.textContent='.feed-camera-button{display:inline-grid;place-items:center;width:30px;height:28px;padding:4px;border:1px solid #b9d4c0;border-radius:8px;background:#eef7f0;color:#174a35;cursor:pointer}.feed-camera-button svg{width:18px;height:18px}.feed-camera-button:focus-visible{outline:2px solid #438b61;outline-offset:2px}.feed-source-select[hidden]{display:none}.feed-mode-choice{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0;padding:9px 10px;border:1px solid #d9e5dc;border-radius:9px;background:#f7faf7}.feed-mode-choice legend{padding:0 4px;color:#174a35;font-size:12px;font-weight:800}.feed-mode-choice label{display:flex;align-items:center;gap:6px;color:#355243;font-size:12px;font-weight:700}.feed-mode-choice input{accent-color:#176b48}.feed-mode-note{flex-basis:100%;margin:0;color:#617166;font-size:10px;line-height:1.4}';
+  style.textContent='.feed-camera-button{display:inline-grid;place-items:center;width:30px;height:28px;padding:4px;border:1px solid #b9d4c0;border-radius:8px;background:#eef7f0;color:#174a35;cursor:pointer}.feed-camera-button svg{width:18px;height:18px}.feed-camera-button:focus-visible{outline:2px solid #438b61;outline-offset:2px}.feed-source-select[hidden]{display:none}#cctvStreamConfiguration :disabled{opacity:.5;cursor:not-allowed}.feed-mode-choice{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0;padding:9px 10px;border:1px solid #d9e5dc;border-radius:9px;background:#f7faf7}.feed-mode-choice legend{padding:0 4px;color:#174a35;font-size:12px;font-weight:800}.feed-mode-choice label{display:flex;align-items:center;gap:6px;color:#355243;font-size:12px;font-weight:700}.feed-mode-choice input{accent-color:#176b48}.feed-mode-note{flex-basis:100%;margin:0;color:#617166;font-size:10px;line-height:1.4}';
   document.head.appendChild(style);
  }
  function applyMode(){
   const mode=readMode(),streamSettings=document.getElementById('cctvStreamConfiguration');
-  if(streamSettings)streamSettings.hidden=mode!==STREAM_MODE;
+  if(streamSettings){
+   streamSettings.hidden=false;
+   const deviceCamera=mode===CAMERA_MODE;
+   streamSettings.setAttribute('aria-disabled',String(deviceCamera));
+   for(const control of streamSettings.querySelectorAll('input,button,select,textarea')){
+    const isCameraIp=control.matches('input[id^="cctvIp"]');
+    const isSaveButton=control.id==='saveCctvIps';
+    control.disabled=deviceCamera||(!isCameraIp&&!isSaveButton);
+   }
+  }
   for(const card of document.querySelectorAll('.camera')){
    const label=card.querySelector('.feed-source-label'),select=card.querySelector('.feed-source-select');
    if(!label||!select)continue;

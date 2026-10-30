@@ -1,3 +1,5 @@
+2026-10-30 | v0.8.00 Build 2 (versionCode 279) | Camera Settings now disables every CCTV setup control in Device Camera mode. CCTV stream enables only the six camera IP address fields and the IP save button; VIGI credential inputs stay disabled. Dependency/flow regression coverage verifies both mode transitions. GitHub ARM64 build and Android device verification pending.
+
 2026-10-30 | v0.8.00 Build 1 (versionCode 278) | Camera Settings is renamed and gains a saved Image Feed mode. Device Camera shows a native camera capture icon on each of the six Home channels; CCTV stream restores the existing per-camera dropdown and stream configuration without changing saved CCTV settings. Add dependency/flow regression coverage and keep the Play AAB workflow manual-only so main updates produce the requested APK only. GitHub ARM64 build and Android device verification pending.
 
 2026-10-26 | v0.7.02 Build 12 | versionCode 277 | com.growplot.farm
