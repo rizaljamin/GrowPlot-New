@@ -1,95 +1,76 @@
 (function installCameraFeedSettings(){
  'use strict';
- const KEY='growplotHomeFeedMode';
- const CAMERA_MODE='device-camera',STREAM_MODE='cctv-stream';
- const readMode=()=>{
-  try{return localStorage.getItem(KEY)===CAMERA_MODE?CAMERA_MODE:STREAM_MODE}catch(_){return STREAM_MODE}
- };
- const writeMode=value=>{
-  const mode=value===CAMERA_MODE?CAMERA_MODE:STREAM_MODE;
-  try{localStorage.setItem(KEY,mode)}catch(_){}
-  return mode;
- };
+ const KEY='growplotHomeFeedMode',CAMERA_MODE='device-camera',STREAM_MODE='cctv-stream';
+ const readMode=()=>{try{return localStorage.getItem(KEY)===CAMERA_MODE?CAMERA_MODE:STREAM_MODE}catch(_){return STREAM_MODE}};
+ const writeMode=value=>{const mode=value===CAMERA_MODE?CAMERA_MODE:STREAM_MODE;try{localStorage.setItem(KEY,mode)}catch(_){}return mode};
+ const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
  function addStyles(){
   if(document.getElementById('cameraFeedModeStyles'))return;
   const style=document.createElement('style');style.id='cameraFeedModeStyles';
-  style.textContent='.feed-camera-button{display:inline-grid;place-items:center;width:30px;height:28px;padding:4px;border:1px solid #b9d4c0;border-radius:8px;background:#eef7f0;color:#174a35;cursor:pointer}.feed-camera-button svg{width:18px;height:18px}.feed-camera-button:focus-visible{outline:2px solid #438b61;outline-offset:2px}.feed-card-actions{display:flex;align-items:center;gap:5px}.feed-source-details{position:relative}.feed-settings-button{display:grid;place-items:center;width:30px;height:28px;padding:4px;border:1px solid #d9e5dc;border-radius:8px;background:#fff;color:#286647;cursor:pointer;list-style:none}.feed-settings-button::-webkit-details-marker{display:none}.feed-settings-button svg{width:18px;height:18px}.feed-settings-button:focus-visible{outline:2px solid #438b61;outline-offset:2px}.feed-source-panel{position:absolute;top:calc(100% + 4px);right:0;z-index:10;width:172px;padding:10px;border:1px solid #d9e5dc;border-radius:10px;background:#fff;box-shadow:0 5px 16px #123f2d24}.feed-source-panel strong{display:block;margin-bottom:8px;color:#174a35;font-size:11px}.feed-source-panel label{display:block;color:#617166;font-size:10px;font-weight:700}.feed-source-panel .feed-source-select{display:block;width:100%;max-width:none;min-height:34px;margin-top:4px;padding:6px;border-radius:7px;font:600 11px system-ui;letter-spacing:0}.feed-source-select[hidden]{display:none}.cctv-stream-card{margin:10px 0 0;padding:10px;border:1px solid #d9e5dc;border-radius:10px;background:#f7faf7}.cctv-stream-choice{display:flex;align-items:center;gap:6px;padding:1px 1px 8px;color:#174a35;font-size:12px;font-weight:800}.cctv-stream-choice input{accent-color:#176b48}.cctv-stream-controls{min-width:0;margin:0;padding:0;border:0}#cctvStreamControls[disabled]{opacity:.52}#cctvStreamControls :disabled{opacity:.55;cursor:not-allowed}.feed-mode-choice{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0;padding:9px 10px;border:1px solid #d9e5dc;border-radius:9px;background:#f7faf7}.feed-mode-choice legend{padding:0 4px;color:#174a35;font-size:12px;font-weight:800}.feed-mode-choice label{display:flex;align-items:center;gap:6px;color:#355243;font-size:12px;font-weight:700}.feed-mode-choice input{accent-color:#176b48}.feed-mode-note{flex-basis:100%;margin:0;color:#617166;font-size:10px;line-height:1.4}';
+  style.textContent='.feed-card-actions{display:flex;align-items:center;gap:5px}.stream-settings-button,.feed-camera-button{display:inline-grid;place-items:center;width:32px;height:30px;padding:5px;border:1px solid #cbded0;border-radius:9px;background:#f5faf6;color:#174a35;cursor:pointer}.stream-settings-button:hover,.feed-camera-button:hover{background:#e4f2e8}.stream-settings-button svg,.feed-camera-button svg{width:18px;height:18px}.stream-settings-button:focus-visible,.feed-camera-button:focus-visible{outline:2px solid #438b61;outline-offset:2px}.stream-settings-overlay{position:fixed;inset:0;z-index:95;display:flex;align-items:center;justify-content:center;padding:14px;background:#07170dcc}.stream-settings-overlay[hidden]{display:none}.stream-settings-dialog{width:min(440px,100%);max-height:min(90dvh,760px);overflow:auto;padding:18px;border:1px solid #dce8df;border-radius:16px;background:#fff;box-shadow:0 18px 55px #0005;color:#17231c}.stream-settings-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px}.stream-settings-head h3{margin:0;color:#174a35;font-size:18px}.stream-settings-close{display:grid;place-items:center;width:32px;height:32px;border:0;border-radius:50%;background:#eef4ef;color:#355243;font-size:20px}.stream-settings-help{margin:0 0 14px;color:#637269;font-size:12px;line-height:1.45}.stream-settings-form{display:grid;gap:11px}.stream-settings-form label{display:grid;gap:5px;color:#355243;font-size:11px;font-weight:800}.stream-settings-form input,.stream-settings-form select{width:100%;min-height:40px;border:1px solid #d4e0d7;border-radius:9px;background:#fff;color:#173d2c;padding:9px 10px;font:600 13px system-ui}.stream-settings-form input:focus,.stream-settings-form select:focus{outline:2px solid #80c59c;border-color:#438b61}.stream-settings-grid{display:grid;grid-template-columns:minmax(0,1fr) 120px;gap:9px}.stream-settings-credentials{display:grid;gap:10px;padding-top:3px}.stream-settings-error{min-height:16px;color:#a33224;font-size:11px}.stream-settings-actions{display:flex;justify-content:flex-end;gap:8px;padding-top:3px}.stream-settings-actions button{min-height:38px;padding:8px 13px;border:1px solid #d4e0d7;border-radius:9px;background:#f7faf7;color:#174a35;font:750 12px system-ui}.stream-settings-actions .primary{border-color:#174a35;background:#174a35;color:#fff}.stream-settings-actions button:disabled{opacity:.55}@media(max-width:420px){.stream-settings-dialog{padding:15px}.stream-settings-grid{grid-template-columns:minmax(0,1fr) 96px}}';
   document.head.appendChild(style);
  }
+ function fallback(camera){return {ip:camera===1?'192.168.1.241':camera===2?'192.168.1.227':camera===3?'192.168.1.228':'',protocol:camera===3?'rtsp':'http',port:camera===3?554:8080,path:camera===3?'/stream1':'/videofeed'}}
+ function createDialog(camera){
+  const stream=String(camera).padStart(2,'0'),overlay=document.createElement('div');
+  overlay.className='stream-settings-overlay';overlay.hidden=true;overlay.setAttribute('role','presentation');
+  overlay.innerHTML='<section class="stream-settings-dialog" role="dialog" aria-modal="true" aria-labelledby="streamSettingsTitle"><div class="stream-settings-head"><h3 id="streamSettingsTitle">Stream '+stream+' Connection Settings</h3><button class="stream-settings-close" type="button" aria-label="Close settings">×</button></div><p class="stream-settings-help">Set the network address used by this stream. Changes are saved for this device.</p><form class="stream-settings-form"><label>Connection protocol<select name="protocol"><option value="http">HTTP · IP camera</option><option value="https">HTTPS · IP camera</option><option value="rtsp">RTSP · CCTV</option></select></label><div class="stream-settings-grid"><label><span data-ip-label>Camera IP address</span><input name="ip" type="text" inputmode="decimal" autocomplete="off" placeholder="192.168.1.100" required></label><label><span data-port-label>Camera port</span><input name="port" type="number" inputmode="numeric" min="1" max="65535" required></label></div><label>Stream path<input name="path" type="text" autocomplete="off" placeholder="/videofeed" required></label><div class="stream-settings-credentials" hidden><label>VIGI username<input name="username" type="text" autocomplete="username"></label><label>VIGI password<input name="password" type="password" autocomplete="new-password" placeholder="Leave blank to keep saved password"></label></div><div class="stream-settings-error" role="status" aria-live="polite"></div><div class="stream-settings-actions"><button type="button" data-cancel>Cancel</button><button class="primary" type="submit">Save stream settings</button></div></form></section>';
+  document.body.appendChild(overlay);
+  const form=overlay.querySelector('form'),protocol=form.elements.protocol,ip=form.elements.ip,port=form.elements.port,path=form.elements.path,credentials=overlay.querySelector('.stream-settings-credentials'),error=overlay.querySelector('.stream-settings-error'),close=()=>{overlay.hidden=true};
+  function updateLabels(){const rtsp=protocol.value==='rtsp';overlay.querySelector('[data-ip-label]').textContent=rtsp?'CCTV / RTSP IP address':'Camera IP address';overlay.querySelector('[data-port-label]').textContent=rtsp?'RTSP port':'Camera port';path.placeholder=rtsp?'/stream1':'/videofeed';credentials.hidden=camera!==3||!rtsp}
+  protocol.addEventListener('change',updateLabels);
+  overlay.querySelector('.stream-settings-close').addEventListener('click',close);overlay.querySelector('[data-cancel]').addEventListener('click',close);
+  overlay.addEventListener('click',event=>{if(event.target===overlay)close()});
+  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!overlay.hidden)close()});
+  form.addEventListener('submit',event=>{
+   event.preventDefault();error.textContent='';
+   const cameraIp=ip.value.trim(),streamPort=Number(port.value),streamPath=path.value.trim(),bridge=window.GrowPlotBridge;
+   if(!/^(?:(?:10|192\.168|172\.(?:1[6-9]|2\d|3[01]))\.(?:\d{1,3})\.(?:\d{1,3})|100\.(?:6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.(?:\d{1,3})\.(?:\d{1,3}))$/.test(cameraIp)||cameraIp.split('.').some(part=>Number(part)>255)||cameraIp.endsWith('.0')||cameraIp.endsWith('.255')){error.textContent='Enter a private-network IPv4 address.';return}
+   if(!Number.isInteger(streamPort)||streamPort<1||streamPort>65535){error.textContent='Port must be between 1 and 65535.';return}
+   if(!streamPath.startsWith('/')||streamPath.includes('..')||/[?#@]/.test(streamPath)){error.textContent='Enter a stream path beginning with /.';return}
+   if(!bridge||typeof bridge.saveCctvCameraStreamSettings!=='function'){error.textContent='Stream settings are available in the GrowPlot Android app.';return}
+   const save=form.querySelector('[type="submit"]');save.disabled=true;
+   try{
+    if(!bridge.saveCctvCameraStreamSettings(camera,protocol.value,cameraIp,streamPort,streamPath)){error.textContent='GrowPlot could not save these stream settings. Check the address and try again.';return}
+    if(camera===3&&protocol.value==='rtsp'&&typeof bridge.saveVigiCctv03Credentials==='function'){const username=form.elements.username.value.trim(),password=form.elements.password.value;if(username||password){if(!bridge.saveVigiCctv03Credentials(username,password)){error.textContent='The VIGI credentials could not be saved.';return}}}
+    close();if(typeof window.showSaveToast==='function')window.showSaveToast('Stream '+stream+' connection settings saved.');
+   }catch(_){error.textContent='Could not save stream settings. Please try again.'}
+   finally{save.disabled=false}
+  });
+  return {overlay,form,updateLabels,close,error};
+ }
+ const dialogs=new Map();
+ function openSettings(camera){
+  let dialog=dialogs.get(camera);if(!dialog){dialog=createDialog(camera);dialogs.set(camera,dialog)}
+  const bridge=window.GrowPlotBridge,settings=fallback(camera);
+  try{if(bridge&&typeof bridge.getCctvCameraStreamSettings==='function'){const saved=JSON.parse(bridge.getCctvCameraStreamSettings(camera)||'{}');Object.assign(settings,saved)}
+   if(camera===3&&bridge&&typeof bridge.getVigiCctv03Credentials==='function'){const saved=JSON.parse(bridge.getVigiCctv03Credentials()||'{}');dialog.form.elements.username.value=saved.username||'';dialog.form.elements.password.value='';dialog.form.elements.password.placeholder=saved.passwordConfigured?'Saved password · leave blank to keep':'Enter VIGI camera password'}
+  }catch(_){}
+  dialog.form.elements.protocol.value=['http','https','rtsp'].includes(settings.protocol)?settings.protocol:(camera===3?'rtsp':'http');
+  dialog.form.elements.ip.value=settings.ip||'';dialog.form.elements.port.value=String(settings.port||fallback(camera).port);dialog.form.elements.path.value=settings.path||fallback(camera).path;dialog.error.textContent='';dialog.updateLabels();
+  dialog.overlay.hidden=false;dialog.form.elements.ip.focus();
+ }
  function applyMode(){
-  const mode=readMode(),streamCard=document.getElementById('cctvStreamConfiguration'),streamControls=document.getElementById('cctvStreamControls');
-  const deviceCamera=mode===CAMERA_MODE;
-  if(streamCard){
-   streamCard.hidden=false;
-   streamCard.setAttribute('aria-disabled',String(deviceCamera));
-  }
-  if(streamControls){
-   streamControls.setAttribute('aria-disabled',String(deviceCamera));
-   streamControls.disabled=deviceCamera;
-   for(const control of streamControls.querySelectorAll('input,button,select,textarea')){
-    control.disabled=deviceCamera;
-   }
-  }
+  const mode=readMode(),streamCard=document.getElementById('cctvStreamConfiguration'),streamControls=document.getElementById('cctvStreamControls'),deviceCamera=mode===CAMERA_MODE;
+  if(streamCard){streamCard.hidden=false;streamCard.setAttribute('aria-disabled',String(deviceCamera))}
+  if(streamControls){streamControls.setAttribute('aria-disabled',String(deviceCamera));streamControls.disabled=deviceCamera;for(const control of streamControls.querySelectorAll('input,button,select,textarea'))control.disabled=deviceCamera}
   for(const card of document.querySelectorAll('.camera')){
-   const label=card.querySelector('.feed-source-label');let settings=card.querySelector('.feed-source-details'),select=settings?.querySelector('.feed-source-select')||card.querySelector('.feed-source-select');
-   if(!select)continue;
+   const settings=card.querySelector('.stream-settings-button');if(!settings)continue;
+   const camera=Number(settings.dataset.camera);if(!settings.dataset.bound){settings.dataset.bound='1';settings.addEventListener('click',()=>openSettings(camera))}
    let actions=card.querySelector('.feed-card-actions');
-   if(!settings){
-    settings=document.createElement('details');settings.className='feed-source-details';
-    const streamId=String(select.dataset.camera||'').padStart(2,'0'),summary=document.createElement('summary');summary.className='feed-settings-button';summary.title='Settings for Stream '+streamId;summary.setAttribute('aria-label','Settings for Stream '+streamId);
-    summary.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="m19.4 15 .1.1a1.7 1.7 0 1 1-2.4 2.4L17 17.4a1.7 1.7 0 0 0-2.9 1.2v.2a1.7 1.7 0 1 1-3.4 0v-.2a1.7 1.7 0 0 0-2.9-1.2l-.1.1a1.7 1.7 0 1 1-2.4-2.4l.1-.1a1.7 1.7 0 0 0-1.2-2.9H4a1.7 1.7 0 1 1 0-3.4h.2a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a1.7 1.7 0 1 1 2.4-2.4l.1.1a1.7 1.7 0 0 0 2.9-1.2V2a1.7 1.7 0 1 1 3.4 0v.2a1.7 1.7 0 0 0 2.9 1.2l.1-.1a1.7 1.7 0 1 1 2.4 2.4l-.1.1a1.7 1.7 0 0 0 1.2 2.9h.2a1.7 1.7 0 1 1 0 3.4h-.2a1.7 1.7 0 0 0-1.2 2.9Z"/></svg>';
-    const panel=document.createElement('div');panel.className='feed-source-panel';
-    const heading=document.createElement('strong');heading.textContent='Stream '+streamId+' Settings';
-    const choiceLabel=document.createElement('label');choiceLabel.textContent='Image source';choiceLabel.appendChild(select);panel.append(heading,choiceLabel);settings.append(summary,panel);
-    settings.addEventListener('toggle',()=>summary.setAttribute('aria-expanded',String(settings.open)));
-    select.addEventListener('change',()=>{settings.open=false});
-    label.replaceWith(settings);
-   }
-   actions=card.querySelector('.feed-card-actions');
-   if(!actions){actions=document.createElement('div');actions.className='feed-card-actions';settings.parentElement.appendChild(actions);actions.appendChild(settings)}
-   let button=card.querySelector('.feed-camera-button');
-   if(mode===CAMERA_MODE){
-    if(!button){
-     button=document.createElement('button');button.type='button';button.className='feed-camera-button';
-     button.setAttribute('aria-label','Take a photo for '+String(select.dataset.camera||'')+' image feed');
-     button.title='Take a photo for this image feed';
-     button.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h3l1.5-2h7L17 7h3v12H4z"/><circle cx="12" cy="13" r="3.5"/></svg>';
-     button.addEventListener('click',()=>{
-      const bridge=window.GrowPlotBridge,camera=Number(select.dataset.camera),plot=document.getElementById('plot'),plotId=plot?.value||'';
-      if(bridge&&typeof bridge.captureFeedPhoto==='function'){bridge.captureFeedPhoto(camera,plotId);return}
-      if(typeof window.showSaveToast==='function')window.showSaveToast('Device camera is available in the GrowPlot Android app.');
-     });
-     actions.insertBefore(button,settings);
-    }
-   }else{
-    select.hidden=false;
-    if(button)button.remove();
-   }
+   if(deviceCamera){
+    let button=card.querySelector('.feed-camera-button');
+    if(!button){button=document.createElement('button');button.type='button';button.className='feed-camera-button';button.setAttribute('aria-label','Take a photo for Stream '+String(camera).padStart(2,'0'));button.title='Take a photo';button.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h3l1.5-2h7L17 7h3v12H4z"/><circle cx="12" cy="13" r="3.5"/></svg>';button.addEventListener('click',()=>{const bridge=window.GrowPlotBridge,plot=document.getElementById('plot');if(bridge&&typeof bridge.captureFeedPhoto==='function')bridge.captureFeedPhoto(camera,plot?.value||'');else if(typeof window.showSaveToast==='function')window.showSaveToast('Device camera is available in the GrowPlot Android app.')});actions.insertBefore(button,settings)}
+   }else{const button=card.querySelector('.feed-camera-button');if(button)button.remove()}
   }
  }
  function init(){
-  addStyles();
-  const mode=readMode();
-  const streamControls=document.getElementById('cctvStreamControls');
-  if(streamControls&&typeof MutationObserver==='function'){
-   const observer=new MutationObserver(applyMode);
-   observer.observe(streamControls,{childList:true,subtree:true});
-  }
-  for(const input of document.querySelectorAll('input[name="homeFeedMode"]')){
-   input.checked=input.value===mode;
-   input.addEventListener('change',()=>{
-    if(!input.checked)return;
-    writeMode(input.value);applyMode();
-    if(typeof window.render==='function')window.render();
-    applyMode();
-   });
-  }
-  applyMode();
+  addStyles();const mode=readMode(),streamControls=document.getElementById('cctvStreamControls');
+  if(streamControls&&typeof MutationObserver==='function'){const observer=new MutationObserver(applyMode);observer.observe(streamControls,{childList:true,subtree:true})}
+  for(const input of document.querySelectorAll('input[name="homeFeedMode"]')){input.checked=input.value===mode;input.addEventListener('change',()=>{if(!input.checked)return;writeMode(input.value);applyMode();if(typeof window.render==='function')window.render();applyMode()})}
+  applyMode()
  }
- window.GrowPlotFeedSettings={getMode:readMode,setMode:writeMode,refresh:applyMode};
- if(typeof window.render==='function'){
-  const render=window.render;
-  window.render=function(){const result=render.apply(this,arguments);applyMode();return result};
- }
- if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
+ window.GrowPlotFeedSettings={getMode:readMode,setMode:writeMode,refresh:applyMode,openStreamSettings:openSettings};
+ if(typeof window.render==='function'){const render=window.render;window.render=function(){const result=render.apply(this,arguments);applyMode();return result}}
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init()
 })();
