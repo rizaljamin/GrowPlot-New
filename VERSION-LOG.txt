@@ -1,3 +1,5 @@
+2026-10-30 | v0.8.00 Build 4 (versionCode 281) | Reapply Camera Settings mode whenever CCTV controls are created dynamically. Device Camera disables the complete CCTV setup; CCTV stream enables only camera IP addresses and their save button. Add regression coverage for controls added after mode initialization. GitHub ARM64 build and Android device verification pending.
+
 2026-10-30 | v0.8.00 Build 3 (versionCode 280) | Home feed cards now read STREAM 01–06 and remove the old SECTION/CCTV label. Add a card-label regression assertion. GitHub ARM64 build and Android device verification pending.
 
 2026-10-30 | v0.8.00 Build 2 (versionCode 279) | Camera Settings disables CCTV controls in Device Camera mode; CCTV mode enables only IP fields and IP save. Regression suite passed and GitHub ARM64 run #580 passed with stable signing. Android device verification pending.

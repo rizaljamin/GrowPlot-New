@@ -55,6 +55,11 @@
  function init(){
   addStyles();
   const mode=readMode();
+  const streamSettings=document.getElementById('cctvStreamConfiguration');
+  if(streamSettings&&typeof MutationObserver==='function'){
+   const observer=new MutationObserver(applyMode);
+   observer.observe(streamSettings,{childList:true,subtree:true});
+  }
   for(const input of document.querySelectorAll('input[name="homeFeedMode"]')){
    input.checked=input.value===mode;
    input.addEventListener('change',()=>{
