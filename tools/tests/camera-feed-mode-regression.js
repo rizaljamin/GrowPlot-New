@@ -11,6 +11,9 @@ assert.match(html,/name="homeFeedMode" value="device-camera"[^>]*>\s*Device Came
 assert.match(html,/name="homeFeedMode" value="cctv-stream"[^>]*>\s*CCTV stream/,'CCTV stream radio is present');
 assert.match(html,/id="cctvStreamConfiguration"/,'existing CCTV stream configuration is kept in its own panel');
 assert.match(html,/CCTV stream enables only the camera IP address fields/,'settings explains that CCTV mode enables only IP address fields');
+const ipSaveHandler=html.match(/document\.getElementById\('saveCctvIps'\)\.addEventListener\('click',\(\)=>\{.*?\}\);/);
+assert(ipSaveHandler,'camera IP save handler is present');
+assert.doesNotMatch(ipSaveHandler[0],/saveVigiCctv03Credentials/,'saving IP addresses does not touch disabled VIGI credentials');
 assert.match(html,/<script src="camera-feed-settings\.js"><\/script>/,'camera mode controller is loaded as a separate asset');
 assert.match(account,/title\.textContent='Camera Settings'/,'demo camera settings title is renamed');
 assert.match(account,/<h3>Camera Settings — Selected Plot<\/h3>/,'selected-plot camera settings title is renamed');
