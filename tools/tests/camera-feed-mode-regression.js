@@ -18,7 +18,8 @@ assert(html.includes('#mainDashboard>section:first-child>#cameras.single-stream{
 assert.match(html,/onclick="toggleStreamSettingsPicker\(\)"/,'the dedicated settings gear opens the inline picker');
 assert.match(html,/id="homeStreamSourcePicker" class="home-stream-source-picker" role="listbox"[\s\S]*data-source="device-camera"[\s\S]*data-source="cctv-stream"/,'the gear opens a listbox with camera and CCTV icon options');
 assert.match(html,/aria-label="Device camera"[\s\S]*aria-label="CCTV stream"/,'icon-only options retain accessible camera names');
-assert.match(html,/position:absolute;top:100%;right:18px;z-index:110;display:grid;width:72px/,'picker is a compact vertical dropdown anchored below the gear');
+assert.match(html,/home-stream-source-picker\{display:grid;width:72px;margin:6px 18px 0 auto/,'picker stays in normal layout below the gear and pushes the stream card down');
+assert.doesNotMatch(html,/home-stream-source-picker\{position:absolute/,'picker is not overlaid on top of the native video surface');
 const pickerMarkup=html.slice(html.indexOf('id="homeStreamSourcePicker"'),html.indexOf('</div></section>',html.indexOf('id="homeStreamSourcePicker"')));
 assert(!pickerMarkup.includes('<span>Device Camera</span>')&&!pickerMarkup.includes('<span>CCTV stream</span>'),'picker presents camera and CCTV glyphs without visible text');
 assert.match(html,/window.chooseHomeStreamSource=function\(mode\)/,'source selections are connected to mode handling');
