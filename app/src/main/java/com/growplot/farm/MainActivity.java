@@ -1578,9 +1578,10 @@ public class MainActivity extends Activity {
         if (userStreamMode) {
             String route = cctvStreamUrl(3);
             if (route == null || route.isEmpty()) { stopCctv03Vlc(); return; }
+            boolean rtsp = isRtspUrl(route);
             // Assigned RTSP feeds must request camera credentials at connection time.
             // Never persist the camera password in Firebase or embed it in a log.
-            if (route.startsWith("rtsp://") || route.startsWith("rtsps://")) {
+            if (rtsp) {
                 String[] credentials = vigiCctv03Credentials();
                 if (credentials[0].isEmpty() || credentials[1].isEmpty() || cctv03CredentialsRejected) {
                     showCctv03VigiMessage(videoLayout, "Enter VIGI credentials to connect");
