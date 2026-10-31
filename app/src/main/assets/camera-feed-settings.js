@@ -76,7 +76,7 @@
    const oldButton=card.querySelector('.feed-camera-button');if(oldButton)oldButton.remove();
   }
   const picker=document.getElementById('homeStreamSourcePicker'),button=document.getElementById('streamSettingsToggle');
-  if(picker&&button){const selected=getStreamMode(1,currentPlotId());picker.querySelectorAll('[data-source]').forEach(option=>option.setAttribute('aria-pressed',String(option.dataset.source===selected)))}
+  if(picker&&button){const selected=getStreamMode(1,currentPlotId());picker.querySelectorAll('[data-source]').forEach(option=>option.setAttribute('aria-selected',String(option.dataset.source===selected)))}
  }
  function init(){
   addStyles();const mode=readMode(),streamControls=document.getElementById('cctvStreamControls');

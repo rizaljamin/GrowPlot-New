@@ -16,11 +16,15 @@ assert.match(html,/id="streamSourceSettingsCard"[\s\S]*id="streamSettingsToggle"
 assert.doesNotMatch(html,/feed-source-select|feed-source-details|File selection|value="camera"|value="file"/,'Home stream cards contain no feed source, camera, or file selector');
 assert(html.includes('#mainDashboard>section:first-child>#cameras.single-stream{grid-template-columns:minmax(0,1fr);width:100%;max-width:1000px;margin-left:auto;margin-right:auto}'),'the single stream grid is centered and fills its available width');
 assert.match(html,/onclick="toggleStreamSettingsPicker\(\)"/,'the dedicated settings gear opens the inline picker');
-assert.match(html,/id="homeStreamSourcePicker"[\s\S]*data-source="device-camera"[\s\S]*data-source="cctv-stream"/,'the dedicated card exposes camera and CCTV icon options');
+assert.match(html,/id="homeStreamSourcePicker" class="home-stream-source-picker" role="listbox"[\s\S]*data-source="device-camera"[\s\S]*data-source="cctv-stream"/,'the gear opens a listbox with camera and CCTV icon options');
+assert.match(html,/aria-label="Device camera"[\s\S]*aria-label="CCTV stream"/,'icon-only options retain accessible camera names');
+assert.match(html,/position:absolute;top:100%;right:18px;z-index:110;display:grid;width:72px/,'picker is a compact vertical dropdown anchored below the gear');
+const pickerMarkup=html.slice(html.indexOf('id="homeStreamSourcePicker"'),html.indexOf('</div></section>',html.indexOf('id="homeStreamSourcePicker"')));
+assert(!pickerMarkup.includes('<span>Device Camera</span>')&&!pickerMarkup.includes('<span>CCTV stream</span>'),'picker presents camera and CCTV glyphs without visible text');
 assert.match(html,/window.chooseHomeStreamSource=function\(mode\)/,'source selections are connected to mode handling');
 assert.match(source,/const camera=Number\(card.dataset.camera\|\|1\)/,'stream mode is applied without requiring a gear inside the stream card');
 assert.match(html,/height:clamp\(300px,45vw,520px\)/,'the single stream feed is enlarged');
-assert.match(java,/streamSourcePickerOpen=!!document\.querySelector\('#homeStreamSourcePicker:not\(\[hidden\]\)'\)/,'native VLC yields while the separate source picker is open');
+assert.doesNotMatch(java,/streamSourcePickerOpen=!!document\.querySelector\('#homeStreamSourcePicker:not\(\[hidden\]\)'\)/,'native VLC remains active while the source picker is open');
 assert.match(source,/Connection protocol/,'the gear dialog contains a protocol field');
 assert.match(source,/CCTV \/ RTSP IP address/,'the protocol field identifies RTSP CCTV addresses');
 assert.match(source,/RTSP port/,'the protocol field identifies the RTSP port');
