@@ -66,31 +66,17 @@
   const feed=card.querySelector('.feed');if(!feed)return;
   feed.classList.remove('feed-camera-mode');feed.removeAttribute('aria-label');feed.innerHTML='';
  }
- function showSourcePicker(actions,gear,camera){
-  const existing=actions.querySelector('.stream-source-picker');if(existing){existing.remove();gear.setAttribute('aria-expanded','false');return}
-  document.querySelectorAll('.stream-source-picker').forEach(menu=>menu.remove());
-  const mode=getStreamMode(camera,currentPlotId()),picker=document.createElement('div');picker.className='stream-source-picker';picker.id='streamSourcePicker'+camera;picker.setAttribute('role','listbox');picker.setAttribute('aria-label','Choose Stream '+String(camera).padStart(2,'0')+' image source');
-  picker.innerHTML='<button class="stream-source-option" type="button" role="option" data-source="'+CAMERA_MODE+'" aria-selected="'+String(mode===CAMERA_MODE)+'">'+cameraSvg()+'<span>Device camera</span></button><button class="stream-source-option" type="button" role="option" data-source="'+STREAM_MODE+'" aria-selected="'+String(mode===STREAM_MODE)+'">'+cctvSvg()+'<span>CCTV stream</span></button>';
-  picker.querySelectorAll('.stream-source-option').forEach(option=>option.addEventListener('click',()=>{
-   const selected=option.dataset.source,plotId=currentPlotId();setStreamMode(camera,selected,plotId);picker.remove();gear.setAttribute('aria-expanded','false');
-   const card=gear.closest('.camera');if(card){card.dataset.streamMode=selected;if(selected===CAMERA_MODE)showCameraMode(card,camera);else showCctvMode(card,camera)}
-   if(selected===STREAM_MODE)openSettings(camera);
-  }));
-  actions.appendChild(picker);gear.setAttribute('aria-expanded','true');gear.setAttribute('aria-controls',picker.id);
- }
  function applyMode(){
   const mode=readMode(),streamCard=document.getElementById('cctvStreamConfiguration'),streamControls=document.getElementById('cctvStreamControls'),deviceCamera=mode===CAMERA_MODE;
   if(streamCard){streamCard.hidden=false;streamCard.setAttribute('aria-disabled',String(deviceCamera))}
   if(streamControls){streamControls.setAttribute('aria-disabled',String(deviceCamera));streamControls.disabled=deviceCamera;for(const control of streamControls.querySelectorAll('input,button,select,textarea'))control.disabled=deviceCamera}
   for(const card of document.querySelectorAll('.camera')){
-   const settings=card.querySelector('.stream-settings-button');if(!settings)continue;
-   const camera=Number(settings.dataset.camera),selectedMode=getStreamMode(camera,currentPlotId());card.dataset.streamMode=selectedMode;
+   const camera=Number(card.dataset.camera||1),selectedMode=getStreamMode(camera,currentPlotId());card.dataset.streamMode=selectedMode;
    if(selectedMode===CAMERA_MODE)showCameraMode(card,camera);else showCctvMode(card,camera);
-   settings.setAttribute('aria-haspopup','listbox');settings.setAttribute('aria-expanded',String(!!card.querySelector('.stream-source-picker')));
-   settings.setAttribute('aria-label','Choose source for Stream '+String(camera).padStart(2,'0'));
-
    const oldButton=card.querySelector('.feed-camera-button');if(oldButton)oldButton.remove();
   }
+  const picker=document.getElementById('homeStreamSourcePicker'),button=document.getElementById('streamSettingsToggle');
+  if(picker&&button){const selected=getStreamMode(1,currentPlotId());picker.querySelectorAll('[data-source]').forEach(option=>option.setAttribute('aria-pressed',String(option.dataset.source===selected)))}
  }
  function init(){
   addStyles();const mode=readMode(),streamControls=document.getElementById('cctvStreamControls');
@@ -98,8 +84,7 @@
   for(const input of document.querySelectorAll('input[name="homeFeedMode"]')){input.checked=input.value===mode;input.addEventListener('change',()=>{if(!input.checked)return;writeMode(input.value);applyMode();if(typeof window.render==='function')window.render();applyMode()})}
   applyMode()
  }
- function togglePicker(camera,gear){const actions=gear&&gear.closest('.feed-card-actions');if(actions)showSourcePicker(actions,gear,Number(camera))}
- window.GrowPlotFeedSettings={getMode:readMode,setMode:writeMode,getStreamMode:(camera,plotId)=>getStreamMode(Number(camera),plotId),setStreamMode:(camera,mode,plotId)=>setStreamMode(Number(camera),mode,plotId),refresh:applyMode,togglePicker,openStreamSettings:openSettings};
+ window.GrowPlotFeedSettings={getMode:readMode,setMode:writeMode,getStreamMode:(camera,plotId)=>getStreamMode(Number(camera),plotId),setStreamMode:(camera,mode,plotId)=>setStreamMode(Number(camera),mode,plotId),refresh:applyMode,openStreamSettings:openSettings};
  if(typeof window.render==='function'){const render=window.render;window.render=function(){const result=render.apply(this,arguments);applyMode();return result}}
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init()
 })();
