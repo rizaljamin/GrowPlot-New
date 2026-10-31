@@ -20,7 +20,8 @@ assert.match(html,/feed feed-camera-mode[\s\S]*class=\"stream-camera-snap\"/,'th
 assert.doesNotMatch(html,/No source selected|stream-empty-state/,'there is no empty playback state');
 const body=html.slice(html.indexOf('function render(){'),html.indexOf('let saveToastTimer='));
 assert.doesNotMatch(body,/ipWebcamStreamUrl|feedimg|CONNECTING IP WEBCAM|LIVE · IP WEBCAM/,'Home renderer contains no automatic legacy stream');
-assert.match(source,/growplotStreamSourceV2:/,'new source key ignores preexisting legacy CCTV selections');
+assert.match(source,/const activeStreamModes=new Map\(\)/,'source choice is session-only and resets to Camera after app launch');
+assert.doesNotMatch(source,/localStorage\.(?:getItem|setItem)\(streamModeKey/,'saved CCTV selections do not override the camera default after relaunch');
 assert.match(source,/return CAMERA_MODE/,'unconfigured source defaults to Camera');
 assert.match(source,/feed\.innerHTML='<button class="stream-camera-snap"/,'camera selection renders a single camera icon');
 assert.match(source,/bridge\.captureFeedPhoto\(camera,currentPlotId\(\)\)/,'tapping the camera canvas launches native photo capture directly');
@@ -46,6 +47,8 @@ assert.deepEqual(calls,[['set',1,'cctv-stream','plot-test'],['suppress-cctv',fal
 assert.equal(picker.hidden,true,'CCTV choice closes the picker');
 assert.match(java,/selectedMode==='cctv-stream'&&!pickerOpen/,'native CCTV runs only after explicit selection and when picker is closed');
 assert.match(java,/if \(activityResumed && shouldShow\) startIpWebcamVlc/,'native player starts only after CCTV is explicitly selected');
+assert.match(java,/private void launchFeedPhotoCapture\(int camera, String plotId\) \{[\s\S]*?Intent intent = new Intent\(MediaStore\.ACTION_IMAGE_CAPTURE\)[\s\S]*?startActivityForResult\(intent, REQUEST_FEED_CAMERA\)/,'camera icon opens the device camera directly without an image-folder gate or chooser');
+assert.match(java,/Photo saved on this device in Pictures\/GrowPlot/,'captured photos remain available locally when Drive is not connected');
 assert.match(java,/setCctvVlcFeedsAllowedOnActiveScreen\(boolean allowed\)[\s\S]*if \(allowed\) return[\s\S]*stopIpWebcamVlc\(\)/,'disabling the native stream also stops its player');
 assert.doesNotMatch(java,/ipWebcamRefreshButton\.setText\("↻ Refresh"\)/,'legacy in-frame refresh control is removed');
 console.log('PASS: camera-default canvas, native photo/file controls, Camera/CCTV picker flow, and CCTV gating.');

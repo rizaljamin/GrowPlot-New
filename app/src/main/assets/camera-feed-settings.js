@@ -1,6 +1,7 @@
 (function installCameraFeedSettings(){
  'use strict';
  const CAMERA_MODE='device-camera',STREAM_MODE='cctv-stream';
+ const activeStreamModes=new Map();
  const readMode=()=>CAMERA_MODE;
  const writeMode=value=>value===STREAM_MODE?STREAM_MODE:CAMERA_MODE;
  const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
@@ -51,8 +52,8 @@
   dialog.overlay.hidden=false;dialog.form.elements.ip.focus();
  }
  function streamModeKey(camera,plotId){const plot=String(plotId||document.getElementById('plot')?.value||'plot-1');return 'growplotStreamSourceV2:'+plot+':'+Number(camera)}
- function getStreamMode(camera,plotId){try{const saved=localStorage.getItem(streamModeKey(camera,plotId));if(saved===CAMERA_MODE||saved===STREAM_MODE)return saved}catch(_){}return CAMERA_MODE}
- function setStreamMode(camera,mode,plotId){const chosen=mode===STREAM_MODE?STREAM_MODE:CAMERA_MODE;try{localStorage.setItem(streamModeKey(camera,plotId),chosen)}catch(_){}return chosen}
+ function getStreamMode(camera,plotId){return activeStreamModes.get(streamModeKey(camera,plotId))||CAMERA_MODE}
+ function setStreamMode(camera,mode,plotId){const chosen=mode===STREAM_MODE?STREAM_MODE:CAMERA_MODE;activeStreamModes.set(streamModeKey(camera,plotId),chosen);return chosen}
  function currentPlotId(){return document.getElementById('plot')?.value||'plot-1'}
  function cameraSvg(){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h3l1.5-2h8L18 7h2v12H4z"/><circle cx="12" cy="13" r="3.5"/></svg>'}
  function cctvSvg(){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 14.5 5l5.8 2.8-1.2 4.7-12 2.9z"/><path d="m8 15.2 1.3 5M15.7 13.3l2.2 4.5M4 8l1.4 6"/></svg>'}

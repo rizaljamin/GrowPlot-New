@@ -2612,6 +2612,10 @@ public class MainActivity extends Activity {
             notifyFeedCaptureStatus("No photo was returned. Try the camera again or choose an image file.");
             return;
         }
+        if (requestCode == REQUEST_FEED_CAMERA && !isFeedFolderReady(plotId)) {
+            notifyFeedCaptureStatus("Photo saved on this device in Pictures/GrowPlot. Connect the plot image folder in Settings to copy photos to Google Drive.");
+            return;
+        }
         notifyFeedCaptureStatus("Saving photo to this plot’s Google Drive image folder…");
         scanWorker.execute(() -> {
             try {
@@ -2634,10 +2638,6 @@ public class MainActivity extends Activity {
     }
 
     private void launchFeedPhotoCapture(int camera, String plotId) {
-        if (!isFeedFolderReady(plotId)) {
-            notifyFeedCaptureStatus("Connect this plot’s image folder first using Connect to folder in this panel.");
-            return;
-        }
         pendingFeedCamera = camera;
         pendingFeedPlotId = safePlotId(plotId);
         Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
@@ -2664,7 +2664,7 @@ public class MainActivity extends Activity {
             return;
         }
         notifyFeedCaptureStatus("Taking a photo for CCTV " + String.format(Locale.US, "%02d", camera) + "…");
-        try { startActivityForResult(Intent.createChooser(intent, "Take photo for CCTV " + camera), REQUEST_FEED_CAMERA); }
+        try { startActivityForResult(intent, REQUEST_FEED_CAMERA); }
         catch (Exception error) {
             deletePendingFeedPhoto(pendingFeedPhotoOutput);
             pendingFeedPhotoOutput = null;
