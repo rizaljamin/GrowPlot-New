@@ -8,7 +8,7 @@ assert.match(body,/stream-settings-button[\s\S]*data-camera="1"/,'the single str
 assert.match(body,/ipWebcamStreamUrl\(1\)/,'Stream 01 loads the configured playback address');
 assert.match(body,/class="feed"/,'Stream 01 exposes the in-card VLC playback target');
 assert.equal((body.match(/cameraRoot\.appendChild\(wrap\)/g)||[]).length,1,'Home render can append only one stream card');
-const ctx={};vm.createContext(ctx);
+const ctx={selectedPlotId:'plot-1',plots:[{id:'plot-1'}],cameraRoot:{children:[]}};vm.createContext(ctx);
 const scan=html.slice(html.indexOf('window.onSnapshotScan=function'),html.indexOf("if(window.GrowPlotBridge){document.getElementById('refreshInterval')"));
 Object.assign(ctx,{window:{},updateFeedScope(){},setText(){},setFeedStats(){},defaultFeedFolder:()=>'',localStorage:{setItem(){}},formatCapture:()=>({iso:'2026-10-12T03:00:00Z',date:'12 Oct 2026',time:'11 AM MYT'}),storedCurrentPhotos:()=>[],addCachedCurrentPhotos(){},applySuppliedBaselineIfEmpty:(_plot,_mode,timelines)=>timelines,timelineModes:{},cameraTimeline:[{camera:1,slots:[{available:true,imageUrl:'kept-snapshot.jpg'}]}],timelineInterval:'weekly',document:{getElementById:id=>id==='refreshInterval'?{value:''}:null}});
 vm.runInContext(scan,ctx);
