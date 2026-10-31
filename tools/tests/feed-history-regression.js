@@ -4,7 +4,7 @@ assert(main.includes('Image Streams')&&main.includes('IoT Reading'),'Home keeps 
 assert(!/STREAM 0[2-6]|tank-mini|Fertigation Tank/.test(main),'Home shell contains no extra fixed stream, section-reading, or tank cards');
 const body=html.slice(html.indexOf('function render(){'),html.indexOf('let saveToastTimer='));
 assert.match(main,/id="cameras" class="camera-grid single-stream"/,'Home contains one visible Image Streams card container');
-assert.match(body,/stream-settings-button[\\s\\S]*data-camera="1"/,'the single stream has its own settings gear');
+assert.match(body,/stream-settings-button[\s\S]*data-camera="1"/,'the single stream has its own settings gear');
 assert.match(body,/ipWebcamStreamUrl\(1\)[\s\S]*class="feed"/,'Stream 01 uses the playback feed target');
 assert.equal((body.match(/cameraRoot\.appendChild\(wrap\)/g)||[]).length,1,'Home render can append only one stream card');
 const ctx={};vm.createContext(ctx);
@@ -13,5 +13,5 @@ Object.assign(ctx,{window:{},updateFeedScope(){},setText(){},setFeedStats(){},de
 vm.runInContext(scan,ctx);
 ctx.window.onSnapshotScan({connected:true,plotId:'plot-1',cameraStats:[],currentPhotos:[1,2,3,4].map(camera=>({camera,timestamp:1}))});
 assert.strictEqual(ctx.cameraTimeline[0].slots[0].imageUrl,'kept-snapshot.jpg','status-only scan must preserve the last successful timeline');
-assert.doesNotMatch(scan,/cameraRoot\\.appendChild/,'background feed status does not rebuild Home cards');
+assert.doesNotMatch(scan,/cameraRoot\.appendChild/,'background feed status does not rebuild Home cards');
 console.log('PASS: Home renders one Stream 01 card; feed scan preserves the saved timeline.');
