@@ -82,6 +82,7 @@
     if(!button){button=document.createElement('button');button.type='button';button.className='feed-camera-button';button.setAttribute('aria-label','Take a photo for Stream '+String(camera).padStart(2,'0'));button.title='Take a photo';button.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h3l1.5-2h7L17 7h3v12H4z"/><circle cx="12" cy="13" r="3.5"/></svg>';button.addEventListener('click',()=>launchDeviceCamera(camera));actions.insertBefore(button,settings)}
    }else{const button=card.querySelector('.feed-camera-button');if(button)button.remove()}
   }
+  if(window.GrowPlotBridge?.openIpWebcam)window.GrowPlotBridge.openIpWebcam()
  }
  function init(){
   addStyles();
