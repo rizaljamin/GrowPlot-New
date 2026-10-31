@@ -1,3 +1,6 @@
+Warning: truncated output (original token count: 104135)
+Total output lines: 6955
+
 package com.growplot.farm;
 
 import android.app.Activity;
@@ -2626,8 +2629,8 @@ public class MainActivity extends Activity {
             notifyFeedCaptureStatus("No photo was returned. Try the camera again or choose an image file.");
             return;
         }
-        if (requestCode == REQUEST_FEED_CAMERA && !isFeedFolderReady(plotId)) {
-            notifyFeedCaptureStatus("Photo saved on this device in Pictures/GrowPlot. Connect the plot image folder in Settings to copy photos to Google Drive.");
+        if (requestCode == REQUEST_FEED_CAMERA) {
+            saveCapturedFeedPhotoLocally(source, thumbnail, output, plotId, camera);
             return;
         }
         notifyFeedCaptureStatus("Saving photo to this plot’s Google Drive image folder…");
@@ -2649,6 +2652,114 @@ public class MainActivity extends Activity {
                 if (thumbnail != null && !thumbnail.isRecycled()) thumbnail.recycle();
             }
         });
+    }
+
+    private void saveCapturedFeedPhotoLocally(Uri source, Bitmap thumbnail, Uri output,
+                                               String plotId, int camera) {
+        final String id = safePlotId(plotId);
+        final boolean syncToDrive = isFeedFolderReady(id);
+        notifyFeedCaptureStatus(syncToDrive
+                ? "Saving photo on this device…"
+                : "Saving photo on this device…");
+        scanWorker.execute(() -> {
+            try {
+                String previewBase64 = persistFeedPhotoPreview(source, thumbnail, output, id, camera);
+                runOnUiThread(() -> {
+                    if (web != null) {
+                        web.evaluateJavascript("window.GrowPlotFeedSettings&&window.GrowPlotFeedSettings.showCapturedPhoto("
+                                + camera + "," + JSONObject.quote(id) + "," + JSONObject.quote(previewBase64) + ")", null);
+                    }
+                    notifyFeedCaptureStatus(syncToDrive
+                            ? "Photo saved on this device. Syncing it to the plot image folder…"
+                            : "Photo saved on this device and shown on the stream card.");
+                });
+                if (syncToDrive) {
+                    try {
+                        saveFeedPhotoToDrive(source, thumbnail, id, camera, true);
+                        runOnUiThread(() -> {
+                            notifyFeedCaptureStatus("Photo saved on this device and copied to " + feedLocationLabel(id) + ".");
+                            scanSnapshotFolder(id);
+                        });
+                    } catch (Exception error) {
+                        String reason = error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage();
+                        runOnUiThread(() -> notifyFeedCaptureStatus("Photo saved on this device and shown on the card. Drive sync failed: " + reason));
+                    }
+                }
+            } catch (Exception error) {
+                String reason = error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage();
+                runOnUiThread(() -> notifyFeedCaptureStatus("Could not save the photo on this device: " + reason));
+            } finally {
+                if (thumbnail != null && !thumbnail.isRecycled()) thumbnail.recycle();
+            }
+        });
+    }
+
+    private String feedPreviewFileName(String plotId, int camera) {
+        String encodedPlot = Base64.encodeToString(safePlotId(plotId).getBytes(StandardCharsets.UTF_8),
+                Base64.URL_SAFE | Base64.NO_PADDING | Base64.NO_WRAP);
+        return "feed_preview_" + encodedPlot + "_" + String.format(Locale.US, "%02d", camera) + ".jpg";
+    }
+
+    private String persistFeedPhotoPreview(Uri source, Bitmap thumbnail, Uri output,
+                                           String plotId, int camera) throws Exception {
+        Bitmap bitmap = null;
+        Bitmap decodedBitmap = null;
+        int orientation = ExifInterface.ORIENTATION_NORMAL;
+        if (source != null) {
+            try (InputStream input = getContentResolver().openInputStream(source)) {
+                if (input != null) orientation = new ExifInterface(input).getAttributeInt(
+                        ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL);
+            } catch (Exception ignored) { orientation = ExifInterface.ORIENTATION_NORMAL; }
+            BitmapFactory.Options bounds = new BitmapFactory.Options();
+            bounds.inJustDecodeBounds = true;
+            try (InputStream input = getContentResolver().openInputStream(source)) {
+                if (input != null) BitmapFactory.decodeStream(input, null, bounds);
+            }
+            if (bounds.outWidth > 0 && bounds.outHeight > 0) {
+                int sample = 1;
+                while (Math.max(bounds.outWidth / sample, bounds.outHeight / sample) > 960) sample *= 2;
+                BitmapFactory.Options options = new BitmapFactory.Options();
+                options.inSampleSize = sample;
+                try (InputStream input = getContentResolver().openInputStream(source)) {
+                    if (input != null) decodedBitmap = BitmapFactory.decodeStream(input, null, options);
+                }
+            }
+        }
+        bitmap = decodedBitmap;
+        if (bitmap == null && thumbnail != null && !thumbnail.isRecycled()) bitmap = thumbnail;
+        if (bitmap == null) throw new IllegalStateException("The camera photo could not be read");
+        Bitmap transformed = null;
+        float rotation = orientation == ExifInterface.ORIENTATION_ROTATE_90
+                || orientation == ExifInterface.ORIENTATION_TRANSPOSE ? 90f
+                : orientation == ExifInterface.ORIENTATION_ROTATE_180 ? 180f
+                : orientation == ExifInterface.ORIENTATION_ROTATE_270
+                || orientation == ExifInterface.ORIENTATION_TRANSVERSE ? 270f : 0f;
+        if (rotation != 0f) {
+            Matrix matrix = new Matrix();
+            matrix.postRotate(rotation);
+            transformed = Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), matrix, true);
+            bitmap = transformed;
+        }
+        if (output != null && (source == null || !output.equals(source) || decodedBitmap == null)) {
+            try (OutputStream outputStream = getContentResolver().openOutputStream(output, "w")) {
+                if (outputStream != null) bitmap.compress(Bitmap.CompressFormat.JPEG, 92, outputStream);
+            } catch (Exception ignored) { }
+        }
+        File preview = new File(getFilesDir(), feedPreviewFileName(plotId, camera));
+        try (FileOutputStream stream = new FileOutputStream(preview)) {
+            if (!bitmap.compress(Bitmap.CompressFormat.JPEG, 78, stream))
+                throw new IllegalStateException("Could not encode the camera preview");
+            stream.flush();
+        } finally {
+            if (transformed != null && transformed != thumbnail && !transformed.isRecycled()) transformed.recycle();
+            if (decodedBitmap != null && decodedBitmap != thumbnail && decodedBitmap != transformed && !decodedBitmap.isRecycled()) decodedBitmap.recycle();
+        }
+        byte[] bytes = new byte[(int) preview.length()];
+        try (FileInputStream stream = new FileInputStream(preview)) {
+            int offset = 0, count;
+            while (offset < bytes.length && (count = stream.read(bytes, offset, bytes.length - offset)) > 0) offset += count;
+        }
+        return Base64.encodeToString(bytes, Base64.NO_WRAP);
     }
 
     private void launchFeedPhotoCapture(int camera, String plotId) {
@@ -3336,291 +3447,7 @@ public class MainActivity extends Activity {
     private void saveDiagnosisMediaIndex(int camera, String plotId, JSONObject item) {
         JSONArray list = new JSONArray();
         try {
-            JSONArray old = new JSONArray(getPrefs().getString(diagnosisMediaIndexKey(camera, plotId), "[]"));
-            for (int i = 0; i < old.length(); i++) {
-                JSONObject existing = old.optJSONObject(i);
-                if (existing != null && !item.optString("fileName").equals(existing.optString("fileName"))) list.put(existing);
-            }
-        } catch (Exception ignored) { }
-        list.put(item);
-        getPrefs().edit().putString(diagnosisMediaIndexKey(camera, plotId), list.toString()).apply();
-    }
-
-    private String readDiagnosisMediaIndex(int camera, String plotId) {
-        return getPrefs().getString(diagnosisMediaIndexKey(camera, plotId), "[]");
-    }
-
-    private void refreshDiagnosisMediaForActivePlot() {
-        String plotId = safePlotId(getPrefs().getString(PREF_ACTIVE_PLOT_ID, DEFAULT_PLOT_ID));
-        for (int camera = 1; camera <= 6; camera++) refreshDiagnosisMediaFromDrive(camera, plotId);
-    }
-
-    private void refreshDiagnosisMediaFromDrive(int camera, String plotId) {
-        if (camera < 1 || camera > 6 || !isDiagnosisDriveReady()) return;
-        final String id = safePlotId(plotId);
-        diagnosisWorker.execute(() -> {
-            JSONArray result = new JSONArray();
-            String errorMessage = null;
-            try {
-                if (!isDiagnosisDriveReady()) throw new IllegalStateException("Google Drive Diagnosis folder is not connected");
-                result = listAndCacheDriveDiagnosisMedia(camera, id);
-            }
-            catch (Exception error) { errorMessage = error.getMessage() == null ? "Drive folder could not be read." : error.getMessage(); }
-            final String error = errorMessage;
-            final String json = result.toString();
-            runOnUiThread(() -> {
-                if (web == null) return;
-                String script = "window.onDiagnosisMediaSync&&window.onDiagnosisMediaSync(" + camera + ","
-                        + JSONObject.quote(id) + "," + JSONObject.quote(json) + "," + JSONObject.quote(error) + ")";
-                web.evaluateJavascript(script, null);
-            });
-        });
-    }
-
-    private static final class DriveDiagnosisMedia {
-        String documentId;
-        String displayName;
-        String mimeType;
-        long modified;
-        long size;
-    }
-
-    private static final class PlantNetImageCandidate {
-        byte[] jpeg;
-        String source;
-        double quality;
-        long capturedAt;
-        PlantNetImageCandidate(byte[] jpeg, String source, double quality) { this(jpeg, source, quality, 0); }
-        PlantNetImageCandidate(byte[] jpeg, String source, double quality, long capturedAt) { this.jpeg = jpeg; this.source = source; this.quality = quality; this.capturedAt = capturedAt; }
-    }
-
-    private JSONArray listAndCacheDriveDiagnosisMedia(int camera, String plotId) throws Exception {
-        JSONArray result = new JSONArray();
-        String treeText = getPrefs().getString(PREF_DIAGNOSIS_TREE_URI, null);
-        String rootId = getPrefs().getString(PREF_DIAGNOSIS_ROOT_DOCUMENT_ID, null);
-        if (treeText == null || rootId == null) return result;
-        Uri treeUri = Uri.parse(treeText);
-        String plotFolder = diagnosisPlotFolder(plotId);
-        String plotDocumentId = findExistingChildFolder(treeUri, rootId, plotFolder);
-        if (plotDocumentId == null) return result;
-        String quadrantName = "Quadrant_" + String.format(Locale.US, "%02d", camera);
-        String quadrantId = findExistingChildFolder(treeUri, plotDocumentId, quadrantName);
-        if (quadrantId == null) return result;
-        Uri childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, quadrantId);
-        String[] columns = {DocumentsContract.Document.COLUMN_DOCUMENT_ID,
-                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
-                DocumentsContract.Document.COLUMN_MIME_TYPE,
-                DocumentsContract.Document.COLUMN_LAST_MODIFIED,
-                DocumentsContract.Document.COLUMN_SIZE};
-        List<DriveDiagnosisMedia> media = new ArrayList<>();
-        try (Cursor cursor = getContentResolver().query(childrenUri, columns, null, null, null)) {
-            if (cursor == null) throw new IllegalStateException("Google Drive could not list " + plotFolder + "/" + quadrantName);
-            int idColumn = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DOCUMENT_ID);
-            int nameColumn = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME);
-            int mimeColumn = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_MIME_TYPE);
-            int modifiedColumn = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_LAST_MODIFIED);
-            int sizeColumn = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_SIZE);
-            while (cursor.moveToNext()) {
-                if (idColumn < 0 || nameColumn < 0 || mimeColumn < 0) continue;
-                String mime = cursor.getString(mimeColumn);
-                String name = cursor.getString(nameColumn);
-                if (DocumentsContract.Document.MIME_TYPE_DIR.equals(mime) || name == null) continue;
-                boolean video = mime != null && mime.startsWith("video/");
-                boolean photo = mime != null && mime.startsWith("image/");
-                if (!video && !photo) continue;
-                DriveDiagnosisMedia item = new DriveDiagnosisMedia();
-                item.documentId = cursor.getString(idColumn);
-                item.displayName = name;
-                item.mimeType = mime;
-                item.modified = modifiedColumn >= 0 && !cursor.isNull(modifiedColumn) ? cursor.getLong(modifiedColumn) : 0;
-                item.size = sizeColumn >= 0 && !cursor.isNull(sizeColumn) ? cursor.getLong(sizeColumn) : -1;
-                media.add(item);
-            }
-        }
-        Collections.sort(media, (left, right) -> Long.compare(right.modified, left.modified));
-        int limit = Math.min(media.size(), 10);
-        File directory = new File(new File(new File(getCacheDir(), "diagnosis_drive_cache"), plotId),
-                String.format(Locale.US, "cctv_%02d", camera));
-        if (!directory.isDirectory() && !directory.mkdirs()) throw new IllegalStateException("Cannot create Drive playback cache");
-        Set<String> keepNames = new HashSet<>();
-        for (int index = 0; index < limit; index++) {
-            DriveDiagnosisMedia item = media.get(index);
-            boolean video = item.mimeType.startsWith("video/");
-            String extension = video ? ".mp4" : ".jpg";
-            long stamp = Math.max(0, item.modified);
-            String cacheName = "d" + Long.toHexString(stamp) + "_" + Integer.toHexString(item.documentId.hashCode()) + extension;
-            keepNames.add(cacheName);
-            File cached = new File(directory, cacheName);
-            if (!cached.isFile() || (item.size >= 0 && cached.length() != item.size)) {
-                Uri documentUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, item.documentId);
-                File temp = new File(directory, cacheName + ".part");
-                try (InputStream input = getContentResolver().openInputStream(documentUri);
-                     FileOutputStream output = new FileOutputStream(temp)) {
-                    if (input == null) throw new IllegalStateException("Drive could not open " + item.displayName);
-                    byte[] buffer = new byte[65536];
-                    int read;
-                    while ((read = input.read(buffer)) != -1) output.write(buffer, 0, read);
-                    output.flush();
-                } catch (Exception error) {
-                    temp.delete();
-                    throw error;
-                }
-                if (item.size >= 0 && temp.length() != item.size) {
-                    temp.delete();
-                    throw new IllegalStateException("Drive download was incomplete for " + item.displayName);
-                }
-                if (cached.exists()) cached.delete();
-                if (!temp.renameTo(cached)) throw new IllegalStateException("Could not finalize Drive playback cache");
-            }
-            String relativeUrl = "https://appassets.androidplatform.net/assets/diagnosis/" + plotId + "/"
-                    + String.format(Locale.US, "cctv_%02d", camera) + "/" + cacheName;
-            JSONObject row = new JSONObject();
-            row.put("camera", camera);
-            row.put("plotId", plotId);
-            row.put("kind", video ? "video" : "photo");
-            row.put("url", relativeUrl);
-            row.put("fileName", item.displayName);
-            row.put("driveSaved", true);
-            row.put("drivePath", "Diagnosis/" + plotFolder + "/" + quadrantName + "/" + item.displayName);
-            row.put("driveDocumentId", item.documentId);
-            long date = item.modified > 0 ? item.modified : cached.lastModified();
-            row.put("modifiedAt", date);
-            row.put("capturedAt", new SimpleDateFormat("dd MMM yyyy HH:mm", Locale.US).format(new Date(date)) + " MYT");
-            if (video) {
-                File poster = createDiagnosisVideoPoster(cached, camera, plotId);
-                if (poster != null) {
-                    keepNames.add(poster.getName());
-                    row.put("thumbnailUrl", relativeUrl.replace(cacheName, poster.getName()));
-                }
-            }
-            result.put(row);
-            if (!video) {
-                saveDiagnosisMediaIndex(camera, plotId, row);
-                uploadDiagnosisPhotoToFirebase(camera, plotId, cached, row);
-            }
-        }
-        File[] cachedFiles = directory.listFiles();
-        if (cachedFiles != null) for (File cachedFile : cachedFiles) {
-            if (!keepNames.contains(cachedFile.getName())) cachedFile.delete();
-        }
-        return result;
-    }
-
-    private String findExistingChildFolder(Uri treeUri, String parentDocumentId, String folderName) throws Exception {
-        Uri childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, parentDocumentId);
-        String[] columns = {DocumentsContract.Document.COLUMN_DOCUMENT_ID,
-                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
-                DocumentsContract.Document.COLUMN_MIME_TYPE};
-        try (Cursor cursor = getContentResolver().query(childrenUri, columns, null, null, null)) {
-            if (cursor == null) throw new IllegalStateException("Google Drive could not list folders");
-            int idColumn = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DOCUMENT_ID);
-            int nameColumn = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME);
-            int mimeColumn = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_MIME_TYPE);
-            while (cursor.moveToNext()) {
-                if (idColumn >= 0 && nameColumn >= 0 && mimeColumn >= 0
-                        && folderName.equals(cursor.getString(nameColumn))
-                        && DocumentsContract.Document.MIME_TYPE_DIR.equals(cursor.getString(mimeColumn))) {
-                    return cursor.getString(idColumn);
-                }
-            }
-        }
-        return null;
-    }
-
-    private File createDiagnosisVideoPoster(File video, int camera, String plotId) {
-        MediaMetadataRetriever retriever = new MediaMetadataRetriever();
-        Bitmap frame = null;
-        try {
-            retriever.setDataSource(video.getAbsolutePath());
-            frame = retriever.getFrameAtTime(0, MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
-            if (frame == null) return null;
-            File poster = new File(video.getParentFile(), video.getName().replaceFirst("\\.mp4$", "_thumb.jpg"));
-            try (FileOutputStream output = new FileOutputStream(poster)) {
-                if (!frame.compress(Bitmap.CompressFormat.JPEG, 86, output)) return null;
-            }
-            return poster;
-        } catch (Exception ignored) { return null; }
-        finally {
-            try { retriever.release(); } catch (Exception ignored) { }
-            if (frame != null && !frame.isRecycled()) frame.recycle();
-        }
-    }
-
-    private void notifyDiagnosisStatus(String message) {
-        if (web != null) web.evaluateJavascript("window.onDiagnosisStatus&&window.onDiagnosisStatus(" + JSONObject.quote(message) + ")", null);
-    }
-
-    private void launchDiagnosisCapture(String kind, int camera, String plotId, String plotName) {
-        if (camera < 1 || camera > 6) return;
-        if ("photo".equals(kind) && diagnosisPhotoCount(camera, plotId) >= 5) {
-            notifyDiagnosisStatus("This quadrant already has 5 photos. Remove a photo before adding another.");
-            return;
-        }
-        pendingDiagnosisKind = kind;
-        pendingDiagnosisCamera = camera;
-        pendingDiagnosisPlotId = safePlotId(plotId);
-        pendingDiagnosisPlotName = safeFolderName(plotName);
-        int requestCode = "video".equals(kind) ? REQUEST_DIAGNOSIS_VIDEO : REQUEST_DIAGNOSIS_PHOTO;
-        try {
-            Intent intent = new Intent("video".equals(kind) ? MediaStore.ACTION_VIDEO_CAPTURE : MediaStore.ACTION_IMAGE_CAPTURE);
-            if ("video".equals(kind)) {
-                intent.putExtra(MediaStore.EXTRA_DURATION_LIMIT, 30);
-                intent.putExtra(MediaStore.EXTRA_VIDEO_QUALITY, 1);
-            }
-            // Let the camera app manage its own output. Supplying a pending MediaStore URI
-            // caused some camera apps to stall while writing/finalizing the capture.
-            pendingDiagnosisOutput = null;
-            if (intent.resolveActivity(getPackageManager()) == null) {
-                if ("video".equals(kind)) {
-                    notifyDiagnosisStatus("No video camera app was found. Choose a recorded video from the picker instead.");
-                    launchDiagnosisVideoPicker(camera, plotId, plotName);
-                } else notifyDiagnosisStatus("No compatible camera app was found. Choose an existing photo instead.");
-                return;
-            }
-            Intent chooser = Intent.createChooser(intent, "Record plant " + kind);
-            startActivityForResult(chooser, requestCode);
-        } catch (Exception error) {
-            if (pendingDiagnosisOutput != null) try { getContentResolver().delete(pendingDiagnosisOutput, null, null); } catch (Exception ignored) { }
-            pendingDiagnosisOutput = null;
-            if ("video".equals(kind)) launchDiagnosisVideoPicker(camera, plotId, plotName);
-            else notifyDiagnosisStatus("No compatible camera app was found. Choose an existing photo instead.");
-        }
-    }
-
-    private void launchDiagnosisPicker(int camera, String plotId, String plotName) {
-        pendingDiagnosisCamera = camera;
-        pendingDiagnosisPlotId = safePlotId(plotId);
-        pendingDiagnosisPlotName = safeFolderName(plotName);
-        pendingDiagnosisOutput = null;
-        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-        intent.setType("*/*");
-        intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{"image/*", "video/*"});
-        intent.addCategory(Intent.CATEGORY_OPENABLE);
-        notifyDiagnosisStatus("Choose a photo or video. GrowPlot saves it on this device first, then uploads it to Google Drive.");
-        try { startActivityForResult(intent, REQUEST_DIAGNOSIS_PICKER); }
-        catch (Exception error) { notifyDiagnosisStatus("No media picker is available on this device. " + (error.getMessage() == null ? "" : error.getMessage())); }
-    }
-
-    @Override public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode != REQUEST_DEVICE_LOCATION) return;
-        String plotId = safePlotId(locationPermissionPlotId);
-        locationPermissionRequestInFlight = false;
-        if (hasLocationPermission()) requestDeviceLocationForPlot(plotId);
-        else sendDeviceLocation(plotId, null, "Location permission was not granted.");
-    }
-
-    @Override public void onConfigurationChanged(Configuration newConfig) {
-        super.onConfigurationChanged(newConfig);
-        if (web != null) web.requestLayout();
-    }
-
-    private final class SnapshotBridge {
-        @JavascriptInterface public void requestAdminActivationDemo() {
-            runOnUiThread(() -> AdminActivationDemo.request(MainActivity.this));
-        }
-        @JavascriptInterface public String getCctvCameraStreamSettings(int camera) {
-            if (camera < 1 || camera > 6) return "{}";
+            JSONArray old = new JSO…4135 tokens truncated… 1 || camera > 6) return "{}";
             try {
                 return new JSONObject().put("ip", cctvIp(camera))
                         .put("protocol", cctvStreamProtocol(camera))
@@ -3922,6 +3749,19 @@ public class MainActivity extends Activity {
         @JavascriptInterface public void captureFeedPhoto(int camera, String plotId) {
             if (camera < 1 || camera > 6) return;
             runOnUiThread(() -> launchFeedPhotoCapture(camera, safePlotId(plotId)));
+        }
+
+        @JavascriptInterface public String getFeedPhotoPreview(int camera, String plotId) {
+            if (camera < 1 || camera > 6) return "";
+            File preview = new File(getFilesDir(), feedPreviewFileName(plotId, camera));
+            if (!preview.isFile() || preview.length() < 1 || preview.length() > 1024 * 1024) return "";
+            byte[] bytes = new byte[(int) preview.length()];
+            try (FileInputStream input = new FileInputStream(preview)) {
+                int offset = 0, count;
+                while (offset < bytes.length && (count = input.read(bytes, offset, bytes.length - offset)) > 0) offset += count;
+                if (offset != bytes.length) return "";
+                return Base64.encodeToString(bytes, Base64.NO_WRAP);
+            } catch (Exception ignored) { return ""; }
         }
 
         @JavascriptInterface public void chooseFeedPhoto(int camera, String plotId) {
