@@ -924,6 +924,9 @@ public class MainActivity extends Activity {
     }
 
     private void addCctvRtspMediaOptions(Media media, int camera) {
+        // Keep RTSP video on the control connection. UDP RTP is frequently blocked
+        // by Wi-Fi routers and makes the player stay black even when port 554 is reachable.
+        media.addOption(":rtsp-tcp");
         String[] credentials = cctvRtspCredentials(camera);
         if (!credentials[0].isEmpty() && !credentials[1].isEmpty()) {
             media.addOption(":rtsp-user=" + credentials[0]);
@@ -1598,6 +1601,7 @@ public class MainActivity extends Activity {
                 ipWebcam3VlcPlayer = new org.videolan.libvlc.MediaPlayer(ipWebcam3Vlc);
                 ipWebcam3VlcPlayer.attachViews(videoLayout, null, true, false);
                 Media media = new Media(ipWebcam3Vlc, Uri.parse(route));
+                if (rtsp) addCctvRtspMediaOptions(media, 3);
                 media.addOption(":network-caching=350");
                 ipWebcam3VlcPlayer.setMedia(media); media.release(); ipWebcam3VlcPlayer.play();
             } catch (Exception error) { stopCctv03Vlc(); }
@@ -7158,7 +7162,3 @@ public class MainActivity extends Activity {
         });
     }
 
-    private void sendToPage(String json) {
-        if (web != null) web.evaluateJavascript("window.onSnapshotScan && window.onSnapshotScan(" + json + ");", null);
-    }
-}

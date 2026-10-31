@@ -17,6 +17,7 @@ assert(html.includes('.home-stream-source-option[aria-selected="true"]{backgroun
 assert(source.includes('background:#174a35;color:#fff;box-shadow:0 3px 12px'),'camera icon uses GrowPlot green with a white camera stroke');
 assert.match(source,/credentials\.hidden=!rtsp/,'username and password fields are shown for RTSP only, not HTTP/IP Webcam');
 assert.match(source,/credentials\.querySelectorAll\('input'\)\.forEach\(input=>input\.disabled=!rtsp\)/,'HTTP/IP Webcam disables the username and password controls');
+assert.match(source,/username&&!password&&!savedRtspPasswordConfigured/,'RTSP saves may leave the password blank when the encrypted password is already saved');
 assert.match(source,/await new Promise\(resolve=>\{const timeout=setTimeout[\s\S]*bridge\.saveCctvCameraStreamSettings\(camera,protocol\.value,cameraIp,streamPort,streamPath,plotId,greenhouseId,requestId\)/,'Save waits for the native Firebase confirmation before starting playback');
 assert.match(source,/Connecting to '\+\(result\.route\|\|'the saved camera route'\)/,'successful save confirms the route returned from Firebase');
 assert.match(source,/\.stream-settings-credentials\[hidden\]\{display:none\}/,'HTTP/IP Webcam keeps hidden credentials out of the dialog layout');
@@ -26,6 +27,7 @@ assert.match(java,/private String\[\] cctvRtspCredentials\(int camera\)[\s\S]*?A
 assert.match(java,/private boolean saveCctvRtspCredentials\(int camera, String username, String password\)[\s\S]*?AES\/GCM\/NoPadding/,'RTSP credentials are encrypted per camera before saving');
 assert.match(java,/String route = addCctvRtspCredentials\(1, cctvStreamUrl\(1\)\)[\s\S]*?addCctvRtspMediaOptions\(media, 1\)/,'CCTV01 RTSP URLs and VLC auth options use the saved camera credentials');
 assert.match(java,/private String cctvStreamUrl\(int camera\)[\s\S]*?userStreamMode && !hasLocalCctvStreamOverride\(camera\)[\s\S]*?PREF_CCTV_PROTOCOL_PREFIX \+ camera/,'explicit local RTSP settings override an assigned plot stream and survive app updates');
+assert.match(java,/private void addCctvRtspMediaOptions\(Media media, int camera\)[\s\S]*?media\.addOption\(":rtsp-tcp"\)/,'RTSP streams use TCP transport to work across Wi-Fi/router UDP restrictions');
 assert.match(java,/saveCctvStreamSettingsToFirebase\([\s\S]*?feedRef\.set\(record, com\.google\.firebase\.firestore\.SetOptions\.merge\(\)\)[\s\S]*?feedRef\.get\(\)/,'stream Save writes to Firebase and reads back the persisted camera route');
 assert.match(java,/store\.collection\("data_feeds"\)\.document\(uid \+ "_CCTV0" \+ slot\)/,'assigned plots load saved Firebase camera routes without requiring a separate assignment');
 assert.match(java,/private void startLocalCctvStreamOverrides\(\)[\s\S]*?startIpWebcamVlc\(ipWebcamVlcLayout\)/,'saved local streams start after switching to a plot with assigned camera feeds');
