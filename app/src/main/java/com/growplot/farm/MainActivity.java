@@ -905,13 +905,14 @@ public class MainActivity extends Activity {
 
     private void installCctv01VlcPositionListener() {
         if (web == null || isFinishing()) return;
-        web.evaluateJavascript("(()=>{const host=document.querySelector('#cameras');if(!host)return false;let css=document.getElementById('growplot-vlc-cctv-style');if(!css){css=document.createElement('style');css.id='growplot-vlc-cctv-style';css.textContent='#cameras .camera:nth-child(-n+3) .feedimg,#cameras .camera:nth-child(-n+3) .mocktag,#cameras .camera:nth-child(-n+3) .stamp{display:none!important}';document.head.appendChild(css)}let scheduled=false,last=['','',''];const send=()=>{if(scheduled)return true;scheduled=true;requestAnimationFrame(()=>{scheduled=false;const dashboard=document.getElementById('mainDashboard'),health=document.getElementById('healthPanel'),auth=document.getElementById('authScreen'),blockingOverlayActive=[...document.querySelectorAll('.modal.open,dialog[open],[role=\"dialog\"][aria-modal=\"true\"],#growplotUserManagementPage')].some(el=>{if(el.hidden)return false;const style=getComputedStyle(el);return style.display!=='none'&&style.visibility!=='hidden'&&style.visibility!=='collapse'&&el.getClientRects().length>0}),homeActive=!!dashboard&&!dashboard.hidden&&(!health||health.hidden)&&!blockingOverlayActive&&(!auth||auth.hidden),cameraMode=window.GrowPlotFeedSettings&&window.GrowPlotFeedSettings.getStreamMode(1)==='device-camera',streamHomeActive=homeActive&&!cameraMode;if(window.GrowPlotBridge)GrowPlotBridge.setCctvVlcFeedsAllowedOnActiveScreen(streamHomeActive);for(let i=0;i<3;i++){const e=document.querySelector('#cameras .camera:nth-child('+(i+1)+') .feed');if(!e)continue;const im=e.querySelector('.feedimg');if(im&&im.hasAttribute('src'))im.removeAttribute('src');const r=e.getBoundingClientRect(),offscreen=r.bottom<=0||r.top>=window.innerHeight,coords=[r.left,r.top,r.width,r.height,offscreen?1:0,streamHomeActive?1:0].join(',');if(coords!==last[i]){last[i]=coords;if(i===0)GrowPlotBridge.updateCctv01VlcPosition(coords);else if(i===1)GrowPlotBridge.updateCctv02VlcPosition(coords);else GrowPlotBridge.updateCctv03VlcPosition(coords)}}});return true};if(!window.__growplotVlcPositionInstalled){window.addEventListener('scroll',send,{passive:true});window.addEventListener('resize',send,{passive:true});new MutationObserver(send).observe(host,{childList:true,subtree:true});new MutationObserver(send).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['hidden','class','open','style','role','aria-modal']});window.__growplotVlcPositionInstalled=true}send();setTimeout(send,400);setTimeout(send,1200);return true})()", null);
+        web.evaluateJavascript("(()=>{const host=document.querySelector('#cameras');if(!host)return false;let css=document.getElementById('growplot-vlc-cctv-style');if(!css){css=document.createElement('style');css.id='growplot-vlc-cctv-style';css.textContent='#cameras .camera:nth-child(-n+3) .feedimg,#cameras .camera:nth-child(-n+3) .mocktag,#cameras .camera:nth-child(-n+3) .stamp{display:none!important}';document.head.appendChild(css)}let scheduled=false,last=['','',''];const send=()=>{if(scheduled)return true;scheduled=true;requestAnimationFrame(()=>{scheduled=false;const dashboard=document.getElementById('mainDashboard'),health=document.getElementById('healthPanel'),auth=document.getElementById('authScreen'),blockingOverlayActive=[...document.querySelectorAll('.modal.open,dialog[open],[role=\"dialog\"][aria-modal=\"true\"],#growplotUserManagementPage')].some(el=>{if(el.hidden)return false;const style=getComputedStyle(el);return style.display!=='none'&&style.visibility!=='hidden'&&style.visibility!=='collapse'&&el.getClientRects().length>0}),homeActive=!!dashboard&&!dashboard.hidden&&(!health||health.hidden)&&!blockingOverlayActive&&(!auth||auth.hidden),selectedMode=window.GrowPlotFeedSettings?window.GrowPlotFeedSettings.getStreamMode(1):'none',pickerOpen=!!document.querySelector('#homeStreamSourcePicker:not([hidden])'),streamHomeActive=homeActive&&selectedMode==='cctv-stream'&&!pickerOpen;if(window.GrowPlotBridge)GrowPlotBridge.setCctvVlcFeedsAllowedOnActiveScreen(streamHomeActive);for(let i=0;i<3;i++){const e=document.querySelector('#cameras .camera:nth-child('+(i+1)+') .feed');if(!e)continue;const im=e.querySelector('.feedimg');if(im&&im.hasAttribute('src'))im.removeAttribute('src');const r=e.getBoundingClientRect(),offscreen=r.bottom<=0||r.top>=window.innerHeight,coords=[r.left,r.top,r.width,r.height,offscreen?1:0,streamHomeActive?1:0].join(',');if(coords!==last[i]){last[i]=coords;if(i===0)GrowPlotBridge.updateCctv01VlcPosition(coords)}}});return true};if(!window.__growplotVlcPositionInstalled){window.addEventListener('scroll',send,{passive:true});window.addEventListener('resize',send,{passive:true});new MutationObserver(send).observe(host,{childList:true,subtree:true});new MutationObserver(send).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['hidden','class','open','style','role','aria-modal']});window.__growplotVlcPositionInstalled=true}send();setTimeout(send,400);setTimeout(send,1200);return true})()", null);
     }
 
     /** Keep native VLC children out of the way unless the dashboard is active. */
     private void setCctvVlcFeedsAllowedOnActiveScreen(boolean allowed) {
         cctvVlcFeedsAllowedOnActiveScreen = allowed;
         if (allowed) return; // Position callbacks reveal feeds after valid dashboard bounds arrive.
+        stopIpWebcamVlc();
         hideVlcFrame(ipWebcamVlcFrame);
         hideVlcFrame(ipWebcam2VlcFrame);
         hideVlcFrame(ipWebcam3VlcFrame);
@@ -965,30 +966,11 @@ public class MainActivity extends Activity {
                 ipWebcamVlcLayout = new VLCVideoLayout(this);
                 ipWebcamVlcLayout.setBackgroundColor(Color.BLACK);
                 ipWebcamVlcFrame.addView(ipWebcamVlcLayout, new FrameLayout.LayoutParams(-1, -1));
-                installCctvStatusDot(ipWebcamVlcFrame, 1);
-                ipWebcamRefreshButton = new TextView(this);
-                ipWebcamRefreshButton.setText("↻ Refresh");
-                ipWebcamRefreshButton.setTextColor(Color.WHITE);
-                ipWebcamRefreshButton.setTextSize(12);
-                ipWebcamRefreshButton.setTypeface(null, android.graphics.Typeface.BOLD);
-                ipWebcamRefreshButton.setGravity(Gravity.CENTER);
-                ipWebcamRefreshButton.setPadding(dp(10), 0, dp(10), 0);
-                ipWebcamRefreshButton.setContentDescription("Reconnect to IP Webcam");
-                GradientDrawable buttonBackground = new GradientDrawable();
-                buttonBackground.setColor(0xE6174A35);
-                buttonBackground.setCornerRadius(dp(8));
-                buttonBackground.setStroke(dp(1), 0xFFEAF4EC);
-                ipWebcamRefreshButton.setBackground(buttonBackground);
-                ipWebcamRefreshButton.setElevation(dp(6));
-                ipWebcamRefreshButton.setOnClickListener(view -> reconnectIpWebcamVlc());
-                FrameLayout.LayoutParams buttonParams = new FrameLayout.LayoutParams(-2, dp(36), Gravity.TOP | Gravity.RIGHT);
-                buttonParams.setMargins(0, dp(8), dp(8), 0);
-                ipWebcamVlcFrame.addView(ipWebcamRefreshButton, buttonParams);
                 FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(width, height, Gravity.TOP | Gravity.LEFT);
                 params.leftMargin = left;
                 params.topMargin = top;
                 appRoot.addView(ipWebcamVlcFrame, params);
-                if (activityResumed) startIpWebcamVlc(ipWebcamVlcLayout);
+                if (activityResumed && shouldShow) startIpWebcamVlc(ipWebcamVlcLayout);
             } else {
                 FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) ipWebcamVlcFrame.getLayoutParams();
                 if (params.width != width || params.height != height || params.leftMargin != left || params.topMargin != top) {
@@ -3908,6 +3890,19 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface public void checkNow(String plotId) {
             scanSnapshotFolder(safePlotId(plotId));
+        }
+
+        @JavascriptInterface public void openFeedPhotoActions(int camera, String plotId) {
+            if (camera < 1 || camera > 6) return;
+            String selectedPlot = safePlotId(plotId);
+            runOnUiThread(() -> new android.app.AlertDialog.Builder(MainActivity.this)
+                    .setTitle("Stream " + String.format(Locale.US, "%02d", camera))
+                    .setItems(new String[]{"Take a photo", "Choose an image from files"}, (dialog, choice) -> {
+                        if (choice == 0) launchFeedPhotoCapture(camera, selectedPlot);
+                        else if (choice == 1) launchFeedPhotoPicker(camera, selectedPlot);
+                    })
+                    .setNegativeButton("Cancel", null)
+                    .show());
         }
 
         @JavascriptInterface public void captureFeedPhoto(int camera, String plotId) {

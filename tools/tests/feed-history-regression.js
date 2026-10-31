@@ -6,8 +6,9 @@ const body=html.slice(html.indexOf('function render(){'),html.indexOf('let saveT
 assert.match(main,/id="cameras" class="camera-grid single-stream"/,'Home contains one visible Image Streams card container');
 assert.match(main,/id="streamSourceSettingsCard"[\s\S]*id="streamSettingsToggle"/,'the stream gear is in its own settings card outside video');
 assert.doesNotMatch(body,/stream-settings-button/,'the stream video card has no settings button');
-assert.match(body,/ipWebcamStreamUrl\(1\)/,'Stream 01 loads the configured playback address');
-assert.match(body,/class="feed"/,'Stream 01 exposes the in-card VLC playback target');
+assert.match(body,/data-stream-canvas/,'Stream 01 exposes a static playback canvas for the native VLC surface');
+assert.doesNotMatch(body,/ipWebcamStreamUrl|feedimg/,'the canvas has no legacy WebView MJPEG stream');
+assert.match(body,/class="feed feed-camera-mode"/,'Stream 01 starts in the camera action view');
 assert.equal((body.match(/cameraRoot\.appendChild\(wrap\)/g)||[]).length,1,'Home render can append only one stream card');
 const ctx={selectedPlotId:'plot-1',plots:[{id:'plot-1'}],cameraRoot:{children:[]}};vm.createContext(ctx);
 const scan=html.slice(html.indexOf('window.onSnapshotScan=function'),html.indexOf("if(window.GrowPlotBridge){document.getElementById('refreshInterval')"));

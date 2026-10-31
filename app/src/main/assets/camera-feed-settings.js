@@ -1,8 +1,8 @@
 (function installCameraFeedSettings(){
  'use strict';
- const KEY='growplotHomeFeedMode',CAMERA_MODE='device-camera',STREAM_MODE='cctv-stream';
- const readMode=()=>{try{return localStorage.getItem(KEY)===CAMERA_MODE?CAMERA_MODE:STREAM_MODE}catch(_){return STREAM_MODE}};
- const writeMode=value=>{const mode=value===CAMERA_MODE?CAMERA_MODE:STREAM_MODE;try{localStorage.setItem(KEY,mode)}catch(_){}return mode};
+ const CAMERA_MODE='device-camera',STREAM_MODE='cctv-stream';
+ const readMode=()=>CAMERA_MODE;
+ const writeMode=value=>value===STREAM_MODE?STREAM_MODE:CAMERA_MODE;
  const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
  function addStyles(){
   if(document.getElementById('cameraFeedModeStyles'))return;
@@ -50,40 +50,32 @@
   dialog.form.elements.ip.value=settings.ip||'';dialog.form.elements.port.value=String(settings.port||fallback(camera).port);dialog.form.elements.path.value=settings.path||fallback(camera).path;dialog.error.textContent='';dialog.updateLabels();
   dialog.overlay.hidden=false;dialog.form.elements.ip.focus();
  }
- function streamModeKey(camera,plotId){const plot=String(plotId||document.getElementById('plot')?.value||'plot-1');return 'growplotStreamMode:'+plot+':'+Number(camera)}
- function getStreamMode(camera,plotId){try{const saved=localStorage.getItem(streamModeKey(camera,plotId));if(saved===CAMERA_MODE||saved===STREAM_MODE)return saved}catch(_){}return readMode()}
- function setStreamMode(camera,mode,plotId){const chosen=mode===CAMERA_MODE?CAMERA_MODE:STREAM_MODE;try{localStorage.setItem(streamModeKey(camera,plotId),chosen)}catch(_){}return chosen}
+ function streamModeKey(camera,plotId){const plot=String(plotId||document.getElementById('plot')?.value||'plot-1');return 'growplotStreamSourceV2:'+plot+':'+Number(camera)}
+ function getStreamMode(camera,plotId){try{const saved=localStorage.getItem(streamModeKey(camera,plotId));if(saved===CAMERA_MODE||saved===STREAM_MODE)return saved}catch(_){}return CAMERA_MODE}
+ function setStreamMode(camera,mode,plotId){const chosen=mode===STREAM_MODE?STREAM_MODE:CAMERA_MODE;try{localStorage.setItem(streamModeKey(camera,plotId),chosen)}catch(_){}return chosen}
  function currentPlotId(){return document.getElementById('plot')?.value||'plot-1'}
  function cameraSvg(){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h3l1.5-2h8L18 7h2v12H4z"/><circle cx="12" cy="13" r="3.5"/></svg>'}
  function cctvSvg(){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5 14.5 5l5.8 2.8-1.2 4.7-12 2.9z"/><path d="m8 15.2 1.3 5M15.7 13.3l2.2 4.5M4 8l1.4 6"/></svg>'}
+ function setHint(card,text){const hint=card.querySelector('[data-stream-hint]');if(hint)hint.textContent=text}
  function showCameraMode(card,camera){
   const feed=card.querySelector('.feed');if(!feed)return;
-  feed.classList.add('feed-camera-mode');feed.setAttribute('aria-label','Stream '+String(camera).padStart(2,'0')+' static camera snapshot');
-  feed.innerHTML='<button class="stream-camera-snap" type="button" aria-label="Open device camera for Stream '+String(camera).padStart(2,'0')+'">'+cameraSvg()+'</button>';
-  feed.querySelector('.stream-camera-snap').addEventListener('click',()=>{const bridge=window.GrowPlotBridge;if(bridge&&typeof bridge.captureFeedPhoto==='function')bridge.captureFeedPhoto(camera,currentPlotId());else if(typeof window.showSaveToast==='function')window.showSaveToast('Device camera is available in the GrowPlot Android app.')});
+  feed.classList.add('feed-camera-mode');feed.setAttribute('aria-label','Stream '+String(camera).padStart(2,'0')+' device camera');
+  feed.innerHTML='<button class="stream-camera-snap" type="button" aria-label="Open device camera for Stream '+String(camera).padStart(2,'0')+'">'+cameraSvg()+'</button>';setHint(card,'CAMERA');
+  feed.querySelector('.stream-camera-snap').addEventListener('click',()=>{const bridge=window.GrowPlotBridge;if(bridge&&typeof bridge.openFeedPhotoActions==='function')bridge.openFeedPhotoActions(camera,currentPlotId());else if(bridge&&typeof bridge.captureFeedPhoto==='function')bridge.captureFeedPhoto(camera,currentPlotId());else if(typeof window.showSaveToast==='function')window.showSaveToast('Camera controls are available in the GrowPlot Android app.')});
  }
  function showCctvMode(card,camera){
   const feed=card.querySelector('.feed');if(!feed)return;
-  feed.classList.remove('feed-camera-mode');feed.removeAttribute('aria-label');feed.innerHTML='';
+  feed.classList.remove('feed-camera-mode');feed.setAttribute('aria-label','Stream 01 CCTV playback canvas');feed.innerHTML='';setHint(card,'CCTV');
  }
  function applyMode(){
-  const mode=readMode(),streamCard=document.getElementById('cctvStreamConfiguration'),streamControls=document.getElementById('cctvStreamControls'),deviceCamera=mode===CAMERA_MODE;
-  if(streamCard){streamCard.hidden=false;streamCard.setAttribute('aria-disabled',String(deviceCamera))}
-  if(streamControls){streamControls.setAttribute('aria-disabled',String(deviceCamera));streamControls.disabled=deviceCamera;for(const control of streamControls.querySelectorAll('input,button,select,textarea'))control.disabled=deviceCamera}
   for(const card of document.querySelectorAll('.camera')){
    const camera=Number(card.dataset.camera||1),selectedMode=getStreamMode(camera,currentPlotId());card.dataset.streamMode=selectedMode;
-   if(selectedMode===CAMERA_MODE)showCameraMode(card,camera);else showCctvMode(card,camera);
-   const oldButton=card.querySelector('.feed-camera-button');if(oldButton)oldButton.remove();
+   if(selectedMode===STREAM_MODE)showCctvMode(card,camera);else showCameraMode(card,camera);
   }
-  const picker=document.getElementById('homeStreamSourcePicker'),button=document.getElementById('streamSettingsToggle');
-  if(picker&&button){const selected=getStreamMode(1,currentPlotId());picker.querySelectorAll('[data-source]').forEach(option=>option.setAttribute('aria-selected',String(option.dataset.source===selected)))}
+  const picker=document.getElementById('homeStreamSourcePicker');
+  if(picker){const selected=getStreamMode(1,currentPlotId());picker.querySelectorAll('[data-source]').forEach(option=>option.setAttribute('aria-selected',String(option.dataset.source===selected)))}
  }
- function init(){
-  addStyles();const mode=readMode(),streamControls=document.getElementById('cctvStreamControls');
-  if(streamControls&&typeof MutationObserver==='function'){const observer=new MutationObserver(applyMode);observer.observe(streamControls,{childList:true,subtree:true})}
-  for(const input of document.querySelectorAll('input[name="homeFeedMode"]')){input.checked=input.value===mode;input.addEventListener('change',()=>{if(!input.checked)return;writeMode(input.value);applyMode();if(typeof window.render==='function')window.render();applyMode()})}
-  applyMode()
- }
+ function init(){addStyles();applyMode()}
  window.GrowPlotFeedSettings={getMode:readMode,setMode:writeMode,getStreamMode:(camera,plotId)=>getStreamMode(Number(camera),plotId),setStreamMode:(camera,mode,plotId)=>setStreamMode(Number(camera),mode,plotId),refresh:applyMode,openStreamSettings:openSettings};
  if(typeof window.render==='function'){const render=window.render;window.render=function(){const result=render.apply(this,arguments);applyMode();return result}}
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init()

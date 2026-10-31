@@ -1,5 +1,5 @@
 Repository: https://github.com/rizaljamin/GrowPlot-New
 Branch: main
-Baseline commit: c047c041ffdf48d2721a72a392714564925de772
-Baseline release: v0.7.02 Build 09 (versionCode 274), ARM64 only
-Task: prepare/play-api36-aab
+Baseline commit: e8c033fec1175c02118a5b653b11fbcb11c72827
+Baseline release: v0.8.00 Build 22 (versionCode 299), ARM64 only
+Task: rebuild-stream-canvas
