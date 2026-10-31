@@ -132,6 +132,9 @@ public class MainActivity extends Activity {
     private static final String PREF_CCTV_PROTOCOL_PREFIX = "cctv_protocol_";
     private static final String PREF_CCTV_PORT_PREFIX = "cctv_port_";
     private static final String PREF_CCTV_PATH_PREFIX = "cctv_path_";
+    private static final String PREF_CCTV_SOURCE_MODE_PREFIX = "cctv_source_mode_";
+    private static final String PREF_CCTV_MANUAL_OVERRIDE_PREFIX = "cctv_manual_override_";
+    private static final String PREF_CCTV_CREDENTIALS_PREFIX = "cctv_credentials_encrypted_";
     private static final String PREF_VIGI_CCTV03_CREDENTIALS = "vigi_cctv03_credentials_encrypted";
     private static final String VIGI_CCTV03_KEY_ALIAS = "GrowPlotVigiCctv03";
     private static final String PREF_TIMELINE_INTERVAL = "photo_timeline_interval";
@@ -583,10 +586,14 @@ public class MainActivity extends Activity {
 
     private void refreshAssignedPlayer(int slot) {
         // An assignment may be removed or disabled: clear the old frame instead of retaining it.
-        if (userStreamMode && (slot < 1 || slot > 3 || assignedStreamUrls[slot] == null || assignedStreamUrls[slot].isEmpty())) {
+        boolean hasAssignedRoute = slot >= 1 && slot <= 3 && assignedStreamUrls[slot] != null && !assignedStreamUrls[slot].isEmpty();
+        boolean hasManualRoute = slot >= 1 && slot <= 3 && getPrefs().getBoolean(PREF_CCTV_MANUAL_OVERRIDE_PREFIX + slot, false);
+        if (userStreamMode && (slot < 1 || slot > 3 || (!hasAssignedRoute && !hasManualRoute))) {
             resetCctvSurfaces();
             for (int camera = 1; camera <= 3; camera++) {
-                if (assignedStreamUrls[camera] != null && !assignedStreamUrls[camera].isEmpty()) {
+                boolean hasCameraRoute = (assignedStreamUrls[camera] != null && !assignedStreamUrls[camera].isEmpty())
+                        || getPrefs().getBoolean(PREF_CCTV_MANUAL_OVERRIDE_PREFIX + camera, false);
+                if (hasCameraRoute) {
                     if (camera == 1 && ipWebcamVlcLayout != null) startIpWebcamVlc(ipWebcamVlcLayout);
                     if (camera == 2 && ipWebcam2VlcLayout != null) startCctv02Vlc(ipWebcam2VlcLayout);
                     if (camera == 3 && ipWebcam3VlcLayout != null) startVigiCctv03Vlc(ipWebcam3VlcLayout);
@@ -712,10 +719,77 @@ public class MainActivity extends Activity {
         return path.startsWith("/") && !path.contains("..") && !path.matches(".*[?#@].*") ? path : fallback;
     }
 
+    private String[] cctvCameraCredentials(int camera) {
+        if (camera == 3) return vigiCctv03Credentials(); // Keep existing encrypted VIGI credentials working.
+        if (camera < 1 || camera > 6) return new String[]{"", ""};
+        try {
+            String encoded = getPrefs().getString(PREF_CCTV_CREDENTIALS_PREFIX + camera, "");
+            if (encoded.isEmpty()) return new String[]{"", ""};
+            byte[] combined = Base64.decode(encoded, Base64.NO_WRAP);
+            byte[] iv = java.util.Arrays.copyOfRange(combined, 0, 12);
+            byte[] ciphertext = java.util.Arrays.copyOfRange(combined, 12, combined.length);
+            KeyStore store = KeyStore.getInstance("AndroidKeyStore");
+            store.load(null);
+            String alias = "GrowPlotCctv" + camera;
+            SecretKey key = (SecretKey) store.getKey(alias, null);
+            if (key == null) return new String[]{"", ""};
+            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+            cipher.init(Cipher.DECRYPT_MODE, key, new GCMParameterSpec(128, iv));
+            JSONObject credentials = new JSONObject(new String(cipher.doFinal(ciphertext), StandardCharsets.UTF_8));
+            return new String[]{credentials.optString("username", ""), credentials.optString("password", "")};
+        } catch (Exception ignored) { return new String[]{"", ""}; }
+    }
+
+    private boolean saveCctvCameraCredentials(int camera, String username, String password) {
+        if (camera < 1 || camera > 6) return false;
+        if (camera == 3) return saveVigiCctv03Credentials(username, password);
+        try {
+            String[] previous = cctvCameraCredentials(camera);
+            String safeUser = username == null ? "" : username.trim();
+            String safePassword = password == null || password.isEmpty() ? previous[1] : password;
+            if (safeUser.isEmpty() && safePassword.isEmpty()) return true;
+            KeyStore store = KeyStore.getInstance("AndroidKeyStore");
+            store.load(null);
+            String alias = "GrowPlotCctv" + camera;
+            if (!store.containsAlias(alias)) {
+                KeyGenerator generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore");
+                generator.init(new KeyGenParameterSpec.Builder(alias,
+                        KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
+                        .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                        .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                        .setRandomizedEncryptionRequired(true).build());
+                generator.generateKey();
+                store.load(null);
+            }
+            SecretKey key = (SecretKey) store.getKey(alias, null);
+            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+            cipher.init(Cipher.ENCRYPT_MODE, key);
+            JSONObject credentials = new JSONObject().put("username", safeUser).put("password", safePassword);
+            byte[] ciphertext = cipher.doFinal(credentials.toString().getBytes(StandardCharsets.UTF_8));
+            byte[] combined = new byte[cipher.getIV().length + ciphertext.length];
+            System.arraycopy(cipher.getIV(), 0, combined, 0, cipher.getIV().length);
+            System.arraycopy(ciphertext, 0, combined, cipher.getIV().length, ciphertext.length);
+            return getPrefs().edit().putString(PREF_CCTV_CREDENTIALS_PREFIX + camera,
+                    Base64.encodeToString(combined, Base64.NO_WRAP)).commit();
+        } catch (Exception ignored) { return false; }
+    }
+
     private String cctvStreamUrl(int camera) {
-        if (userStreamMode) return assignedStreamUrls[camera] == null ? "" : assignedStreamUrls[camera];
+        if (camera < 1 || camera > 6) return "";
+        boolean manualOverride = getPrefs().getBoolean(PREF_CCTV_MANUAL_OVERRIDE_PREFIX + camera, false);
+        if (userStreamMode && !manualOverride) return assignedStreamUrls[camera] == null ? "" : assignedStreamUrls[camera];
         String ip = cctvIp(camera);
-        return ip.isEmpty() ? "" : cctvStreamProtocol(camera) + "://" + ip + ":" + cctvStreamPort(camera) + cctvStreamPath(camera);
+        if (ip.isEmpty()) return "";
+        String route = cctvStreamProtocol(camera) + "://" + ip + ":" + cctvStreamPort(camera) + cctvStreamPath(camera);
+        if (manualOverride) {
+            String[] credentials = cctvCameraCredentials(camera);
+            if (!credentials[0].isEmpty() || !credentials[1].isEmpty()) {
+                int schemeEnd = route.indexOf("://") + 3;
+                route = route.substring(0, schemeEnd) + Uri.encode(credentials[0]) + ":" + Uri.encode(credentials[1]) + "@"
+                        + route.substring(schemeEnd);
+            }
+        }
+        return route;
     }
 
     private String[] vigiCctv03Credentials() {
@@ -905,7 +979,7 @@ public class MainActivity extends Activity {
 
     private void installCctv01VlcPositionListener() {
         if (web == null || isFinishing()) return;
-        web.evaluateJavascript("(()=>{const host=document.querySelector('#cameras');if(!host)return false;let css=document.getElementById('growplot-vlc-cctv-style');if(!css){css=document.createElement('style');css.id='growplot-vlc-cctv-style';css.textContent='#cameras .camera:nth-child(-n+3) .feedimg,#cameras .camera:nth-child(-n+3) .mocktag,#cameras .camera:nth-child(-n+3) .stamp{display:none!important}';document.head.appendChild(css)}let scheduled=false,last=['','',''];const send=()=>{if(scheduled)return true;scheduled=true;requestAnimationFrame(()=>{scheduled=false;const dashboard=document.getElementById('mainDashboard'),health=document.getElementById('healthPanel'),auth=document.getElementById('authScreen'),blockingOverlayActive=[...document.querySelectorAll('.modal.open,dialog[open],[role=\"dialog\"][aria-modal=\"true\"],#growplotUserManagementPage')].some(el=>{if(el.hidden)return false;const style=getComputedStyle(el);return style.display!=='none'&&style.visibility!=='hidden'&&style.visibility!=='collapse'&&el.getClientRects().length>0}),homeActive=!!dashboard&&!dashboard.hidden&&(!health||health.hidden)&&!blockingOverlayActive&&(!auth||auth.hidden);if(window.GrowPlotBridge)GrowPlotBridge.setCctvVlcFeedsAllowedOnActiveScreen(homeActive);for(let i=0;i<3;i++){const e=document.querySelector('#cameras .camera:nth-child('+(i+1)+') .feed');if(!e)continue;const im=e.querySelector('.feedimg');if(im&&im.hasAttribute('src'))im.removeAttribute('src');const r=e.getBoundingClientRect(),offscreen=r.bottom<=0||r.top>=window.innerHeight,coords=[r.left,r.top,r.width,r.height,offscreen?1:0,homeActive?1:0].join(',');if(coords!==last[i]){last[i]=coords;if(i===0)GrowPlotBridge.updateCctv01VlcPosition(coords);else if(i===1)GrowPlotBridge.updateCctv02VlcPosition(coords);else GrowPlotBridge.updateCctv03VlcPosition(coords)}}});return true};if(!window.__growplotVlcPositionInstalled){window.addEventListener('scroll',send,{passive:true});window.addEventListener('resize',send,{passive:true});new MutationObserver(send).observe(host,{childList:true,subtree:true});new MutationObserver(send).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['hidden','class','open','style','role','aria-modal']});window.__growplotVlcPositionInstalled=true}send();setTimeout(send,400);setTimeout(send,1200);return true})()", null);
+        web.evaluateJavascript("(()=>{const host=document.querySelector('#cameras');if(!host)return false;let css=document.getElementById('growplot-vlc-cctv-style');if(!css){css=document.createElement('style');css.id='growplot-vlc-cctv-style';css.textContent='#cameras .camera:nth-child(-n+3) .feedimg,#cameras .camera:nth-child(-n+3) .mocktag,#cameras .camera:nth-child(-n+3) .stamp{display:none!important}';document.head.appendChild(css)}let scheduled=false,last=['','',''];const send=()=>{if(scheduled)return true;scheduled=true;requestAnimationFrame(()=>{scheduled=false;const dashboard=document.getElementById('mainDashboard'),health=document.getElementById('healthPanel'),auth=document.getElementById('authScreen'),blockingOverlayActive=[...document.querySelectorAll('.modal.open,dialog[open],[role=\"dialog\"][aria-modal=\"true\"],#growplotUserManagementPage')].some(el=>{if(el.hidden)return false;const style=getComputedStyle(el);return style.display!=='none'&&style.visibility!=='hidden'&&style.visibility!=='collapse'&&el.getClientRects().length>0}),homeActive=!!dashboard&&!dashboard.hidden&&(!health||health.hidden)&&!blockingOverlayActive&&(!auth||auth.hidden);if(window.GrowPlotBridge)GrowPlotBridge.setCctvVlcFeedsAllowedOnActiveScreen(homeActive);for(let i=0;i<3;i++){const update=i===0?GrowPlotBridge.updateCctv01VlcPosition:i===1?GrowPlotBridge.updateCctv02VlcPosition:GrowPlotBridge.updateCctv03VlcPosition,e=document.querySelector('#cameras .camera:nth-child('+(i+1)+') .feed');if(!e){const hidden='0,0,1,1,1,1';if(last[i]!==hidden){last[i]=hidden;update(hidden)}continue}const im=e.querySelector('.feedimg');if(im&&im.hasAttribute('src'))im.removeAttribute('src');const r=e.getBoundingClientRect(),cctvSelected=!window.GrowPlotFeedSettings||GrowPlotFeedSettings.getMode(i+1)!=='device-camera',offscreen=!cctvSelected||r.bottom<=0||r.top>=window.innerHeight,coords=[r.left,r.top,r.width,r.height,offscreen?1:0,homeActive?1:0].join(',');last[i]=coords;update(coords)}});return true};if(!window.__growplotVlcPositionInstalled){window.addEventListener('scroll',send,{passive:true});window.addEventListener('resize',send,{passive:true});new MutationObserver(send).observe(host,{childList:true,subtree:true});new MutationObserver(send).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['hidden','class','open','style','role','aria-modal']});window.__growplotVlcPositionInstalled=true;setInterval(send,1000)}send();setTimeout(send,400);setTimeout(send,1200);return true})()", null);
     }
 
     /** Keep native VLC children out of the way unless the dashboard is active. */
@@ -987,6 +1061,7 @@ public class MainActivity extends Activity {
                     ipWebcamVlcFrame.setLayoutParams(params);
                 }
             }
+            if (activityResumed && ipWebcamVlcPlayer == null && !cctvStreamUrl(1).isEmpty()) startIpWebcamVlc(ipWebcamVlcLayout);
             if (shouldShow != cctv01OverlayShown) {
                 cctv01OverlayShown = shouldShow;
                 ipWebcamVlcFrame.animate().cancel();
@@ -1061,7 +1136,7 @@ public class MainActivity extends Activity {
             ipWebcamVlcPlayer = new org.videolan.libvlc.MediaPlayer(ipWebcamVlc);
             // Use TextureView composition so Android modal dialogs can cover and hide
             // the VLC surface instead of a SurfaceView layer staying on top.
-            ipWebcamVlcPlayer.attachViews(videoLayout, null, true, false);
+            ipWebcamVlcPlayer.attachViews(videoLayout, null, true, true);
             // IP Webcam MJPEG: reconnect on VLC playback failure rather than leaving a black frame.
             final org.videolan.libvlc.MediaPlayer sessionPlayer = ipWebcamVlcPlayer;
             sessionPlayer.setEventListener(event -> {
@@ -1154,6 +1229,7 @@ public class MainActivity extends Activity {
                     ipWebcam2VlcFrame.setLayoutParams(params);
                 }
             }
+            if (activityResumed && ipWebcam2VlcPlayer == null && !cctvStreamUrl(2).isEmpty()) startCctv02Vlc(ipWebcam2VlcLayout);
             if (shouldShow != cctv02OverlayShown) {
                 cctv02OverlayShown = shouldShow;
                 ipWebcam2VlcFrame.animate().cancel();
@@ -1237,6 +1313,7 @@ public class MainActivity extends Activity {
                     ipWebcam3VlcFrame.setLayoutParams(params);
                 }
             }
+            if (activityResumed && ipWebcam3VlcPlayer == null && !cctvStreamUrl(3).isEmpty()) startVigiCctv03Vlc(ipWebcam3VlcLayout);
             if (shouldShow != cctv03OverlayShown) {
                 cctv03OverlayShown = shouldShow;
                 ipWebcam3VlcFrame.animate().cancel();
@@ -1271,7 +1348,7 @@ public class MainActivity extends Activity {
             ipWebcam2Vlc = new LibVLC(this, options);
             ipWebcam2VlcPlayer = new org.videolan.libvlc.MediaPlayer(ipWebcam2Vlc);
             // Match CCTV01 so this feed respects the same app/window layering.
-            ipWebcam2VlcPlayer.attachViews(videoLayout, null, true, false);
+            ipWebcam2VlcPlayer.attachViews(videoLayout, null, true, true);
             // IP Webcam MJPEG: reconnect on VLC playback failure rather than leaving a black frame.
             final org.videolan.libvlc.MediaPlayer sessionPlayer = ipWebcam2VlcPlayer;
             sessionPlayer.setEventListener(event -> {
@@ -1286,8 +1363,10 @@ public class MainActivity extends Activity {
             });
             String route = cctvStreamUrl(2);
             if (route.isEmpty()) { stopCctv02Vlc(); return; }
-            if (userStreamMode && (route.startsWith("rtsp://") || route.startsWith("rtsps://"))) {
-                String[] credentials = vigiCctv03Credentials();
+            if (userStreamMode && (route.startsWith("rtsp://") || route.startsWith("rtsps://"))
+                    && !route.substring(route.indexOf("://") + 3).split("/", 2)[0].contains("@")) {
+                String[] credentials = cctvCameraCredentials(2);
+                if (credentials[0].isEmpty() || credentials[1].isEmpty()) credentials = vigiCctv03Credentials();
                 if (credentials[0].isEmpty() || credentials[1].isEmpty()) {
                     stopCctv02Vlc();
                     promptForAssignedVigiCctv02Credentials();
@@ -1362,8 +1441,9 @@ public class MainActivity extends Activity {
             if (route == null || route.isEmpty()) { stopCctv03Vlc(); return; }
             // Assigned RTSP feeds must request camera credentials at connection time.
             // Never persist the camera password in Firebase or embed it in a log.
-            if (route.startsWith("rtsp://") || route.startsWith("rtsps://")) {
-                String[] credentials = vigiCctv03Credentials();
+            if ((route.startsWith("rtsp://") || route.startsWith("rtsps://"))
+                    && !route.substring(route.indexOf("://") + 3).split("/", 2)[0].contains("@")) {
+                String[] credentials = cctvCameraCredentials(3);
                 if (credentials[0].isEmpty() || credentials[1].isEmpty() || cctv03CredentialsRejected) {
                     showCctv03VigiMessage(videoLayout, "Enter VIGI credentials to connect");
                     promptForCctv03VigiCredentials();
@@ -1381,7 +1461,7 @@ public class MainActivity extends Activity {
                 options.add("--no-audio"); options.add("--network-caching=350");
                 ipWebcam3Vlc = new LibVLC(this, options);
                 ipWebcam3VlcPlayer = new org.videolan.libvlc.MediaPlayer(ipWebcam3Vlc);
-                ipWebcam3VlcPlayer.attachViews(videoLayout, null, true, false);
+                ipWebcam3VlcPlayer.attachViews(videoLayout, null, true, true);
                 Media media = new Media(ipWebcam3Vlc, Uri.parse(route));
                 media.addOption(":network-caching=350");
                 ipWebcam3VlcPlayer.setMedia(media); media.release(); ipWebcam3VlcPlayer.play();
@@ -1412,7 +1492,7 @@ public class MainActivity extends Activity {
             options.add("--live-caching=500");
             ipWebcam3Vlc = new LibVLC(this, options);
             ipWebcam3VlcPlayer = new org.videolan.libvlc.MediaPlayer(ipWebcam3Vlc);
-            ipWebcam3VlcPlayer.attachViews(videoLayout, null, true, false);
+            ipWebcam3VlcPlayer.attachViews(videoLayout, null, true, true);
             final org.videolan.libvlc.MediaPlayer sessionPlayer = ipWebcam3VlcPlayer;
             if (rtsp) {
                 sessionPlayer.setEventListener(event -> {
@@ -3610,11 +3690,41 @@ public class MainActivity extends Activity {
         @JavascriptInterface public String getCctvCameraStreamSettings(int camera) {
             if (camera < 1 || camera > 6) return "{}";
             try {
+                String sourceMode = getPrefs().getString(PREF_CCTV_SOURCE_MODE_PREFIX + camera, "");
                 return new JSONObject().put("ip", cctvIp(camera))
                         .put("protocol", cctvStreamProtocol(camera))
                         .put("port", cctvStreamPort(camera))
-                        .put("path", cctvStreamPath(camera)).toString();
+                        .put("path", cctvStreamPath(camera))
+                        .put("sourceMode", sourceMode).toString();
             } catch (Exception ignored) { return "{}"; }
+        }
+
+        @JavascriptInterface public String getCctvCameraCredentials(int camera) {
+            if (camera < 1 || camera > 6) return "{}";
+            try {
+                String[] credentials = cctvCameraCredentials(camera);
+                return new JSONObject().put("username", credentials[0])
+                        .put("passwordConfigured", !credentials[1].isEmpty()).toString();
+            } catch (Exception ignored) { return "{}"; }
+        }
+
+        @JavascriptInterface public boolean saveCctvCameraCredentials(int camera, String username, String password) {
+            if (!MainActivity.this.saveCctvCameraCredentials(camera, username, password)) return false;
+            if (camera <= 3) runOnUiThread(() -> refreshAssignedPlayer(camera));
+            return true;
+        }
+
+        @JavascriptInterface public boolean setCctvCameraSourceMode(int camera, String mode) {
+            if (camera < 1 || camera > 6 || mode == null) return false;
+            String value = mode.trim();
+            if (!value.equals("device-camera") && !value.equals("cctv-stream")) return false;
+            if (!getPrefs().edit().putString(PREF_CCTV_SOURCE_MODE_PREFIX + camera, value).commit()) return false;
+            runOnUiThread(() -> {
+                if (camera == 1) { if (value.equals("device-camera")) stopIpWebcamVlc(); else reconnectIpWebcamVlc(); }
+                else if (camera == 2) { if (value.equals("device-camera")) stopCctv02Vlc(); else reconnectCctv02Vlc(); }
+                else if (camera == 3) { if (value.equals("device-camera")) stopCctv03Vlc(); else reconnectCctv03Vlc(); }
+            });
+            return true;
         }
 
         @JavascriptInterface public boolean saveCctvCameraStreamSettings(int camera, String protocol, String ip, int port, String path) {
@@ -3630,7 +3740,8 @@ public class MainActivity extends Activity {
                     .putString(PREF_CCTV_IP_PREFIX + String.format(Locale.US, "%02d", camera), address)
                     .putString(PREF_CCTV_PROTOCOL_PREFIX + camera, scheme)
                     .putInt(PREF_CCTV_PORT_PREFIX + camera, port)
-                    .putString(PREF_CCTV_PATH_PREFIX + camera, routePath);
+                    .putString(PREF_CCTV_PATH_PREFIX + camera, routePath)
+                    .putBoolean(PREF_CCTV_MANUAL_OVERRIDE_PREFIX + camera, true);
             editor.apply();
             if (camera <= 3) runOnUiThread(() -> {
                 if (camera == 1) reconnectIpWebcamVlc();
