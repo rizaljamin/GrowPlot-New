@@ -373,7 +373,7 @@ window.GrowPlotSaveCloudProfile=function(callback){
   const name=document.getElementById('plotName');
   if(!name||document.getElementById('plotGreenhouseCount'))return;
   const wrap=document.createElement('div');wrap.className='gp-plot-structure';
-  wrap.innerHTML='<style>.gp-plot-structure{display:flex;flex-wrap:wrap;gap:12px;margin:12px 0}.gp-plot-structure label{display:flex;flex-direction:column;gap:5px;flex:1 1 150px;font-size:13px;font-weight:600}.gp-plot-structure input{width:100%;max-width:200px;box-sizing:border-box;padding:9px;border:1px solid #cbd5d1;border-radius:8px;background:#fff;color:#172e26}</style><label>Number of Greenhouses<input id="plotGreenhouseCount" type="number" min="1" max="100" step="1" value="1"></label><label>Number of Sections per Greenhouse<input id="plotSectionCount" type="number" min="1" max="100" step="1" value="1"></label>';
+  wrap.innerHTML='<style>.gp-plot-structure{display:flex;flex-wrap:wrap;gap:12px;margin:12px 0}.gp-plot-structure label{display:flex;flex-direction:column;gap:5px;flex:1 1 150px;font-size:13px;font-weight:600}.gp-plot-structure input{width:100%;max-width:200px;box-sizing:border-box;padding:9px;border:1px solid #cbd5d1;border-radius:8px;background:#fff;color:#172e26}</style><label>Number of Greenhouses<input id="plotGreenhouseCount" type="number" min="1" max="6" step="1" value="1"></label><label>Number of Sections per Greenhouse<input id="plotSectionCount" type="number" min="1" max="6" step="1" value="1"></label>';
   name.closest('label')?.insertAdjacentElement('afterend',wrap);
   const select=document.getElementById('plotManagerSelect');
   const sync=()=>{const plot=typeof plots!=='undefined'&&Array.isArray(plots)?plots.find(p=>p.id===select?.value):null;document.getElementById('plotGreenhouseCount').value=plot?.greenhouseCount||1;document.getElementById('plotSectionCount').value=plot?.sectionsPerGreenhouse||1;};
@@ -409,7 +409,7 @@ window.GrowPlotSaveCloudProfile=function(callback){
   setTimeout(syncPlotDetails,0);
   document.getElementById('savePlotBtn')?.addEventListener('click',()=>{
    const gh=Number(document.getElementById('plotGreenhouseCount').value),sections=Number(document.getElementById('plotSectionCount').value);
-   if(!Number.isInteger(gh)||gh<1||gh>100||!Number.isInteger(sections)||sections<1||sections>100){document.getElementById('plotManagementStatus').textContent='Enter valid greenhouse and section counts (1–100).';return;}
+   if(!Number.isInteger(gh)||gh<1||gh>6||!Number.isInteger(sections)||sections>6){document.getElementById('plotManagementStatus').textContent='Enter greenhouse and section counts from 1 to 6.';return;}
    const plot=typeof plots!=='undefined'&&Array.isArray(plots)?plots.find(p=>p.id===select?.value):null;
    if(plot){plot.greenhouseCount=gh;plot.sectionsPerGreenhouse=sections;}
   },true);
