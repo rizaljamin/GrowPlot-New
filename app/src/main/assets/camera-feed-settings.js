@@ -84,6 +84,7 @@
  }
  function init(){
   addStyles();
+  const streamControls=document.getElementById('cctvStreamControls');if(streamControls&&typeof MutationObserver==='function')new MutationObserver(()=>applyMode()).observe(streamControls,{childList:true,subtree:true});
   for(const input of document.querySelectorAll('input[name="homeFeedMode"]')){input.checked=input.value===readGlobal();input.addEventListener('change',()=>{if(!input.checked)return;try{localStorage.setItem(GLOBAL_KEY,input.value)}catch(_){}applyMode();if(typeof window.render==='function')window.render();applyMode()})}
   applyMode()
  }
