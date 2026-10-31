@@ -135,7 +135,7 @@ function render(){
  selectedPlotId=selectedPlot?.id||selectedPlotId;
  if(selectedPlotId)loadConfirmedPlantIds(selectedPlotId);
  cameraRoot.innerHTML='';
- const id='01',plant=plantIds[0],photoUrl='https://appassets.androidplatform.net/assets/images/'+encodeURIComponent(selectedPlot.id)+'/cctv_'+id+'.jpg';
+ const id='01';
  const wrap=document.createElement('section');
  wrap.className='camera';
  wrap.dataset.camera='1';
