@@ -11,7 +11,8 @@ assert.match(java,/saveCctvCameraStreamSettings/,'Android persists protocol, IP,
 assert.match(java,/cctvStreamProtocol\(camera\)[\s\S]*cctvStreamPort\(camera\)[\s\S]*cctvStreamPath\(camera\)/,'live URLs use each stream saved protocol, port, and path');
 assert.match(html,/<summary><span>Camera Settings<\/span>/,'Settings section title is Camera Settings');
 assert.match(html,/<main id="mainDashboard">[\s\S]*Image Streams[\s\S]*IoT Reading[\s\S]*<\/main>/,'Home contains only the two requested sections');
-assert.doesNotMatch(html.slice(html.indexOf('<main id="mainDashboard">'),html.indexOf('</main>')), /STREAM 0[1-6]|stream-settings-button|tank-mini|Fertigation Tank|camera-grid/,'Home has no fixed stream, IoT, or tank cards');
+assert.match(html.slice(html.indexOf('<main id="mainDashboard">'),html.indexOf('</main>')), /id="cameras" class="camera-grid single-stream"/,'Home shows exactly one visible image stream container');
+assert.match(html,/STREAM \\$\{id\}[\\s\\S]*stream-settings-button[\\s\\S]*data-camera="1"/,'the single Stream 01 card has a settings gear');
 assert.doesNotMatch(html,/feed-source-select|feed-source-details|File selection|value="camera"|value="file"/,'Home stream cards contain no feed source, camera, or file selector');
 assert.match(source,/Connection protocol/,'the gear dialog contains a protocol field');
 assert.match(source,/CCTV \/ RTSP IP address/,'the protocol field identifies RTSP CCTV addresses');
@@ -79,6 +80,6 @@ assert.equal(streamControls.disabled,false,'native fieldset re-enables the CCTV 
 assert(cameraControls.every(control=>!control.disabled),'switching back enables all six CCTV IP fields');
 assert.equal(save.disabled,false,'switching back enables saving the IP addresses');
 assert(!username.disabled&&!password.disabled,'CCTV mode enables the VIGI credentials with the rest of the card');
-assert.equal(captures.length,0,'feed-mode changes do not start a camera when Home has no stream cards');
-assert.equal(cards.length,0,'Home has no stream card settings or camera controls');
+assert.equal(captures.length,0,'changing feed mode does not capture a photo by itself');
+assert.equal(cards.length,0,'isolated settings fixture starts without injected card nodes');
 console.log('PASS: stream gear connection settings, no source dropdown, CCTV radio grouping, card enable/disable behavior, camera actions, and saved mode.');
