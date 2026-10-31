@@ -149,11 +149,10 @@ function render(){
 
   cameraRoot.appendChild(wrap);
  }
- for(let index=0;index<quadrantSeeds.length;index++){
-  const id=String(index+1).padStart(2,'0'),s=quadrantSeeds[index],card=document.createElement('article');card.className='camera';
-  card.innerHTML=`<div class="sensor-title">Section ${id} · sample readings</div><div class="metrics"><div class="metric"><span class="k">EC</span><b>${s.ec}</b><small>mS/cm</small></div><div class="metric"><span class="k">NPK</span><b>${s.n}</b><small>N-P-K</small></div><div class="metric ph-card"><span class="k">pH</span><b>${s.ph}</b><small>level</small></div><div class="metric"><span class="k">Moisture</span><b>${s.m}%</b><small>soil</small></div><div class="metric"><span class="k">Temp</span><b>${s.t}°</b><small>°C</small></div></div><div class="reading">Last sample reading: 08 Oct 2026 · 2:40 PM MYT</div>`;
-  readingRoot.appendChild(card);
- }
+ readingRoot.innerHTML=quadrantSeeds.map((s,index)=>{
+  const id=String(index+1).padStart(2,'0');
+  return `<article class="camera"><div class="sensor-title">Section ${id} · sample readings</div><div class="metrics"><div class="metric"><span class="k">EC</span><b>${s.ec}</b><small>mS/cm</small></div><div class="metric"><span class="k">NPK</span><b>${s.n}</b><small>N-P-K</small></div><div class="metric ph-card"><span class="k">pH</span><b>${s.ph}</b><small>level</small></div><div class="metric"><span class="k">Moisture</span><b>${s.m}%</b><small>soil</small></div><div class="metric"><span class="k">Temp</span><b>${s.t}°</b><small>°C</small></div></div><div class="reading">Last sample reading: 08 Oct 2026 · 2:40 PM MYT</div></article>`;
+ }).join('');
  applyPlotFeedSummary(selectedPlot.id)
 }
 let saveToastTimer=0;
