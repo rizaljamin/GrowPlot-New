@@ -437,6 +437,13 @@ public class MainActivity extends Activity {
               android.util.Log.e("GrowPlotCV", "Failed to serve bundled leaf-cv.js", error);
           }
       }
+      if ("https://appassets.androidplatform.net/camera-feed-settings.js".equals(requestedUrl)) {
+          try {
+              return new WebResourceResponse("application/javascript", "UTF-8", getAssets().open("camera-feed-settings.js"));
+          } catch (Exception error) {
+              android.util.Log.e("GrowPlotStream", "Failed to serve bundled camera-feed-settings.js", error);
+          }
+      }
 
                 WebResourceResponse diagnosis = localDiagnosisMediaResponse(request.getUrl().toString(), request.getRequestHeaders());
                 if (diagnosis != null) return diagnosis;
@@ -445,6 +452,13 @@ public class MainActivity extends Activity {
             }
 
             @Override public WebResourceResponse shouldInterceptRequest(WebView view, String url) {
+                if ("https://appassets.androidplatform.net/camera-feed-settings.js".equals(url)) {
+                    try {
+                        return new WebResourceResponse("application/javascript", "UTF-8", getAssets().open("camera-feed-settings.js"));
+                    } catch (Exception error) {
+                        android.util.Log.e("GrowPlotStream", "Failed to serve bundled camera-feed-settings.js", error);
+                    }
+                }
                 WebResourceResponse diagnosis = localDiagnosisMediaResponse(url, null);
                 if (diagnosis != null) return diagnosis;
                 WebResourceResponse image = localImageResponse(url);
