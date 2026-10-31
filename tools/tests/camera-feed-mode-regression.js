@@ -12,13 +12,15 @@ assert.match(java,/cctvStreamProtocol\(camera\)[\s\S]*cctvStreamPort\(camera\)[\
 assert.match(html,/<summary><span>Camera Settings<\/span>/,'Settings section title is Camera Settings');
 assert.match(html,/<main id="mainDashboard">[\s\S]*Image Streams[\s\S]*IoT Reading[\s\S]*<\/main>/,'Home contains only the two requested sections');
 assert.match(html.slice(html.indexOf('<main id="mainDashboard">'),html.indexOf('</main>')), /id="cameras" class="camera-grid single-stream"/,'Home shows exactly one visible image stream container');
-assert.match(html,/stream-settings-button[\s\S]*data-camera="1"/,'the single Stream 01 card has a settings gear');
+assert.match(html,/id="streamSourceSettingsCard"[\s\S]*id="streamSettingsToggle"/,'Stream 01 settings gear is in a dedicated card outside the stream card');
 assert.doesNotMatch(html,/feed-source-select|feed-source-details|File selection|value="camera"|value="file"/,'Home stream cards contain no feed source, camera, or file selector');
 assert(html.includes('#mainDashboard>section:first-child>#cameras.single-stream{grid-template-columns:minmax(0,1fr);width:100%;max-width:1000px;margin-left:auto;margin-right:auto}'),'the single stream grid is centered and fills its available width');
-assert.match(html,/settingsButton[\s\S]*togglePicker\(1,settingsButton\)/,'the Stream 01 gear delegates to the source picker');
-assert.match(source,/function togglePicker\(camera,gear\)/,'source picker has a public click handler');
+assert.match(html,/onclick="toggleStreamSettingsPicker\(\)"/,'the dedicated settings gear opens the inline picker');
+assert.match(html,/id="homeStreamSourcePicker"[\s\S]*data-source="device-camera"[\s\S]*data-source="cctv-stream"/,'the dedicated card exposes camera and CCTV icon options');
+assert.match(html,/window.chooseHomeStreamSource=function\(mode\)/,'source selections are connected to mode handling');
+assert.match(source,/const camera=Number\(card.dataset.camera\|\|1\)/,'stream mode is applied without requiring a gear inside the stream card');
 assert.match(html,/height:clamp\(300px,45vw,520px\)/,'the single stream feed is enlarged');
-assert.match(java,/streamSourcePickerOpen=!!document\.querySelector\('#cameras \.stream-source-picker'\)/,'native VLC yields while the source picker is open');
+assert.match(java,/streamSourcePickerOpen=!!document\.querySelector\('#homeStreamSourcePicker:not\(\[hidden\]\)'\)/,'native VLC yields while the separate source picker is open');
 assert.match(source,/Connection protocol/,'the gear dialog contains a protocol field');
 assert.match(source,/CCTV \/ RTSP IP address/,'the protocol field identifies RTSP CCTV addresses');
 assert.match(source,/RTSP port/,'the protocol field identifies the RTSP port');
@@ -87,4 +89,4 @@ assert.equal(save.disabled,false,'switching back enables saving the IP addresses
 assert(!username.disabled&&!password.disabled,'CCTV mode enables the VIGI credentials with the rest of the card');
 assert.equal(captures.length,0,'changing feed mode does not capture a photo by itself');
 assert.equal(cards.length,0,'isolated settings fixture starts without injected card nodes');
-console.log('PASS: stream gear connection settings, no source dropdown, CCTV radio grouping, card enable/disable behavior, camera actions, and saved mode.');
+console.log('PASS: separate stream settings card, camera/CCTV picker, per-stream connection settings, CCTV radio grouping, and saved mode.');
