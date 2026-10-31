@@ -39,7 +39,7 @@
      if(!streamPath.startsWith('/')||streamPath.includes('..')||/[?#@]/.test(streamPath)){error.textContent='Enter a stream path beginning with /.';return}
      if(typeof bridge.saveCctvCameraStreamSettings!=='function'||!bridge.saveCctvCameraStreamSettings(camera,protocol.value,cameraIp,streamPort,streamPath)){error.textContent='Could not save the CCTV address. Check the IP and try again.';return}
      const user=form.elements.username.value.trim(),password=form.elements.password.value;
-     if((user||password)&&(!bridge.saveCctvCameraCredentials||!bridge.saveCctvCameraCredentials(camera,user,password))){error.textContent='Could not save the camera login.';return}
+     if((user||password)&&!(camera===3?bridge.saveVigiCctv03Credentials&&bridge.saveVigiCctv03Credentials(user,password):bridge.saveCctvCameraCredentials&&bridge.saveCctvCameraCredentials(camera,user,password))){error.textContent='Could not save the camera login.';return}
     }
     if(!bridge.setCctvCameraSourceMode(camera,mode)){error.textContent='Could not save this stream source.';return}
     writeMode(camera,mode);close();applyMode();if(typeof window.showSaveToast==='function')window.showSaveToast('Stream '+stream+' settings saved.');
@@ -58,7 +58,7 @@
   let dialog=dialogs.get(camera);if(!dialog){dialog=createDialog(camera);dialogs.set(camera,dialog)}
   const bridge=window.GrowPlotBridge,form=dialog.form,settings=fallback(camera);let credentials={};
   try{if(bridge?.getCctvCameraStreamSettings){Object.assign(settings,JSON.parse(bridge.getCctvCameraStreamSettings(camera)||'{}'))}}catch(_){}
-  try{if(bridge?.getCctvCameraCredentials)credentials=JSON.parse(bridge.getCctvCameraCredentials(camera)||'{}')}catch(_){}
+  try{const saved=camera===3&&bridge?.getVigiCctv03Credentials?bridge.getVigiCctv03Credentials():bridge?.getCctvCameraCredentials?.(camera);credentials=JSON.parse(saved||'{}')}catch(_){}
   const mode=readMode(camera);form.querySelectorAll('input[name="sourceMode"]').forEach(input=>input.checked=input.value===mode);
   form.elements.protocol.value=['http','https','rtsp'].includes(settings.protocol)?settings.protocol:fallback(camera).protocol;
   form.elements.ip.value=settings.ip||'';form.elements.port.value=String(settings.port||fallback(camera).port);form.elements.path.value=settings.path||fallback(camera).path;
