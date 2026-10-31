@@ -586,10 +586,14 @@ public class MainActivity extends Activity {
 
     private void refreshAssignedPlayer(int slot) {
         // An assignment may be removed or disabled: clear the old frame instead of retaining it.
-        if (userStreamMode && (slot < 1 || slot > 3 || assignedStreamUrls[slot] == null || assignedStreamUrls[slot].isEmpty())) {
+        boolean hasAssignedRoute = slot >= 1 && slot <= 3 && assignedStreamUrls[slot] != null && !assignedStreamUrls[slot].isEmpty();
+        boolean hasManualRoute = slot >= 1 && slot <= 3 && getPrefs().getBoolean(PREF_CCTV_MANUAL_OVERRIDE_PREFIX + slot, false);
+        if (userStreamMode && (slot < 1 || slot > 3 || (!hasAssignedRoute && !hasManualRoute))) {
             resetCctvSurfaces();
             for (int camera = 1; camera <= 3; camera++) {
-                if (assignedStreamUrls[camera] != null && !assignedStreamUrls[camera].isEmpty()) {
+                boolean hasCameraRoute = (assignedStreamUrls[camera] != null && !assignedStreamUrls[camera].isEmpty())
+                        || getPrefs().getBoolean(PREF_CCTV_MANUAL_OVERRIDE_PREFIX + camera, false);
+                if (hasCameraRoute) {
                     if (camera == 1 && ipWebcamVlcLayout != null) startIpWebcamVlc(ipWebcamVlcLayout);
                     if (camera == 2 && ipWebcam2VlcLayout != null) startCctv02Vlc(ipWebcam2VlcLayout);
                     if (camera == 3 && ipWebcam3VlcLayout != null) startVigiCctv03Vlc(ipWebcam3VlcLayout);
