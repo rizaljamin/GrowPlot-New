@@ -22,7 +22,7 @@ const body=html.slice(html.indexOf('function render(){'),html.indexOf('let saveT
 assert.doesNotMatch(body,/ipWebcamStreamUrl|feedimg|CONNECTING IP WEBCAM|LIVE · IP WEBCAM/,'Home renderer contains no automatic legacy stream');
 assert.match(source,/const activeStreamModes=new Map\(\)/,'source choice is session-only and resets to Camera after app launch');
 assert.doesNotMatch(source,/localStorage\.(?:getItem|setItem)\(streamModeKey/,'saved CCTV selections do not override the camera default after relaunch');
-assert.match(source,/return CAMERA_MODE/,'unconfigured source defaults to Camera');
+assert.match(source,/\|\|CAMERA_MODE/,'unconfigured source defaults to Camera');
 assert.match(source,/feed\.innerHTML='<button class="stream-camera-snap"/,'camera selection renders a single camera icon');
 assert.match(source,/bridge\.captureFeedPhoto\(camera,currentPlotId\(\)\)/,'tapping the camera canvas launches native photo capture directly');
 assert.doesNotMatch(source,/bridge\.openFeedPhotoActions\(camera,currentPlotId\(\)\)/,'home camera capture skips the native action chooser');
