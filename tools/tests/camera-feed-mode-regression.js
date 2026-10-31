@@ -18,8 +18,13 @@ assert(html.includes('#mainDashboard>section:first-child>#cameras.single-stream{
 assert.match(html,/onclick="toggleStreamSettingsPicker\(\)"/,'the dedicated settings gear opens the inline picker');
 assert.match(html,/id="homeStreamSourcePicker" class="home-stream-source-picker" role="listbox"[\s\S]*data-source="device-camera"[\s\S]*data-source="cctv-stream"/,'the gear opens a listbox with camera and CCTV icon options');
 assert.match(html,/aria-label="Device camera"[\s\S]*aria-label="CCTV stream"/,'icon-only options retain accessible camera names');
-assert.match(html,/home-stream-source-picker\{display:grid;width:72px;margin:6px 18px 0 auto/,'picker stays in normal layout below the gear and pushes the stream card down');
-assert.doesNotMatch(html,/home-stream-source-picker\{position:absolute/,'picker is not overlaid on top of the native video surface');
+assert.match(html,/id="homeStreamSourcePickerSlot" class="stream-source-picker-slot"[\s\S]*id="homeStreamSourcePicker"/,'picker has a dedicated layout slot between settings and stream');
+assert.match(html,/stream-source-picker-slot\{width:100%;max-width:1000px;height:60px/,'reserved gap keeps stream position static while the picker opens');
+assert.match(html,/home-stream-source-picker\{display:grid;width:54px/,'camera/CCTV picker uses the compact footprint');
+assert.match(html,/\.camera-grid\.single-stream \.feed\{height:clamp\(300px,45vw,520px\)/,'stream frame keeps its fixed responsive height while source changes');
+assert.match(source,/feed\.innerHTML='<button class=\"stream-camera-snap\" type=\"button\" aria-label=\"Open device camera for Stream /,'camera source shows only an accessible camera icon');
+assert.match(source,/typeof bridge\.captureFeedPhoto==='function'\)bridge\.captureFeedPhoto\(camera,currentPlotId\(\)\)/,'tapping camera icon launches native photo capture');
+assert.doesNotMatch(source,/Tap to take a camera snapshot/,'camera overlay has no visible caption');
 const pickerMarkup=html.slice(html.indexOf('id="homeStreamSourcePicker"'),html.indexOf('</div></section>',html.indexOf('id="homeStreamSourcePicker"')));
 assert(!pickerMarkup.includes('<span>Device Camera</span>')&&!pickerMarkup.includes('<span>CCTV stream</span>'),'picker presents camera and CCTV glyphs without visible text');
 assert.match(html,/window.chooseHomeStreamSource=function\(mode\)/,'source selections are connected to mode handling');
