@@ -14,6 +14,11 @@ assert.match(html,/<main id="mainDashboard">[\s\S]*Image Streams[\s\S]*IoT Readi
 assert.match(html.slice(html.indexOf('<main id="mainDashboard">'),html.indexOf('</main>')), /id="cameras" class="camera-grid single-stream"/,'Home shows exactly one visible image stream container');
 assert.match(html,/stream-settings-button[\s\S]*data-camera="1"/,'the single Stream 01 card has a settings gear');
 assert.doesNotMatch(html,/feed-source-select|feed-source-details|File selection|value="camera"|value="file"/,'Home stream cards contain no feed source, camera, or file selector');
+assert(html.includes('#mainDashboard>section:first-child>#cameras.single-stream{grid-template-columns:minmax(0,1fr);width:100%;max-width:1000px;margin-left:auto;margin-right:auto}'),'the single stream grid is centered and fills its available width');
+assert.match(html,/settingsButton[\s\S]*togglePicker\(1,settingsButton\)/,'the Stream 01 gear delegates to the source picker');
+assert.match(source,/function togglePicker\(camera,gear\)/,'source picker has a public click handler');
+assert.match(html,/height:clamp\(300px,45vw,520px\)/,'the single stream feed is enlarged');
+assert.match(java,/streamSourcePickerOpen=!!document\.querySelector\('#cameras \.stream-source-picker'\)/,'native VLC yields while the source picker is open');
 assert.match(source,/Connection protocol/,'the gear dialog contains a protocol field');
 assert.match(source,/CCTV \/ RTSP IP address/,'the protocol field identifies RTSP CCTV addresses');
 assert.match(source,/RTSP port/,'the protocol field identifies the RTSP port');
