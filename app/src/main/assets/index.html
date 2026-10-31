@@ -13,10 +13,6 @@ header{background:linear-gradient(130deg,#123f2d,#267451);color:#fff;padding:22p
 main{max-width:760px;margin:0 auto;padding:16px 14px 32px}.summary{display:flex;gap:10px;margin-bottom:15px}.pill{background:#fff;border:1px solid var(--line);border-radius:12px;padding:9px 12px;font-size:12px;color:var(--muted);flex:1}.pill strong{color:var(--green);font-size:15px;display:block}
 .section-head{display:flex;justify-content:space-between;align-items:end;margin:19px 2px 10px}.section-head h2{font-size:17px;margin:0}.section-head span{font-size:11px;color:var(--muted)}
 
-.home-section{margin:0 0 22px}.home-section:last-child{margin-bottom:0}
-.iot-reading-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-.iot-reading-card{background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden;box-shadow:0 2px 7px #123f2d0a;min-width:0}
-.iot-reading-card .sensor-title{padding:9px 9px 0}.iot-reading-card .metrics{grid-template-columns:repeat(3,minmax(0,1fr))}.iot-reading-card .reading{padding:0 9px 9px}
 .camera-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .camera{background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:0 2px 7px #123f2d0a;min-width:0}
 .camtop{display:flex;align-items:center;justify-content:space-between;padding:9px 9px}.feed-card-actions{display:flex;align-items:center;gap:5px}.stream-settings-button{display:inline-grid;place-items:center;width:32px;height:30px;padding:0;border:1px solid #cbded0;border-radius:9px;background:#f5faf6;color:#174a35;cursor:pointer;font:700 20px/1 system-ui}.stream-settings-button:focus-visible{outline:2px solid #438b61;outline-offset:2px}.camname{font-size:12px;font-weight:750}.live{font-size:8px;letter-spacing:.2px;color:#a96416;background:#fff4dc;border-radius:20px;padding:4px 6px;font-weight:750;white-space:nowrap}
@@ -58,7 +54,7 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 32px}.summary{display:flex;
 <section class="home-section" aria-labelledby="title"><div class="section-head"><h2 id="title">Image Streams</h2><span id="streamCount">6 streams</span></div><div id="cameras" class="camera-grid"></div></section>
 <section class="home-section" aria-labelledby="iotReadingsTitle"><div class="section-head"><h2 id="iotReadingsTitle">IoT Reading</h2><span id="iotReadingContext">Greenhouse 1 · sample values</span></div>
 <section class="tank-mini" aria-label="Sample fertigation tank IoT readings"><div class="tank-icon" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8.5 16 4l10 4.5v16L16 29 6 24.5v-16Z"/><path d="M6 8.5 16 13l10-4.5M16 13v16"/><path d="M9 17c2 0 2-1.5 4-1.5s2 1.5 4 1.5 2-1.5 4-1.5 2 1.5 3 1.5"/><path d="M11 5.8 21 10.3"/></svg></div><div class="tank-mini-body"><div class="tank-mini-title">Fertigation Tank <span class="mockstatus">SIMULATED</span></div><div class="tank-context" id="tankContext">Plot 1 · Greenhouse 1</div><div class="tank-mini-values"><div><span>EC</span><b>1.42</b></div><div><span>NPK</span><b>12-8-16</b></div><div><span>pH</span><b>6.2</b></div><div><span>Water temp</span><b>27.4°</b></div></div><div class="tank-time">Sample reading · 08 Oct 2026 · 2:40 PM MYT</div></div></section>
-<div id="iotReadings" class="iot-reading-grid" aria-label="Greenhouse section IoT readings"></div></section>
+<div id="iotReadings" class="camera-grid" aria-label="Greenhouse section IoT readings"></div></section>
 </main>
 <section id="authScreen" class="auth-screen" hidden aria-label="GrowPlot sign in">
 <div class="auth-page-top"><button class="auth-back" id="authBackBtn" type="button">‹ Dashboard</button><span>🌱 GrowPlot</span></div>
@@ -154,7 +150,7 @@ function render(){
   cameraRoot.appendChild(wrap);
  }
  for(let index=0;index<quadrantSeeds.length;index++){
-  const id=String(index+1).padStart(2,'0'),s=quadrantSeeds[index],card=document.createElement('article');card.className='iot-reading-card';
+  const id=String(index+1).padStart(2,'0'),s=quadrantSeeds[index],card=document.createElement('article');card.className='camera';
   card.innerHTML=`<div class="sensor-title">Section ${id} · sample readings</div><div class="metrics"><div class="metric"><span class="k">EC</span><b>${s.ec}</b><small>mS/cm</small></div><div class="metric"><span class="k">NPK</span><b>${s.n}</b><small>N-P-K</small></div><div class="metric ph-card"><span class="k">pH</span><b>${s.ph}</b><small>level</small></div><div class="metric"><span class="k">Moisture</span><b>${s.m}%</b><small>soil</small></div><div class="metric"><span class="k">Temp</span><b>${s.t}°</b><small>°C</small></div></div><div class="reading">Last sample reading: 08 Oct 2026 · 2:40 PM MYT</div>`;
   readingRoot.appendChild(card);
  }
