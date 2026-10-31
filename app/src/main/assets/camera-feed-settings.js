@@ -33,7 +33,7 @@
    try{
     if(!bridge.saveCctvCameraStreamSettings(camera,protocol.value,cameraIp,streamPort,streamPath)){error.textContent='GrowPlot could not save these stream settings. Check the address and try again.';return}
     if(camera===3&&protocol.value==='rtsp'&&typeof bridge.saveVigiCctv03Credentials==='function'){const username=form.elements.username.value.trim(),password=form.elements.password.value;if(username||password){if(!bridge.saveVigiCctv03Credentials(username,password)){error.textContent='The VIGI credentials could not be saved.';return}}}
-    close();if(typeof window.showSaveToast==='function')window.showSaveToast('Stream '+stream+' connection settings saved.');
+    close();if(camera===1&&typeof bridge.setHomeStreamCameraMode==='function')bridge.setHomeStreamCameraMode(false);if(typeof window.showSaveToast==='function')window.showSaveToast('Stream '+stream+' connection settings saved.');
    }catch(_){error.textContent='Could not save stream settings. Please try again.'}
    finally{save.disabled=false}
   });
@@ -61,7 +61,7 @@
   const feed=card.querySelector('.feed');if(!feed)return;
   feed.classList.add('feed-camera-mode');feed.setAttribute('aria-label','Stream '+String(camera).padStart(2,'0')+' device camera');
   feed.innerHTML='<button class="stream-camera-snap" type="button" aria-label="Open device camera for Stream '+String(camera).padStart(2,'0')+'">'+cameraSvg()+'</button>';setHint(card,'CAMERA');
-  feed.querySelector('.stream-camera-snap').addEventListener('click',()=>{const bridge=window.GrowPlotBridge;if(bridge&&typeof bridge.openFeedPhotoActions==='function')bridge.openFeedPhotoActions(camera,currentPlotId());else if(bridge&&typeof bridge.captureFeedPhoto==='function')bridge.captureFeedPhoto(camera,currentPlotId());else if(typeof window.showSaveToast==='function')window.showSaveToast('Camera controls are available in the GrowPlot Android app.')});
+  feed.querySelector('.stream-camera-snap').addEventListener('click',()=>{const bridge=window.GrowPlotBridge;if(bridge&&typeof bridge.captureFeedPhoto==='function')bridge.captureFeedPhoto(camera,currentPlotId());else if(typeof window.showSaveToast==='function')window.showSaveToast('Camera controls are available in the GrowPlot Android app.')});
  }
  function showCctvMode(card,camera){
   const feed=card.querySelector('.feed');if(!feed)return;
