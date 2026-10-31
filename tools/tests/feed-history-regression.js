@@ -1,10 +1,18 @@
 const fs=require('fs'),vm=require('vm'),assert=require('assert');const html=fs.readFileSync('app/src/main/assets/index.html','utf8');
-const identityStart=html.indexOf('function diagnosisSpeciesKey('),identityEnd=html.indexOf('const diagnosisVisualReviewShortlists=',identityStart),identityHelpers=html.slice(identityStart,identityEnd);const body=html.slice(html.indexOf('function render(){'),html.indexOf('let saveToastTimer='));const cards=[];
-function card(){const nodes={};return {dataset:{},querySelector:q=>nodes[q]||(nodes[q]={dataset:{},style:{},addEventListener(){}}),className:'',innerHTML:''}}
-const ctx={plots:[{id:'plot-1'}],plotLabel:()=> 'Demo',quadrantSeeds:Array(6).fill({}),plantIds:Array(6).fill({}),defaultPlantIds:Array(6).fill({}),selectedPlotId:'plot-1',localStorage:{getItem:()=>null},ipWebcamStreamUrl:()=> 'http://camera/videofeed',cameraRoot:{children:cards,appendChild:c=>cards.push(c)},applyPlotFeedSummary(){},document:{getElementById:id=>({dataset:{},hidden:true,value:id==='plot'?'plot-1':'1'}),createElement:()=>card()}};vm.createContext(ctx);vm.runInContext(identityHelpers+';'+body+';render()',ctx);
-assert(cards[1].innerHTML.includes('stream-settings-button'));assert(cards[1].innerHTML.includes('Last Drive snapshot'));assert(cards[1].innerHTML.includes('Live IP Webcam stream'));assert(cards[3].innerHTML.includes('stream-settings-button'));assert(!cards[1].innerHTML.includes('File selection'));
+const main=html.slice(html.indexOf('<main id="mainDashboard">'),html.indexOf('</main>')+7);
+assert(main.includes('Image Streams')&&main.includes('IoT Reading'),'Home keeps the two requested sections');
+assert(!/STREAM 0[1-6]|tank-mini|Fertigation Tank|class="camera-grid"/.test(main),'Home contains no fixed stream, section-reading, or tank cards');
+const body=html.slice(html.indexOf('function render(){'),html.indexOf('let saveToastTimer='));
+const cards=[],readingRoot={innerHTML:'stale'};
+const ctx={plots:[{id:'plot-1'}],selectedPlotId:'plot-1',cameraRoot:{children:cards,innerHTML:'stale'},localStorage:{getItem:()=>null},loadConfirmedPlantIds(){},document:{getElementById:id=>id==='plot'?{value:'plot-1'}:readingRoot}};
+vm.createContext(ctx);vm.runInContext(body+';render()',ctx);
+assert.equal(cards.length,0,'Home render does not create stream cards');
+assert.equal(ctx.cameraRoot.innerHTML,'','Home stream container stays empty');
+assert.equal(readingRoot.innerHTML,'','Home IoT container stays empty');
 const scan=html.slice(html.indexOf('window.onSnapshotScan=function'),html.indexOf("if(window.GrowPlotBridge){document.getElementById('refreshInterval')"));
-Object.assign(ctx,{window:{},updateFeedScope(){},setText(){},setFeedStats(){},defaultFeedFolder:()=>'',localStorage:{setItem(){}},formatCapture:()=>({iso:'2026-10-12T03:00:00Z',date:'12 Oct 2026',time:'11 AM MYT'}),storedCurrentPhotos:()=>[],addCachedCurrentPhotos(){},applySuppliedBaselineIfEmpty:(_plot,_mode,timelines)=>timelines,timelineModes:{},cameraTimeline:[],timelineInterval:'weekly'});vm.runInContext(scan,ctx);
-ctx.cameraTimeline=[{camera:1,slots:[{available:true,imageUrl:'kept-snapshot.jpg'}]}];ctx.window.onSnapshotScan({connected:true,plotId:'plot-1',cameraStats:[],currentPhotos:[1,2,3,4].map(camera=>({camera,timestamp:1}))});assert.strictEqual(ctx.cameraTimeline[0].slots[0].imageUrl,'kept-snapshot.jpg','status-only scan must preserve the last successful timeline');
-for(let n=0;n<3;n++)assert(!cards[n].querySelector('.feedimg').src,'Live feed must not be replaced by a snapshot');assert(cards[3].querySelector('.feedimg').src.includes('cctv_04.jpg'));
-console.log('PASS: CCTV02 label, consistent live timestamps, and snapshot refresh preserves all three live feeds.');
+Object.assign(ctx,{window:{},updateFeedScope(){},setText(){},setFeedStats(){},defaultFeedFolder:()=>'',localStorage:{setItem(){}},formatCapture:()=>({iso:'2026-10-12T03:00:00Z',date:'12 Oct 2026',time:'11 AM MYT'}),storedCurrentPhotos:()=>[],addCachedCurrentPhotos(){},applySuppliedBaselineIfEmpty:(_plot,_mode,timelines)=>timelines,timelineModes:{},cameraTimeline:[{camera:1,slots:[{available:true,imageUrl:'kept-snapshot.jpg'}]}],timelineInterval:'weekly',document:{getElementById:id=>id==='refreshInterval'?{value:''}:null}});
+vm.runInContext(scan,ctx);
+ctx.window.onSnapshotScan({connected:true,plotId:'plot-1',cameraStats:[],currentPhotos:[1,2,3,4].map(camera=>({camera,timestamp:1}))});
+assert.strictEqual(ctx.cameraTimeline[0].slots[0].imageUrl,'kept-snapshot.jpg','status-only scan must preserve the last successful timeline');
+assert.equal(cards.length,0,'background feed status does not repopulate Home cards');
+console.log('PASS: Home renders only Image Streams and IoT Reading headings; feed scan preserves timeline without cards.');
