@@ -1136,7 +1136,7 @@ public class MainActivity extends Activity {
             ipWebcamVlcPlayer = new org.videolan.libvlc.MediaPlayer(ipWebcamVlc);
             // Use TextureView composition so Android modal dialogs can cover and hide
             // the VLC surface instead of a SurfaceView layer staying on top.
-            ipWebcamVlcPlayer.attachViews(videoLayout, null, true, false);
+            ipWebcamVlcPlayer.attachViews(videoLayout, null, true, true);
             // IP Webcam MJPEG: reconnect on VLC playback failure rather than leaving a black frame.
             final org.videolan.libvlc.MediaPlayer sessionPlayer = ipWebcamVlcPlayer;
             sessionPlayer.setEventListener(event -> {
@@ -1348,7 +1348,7 @@ public class MainActivity extends Activity {
             ipWebcam2Vlc = new LibVLC(this, options);
             ipWebcam2VlcPlayer = new org.videolan.libvlc.MediaPlayer(ipWebcam2Vlc);
             // Match CCTV01 so this feed respects the same app/window layering.
-            ipWebcam2VlcPlayer.attachViews(videoLayout, null, true, false);
+            ipWebcam2VlcPlayer.attachViews(videoLayout, null, true, true);
             // IP Webcam MJPEG: reconnect on VLC playback failure rather than leaving a black frame.
             final org.videolan.libvlc.MediaPlayer sessionPlayer = ipWebcam2VlcPlayer;
             sessionPlayer.setEventListener(event -> {
@@ -1461,7 +1461,7 @@ public class MainActivity extends Activity {
                 options.add("--no-audio"); options.add("--network-caching=350");
                 ipWebcam3Vlc = new LibVLC(this, options);
                 ipWebcam3VlcPlayer = new org.videolan.libvlc.MediaPlayer(ipWebcam3Vlc);
-                ipWebcam3VlcPlayer.attachViews(videoLayout, null, true, false);
+                ipWebcam3VlcPlayer.attachViews(videoLayout, null, true, true);
                 Media media = new Media(ipWebcam3Vlc, Uri.parse(route));
                 media.addOption(":network-caching=350");
                 ipWebcam3VlcPlayer.setMedia(media); media.release(); ipWebcam3VlcPlayer.play();
@@ -1492,7 +1492,7 @@ public class MainActivity extends Activity {
             options.add("--live-caching=500");
             ipWebcam3Vlc = new LibVLC(this, options);
             ipWebcam3VlcPlayer = new org.videolan.libvlc.MediaPlayer(ipWebcam3Vlc);
-            ipWebcam3VlcPlayer.attachViews(videoLayout, null, true, false);
+            ipWebcam3VlcPlayer.attachViews(videoLayout, null, true, true);
             final org.videolan.libvlc.MediaPlayer sessionPlayer = ipWebcam3VlcPlayer;
             if (rtsp) {
                 sessionPlayer.setEventListener(event -> {
