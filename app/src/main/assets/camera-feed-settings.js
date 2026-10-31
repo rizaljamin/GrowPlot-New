@@ -34,7 +34,7 @@
    try{
     if(mode===STREAM_MODE){
      const cameraIp=form.elements.ip.value.trim(),streamPort=Number(form.elements.port.value),streamPath=form.elements.path.value.trim(),protocol=form.elements.protocol;
-     if(!/^(?:(?:10|192\.168|172\.(?:1[6-9]|2\d|3[01]))\.(?:\d{1,3})\.(?:\d{1,3})|100\.(?:6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.(?:\d{1,3})\.(?:\d{1,3}))$/.test(ip)||cameraIp.split('.').some(part=>Number(part)>255)||cameraIp.endsWith('.0')||cameraIp.endsWith('.255')){error.textContent='Enter a private-network IPv4 address.';return}
+     if(!/^(?:(?:10|192\.168|172\.(?:1[6-9]|2\d|3[01]))\.(?:\d{1,3})\.(?:\d{1,3})|100\.(?:6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.(?:\d{1,3})\.(?:\d{1,3}))$/.test(cameraIp)||cameraIp.split('.').some(part=>Number(part)>255)||cameraIp.endsWith('.0')||cameraIp.endsWith('.255')){error.textContent='Enter a private-network IPv4 address.';return}
      if(!Number.isInteger(streamPort)||streamPort<1||streamPort>65535){error.textContent='Port must be between 1 and 65535.';return}
      if(!streamPath.startsWith('/')||streamPath.includes('..')||/[?#@]/.test(streamPath)){error.textContent='Enter a stream path beginning with /.';return}
      if(typeof bridge.saveCctvCameraStreamSettings!=='function'||!bridge.saveCctvCameraStreamSettings(camera,protocol.value,cameraIp,streamPort,streamPath)){error.textContent='Could not save the CCTV address. Check the IP and try again.';return}
