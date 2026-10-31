@@ -8,8 +8,8 @@ assert.match(html, /const defaultPlantIds=plantIds\.map\(item=>\(\{\.\.\.item\}\
   'each plot render starts from the original camera identity defaults');
 assert.match(html, /function loadConfirmedPlantIds\(plotId=selectedPlotId\)[\s\S]*?diagnosisSpeciesKey\(index\+1,plotId\)[\s\S]*?identity\?\.confirmedAt[\s\S]*?identity\?\.source!=='plantnet_image'[\s\S]*?plant\.malay=identity\.name[\s\S]*?plant\.scientific=identity\.scientific/,
   'only user-confirmed species saved for the active plot are restored to camera labels');
-assert.match(html, /function render\(\)\{[\s\S]*?loadConfirmedPlantIds\(selectedPlotId\);[\s\S]*?cameraRoot\.innerHTML=''/,
-  'home camera cards hydrate confirmed species before rendering');
+assert.match(html, /function render\(\)\{[\s\S]*?loadConfirmedPlantIds\(selectedPlot\.id\);[\s\S]*?cameraRoot\.innerHTML=''/,
+  'home camera cards hydrate confirmed species before rendering the selected plot');
 assert.match(html, /function updateCameraSpeciesDisplay\(camera\)\{window\.renderPlotCctvSummary\?\.\(Number\(camera\)\);\}/,
   'the currently rendered Plot/CCTV summary updates immediately after confirmation');
 const summary = fs.readFileSync('app/src/main/assets/plot-cctv-summary.js', 'utf8');
