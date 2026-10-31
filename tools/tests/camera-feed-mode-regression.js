@@ -8,12 +8,20 @@ const java=fs.readFileSync('app/src/main/java/com/growplot/farm/MainActivity.jav
 assert.match(html,/id="streamSourceSettingsCard"[\s\S]*id="streamSettingsToggle"/,'stream settings gear is above the canvas');
 assert.match(html,/id="homeStreamSourcePicker" class="home-stream-source-picker" role="listbox"[\s\S]*data-source="device-camera"[\s\S]*>Camera<\/span>[\s\S]*data-source="cctv-stream"[\s\S]*>CCTV<\/span>/,'gear picker has labeled Camera and CCTV options');
 assert.match(html,/stream-source-picker-slot\{width:100%;max-width:1000px;height:84px/,'picker gap is reserved so the playback canvas does not move');
-assert.match(html,/\.stream-settings-button\{[^}]*width:128px;min-width:128px;box-sizing:border-box/,'settings control has a stable width for dropdown alignment');
-assert.match(html,/\.home-stream-source-picker\{display:grid;width:128px;box-sizing:border-box/,'source listbox matches the settings control width');
+assert.match(html,/\.home-stream-settings-toggle\{[^}]*display:flex;flex-direction:row;flex-wrap:nowrap;[^}]*width:144px;min-width:144px;[^}]*white-space:nowrap/,'Home Settings control stays in one aligned row and cannot inherit camera-dialog button styles');
+assert.match(html,/\.home-stream-source-picker\{display:grid;width:144px;box-sizing:border-box/,'source listbox matches the settings control width');
+assert.match(html,/id="streamSettingsToggle" class="home-stream-settings-toggle"/,'Home Settings uses a class isolated from camera-dialog controls');
 assert(html.includes('<span class="stream-settings-label">Settings</span>')&&html.includes('class="stream-settings-chevron"'),'source control shows Settings and a down arrow');
 assert(html.includes('margin-right:16px'),'source control is inset from the edge for picker room');
 assert(html.includes('.home-stream-source-option[aria-selected="true"]{background:#174a35;color:#fff}'),'selected picker row uses GrowPlot green and white text');
 assert(source.includes('background:#174a35;color:#fff;box-shadow:0 3px 12px'),'camera icon uses GrowPlot green with a white camera stroke');
+assert.match(source,/credentials\.hidden=!rtsp/,'username and password fields are shown for RTSP only, not HTTP/IP Webcam');
+assert.match(source,/\.stream-settings-credentials\[hidden\]\{display:none\}/,'HTTP/IP Webcam keeps hidden credentials out of the dialog layout');
+assert.match(source,/const previous=protocol\.dataset\.lastValue[\s\S]*port\.value=after\.port[\s\S]*path\.value=after\.path/,'switching protocol replaces untouched HTTP defaults with RTSP port and path');
+assert.match(source,/saveCctvRtspCredentials\(camera,username,password\)/,'RTSP credentials save through the encrypted native bridge');
+assert.match(java,/private String\[\] cctvRtspCredentials\(int camera\)[\s\S]*?AndroidKeyStore/,'RTSP credentials are read from Android Keystore-backed storage');
+assert.match(java,/private boolean saveCctvRtspCredentials\(int camera, String username, String password\)[\s\S]*?AES\/GCM\/NoPadding/,'RTSP credentials are encrypted per camera before saving');
+assert.match(java,/String route = addCctvRtspCredentials\(1, cctvStreamUrl\(1\)\)[\s\S]*?addCctvRtspMediaOptions\(media, 1\)/,'CCTV01 RTSP URLs and VLC auth options use the saved camera credentials');
 assert.doesNotMatch(html,/Choose a camera source to begin/,'camera setup prompt is removed');
 assert.match(html,/aria-selected="true" data-source="device-camera"/,'Camera is selected by default');
 

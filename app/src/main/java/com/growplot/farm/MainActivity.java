@@ -732,6 +732,86 @@ public class MainActivity extends Activity {
         return ip.isEmpty() ? "" : cctvStreamProtocol(camera) + "://" + ip + ":" + cctvStreamPort(camera) + cctvStreamPath(camera);
     }
 
+    private String cctvRtspCredentialsKey(int camera) {
+        return camera == 3 ? PREF_VIGI_CCTV03_CREDENTIALS : "cctv_rtsp_credentials_" + String.format(Locale.US, "%02d", camera);
+    }
+
+    private String cctvRtspCredentialsAlias(int camera) {
+        return camera == 3 ? VIGI_CCTV03_KEY_ALIAS : "GrowPlotCctvRtsp" + String.format(Locale.US, "%02d", camera);
+    }
+
+    private String[] cctvRtspCredentials(int camera) {
+        if (camera == 3) return vigiCctv03Credentials();
+        try {
+            String encoded = getPrefs().getString(cctvRtspCredentialsKey(camera), "");
+            if (encoded.isEmpty()) return new String[]{"", ""};
+            byte[] combined = Base64.decode(encoded, Base64.NO_WRAP);
+            byte[] iv = java.util.Arrays.copyOfRange(combined, 0, 12);
+            byte[] ciphertext = java.util.Arrays.copyOfRange(combined, 12, combined.length);
+            KeyStore store = KeyStore.getInstance("AndroidKeyStore");
+            store.load(null);
+            SecretKey key = (SecretKey) store.getKey(cctvRtspCredentialsAlias(camera), null);
+            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+            cipher.init(Cipher.DECRYPT_MODE, key, new GCMParameterSpec(128, iv));
+            JSONObject credentials = new JSONObject(new String(cipher.doFinal(ciphertext), StandardCharsets.UTF_8));
+            return new String[]{credentials.optString("username", ""), credentials.optString("password", "")};
+        } catch (Exception ignored) { return new String[]{"", ""}; }
+    }
+
+    private boolean saveCctvRtspCredentials(int camera, String username, String password) {
+        if (camera < 1 || camera > 6) return false;
+        if (camera == 3) return saveVigiCctv03Credentials(username, password);
+        try {
+            if ((username == null || username.isEmpty()) && (password == null || password.isEmpty())) return true;
+            if (password == null || password.isEmpty()) {
+                String[] previous = cctvRtspCredentials(camera);
+                if (!previous[1].isEmpty()) password = previous[1];
+            }
+            String alias = cctvRtspCredentialsAlias(camera);
+            KeyStore store = KeyStore.getInstance("AndroidKeyStore");
+            store.load(null);
+            if (!store.containsAlias(alias)) {
+                KeyGenerator generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore");
+                generator.init(new KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
+                        .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                        .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                        .setRandomizedEncryptionRequired(true).build());
+                generator.generateKey();
+                store.load(null);
+            }
+            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+            cipher.init(Cipher.ENCRYPT_MODE, (SecretKey) store.getKey(alias, null));
+            JSONObject credentials = new JSONObject();
+            credentials.put("username", username == null ? "" : username);
+            credentials.put("password", password == null ? "" : password);
+            byte[] ciphertext = cipher.doFinal(credentials.toString().getBytes(StandardCharsets.UTF_8));
+            byte[] combined = new byte[cipher.getIV().length + ciphertext.length];
+            System.arraycopy(cipher.getIV(), 0, combined, 0, cipher.getIV().length);
+            System.arraycopy(ciphertext, 0, combined, cipher.getIV().length, ciphertext.length);
+            return getPrefs().edit().putString(cctvRtspCredentialsKey(camera), Base64.encodeToString(combined, Base64.NO_WRAP)).commit();
+        } catch (Exception ignored) { return false; }
+    }
+
+    private boolean isRtspUrl(String url) {
+        return url != null && (url.regionMatches(true, 0, "rtsp://", 0, 7) || url.regionMatches(true, 0, "rtsps://", 0, 8));
+    }
+
+    private String addCctvRtspCredentials(int camera, String route) {
+        if (!isRtspUrl(route) || route.substring(route.indexOf("://") + 3).split("/", 2)[0].contains("@")) return route;
+        String[] credentials = cctvRtspCredentials(camera);
+        if (credentials[0].isEmpty() || credentials[1].isEmpty()) return route;
+        int schemeEnd = route.indexOf("://") + 3;
+        return route.substring(0, schemeEnd) + Uri.encode(credentials[0]) + ":" + Uri.encode(credentials[1]) + "@" + route.substring(schemeEnd);
+    }
+
+    private void addCctvRtspMediaOptions(Media media, int camera) {
+        String[] credentials = cctvRtspCredentials(camera);
+        if (!credentials[0].isEmpty() && !credentials[1].isEmpty()) {
+            media.addOption(":rtsp-user=" + credentials[0]);
+            media.addOption(":rtsp-pwd=" + credentials[1]);
+        }
+    }
+
     private String[] vigiCctv03Credentials() {
         try {
             String encoded = getPrefs().getString(PREF_VIGI_CCTV03_CREDENTIALS, "");
@@ -1087,7 +1167,9 @@ public class MainActivity extends Activity {
                 }
             });
             if (cctvStreamUrl(1).isEmpty()) { stopIpWebcamVlc(); return; }
-            Media media = new Media(ipWebcamVlc, Uri.parse(cctvStreamUrl(1)));
+            String route = addCctvRtspCredentials(1, cctvStreamUrl(1));
+            Media media = new Media(ipWebcamVlc, Uri.parse(route));
+            if (isRtspUrl(route)) addCctvRtspMediaOptions(media, 1);
             media.addOption(":network-caching=250");
             media.addOption(":live-caching=250");
             ipWebcamVlcPlayer.setMedia(media);
@@ -1299,7 +1381,7 @@ public class MainActivity extends Activity {
             String route = cctvStreamUrl(2);
             if (route.isEmpty()) { stopCctv02Vlc(); return; }
             if (userStreamMode && (route.startsWith("rtsp://") || route.startsWith("rtsps://"))) {
-                String[] credentials = vigiCctv03Credentials();
+                String[] credentials = cctvRtspCredentials(2);
                 if (credentials[0].isEmpty() || credentials[1].isEmpty()) {
                     stopCctv02Vlc();
                     promptForAssignedVigiCctv02Credentials();
@@ -1310,7 +1392,9 @@ public class MainActivity extends Activity {
                     route = route.substring(0,schemeEnd)+Uri.encode(credentials[0])+":"+Uri.encode(credentials[1])+"@"+route.substring(schemeEnd);
                 }
             }
+            route = addCctvRtspCredentials(2, route);
             Media media = new Media(ipWebcam2Vlc, Uri.parse(route));
+            if (isRtspUrl(route)) addCctvRtspMediaOptions(media, 2);
             media.addOption(":network-caching=250");
             media.addOption(":live-caching=250");
             ipWebcam2VlcPlayer.setMedia(media);
@@ -1432,15 +1516,10 @@ public class MainActivity extends Activity {
                         mainHandler.post(() -> checkCctv03RejectedCredentials(sessionPlayer, ip, credentials));
                     }
                 });
-                int schemeEnd = route.indexOf("://") + 3;
-                route = route.substring(0, schemeEnd) + Uri.encode(credentials[0]) + ":" + Uri.encode(credentials[1])
-                        + "@" + route.substring(schemeEnd);
+                route = addCctvRtspCredentials(3, route);
             }
             Media media = new Media(ipWebcam3Vlc, Uri.parse(route));
-            if (rtsp) {
-                media.addOption(":rtsp-user=" + credentials[0]);
-                media.addOption(":rtsp-pwd=" + credentials[1]);
-            }
+            if (rtsp) addCctvRtspMediaOptions(media, 3);
             media.addOption(":network-caching=500");
             media.addOption(":live-caching=500");
             ipWebcam3VlcPlayer.setMedia(media);
@@ -1562,7 +1641,7 @@ public class MainActivity extends Activity {
         EditText username = new EditText(this);
         username.setSingleLine(true);
         username.setHint("VIGI username");
-        username.setText(vigiCctv03Credentials()[0]);
+        username.setText(cctvRtspCredentials(2)[0]);
         form.addView(username);
         EditText password = new EditText(this);
         password.setSingleLine(true);
@@ -1578,7 +1657,7 @@ public class MainActivity extends Activity {
             String user=username.getText().toString().trim(),secret=password.getText().toString();
             if(user.isEmpty()){username.setError("Enter VIGI username");return;}
             if(secret.isEmpty()){password.setError("Enter VIGI password");return;}
-            if(!saveVigiCctv03Credentials(user,secret)){password.setError("Could not encrypt camera login on this device");return;}
+            if(!saveCctvRtspCredentials(2,user,secret)){password.setError("Could not encrypt camera login on this device");return;}
             password.setText("");dialog.dismiss();reconnectCctv02Vlc();
         }));
         dialog.show();
@@ -3735,6 +3814,17 @@ public class MainActivity extends Activity {
                         .put("port", cctvStreamPort(camera))
                         .put("path", cctvStreamPath(camera)).toString();
             } catch (Exception ignored) { return "{}"; }
+        }
+
+        @JavascriptInterface public String getCctvRtspCredentials(int camera) {
+            if (camera < 1 || camera > 6) return "{}";
+            String[] credentials = cctvRtspCredentials(camera);
+            try { return new JSONObject().put("username", credentials[0]).put("passwordConfigured", !credentials[1].isEmpty()).toString(); }
+            catch (Exception ignored) { return "{}"; }
+        }
+
+        @JavascriptInterface public boolean saveCctvRtspCredentials(int camera, String username, String password) {
+            return MainActivity.this.saveCctvRtspCredentials(camera, username == null ? "" : username.trim(), password == null ? "" : password);
         }
 
         @JavascriptInterface public boolean saveCctvCameraStreamSettings(int camera, String protocol, String ip, int port, String path) {
