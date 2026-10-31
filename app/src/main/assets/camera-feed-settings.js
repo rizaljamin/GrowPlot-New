@@ -5,7 +5,7 @@
  const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
  const localKey=camera=>'growplotStreamSourceMode_'+camera;
  const readGlobal=()=>{try{return localStorage.getItem(GLOBAL_KEY)===CAMERA_MODE?CAMERA_MODE:STREAM_MODE}catch(_){return STREAM_MODE}};
- const readMode=camera=>{const bridge=window.GrowPlotBridge;try{const saved=JSON.parse(bridge?.getCctvCameraStreamSettings?.(camera)||'{}');if(saved.sourceMode===CAMERA_MODE||saved.sourceMode===STREAM_MODE)return saved.sourceMode}catch(_){}try{const saved=localStorage.getItem(localKey(camera));if(saved===CAMERA_MODE||saved===STREAM_MODE)return saved}catch(_){}return readGlobal()};
+ const readMode=camera=>{const bridge=window.GrowPlotBridge;try{const saved=JSON.parse(bridge?.getCctvCameraStreamSettings?.(camera)||'{}');if(saved.sourceMode===CAMERA_MODE||saved.sourceMode===STREAM_MODE)return saved.sourceMode}catch(_){}try{const saved=localStorage.getItem(localKey(camera));if(saved===CAMERA_MODE||saved===STREAM_MODE)return saved}catch(_){}return STREAM_MODE};
  const writeMode=(camera,value)=>{const mode=value===CAMERA_MODE?CAMERA_MODE:STREAM_MODE;try{localStorage.setItem(localKey(camera),mode)}catch(_){}return mode};
  const fallback=camera=>({ip:camera===1?'192.168.1.241':camera===2?'192.168.1.227':camera===3?'192.168.1.228':'',protocol:camera===3?'rtsp':'http',port:camera===3?554:8080,path:camera===3?'/stream1':'/videofeed'});
  function addStyles(){
