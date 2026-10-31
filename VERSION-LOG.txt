@@ -1,4 +1,6 @@
-2026-10-31 | v0.8.00 Build 15 (versionCode 292) | Restore native VLC stream positioning after Home renders or refreshes; hardcode Demo Plot to one greenhouse with three streams while user plots continue using their saved section counts. Add regressions for the bridge handshake and both card-count paths. ARM64 APK workflow and device verification pending.
+2026-10-31 | v0.8.00 Build 16 (versionCode 293) | Restore native VLC stream positioning after Home renders or refreshes; hardcode Demo Plot to one greenhouse with three streams while user plots continue using their saved section counts. Add regressions for the bridge handshake and both card-count paths. ARM64 APK workflow and device verification pending.
+
+2026-10-31 | v0.8.00 Build 15 (versionCode 292) | Interim artifact was built with the Build 14 versionName; do not distribute. Corrected package identity in Build 16.
 
 2026-10-31 | v0.8.00 Build 14 (versionCode 291) | Fix plot stream count to default to the saved section count (one when unset), restore the plot greenhouse dropdown to its configured count, and make each stream gear/card action bind through delegated clicks after rerenders. Device Camera mode now clearly prompts users to tap the card to open capture. Build verification pending.
 
