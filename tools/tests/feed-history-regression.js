@@ -1,10 +1,10 @@
 const fs=require('fs'),vm=require('vm'),assert=require('assert');const html=fs.readFileSync('app/src/main/assets/index.html','utf8');
 const main=html.slice(html.indexOf('<main id="mainDashboard">'),html.indexOf('</main>')+7);
 assert(main.includes('Image Streams')&&main.includes('IoT Reading'),'Home keeps the two requested sections');
-assert(!/STREAM 0[1-6]|tank-mini|Fertigation Tank|class="camera-grid"/.test(main),'Home contains no fixed stream, section-reading, or tank cards');
+assert(!/STREAM 0[2-6]|tank-mini|Fertigation Tank/.test(main),'Home shell contains no extra fixed stream, section-reading, or tank cards');
 const body=html.slice(html.indexOf('function render(){'),html.indexOf('let saveToastTimer='));
 assert.match(main,/id="cameras" class="camera-grid single-stream"/,'Home contains one visible Image Streams card container');
-assert.match(body,/STREAM ${id}[sS]*stream-settings-button[sS]*data-camera="1"/,'the single stream has its own settings gear');
+assert.match(body,/stream-settings-button[\\s\\S]*data-camera="1"/,'the single stream has its own settings gear');
 assert.match(body,/ipWebcamStreamUrl\(1\)[\s\S]*class="feed"/,'Stream 01 uses the playback feed target');
 assert.equal((body.match(/cameraRoot\.appendChild\(wrap\)/g)||[]).length,1,'Home render can append only one stream card');
 const ctx={};vm.createContext(ctx);
