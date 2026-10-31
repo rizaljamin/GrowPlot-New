@@ -23,7 +23,9 @@ assert.doesNotMatch(body,/ipWebcamStreamUrl|feedimg|CONNECTING IP WEBCAM|LIVE ·
 assert.match(source,/growplotStreamSourceV2:/,'new source key ignores preexisting legacy CCTV selections');
 assert.match(source,/return CAMERA_MODE/,'unconfigured source defaults to Camera');
 assert.match(source,/feed\.innerHTML='<button class="stream-camera-snap"/,'camera selection renders a single camera icon');
-assert.match(source,/bridge\.openFeedPhotoActions\(camera,currentPlotId\(\)\)/,'tapping the camera canvas opens the native camera controls');
+assert.match(source,/bridge\.captureFeedPhoto\(camera,currentPlotId\(\)\)/,'tapping the camera canvas launches native photo capture directly');
+assert.doesNotMatch(source,/bridge\.openFeedPhotoActions\(camera,currentPlotId\(\)\)/,'home camera capture skips the native action chooser');
+assert.match(source,/close\(\);if\(camera===1&&typeof bridge\.setHomeStreamCameraMode==='function'\)bridge\.setHomeStreamCameraMode\(false\)/,'saving CCTV settings reactivates the Home playback surface after closing the dialog');
 assert.match(java,/openFeedPhotoActions\(int camera, String plotId\)[\s\S]*Take a photo[\s\S]*Choose an image from files[\s\S]*launchFeedPhotoCapture[\s\S]*launchFeedPhotoPicker/,'native camera controls can take a photo or import from files');
 assert.match(source,/else showCameraMode\(card,camera\)/,'default source renders Camera rather than an empty canvas');
 assert.match(source,/setHint\(card,'CCTV'\)/,'CCTV selection updates the canvas state');
