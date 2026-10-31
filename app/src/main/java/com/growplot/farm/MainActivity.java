@@ -1061,6 +1061,7 @@ public class MainActivity extends Activity {
                     ipWebcamVlcFrame.setLayoutParams(params);
                 }
             }
+            if (activityResumed && ipWebcamVlcPlayer == null && !cctvStreamUrl(1).isEmpty()) startIpWebcamVlc(ipWebcamVlcLayout);
             if (shouldShow != cctv01OverlayShown) {
                 cctv01OverlayShown = shouldShow;
                 ipWebcamVlcFrame.animate().cancel();
@@ -1228,6 +1229,7 @@ public class MainActivity extends Activity {
                     ipWebcam2VlcFrame.setLayoutParams(params);
                 }
             }
+            if (activityResumed && ipWebcam2VlcPlayer == null && !cctvStreamUrl(2).isEmpty()) startCctv02Vlc(ipWebcam2VlcLayout);
             if (shouldShow != cctv02OverlayShown) {
                 cctv02OverlayShown = shouldShow;
                 ipWebcam2VlcFrame.animate().cancel();
@@ -1311,6 +1313,7 @@ public class MainActivity extends Activity {
                     ipWebcam3VlcFrame.setLayoutParams(params);
                 }
             }
+            if (activityResumed && ipWebcam3VlcPlayer == null && !cctvStreamUrl(3).isEmpty()) startVigiCctv03Vlc(ipWebcam3VlcLayout);
             if (shouldShow != cctv03OverlayShown) {
                 cctv03OverlayShown = shouldShow;
                 ipWebcam3VlcFrame.animate().cancel();
