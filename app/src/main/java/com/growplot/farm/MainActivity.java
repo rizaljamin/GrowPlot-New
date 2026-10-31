@@ -702,6 +702,7 @@ public class MainActivity extends Activity {
             assignments.get().addOnSuccessListener(rows -> {
                 if (generation != assignedStreamGeneration) return;
                 assignedStreamsLoading = false;
+                boolean[] assignedSlots = new boolean[4];
                 for (com.google.firebase.firestore.QueryDocumentSnapshot assignment : rows) {
                     if (!plotId.equals(assignment.getString("plotId")) || !greenhouseId.equals(assignment.getString("greenhouseId"))) continue;
                     String section = assignment.getString("sectionId"), deviceId = assignment.getString("deviceId");
@@ -709,19 +710,18 @@ public class MainActivity extends Activity {
                     int slot = Integer.parseInt(section.substring(8));
                     String ownerUid=assignment.getString("ownerUserId");
                     if(ownerUid==null||(!admin&&!uid.equals(ownerUid)))continue;
+                    assignedSlots[slot] = true;
                     store.collection("data_feeds").document(ownerUid+"_"+deviceId).get().addOnSuccessListener(device -> {
-                        if (generation != assignedStreamGeneration || !device.exists() || !ownerUid.equals(device.getString("ownerUserId")) || !("AV".equalsIgnoreCase(device.getString("deviceType")) || "Camera".equalsIgnoreCase(device.getString("deviceType")))) return;
-                        String host = device.getString("ipAddress"),protocol=device.getString("protocol"),path=device.getString("streamPath");
-                        Number port = device.getDouble("port");
-                        if (host == null || !host.matches("[A-Za-z0-9.-]{1,253}")) return;
-                        String scheme = "RTSP".equalsIgnoreCase(protocol) ? "rtsp" : "HTTPS".equalsIgnoreCase(protocol) ? "https" : "http";
-                        int actualPort = port == null ? ("rtsp".equals(scheme)?554:8080) : port.intValue();
-                        if (actualPort < 1 || actualPort > 65535) return;
-                        if (path == null || path.isEmpty()) path = "rtsp".equals(scheme) ? "/stream1" : "/videofeed";
-                        if (!path.startsWith("/") || path.contains("..") || path.contains("@") || path.contains("?")) return;
-                        assignedStreamUrls[slot] = scheme+"://"+host+":"+actualPort+path;
-                        refreshAssignedPlayer(slot);
+                        applyFirebaseCameraRoute(device, ownerUid, slot, generation);
                     });
+                }
+                // A saved per-stream route may not have a feed_assignment yet. Load its
+                // owner-scoped camera document so the URL saved from Home survives relaunch.
+                for (int slot = 1; slot <= 3; slot++) {
+                    if (assignedSlots[slot]) continue;
+                    final int cameraSlot = slot;
+                    store.collection("data_feeds").document(uid + "_CCTV0" + slot).get().addOnSuccessListener(device ->
+                            applyFirebaseCameraRoute(device, uid, cameraSlot, generation));
                 }
             }).addOnFailureListener(e -> { assignedStreamsLoading = false; android.util.Log.w("GrowPlotStreams", "Assignment retrieval failed", e); });
         }).addOnFailureListener(e -> { assignedStreamsLoading=false; android.util.Log.w("GrowPlotStreams","Privilege verification failed",e); });
@@ -751,6 +751,104 @@ public class MainActivity extends Activity {
         }
         String ip = cctvIp(camera);
         return ip.isEmpty() ? "" : cctvStreamProtocol(camera) + "://" + ip + ":" + cctvStreamPort(camera) + cctvStreamPath(camera);
+    }
+
+    private void applyFirebaseCameraRoute(com.google.firebase.firestore.DocumentSnapshot device, String ownerUid, int slot, int generation) {
+        if (generation != assignedStreamGeneration || slot < 1 || slot > 3 || !device.exists()
+                || !ownerUid.equals(device.getString("ownerUserId"))
+                || !("AV".equalsIgnoreCase(device.getString("deviceType")) || "Camera".equalsIgnoreCase(device.getString("deviceType")))) return;
+        String host = device.getString("ipAddress"), protocol = device.getString("protocol"), path = device.getString("streamPath");
+        Object rawPort = device.get("port");
+        Number port = rawPort instanceof Number ? (Number) rawPort : null;
+        if (host == null || !host.matches("[A-Za-z0-9.-]{1,253}")) return;
+        String scheme = "RTSP".equalsIgnoreCase(protocol) ? "rtsp" : "HTTPS".equalsIgnoreCase(protocol) ? "https" : "http";
+        int actualPort = port == null ? ("rtsp".equals(scheme) ? 554 : 8080) : port.intValue();
+        if (actualPort < 1 || actualPort > 65535) return;
+        if (path == null || path.isEmpty()) path = "rtsp".equals(scheme) ? "/stream1" : "/videofeed";
+        if (!path.startsWith("/") || path.contains("..") || path.contains("@") || path.contains("?")) return;
+        assignedStreamUrls[slot] = scheme + "://" + host + ":" + actualPort + path;
+        refreshAssignedPlayer(slot);
+    }
+
+    private String firebaseCameraRoute(com.google.firebase.firestore.DocumentSnapshot device) {
+        if (device == null || !device.exists()) return "";
+        String host = device.getString("ipAddress"), protocol = device.getString("protocol"), path = device.getString("streamPath");
+        Object rawPort = device.get("port");
+        Number port = rawPort instanceof Number ? (Number) rawPort : null;
+        if (host == null || !host.matches("[A-Za-z0-9.-]{1,253}")) return "";
+        String scheme = "RTSP".equalsIgnoreCase(protocol) ? "rtsp" : "HTTPS".equalsIgnoreCase(protocol) ? "https" : "http";
+        int actualPort = port == null ? ("rtsp".equals(scheme) ? 554 : 8080) : port.intValue();
+        if (actualPort < 1 || actualPort > 65535) return "";
+        if (path == null || path.isEmpty()) path = "rtsp".equals(scheme) ? "/stream1" : "/videofeed";
+        if (!path.startsWith("/") || path.contains("..") || path.contains("@") || path.contains("?")) return "";
+        return scheme + "://" + host + ":" + actualPort + path;
+    }
+
+    private void finishCctvFirebaseSave(String requestId, boolean saved, String message, String route) {
+        try {
+            JSONObject result = new JSONObject().put("requestId", requestId).put("saved", saved)
+                    .put("message", message == null ? "" : message).put("route", route == null ? "" : route);
+            runOnUiThread(() -> {
+                if (web != null) web.evaluateJavascript("window.onCctvStreamSettingsSaved&&window.onCctvStreamSettingsSaved(" + result + ")", null);
+            });
+        } catch (Exception ignored) { }
+    }
+
+    private void saveCctvStreamSettingsToFirebase(int camera, String protocol, String address, int port, String path,
+                                                   String plotId, String greenhouseId, String requestId) {
+        com.google.firebase.auth.FirebaseUser user = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+        if (user == null) { finishCctvFirebaseSave(requestId, false, "Sign in to save camera settings to Firebase.", ""); return; }
+        final String uid = user.getUid();
+        final String sectionId = "section-" + camera;
+        com.google.firebase.firestore.FirebaseFirestore store = com.google.firebase.firestore.FirebaseFirestore.getInstance();
+        com.google.firebase.firestore.Query assignments = store.collection("feed_assignments").whereEqualTo("ownerUserId", uid);
+        assignments.get().addOnSuccessListener(rows -> {
+            String deviceId = "CCTV0" + camera;
+            for (com.google.firebase.firestore.QueryDocumentSnapshot assignment : rows) {
+                if (plotId.equals(assignment.getString("plotId")) && greenhouseId.equals(assignment.getString("greenhouseId"))
+                        && sectionId.equals(assignment.getString("sectionId")) && uid.equals(assignment.getString("ownerUserId"))) {
+                    String assignedDevice = assignment.getString("deviceId");
+                    if (assignedDevice != null && assignedDevice.matches("[A-Za-z0-9_-]{1,100}")) { deviceId = assignedDevice; break; }
+                }
+            }
+            final String targetDeviceId = deviceId;
+            com.google.firebase.firestore.DocumentReference feedRef = store.collection("data_feeds").document(uid + "_" + targetDeviceId);
+            feedRef.get().addOnSuccessListener(existing -> {
+                if (existing.exists() && (!uid.equals(existing.getString("ownerUserId"))
+                        || !("AV".equalsIgnoreCase(existing.getString("deviceType")) || "Camera".equalsIgnoreCase(existing.getString("deviceType"))))) {
+                    finishCctvFirebaseSave(requestId, false, "The assigned Firebase feed is not an owned camera.", ""); return;
+                }
+                java.util.Map<String, Object> record = new java.util.HashMap<>();
+                record.put("ownerUserId", uid); record.put("deviceId", targetDeviceId);
+                record.put("deviceType", existing.exists() ? existing.getString("deviceType") : "AV");
+                record.put("deviceName", existing.exists() && existing.getString("deviceName") != null ? existing.getString("deviceName") : targetDeviceId);
+                record.put("ipAddress", address); record.put("protocol", protocol.toUpperCase(Locale.US));
+                record.put("port", port); record.put("streamPath", path);
+                record.put("updatedAt", com.google.firebase.firestore.FieldValue.serverTimestamp());
+                feedRef.set(record, com.google.firebase.firestore.SetOptions.merge()).addOnSuccessListener(ignored ->
+                        feedRef.get().addOnSuccessListener(savedFeed -> {
+                            if (!uid.equals(savedFeed.getString("ownerUserId"))) {
+                                finishCctvFirebaseSave(requestId, false, "Firebase could not confirm the saved camera owner.", ""); return;
+                            }
+                            String savedRoute = firebaseCameraRoute(savedFeed);
+                            if (savedRoute.isEmpty()) { finishCctvFirebaseSave(requestId, false, "Firebase saved the camera, but its streaming address is invalid.", ""); return; }
+                            String cameraKey = String.format(Locale.US, "%02d", camera);
+                            getPrefs().edit().putString(PREF_CCTV_IP_PREFIX + cameraKey, address)
+                                    .putBoolean(PREF_CCTV_LOCAL_OVERRIDE_PREFIX + cameraKey, camera <= 3)
+                                    .putString(PREF_CCTV_PROTOCOL_PREFIX + camera, protocol)
+                                    .putInt(PREF_CCTV_PORT_PREFIX + camera, port)
+                                    .putString(PREF_CCTV_PATH_PREFIX + camera, path).apply();
+                            if (userStreamMode && camera <= 3) assignedStreamUrls[camera] = savedRoute;
+                            runOnUiThread(() -> {
+                                if (camera == 1) reconnectIpWebcamVlc();
+                                else if (camera == 2) reconnectCctv02Vlc();
+                                else if (camera == 3) reconnectCctv03Vlc();
+                            });
+                            finishCctvFirebaseSave(requestId, true, "Camera settings saved to Firebase.", savedRoute);
+                        }).addOnFailureListener(error -> finishCctvFirebaseSave(requestId, false, "Could not verify the saved Firebase camera settings.", "")))
+                        .addOnFailureListener(error -> finishCctvFirebaseSave(requestId, false, "Firebase camera settings save failed: " + error.getMessage(), ""));
+            }).addOnFailureListener(error -> finishCctvFirebaseSave(requestId, false, "Could not read the assigned Firebase camera.", ""));
+        }).addOnFailureListener(error -> finishCctvFirebaseSave(requestId, false, "Could not find this stream's Firebase assignment.", ""));
     }
 
     private String cctvRtspCredentialsKey(int camera) {
@@ -3848,28 +3946,26 @@ public class MainActivity extends Activity {
             return MainActivity.this.saveCctvRtspCredentials(camera, username == null ? "" : username.trim(), password == null ? "" : password);
         }
 
-        @JavascriptInterface public boolean saveCctvCameraStreamSettings(int camera, String protocol, String ip, int port, String path) {
-            if (camera < 1 || camera > 6 || protocol == null || ip == null || path == null) return false;
+        @JavascriptInterface public void saveCctvCameraStreamSettings(int camera, String protocol, String ip, int port,
+                                                                      String path, String plotId, String greenhouseId,
+                                                                      String requestId) {
+            if (camera < 1 || camera > 6 || protocol == null || ip == null || path == null
+                    || plotId == null || greenhouseId == null || requestId == null
+                    || !requestId.matches("[A-Za-z0-9_-]{1,80}")) {
+                finishCctvFirebaseSave(requestId == null ? "" : requestId, false, "Invalid camera settings.", ""); return;
+            }
             String scheme = protocol.trim().toLowerCase(Locale.US);
             String address = ip.trim();
             String routePath = path.trim();
-            if (!(scheme.equals("http") || scheme.equals("https") || scheme.equals("rtsp"))) return false;
-            if (port < 1 || port > 65535 || !isPrivateIpv4OrBlank(address)) return false;
-            if (camera <= 3 && address.isEmpty()) return false;
-            if (!routePath.startsWith("/") || routePath.contains("..") || routePath.matches(".*[?#@].*")) return false;
-            SharedPreferences.Editor editor = getPrefs().edit()
-                    .putString(PREF_CCTV_IP_PREFIX + String.format(Locale.US, "%02d", camera), address)
-                    .putBoolean(PREF_CCTV_LOCAL_OVERRIDE_PREFIX + String.format(Locale.US, "%02d", camera), camera <= 3)
-                    .putString(PREF_CCTV_PROTOCOL_PREFIX + camera, scheme)
-                    .putInt(PREF_CCTV_PORT_PREFIX + camera, port)
-                    .putString(PREF_CCTV_PATH_PREFIX + camera, routePath);
-            editor.apply();
-            if (camera <= 3) runOnUiThread(() -> {
-                if (camera == 1) reconnectIpWebcamVlc();
-                else if (camera == 2) reconnectCctv02Vlc();
-                else reconnectCctv03Vlc();
-            });
-            return true;
+            if (!(scheme.equals("http") || scheme.equals("https") || scheme.equals("rtsp"))
+                    || port < 1 || port > 65535 || !isPrivateIpv4OrBlank(address) || address.isEmpty()
+                    || !routePath.startsWith("/") || routePath.contains("..") || routePath.matches(".*[?#@].*")) {
+                finishCctvFirebaseSave(requestId, false, "Check the protocol, private camera address, port, and stream path.", ""); return;
+            }
+            String safePlotId = safePlotId(plotId);
+            String safeGreenhouse = greenhouseId.matches("greenhouse-[1-9][0-9]*") ? greenhouseId : "";
+            if (safeGreenhouse.isEmpty()) { finishCctvFirebaseSave(requestId, false, "Select a valid greenhouse.", ""); return; }
+            saveCctvStreamSettingsToFirebase(camera, scheme, address, port, routePath, safePlotId, safeGreenhouse, requestId);
         }
 
         @JavascriptInterface public String getCctvCameraIpAddresses() {
