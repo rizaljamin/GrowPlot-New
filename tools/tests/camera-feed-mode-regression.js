@@ -25,6 +25,9 @@ assert.doesNotMatch(source,/localStorage\.(?:getItem|setItem)\(streamModeKey/,'s
 assert.match(source,/\|\|CAMERA_MODE/,'unconfigured source defaults to Camera');
 assert.match(source,/feed\.innerHTML='<button class="stream-camera-snap"/,'camera selection renders a single camera icon');
 assert.match(source,/bridge\.captureFeedPhoto\(camera,currentPlotId\(\)\)/,'tapping the camera canvas launches native photo capture directly');
+assert.match(source,/const readMode=\(\)=>CAMERA_MODE/,'launcher source mode defaults to Camera');
+assert.match(java,/if \("https:\/\/appassets\.androidplatform\.net\/camera-feed-settings\.js"\.equals\(requestedUrl\)\)[\s\S]*?getAssets\(\)\.open\("camera-feed-settings\.js"\)/,'Android serves the camera settings script referenced by the dashboard');
+assert.match(java,/if \("https:\/\/appassets\.androidplatform\.net\/camera-feed-settings\.js"\.equals\(url\)\)[\s\S]*?getAssets\(\)\.open\("camera-feed-settings\.js"\)/,'Android serves the camera settings script on legacy WebView requests');
 assert.doesNotMatch(source,/bridge\.openFeedPhotoActions\(camera,currentPlotId\(\)\)/,'home camera capture skips the native action chooser');
 assert.match(source,/close\(\);if\(camera===1&&typeof bridge\.setHomeStreamCameraMode==='function'\)bridge\.setHomeStreamCameraMode\(false\)/,'saving CCTV settings reactivates the Home playback surface after closing the dialog');
 assert.match(java,/openFeedPhotoActions\(int camera, String plotId\)[\s\S]*Take a photo[\s\S]*Choose an image from files[\s\S]*launchFeedPhotoCapture[\s\S]*launchFeedPhotoPicker/,'native camera controls can take a photo or import from files');
