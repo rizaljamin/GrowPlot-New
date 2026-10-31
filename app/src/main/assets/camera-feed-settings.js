@@ -67,6 +67,7 @@
  }
  function applyMode(){
   const globalDeviceCamera=readGlobal()===CAMERA_MODE;
+  const cctvConfiguration=document.getElementById('cctvStreamConfiguration');if(cctvConfiguration){cctvConfiguration.hidden=false;cctvConfiguration.setAttribute('aria-disabled',String(globalDeviceCamera))}
   const globalStreamControls=document.getElementById('cctvStreamControls');
   if(globalStreamControls){globalStreamControls.disabled=globalDeviceCamera;globalStreamControls.setAttribute('aria-disabled',String(globalDeviceCamera));for(const control of globalStreamControls.querySelectorAll('input,button,select,textarea'))control.disabled=globalDeviceCamera}
   for(const card of document.querySelectorAll('.camera')){
