@@ -10,10 +10,8 @@ assert.match(java,/getCctvCameraStreamSettings/,'Android exposes per-stream conn
 assert.match(java,/saveCctvCameraStreamSettings/,'Android persists protocol, IP, port, and path for each stream');
 assert.match(java,/cctvStreamProtocol\(camera\)[\s\S]*cctvStreamPort\(camera\)[\s\S]*cctvStreamPath\(camera\)/,'live URLs use each stream saved protocol, port, and path');
 assert.match(html,/<summary><span>Camera Settings<\/span>/,'Settings section title is Camera Settings');
-assert.match(html,/<span class=\"camname\">STREAM \$\{id\}<\/span>/,'Home card uses a Stream label without the old CCTV label');
-assert.match(html,/<button class="stream-settings-button" type="button" data-camera=/,'each Home stream renders a direct gear button for that stream');
-assert.match(html,/class="stream-settings-button"[^>]*>\s*<span aria-hidden="true">⚙<\/span><\/button>/,'the gear icon is visible in the card markup without the settings script');
-assert.match(html,/\.stream-settings-button\{display:inline-grid/,'the gear button has inline page styling independent of JavaScript');
+assert.match(html,/<main id="mainDashboard">[\s\S]*Image Streams[\s\S]*IoT Reading[\s\S]*<\/main>/,'Home contains only the two requested sections');
+assert.doesNotMatch(html.slice(html.indexOf('<main id="mainDashboard">'),html.indexOf('</main>')), /STREAM 0[1-6]|stream-settings-button|tank-mini|Fertigation Tank|camera-grid/,'Home has no fixed stream, IoT, or tank cards');
 assert.doesNotMatch(html,/feed-source-select|feed-source-details|File selection|value="camera"|value="file"/,'Home stream cards contain no feed source, camera, or file selector');
 assert.match(source,/Connection protocol/,'the gear dialog contains a protocol field');
 assert.match(source,/CCTV \/ RTSP IP address/,'the protocol field identifies RTSP CCTV addresses');
@@ -46,7 +44,7 @@ function makeCard(camera){
  card.querySelector=selector=>{const all=[];const visit=node=>{for(const child of node.children||[]){all.push(child);visit(child)}};visit(card);return all.find(node=>selector.startsWith('.')?node.className===selector.slice(1):null)||null};
  return {card,gear,actions};
 }
-const cards=Array.from({length:6},(_,i)=>makeCard(i+1)),inputs=[{value:'device-camera',disabled:false},{value:'cctv-stream',disabled:false}];
+const cards=[],inputs=[{value:'device-camera',disabled:false},{value:'cctv-stream',disabled:false}];
 const cameraControls=Array.from({length:6},(_,i)=>({id:'cctvIp'+(i+1),disabled:false,matches(selector){return selector==='input[id^="cctvIp"]'}}));
 const username={id:'vigiCctv03Username',disabled:false,matches(){return false}},password={id:'vigiCctv03Password',disabled:false,matches(){return false}},save={id:'saveCctvIps',disabled:false,matches(){return false}};
 let controlsReady=false,settingsMutationCallback=null;
@@ -60,10 +58,6 @@ vm.runInNewContext(source,context);
 assert.equal(window.GrowPlotFeedSettings.getMode(),'cctv-stream','CCTV stream remains the default mode');
 assert.equal(inputs[1].checked,true);assert.equal(stream.hidden,false,'existing stream settings remain visible by default');
 assert(settingsMutationCallback,'camera settings watches for dynamically loaded controls');
-assert(cards.every(x=>x.card.querySelector('.stream-settings-button')&&!x.card.querySelector('.feed-camera-button')),'each CCTV stream shows its own settings gear in stream mode');
-assert(cards.every((x,i)=>x.card.querySelector('.stream-settings-button').attributes['aria-label']==='Connection settings for Stream '+String(i+1).padStart(2,'0')),'each gear identifies its own numbered stream');
-assert(cards.every(x=>x.card.querySelector('.stream-settings-button')),'each stream has a dedicated settings gear');
-assert(cards.every(x=>!x.card.querySelector('.feed-source-select')),'no stream shows the old IP Webcam/Camera/File dropdown');
 inputs[0].checked=true;handlers['device-camera-change']();
 assert.equal(window.GrowPlotFeedSettings.getMode(),'device-camera','radio selection is persisted');
 assert.equal(stream.hidden,false,'the CCTV setup remains displayed for visibility');
@@ -74,9 +68,7 @@ assert.equal(streamControls.disabled,true,'native fieldset blocks current and dy
 controlsReady=true;settingsMutationCallback();
 assert(cameraControls.every(control=>control.disabled),'device-camera mode disables all six CCTV IP fields');
 assert(username.disabled&&password.disabled&&save.disabled,'device-camera mode disables credentials and save controls');
-assert(cards.every(x=>x.card.querySelector('.feed-camera-button')&&x.card.querySelector('.stream-settings-button')),'device-camera mode keeps the capture button and stream settings gear on all six channels');
-cards[4].card.querySelector('.feed-camera-button').click();
-assert.deepEqual(captures,[[5,'plot-7']],'the channel button opens the native camera for that channel and plot');
+
 inputs[1].checked=true;handlers['cctv-stream-change']();
 assert.equal(window.GrowPlotFeedSettings.getMode(),'cctv-stream','switching back to CCTV stream is persisted');
 assert.equal(stream.hidden,false,'switching back keeps the existing CCTV settings visible');
@@ -87,6 +79,6 @@ assert.equal(streamControls.disabled,false,'native fieldset re-enables the CCTV 
 assert(cameraControls.every(control=>!control.disabled),'switching back enables all six CCTV IP fields');
 assert.equal(save.disabled,false,'switching back enables saving the IP addresses');
 assert(!username.disabled&&!password.disabled,'CCTV mode enables the VIGI credentials with the rest of the card');
-assert(cards.every(x=>x.card.querySelector('.stream-settings-button')&&!x.card.querySelector('.feed-camera-button')),'all six channels keep their settings gear when CCTV mode returns');
-assert.equal(captures.length,1,'changing feed mode does not start a camera or clear saved CCTV settings');
+assert.equal(captures.length,0,'feed-mode changes do not start a camera when Home has no stream cards');
+assert.equal(cards.length,0,'Home has no stream card settings or camera controls');
 console.log('PASS: stream gear connection settings, no source dropdown, CCTV radio grouping, card enable/disable behavior, camera actions, and saved mode.');
