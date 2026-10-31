@@ -8,12 +8,13 @@ assert.match(html, /const defaultPlantIds=plantIds\.map\(item=>\(\{\.\.\.item\}\
   'each plot render starts from the original camera identity defaults');
 assert.match(html, /function loadConfirmedPlantIds\(plotId=selectedPlotId\)[\s\S]*?diagnosisSpeciesKey\(index\+1,plotId\)[\s\S]*?identity\?\.confirmedAt[\s\S]*?identity\?\.source!=='plantnet_image'[\s\S]*?plant\.malay=identity\.name[\s\S]*?plant\.scientific=identity\.scientific/,
   'only user-confirmed species saved for the active plot are restored to camera labels');
-assert.match(html, /function render\(\)\{[\s\S]*?loadConfirmedPlantIds\(selectedPlotId\);[\s\S]*?cameraRoot\.innerHTML=''/,
-  'home camera cards hydrate confirmed species before rendering');
+assert.match(html, /function render\(\)\{[\s\S]*?loadConfirmedPlantIds\(selectedPlotId\);[\s\S]*?cameraRoot\.innerHTML=''[\s\S]*?readingRoot\.innerHTML=''/,
+  'Home still loads selected-plot identity data and leaves stream and IoT containers empty');
 assert.match(html, /function updateCameraSpeciesDisplay\(camera\)\{window\.renderPlotCctvSummary\?\.\(Number\(camera\)\);\}/,
   'the currently rendered Plot/CCTV summary updates immediately after confirmation');
 const summary = fs.readFileSync('app/src/main/assets/plot-cctv-summary.js', 'utf8');
-assert.match(html, /data-plot-cctv-summary/, 'each Home CCTV card has a Plot/CCTV summary slot');
+assert.doesNotMatch(html.slice(html.indexOf('<main id="mainDashboard">'),html.indexOf('</main>')), /data-plot-cctv-summary|STREAM 0[1-6]/,
+  'Home no longer renders CCTV summary cards');
 assert.match(summary, /plant\.identitySuggested\?'Suggested plant: ':'Plant: '/,
   'plant identity is shown first and unconfirmed suggestions are labeled');
 assert.match(html, /function loadConfirmedPlantIds\(plotId=selectedPlotId\)[\s\S]*?plant\.identityConfirmed=true;return\}let suggestion=null[\s\S]*?diagnosisSpeciesCandidates\(report\)\[0\][\s\S]*?plant\.identitySuggested=true/,
