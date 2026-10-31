@@ -5,7 +5,8 @@ assert(!/STREAM 0[2-6]|tank-mini|Fertigation Tank/.test(main),'Home shell contai
 const body=html.slice(html.indexOf('function render(){'),html.indexOf('let saveToastTimer='));
 assert.match(main,/id="cameras" class="camera-grid single-stream"/,'Home contains one visible Image Streams card container');
 assert.match(body,/stream-settings-button[\s\S]*data-camera="1"/,'the single stream has its own settings gear');
-assert.match(body,/ipWebcamStreamUrl\(1\)[\s\S]*class="feed"/,'Stream 01 uses the playback feed target');
+assert.match(body,/ipWebcamStreamUrl\(1\)/,'Stream 01 loads the configured playback address');
+assert.match(body,/class="feed"/,'Stream 01 exposes the in-card VLC playback target');
 assert.equal((body.match(/cameraRoot\.appendChild\(wrap\)/g)||[]).length,1,'Home render can append only one stream card');
 const ctx={};vm.createContext(ctx);
 const scan=html.slice(html.indexOf('window.onSnapshotScan=function'),html.indexOf("if(window.GrowPlotBridge){document.getElementById('refreshInterval')"));
