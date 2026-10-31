@@ -1,3 +1,5 @@
+2026-10-31 | v0.8.00 Build 14 (versionCode 291) | Fix plot stream count to default to the saved section count (one when unset), restore the plot greenhouse dropdown to its configured count, and make each stream gear/card action bind through delegated clicks after rerenders. Device Camera mode now clearly prompts users to tap the card to open capture. Build verification pending.
+
 2026-10-31 | v0.8.00 Build 13 (versionCode 290) | Make Home stream cards follow the selected plot's greenhouse section count (up to the six supported channels). Add independent Device Camera/CCTV source selection and per-stream HTTP/HTTPS/RTSP address, port, path, and encrypted login settings; apply source selection to the native live players. Build and device verification pending.
 
 2026-10-31 | v0.8.00 Build 12 (versionCode 289) | Fix the missing Home stream gear by drawing a visible gear glyph in the card markup and styling the button in the page CSS, independent of camera settings JavaScript. Regression checks assert the rendered icon markup and independent styling. GitHub ARM64 build and Android device verification pending.
