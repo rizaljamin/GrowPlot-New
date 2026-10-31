@@ -8,6 +8,13 @@ const java=fs.readFileSync('app/src/main/java/com/growplot/farm/MainActivity.jav
 assert.match(html,/id="streamSourceSettingsCard"[\s\S]*id="streamSettingsToggle"/,'stream settings gear is above the canvas');
 assert.match(html,/id="homeStreamSourcePicker" class="home-stream-source-picker" role="listbox"[\s\S]*data-source="device-camera"[\s\S]*>Camera<\/span>[\s\S]*data-source="cctv-stream"[\s\S]*>CCTV<\/span>/,'gear picker has labeled Camera and CCTV options');
 assert.match(html,/stream-source-picker-slot\{width:100%;max-width:1000px;height:84px/,'picker gap is reserved so the playback canvas does not move');
+assert(html.includes('<span class="stream-settings-label">Settings</span>')&&html.includes('class="stream-settings-chevron"'),'source control shows Settings and a down arrow');
+assert(html.includes('margin-right:16px'),'source control is inset from the edge for picker room');
+assert(html.includes('.home-stream-source-option[aria-selected="true"]{background:#174a35;color:#fff}'),'selected picker row uses GrowPlot green and white text');
+assert(source.includes('background:#174a35;color:#fff;box-shadow:0 3px 12px'),'camera icon uses GrowPlot green with a white camera stroke');
+assert.doesNotMatch(html,/Choose a camera source to begin/,'camera setup prompt is removed');
+assert.match(html,/aria-selected="true" data-source="device-camera"/,'Camera is selected by default');
+
 assert.match(html,/\.camera-grid\.single-stream \.feed\{height:clamp\(280px,56\.25vw,560px\)/,'canvas uses a fixed responsive frame size');
 assert.match(html,/feed feed-camera-mode[\s\S]*class=\"stream-camera-snap\"/,'the initial canvas defaults to the camera control');
 assert.doesNotMatch(html,/No source selected|stream-empty-state/,'there is no empty playback state');
@@ -36,7 +43,7 @@ window.chooseHomeStreamSource('cctv-stream');
 assert.deepEqual(calls,[['set',1,'cctv-stream','plot-test'],['suppress-cctv',false],['refresh'],['settings',1]],'CCTV opens its connection settings once');
 assert.equal(picker.hidden,true,'CCTV choice closes the picker');
 assert.match(java,/selectedMode==='cctv-stream'&&!pickerOpen/,'native CCTV runs only after explicit selection and when picker is closed');
-assert.match(java,/if \(activityResumed && shouldShow\) startIpWebcamVlc/,'native player does not auto-start in the empty state');
+assert.match(java,/if \(activityResumed && shouldShow\) startIpWebcamVlc/,'native player starts only after CCTV is explicitly selected');
 assert.match(java,/setCctvVlcFeedsAllowedOnActiveScreen\(boolean allowed\)[\s\S]*if \(allowed\) return[\s\S]*stopIpWebcamVlc\(\)/,'disabling the native stream also stops its player');
 assert.doesNotMatch(java,/ipWebcamRefreshButton\.setText\("↻ Refresh"\)/,'legacy in-frame refresh control is removed');
 console.log('PASS: camera-default canvas, native photo/file controls, Camera/CCTV picker flow, and CCTV gating.');

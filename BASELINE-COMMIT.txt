@@ -1,5 +1,5 @@
 Repository: https://github.com/rizaljamin/GrowPlot-New
 Branch: main
-Baseline commit: e8c033fec1175c02118a5b653b11fbcb11c72827
-Baseline release: v0.8.00 Build 22 (versionCode 299), ARM64 only
-Task: rebuild-stream-canvas
+Baseline commit: 2683cdec9a699d42a1233d6b25c1f6201375c0ff
+Baseline release: v0.8.00 Build 23 (versionCode 300), ARM64 only
+Task: refine-camera-cctv-picker
