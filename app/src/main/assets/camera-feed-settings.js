@@ -42,7 +42,7 @@
      if((user||password)&&!(camera===3?bridge.saveVigiCctv03Credentials&&bridge.saveVigiCctv03Credentials(user,password):bridge.saveCctvCameraCredentials&&bridge.saveCctvCameraCredentials(camera,user,password))){error.textContent='Could not save the camera login.';return}
     }
     if(!bridge.setCctvCameraSourceMode(camera,mode)){error.textContent='Could not save this stream source.';return}
-    writeMode(camera,mode);close();applyMode();if(typeof window.showSaveToast==='function')window.showSaveToast('Stream '+stream+' settings saved.');
+    writeMode(camera,mode);close();if(typeof window.render==='function')window.render();applyMode();if(typeof window.showSaveToast==='function')window.showSaveToast('Stream '+stream+' settings saved.');
    }catch(_){error.textContent='Could not save these stream settings. Please try again.'}
    finally{save.disabled=false}
   });
@@ -72,11 +72,11 @@
   if(globalStreamControls){globalStreamControls.disabled=globalDeviceCamera;globalStreamControls.setAttribute('aria-disabled',String(globalDeviceCamera));for(const control of globalStreamControls.querySelectorAll('input,button,select,textarea'))control.disabled=globalDeviceCamera}
   for(const card of document.querySelectorAll('.camera')){
    const settings=card.querySelector('.stream-settings-button');if(!settings)continue;
-   const camera=Number(settings.dataset.camera);if(!settings.dataset.bound){settings.dataset.bound='1';settings.addEventListener('click',()=>openSettings(camera))}
+   const camera=Number(settings.dataset.camera);
    let actions=card.querySelector('.feed-card-actions');const deviceCamera=readMode(camera)===CAMERA_MODE;
    card.dataset.sourceMode=deviceCamera?CAMERA_MODE:STREAM_MODE;
    card.title=deviceCamera?'Tap this stream card to open the device camera.':'Tap this stream card to open its CCTV settings.';
-   if(!card.dataset.sourceClickBound){card.dataset.sourceClickBound='1';card.addEventListener('click',event=>{if(event.target.closest('button,a,input,select,textarea,[role="button"]'))return;if(readMode(camera)===CAMERA_MODE)launchDeviceCamera(camera);else openSettings(camera)})}
+   
    if(deviceCamera){
     let button=card.querySelector('.feed-camera-button');
     if(!button){button=document.createElement('button');button.type='button';button.className='feed-camera-button';button.setAttribute('aria-label','Take a photo for Stream '+String(camera).padStart(2,'0'));button.title='Take a photo';button.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h3l1.5-2h7L17 7h3v12H4z"/><circle cx="12" cy="13" r="3.5"/></svg>';button.addEventListener('click',()=>launchDeviceCamera(camera));actions.insertBefore(button,settings)}
@@ -86,6 +86,7 @@
  function init(){
   addStyles();
   const streamControls=document.getElementById('cctvStreamControls');if(streamControls&&typeof MutationObserver==='function')new MutationObserver(()=>applyMode()).observe(streamControls,{childList:true,subtree:true});
+  document.addEventListener('click',event=>{const target=event.target?.closest?.('.stream-settings-button');if(target){event.preventDefault();event.stopPropagation();openSettings(Number(target.dataset.camera));return}const card=event.target?.closest?.('.camera');if(!card||event.target?.closest?.('button,a,input,select,textarea,[role="button"]'))return;const settings=card.querySelector('.stream-settings-button');if(!settings)return;const camera=Number(settings.dataset.camera);if(readMode(camera)===CAMERA_MODE)launchDeviceCamera(camera);else openSettings(camera)});
   for(const input of document.querySelectorAll('input[name="homeFeedMode"]')){input.checked=input.value===readGlobal();input.addEventListener('change',()=>{if(!input.checked)return;try{localStorage.setItem(GLOBAL_KEY,input.value)}catch(_){}applyMode();if(typeof window.render==='function')window.render();applyMode()})}
   applyMode()
  }
