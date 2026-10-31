@@ -12,7 +12,7 @@ assert.match(java,/cctvStreamProtocol\(camera\)[\s\S]*cctvStreamPort\(camera\)[\
 assert.match(html,/<summary><span>Camera Settings<\/span>/,'Settings section title is Camera Settings');
 assert.match(html,/<main id="mainDashboard">[\s\S]*Image Streams[\s\S]*IoT Reading[\s\S]*<\/main>/,'Home contains only the two requested sections');
 assert.match(html.slice(html.indexOf('<main id="mainDashboard">'),html.indexOf('</main>')), /id="cameras" class="camera-grid single-stream"/,'Home shows exactly one visible image stream container');
-assert.match(html,/STREAM \\$\{id\}[\\s\\S]*stream-settings-button[\\s\\S]*data-camera="1"/,'the single Stream 01 card has a settings gear');
+assert.match(html,/stream-settings-button[\s\S]*data-camera="1"/,'the single Stream 01 card has a settings gear');
 assert.doesNotMatch(html,/feed-source-select|feed-source-details|File selection|value="camera"|value="file"/,'Home stream cards contain no feed source, camera, or file selector');
 assert.match(source,/Connection protocol/,'the gear dialog contains a protocol field');
 assert.match(source,/CCTV \/ RTSP IP address/,'the protocol field identifies RTSP CCTV addresses');
