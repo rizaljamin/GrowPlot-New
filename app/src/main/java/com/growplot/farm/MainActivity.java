@@ -920,6 +920,18 @@ public class MainActivity extends Activity {
         cctv03OverlayShown = false;
     }
 
+    private void setHomeStreamCameraMode(boolean deviceCamera) {
+        if (deviceCamera) {
+            cctv01OverlayShown = false;
+            stopIpWebcamVlc();
+            hideVlcFrame(ipWebcamVlcFrame);
+            return;
+        }
+        if (!activityResumed || web == null) return;
+        cctvVlcFeedsAllowedOnActiveScreen = true;
+        web.post(this::installCctv01VlcPositionListener);
+    }
+
     private void hideVlcFrame(FrameLayout frame) {
         if (frame == null) return;
         frame.animate().cancel();
@@ -986,6 +998,10 @@ public class MainActivity extends Activity {
                     params.topMargin = top;
                     ipWebcamVlcFrame.setLayoutParams(params);
                 }
+            }
+            if (shouldShow && activityResumed && ipWebcamVlcPlayer == null
+                    && ipWebcamVlcLayout != null && !cctvStreamUrl(1).isEmpty()) {
+                startIpWebcamVlc(ipWebcamVlcLayout);
             }
             if (shouldShow != cctv01OverlayShown) {
                 cctv01OverlayShown = shouldShow;
@@ -3791,6 +3807,10 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface public void openIpWebcam() {
             runOnUiThread(MainActivity.this::installCctv01VlcPositionListener);
+        }
+
+        @JavascriptInterface public void setHomeStreamCameraMode(boolean deviceCamera) {
+            runOnUiThread(() -> MainActivity.this.setHomeStreamCameraMode(deviceCamera));
         }
 
         @JavascriptInterface public void setCctvVlcFeedsAllowedOnActiveScreen(boolean allowed) {
