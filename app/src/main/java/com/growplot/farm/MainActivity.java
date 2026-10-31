@@ -129,6 +129,7 @@ public class MainActivity extends Activity {
     private static final String PREF_INTERVAL = "refresh_interval_minutes";
     private static final String PREF_CCTV_SNAPSHOT_INTERVAL_MILLIS = "cctv_snapshot_interval_millis";
     private static final String PREF_CCTV_IP_PREFIX = "cctv_ip_plot-1_";
+    private static final String PREF_CCTV_LOCAL_OVERRIDE_PREFIX = "cctv_local_override_";
     private static final String PREF_CCTV_PROTOCOL_PREFIX = "cctv_protocol_";
     private static final String PREF_CCTV_PORT_PREFIX = "cctv_port_";
     private static final String PREF_CCTV_PATH_PREFIX = "cctv_path_";
@@ -582,6 +583,22 @@ public class MainActivity extends Activity {
         return getPrefs().getString(PREF_CCTV_IP_PREFIX + String.format(Locale.US, "%02d", camera), defaultCctvIp(camera));
     }
 
+    private boolean hasLocalCctvStreamOverride(int camera) {
+        if (camera < 1 || camera > 3) return false;
+        String key = String.format(Locale.US, "%02d", camera);
+        // Protocol preferences were introduced by the per-stream editor. Treat existing saved
+        // protocol settings as explicit overrides so Build 29 users keep the setting they saved.
+        return getPrefs().getBoolean(PREF_CCTV_LOCAL_OVERRIDE_PREFIX + key, false)
+                || getPrefs().contains(PREF_CCTV_PROTOCOL_PREFIX + camera);
+    }
+
+    private void startLocalCctvStreamOverrides() {
+        if (!userStreamMode) return;
+        if (hasLocalCctvStreamOverride(1) && ipWebcamVlcLayout != null) startIpWebcamVlc(ipWebcamVlcLayout);
+        if (hasLocalCctvStreamOverride(2) && ipWebcam2VlcLayout != null) startCctv02Vlc(ipWebcam2VlcLayout);
+        if (hasLocalCctvStreamOverride(3) && ipWebcam3VlcLayout != null) startVigiCctv03Vlc(ipWebcam3VlcLayout);
+    }
+
     // Owner-scoped camera routes. Demo plot deliberately keeps legacy local IP settings.
     private final String[] assignedStreamUrls = new String[4];
     private volatile boolean userStreamMode = false;
@@ -597,10 +614,11 @@ public class MainActivity extends Activity {
 
     private void refreshAssignedPlayer(int slot) {
         // An assignment may be removed or disabled: clear the old frame instead of retaining it.
-        if (userStreamMode && (slot < 1 || slot > 3 || assignedStreamUrls[slot] == null || assignedStreamUrls[slot].isEmpty())) {
+        if (userStreamMode && (slot < 1 || slot > 3
+                || ((assignedStreamUrls[slot] == null || assignedStreamUrls[slot].isEmpty()) && !hasLocalCctvStreamOverride(slot)))) {
             resetCctvSurfaces();
             for (int camera = 1; camera <= 3; camera++) {
-                if (assignedStreamUrls[camera] != null && !assignedStreamUrls[camera].isEmpty()) {
+                if ((assignedStreamUrls[camera] != null && !assignedStreamUrls[camera].isEmpty()) || hasLocalCctvStreamOverride(camera)) {
                     if (camera == 1 && ipWebcamVlcLayout != null) startIpWebcamVlc(ipWebcamVlcLayout);
                     if (camera == 2 && ipWebcam2VlcLayout != null) startCctv02Vlc(ipWebcam2VlcLayout);
                     if (camera == 3 && ipWebcam3VlcLayout != null) startVigiCctv03Vlc(ipWebcam3VlcLayout);
@@ -666,6 +684,7 @@ public class MainActivity extends Activity {
         assignedStreamsLoading = userStreamMode;
         resetCctvSurfaces(); // Always reset all old frames before starting the newly selected scope.
         if (!userStreamMode) refreshAssignedPlayers(); // Demo uses saved Settings IPs.
+        else startLocalCctvStreamOverrides(); // Explicit per-device settings take priority over assigned defaults.
         if (!userStreamMode) { return; }
         com.google.firebase.auth.FirebaseUser user = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
         if (user == null || !plotId.matches("[A-Za-z0-9_-]{1,100}") || !greenhouseId.matches("greenhouse-[1-9][0-9]*")) {
@@ -727,7 +746,9 @@ public class MainActivity extends Activity {
     }
 
     private String cctvStreamUrl(int camera) {
-        if (userStreamMode) return assignedStreamUrls[camera] == null ? "" : assignedStreamUrls[camera];
+        if (userStreamMode && !hasLocalCctvStreamOverride(camera)) {
+            return assignedStreamUrls[camera] == null ? "" : assignedStreamUrls[camera];
+        }
         String ip = cctvIp(camera);
         return ip.isEmpty() ? "" : cctvStreamProtocol(camera) + "://" + ip + ":" + cctvStreamPort(camera) + cctvStreamPath(camera);
     }
@@ -3838,6 +3859,7 @@ public class MainActivity extends Activity {
             if (!routePath.startsWith("/") || routePath.contains("..") || routePath.matches(".*[?#@].*")) return false;
             SharedPreferences.Editor editor = getPrefs().edit()
                     .putString(PREF_CCTV_IP_PREFIX + String.format(Locale.US, "%02d", camera), address)
+                    .putBoolean(PREF_CCTV_LOCAL_OVERRIDE_PREFIX + String.format(Locale.US, "%02d", camera), camera <= 3)
                     .putString(PREF_CCTV_PROTOCOL_PREFIX + camera, scheme)
                     .putInt(PREF_CCTV_PORT_PREFIX + camera, port)
                     .putString(PREF_CCTV_PATH_PREFIX + camera, routePath);
@@ -3869,6 +3891,7 @@ public class MainActivity extends Activity {
                 SharedPreferences.Editor editor = getPrefs().edit();
                 for (int i = 0; i < 6; i++) {
                     editor.putString(PREF_CCTV_IP_PREFIX + String.format(Locale.US, "%02d", i + 1), values[i]);
+                    if (i < 3) editor.putBoolean(PREF_CCTV_LOCAL_OVERRIDE_PREFIX + String.format(Locale.US, "%02d", i + 1), true);
                 }
                 editor.apply();
                 runOnUiThread(() -> {

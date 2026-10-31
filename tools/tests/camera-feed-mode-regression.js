@@ -22,6 +22,8 @@ assert.match(source,/saveCctvRtspCredentials\(camera,username,password\)/,'RTSP 
 assert.match(java,/private String\[\] cctvRtspCredentials\(int camera\)[\s\S]*?AndroidKeyStore/,'RTSP credentials are read from Android Keystore-backed storage');
 assert.match(java,/private boolean saveCctvRtspCredentials\(int camera, String username, String password\)[\s\S]*?AES\/GCM\/NoPadding/,'RTSP credentials are encrypted per camera before saving');
 assert.match(java,/String route = addCctvRtspCredentials\(1, cctvStreamUrl\(1\)\)[\s\S]*?addCctvRtspMediaOptions\(media, 1\)/,'CCTV01 RTSP URLs and VLC auth options use the saved camera credentials');
+assert.match(java,/private String cctvStreamUrl\(int camera\)[\s\S]*?userStreamMode && !hasLocalCctvStreamOverride\(camera\)[\s\S]*?PREF_CCTV_PROTOCOL_PREFIX \+ camera/,'explicit local RTSP settings override an assigned plot stream and survive app updates');
+assert.match(java,/private void startLocalCctvStreamOverrides\(\)[\s\S]*?startIpWebcamVlc\(ipWebcamVlcLayout\)/,'saved local streams start after switching to a plot with assigned camera feeds');
 assert.doesNotMatch(html,/Choose a camera source to begin/,'camera setup prompt is removed');
 assert.match(html,/aria-selected="true" data-source="device-camera"/,'Camera is selected by default');
 
