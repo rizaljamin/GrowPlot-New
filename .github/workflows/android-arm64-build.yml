@@ -1,5 +1,6 @@
-name: Build GrowPlot ARM64 APK
-# Build verified v0.7.00 ARM64 source
+name: GrowPlot v0.7.02 Build 11 | Camera & IoT under Plot Management
+run-name: 'GrowPlot v0.7.02 Build 11 | Camera & IoT settings relocation | ${{ github.event_name }}'
+# Build 11: move camera IP / VIGI settings under Plot Management; retain existing streaming and save handlers.
 
 on:
   workflow_dispatch:
