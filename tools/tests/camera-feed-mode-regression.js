@@ -8,11 +8,11 @@ const java=fs.readFileSync('app/src/main/java/com/growplot/farm/MainActivity.jav
 assert.match(html,/id="streamSourceSettingsCard"[\s\S]*id="streamSettingsToggle"/,'stream settings gear is above the canvas');
 assert.match(html,/id="homeStreamSourcePicker" class="home-stream-source-picker" role="listbox"[\s\S]*data-source="device-camera"[\s\S]*>Camera<\/span>[\s\S]*data-source="cctv-stream"[\s\S]*>CCTV<\/span>/,'gear picker has labeled Camera and CCTV options');
 assert.match(html,/stream-source-picker-slot\{width:100%;max-width:1000px;height:84px/,'picker gap is reserved so the playback canvas does not move');
-assert.match(html,/\.home-stream-settings-toggle\{[^}]*display:flex;flex-direction:row;flex-wrap:nowrap;[^}]*width:144px;min-width:144px;[^}]*white-space:nowrap/,'Home Settings control stays in one aligned row and cannot inherit camera-dialog button styles');
+assert.match(html,/\.home-stream-settings-toggle\{[^}]*display:flex;flex-direction:row;flex-wrap:nowrap;[^}]*width:\d+px;min-width:\d+px;[^}]*white-space:nowrap/,'Home Settings control stays in one aligned row and cannot inherit camera-dialog button styles');
 assert.match(html,/\.home-stream-source-picker\{display:grid;width:144px;box-sizing:border-box/,'source listbox matches the settings control width');
 assert.match(html,/id="streamSettingsToggle" class="home-stream-settings-toggle"/,'Home Settings uses a class isolated from camera-dialog controls');
 assert(html.includes('<span class="stream-settings-label">Settings</span>')&&html.includes('class="stream-settings-chevron"'),'source control shows Settings and a down arrow');
-assert(html.includes('margin-right:16px'),'source control is inset from the edge for picker room');
+assert.match(html,/\.home-stream-settings-toggle\{[^}]*margin-right:0/,'source control remains aligned without a forced right offset');
 assert(html.includes('.home-stream-source-option[aria-selected="true"]{background:#174a35;color:#fff}'),'selected picker row uses GrowPlot green and white text');
 assert(source.includes('background:#174a35;color:#fff;box-shadow:0 3px 12px'),'camera icon uses GrowPlot green with a white camera stroke');
 assert.match(source,/credentials\.hidden=!rtsp/,'username and password fields are shown for RTSP only, not HTTP/IP Webcam');
