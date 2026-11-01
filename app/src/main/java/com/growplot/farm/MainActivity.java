@@ -7203,4 +7203,6 @@ public class MainActivity extends Activity {
     }
 
     private void sendToPage(String json) {
-        if (web != null) web.evaluateJavascript("window.onSnapshotScan && window.onSnapshotScan(" + 
+        if (web != null) web.evaluateJavascript("window.onSnapshotScan && window.onSnapshotScan(" + json + ");", null);
+    }
+}

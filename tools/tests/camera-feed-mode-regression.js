@@ -99,4 +99,4 @@ assert.match(java,/getFeedPhotoPreview\(int camera, String plotId\)/,'native bri
 assert.match(java,/Photo saved on this device and shown on the stream card/,'camera capture reports local save and visible preview');
 assert.match(java,/setCctvVlcFeedsAllowedOnActiveScreen\(boolean allowed\)[\s\S]*if \(allowed\) return[\s\S]*stopIpWebcamVlc\(\)/,'disabling the native stream also stops its player');
 assert.doesNotMatch(java,/ipWebcamRefreshButton\.setText\("↻ Refresh"\)/,'legacy in-frame refresh control is removed');
-console.log(
+console.log('PASS: camera-default canvas, native photo/file controls, Camera/CCTV picker flow, and CCTV gating.');
