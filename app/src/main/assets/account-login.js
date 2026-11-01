@@ -290,7 +290,7 @@ window.GrowPlotAccountResponse=function(response){
   if(target)target.textContent=response.ok?'If a GrowPlot account matches that address, a reset email will arrive shortly. Check your inbox and spam folder.':(response.error||'Could not send a reset email. Please check your connection and try again.');
   return;
  }
- if(!response.ok){if(response.action==='googleSignIn'){const createView=document.getElementById('createView');const target=createView&&!createView.hidden?document.getElementById('createStatus'):status;if(target)target.textContent=response.error||'Google sign-in failed.';}else if(response.action==='register'&&response.data&&response.data.duplicateEmail){showRegistrationReset();}else if(response.action==='register'){const target=registrationStatus();if(target)target.textContent=response.error||'Account request failed.';}else if(response.action==='profile'&&currentUser){window.GrowPlotCloudProfile=null;saveNotice('Signed in, but your Firebase cloud profile could not be loaded: '+(response.error||'Please retry.'),false);goHome();return;}else msg((response.action==='profile'?'Firebase profile could not be loaded: ':'')+(response.error||'Account request failed'));if(response.action==='saveProfile'){const callback=saveProfileCallback;saveProfileCallback=null;if(callback)callback(false,response.error||'Firebase save failed.');}if(response.action==='profile'){const authScreen=document.getElementById('authScreen');if(authScreen)authScreen.hidden=false;currentUser=null;window.GrowPlotCurrentUser=null;}if(response.action==='saveProfile')saveNotice('Firebase save failed: '+(response.error||'Please retry.'),false);if(response.action==='saveOwnedDevice'||response.action==='assignOwnedDevice'){const el=document.getElementById('gpDeviceStatus');if(el)el.textContent='Firebase error: '+(response.error||response.message||'Request failed (no error details returned).');}return;}
+ if(!response.ok){if(response.action==='googleSignIn'){const createView=document.getElementById('createView');const target=createView&&!createView.hidden?document.getElementById('createStatus'):status;if(target)target.textContent=response.error||'Google sign-in failed.';}else if(response.action==='register'&&response.data&&response.data.duplicateEmail){showRegistrationReset();}else if(response.action==='register'){const target=registrationStatus();if(target)target.textContent=response.error||'Account request failed.';}else if(response.action==='profile'&&currentUser){window.GrowPlotCloudProfile=null;saveNotice('Signed in, but your Firebase cloud profile could not be loaded: '+(response.error||'Please retry.'),false);goHome();return;}else msg((response.action==='profile'?'Firebase profile could not be loaded: ':'')+(response.error||'Account request failed'));if(response.action==='saveProfile'){const callback=saveProfileCallback;saveProfileCallback=null;if(callback)callback(false,response.error||'Firebase save failed.');}if(response.action==='profile'){const authScreen=document.getElementById('authScreen');if(authScreen)authScreen.hidden=false;currentUser=null;window.GrowPlotCurrentUser=null;}if(response.action==='saveProfile')saveNotice('Firebase save failed: '+(response.error||'Please retry.'),false);if(response.action==='saveOwnedDevice'||response.action==='assignOwnedDevice'||response.action==='unlinkOwnedDevice'){const el=document.getElementById('gpDeviceStatus');if(el)el.textContent='Firebase error: '+(response.error||response.message||'Request failed (no error details returned).');}return;}
  const data=response.data||{};
  if(response.action==='accountWarning'){saveNotice(data.warning||'Cloud profile update failed. Your sign-in is still active.',false);return;}
  if(response.action==='login'||response.action==='register'||response.action==='googleSignIn'){
@@ -600,7 +600,18 @@ window.GrowPlotSaveCloudProfile=function(callback){
     const d=devices.find(x=>x.deviceId===a.deviceId)||{deviceId:a.deviceId,deviceName:a.deviceId};shown.add(a.deviceId);
     const item=document.createElement('button');item.type='button';item.style.cssText='text-align:left;background:#f2f7f3;border:1px solid #a7c7b1;border-radius:8px;padding:10px;color:#193b2b';
     item.textContent='✓ '+(d.deviceName||d.deviceId)+' — '+(a.greenhouseId||'Greenhouse unspecified')+' / '+(a.sectionId||'Section unspecified')+(d.ipAddress?' — '+d.ipAddress:'');
-    item.onclick=()=>selectSavedDevice(d,a);list.appendChild(item);
+    item.onclick=()=>selectSavedDevice(d,a);
+    const wrap=document.createElement('div');wrap.style.cssText='display:flex;gap:8px;align-items:stretch;flex-wrap:wrap';
+    item.style.flex='1 1 210px';
+    const unlink=document.createElement('button');unlink.type='button';unlink.textContent='Unlink';
+    unlink.style.cssText='padding:8px 12px;border:1px solid #b45b55;border-radius:8px;color:#8d302d;background:#fff;cursor:pointer';
+    unlink.onclick=()=>{
+      if(!currentUser||currentUser.developmentOnly||!api?.configured()){document.getElementById('gpDeviceStatus').textContent='Sign in required.';return;}
+      if(!confirm('Unlink '+a.deviceId+' from '+a.greenhouseId+' / '+a.sectionId+'? The camera and its credentials will remain saved.'))return;
+      request('unlinkOwnedDevice',{plotId:a.plotId,greenhouseId:a.greenhouseId,sectionId:a.sectionId,deviceId:a.deviceId});
+      document.getElementById('gpDeviceStatus').textContent='Unlinking camera assignment…';
+    };
+    wrap.append(item,unlink);list.appendChild(wrap);
    }
    for(const d of devices){
     if(shown.has(d.deviceId))continue;
