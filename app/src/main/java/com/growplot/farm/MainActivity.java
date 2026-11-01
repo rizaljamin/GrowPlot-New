@@ -817,42 +817,66 @@ public class MainActivity extends Activity {
             final String targetDeviceId = deviceId;
             com.google.firebase.firestore.DocumentReference feedRef = store.collection("data_feeds").document(uid + "_" + targetDeviceId);
             feedRef.get().addOnSuccessListener(existing -> {
-                if (existing.exists() && (!uid.equals(existing.getString("ownerUserId"))
-                        || !("AV".equalsIgnoreCase(existing.getString("deviceType")) || "Camera".equalsIgnoreCase(existing.getString("deviceType"))))) {
-                    finishCctvFirebaseSave(requestId, false, "The assigned Firebase feed is not an owned camera.", ""); return;
+                persistCctvStreamSettings(feedRef, existing, uid, targetDeviceId, camera, protocol, address, port, path, requestId);
+            }).addOnFailureListener(error -> {
+                // Firestore rules intentionally allow reading only an owned data_feeds document.
+                // A missing default CCTV0N document is therefore reported as PERMISSION_DENIED,
+                // even though an owner-scoped create at uid_CCTV0N is allowed. Create that
+                // default slot directly; assigned custom device IDs must already exist.
+                if ("CCTV0".concat(String.valueOf(camera)).equals(targetDeviceId)) {
+                    persistCctvStreamSettings(feedRef, null, uid, targetDeviceId, camera, protocol, address, port, path, requestId);
+                } else {
+                    finishCctvFirebaseSave(requestId, false, "Could not read the assigned Firebase camera. Confirm that the assigned device still exists and belongs to this account.", "");
                 }
-                java.util.Map<String, Object> record = new java.util.HashMap<>();
-                record.put("ownerUserId", uid); record.put("deviceId", targetDeviceId);
-                record.put("deviceType", existing.exists() ? existing.getString("deviceType") : "AV");
-                record.put("deviceName", existing.exists() && existing.getString("deviceName") != null ? existing.getString("deviceName") : targetDeviceId);
-                record.put("ipAddress", address); record.put("protocol", protocol.toUpperCase(Locale.US));
-                record.put("port", port); record.put("streamPath", path);
-                record.put("updatedAt", com.google.firebase.firestore.FieldValue.serverTimestamp());
-                feedRef.set(record, com.google.firebase.firestore.SetOptions.merge()).addOnSuccessListener(ignored ->
-                        feedRef.get().addOnSuccessListener(savedFeed -> {
-                            if (!uid.equals(savedFeed.getString("ownerUserId"))) {
-                                finishCctvFirebaseSave(requestId, false, "Firebase could not confirm the saved camera owner.", ""); return;
-                            }
-                            String savedRoute = firebaseCameraRoute(savedFeed);
-                            if (savedRoute.isEmpty()) { finishCctvFirebaseSave(requestId, false, "Firebase saved the camera, but its streaming address is invalid.", ""); return; }
-                            String cameraKey = String.format(Locale.US, "%02d", camera);
-                            getPrefs().edit().putString(PREF_CCTV_IP_PREFIX + cameraKey, address)
-                                    .putBoolean(PREF_CCTV_LOCAL_OVERRIDE_PREFIX + cameraKey, camera <= 3)
-                                    .putString(PREF_CCTV_PROTOCOL_PREFIX + camera, protocol)
-                                    .putInt(PREF_CCTV_PORT_PREFIX + camera, port)
-                                    .putString(PREF_CCTV_PATH_PREFIX + camera, path).apply();
-                            if (userStreamMode && camera <= 3) assignedStreamUrls[camera] = savedRoute;
-                            runOnUiThread(() -> {
-                                rtspCredentialsRejected[camera] = false;
-                                if (camera == 1) reconnectIpWebcamVlc();
-                                else if (camera == 2) reconnectCctv02Vlc();
-                                else if (camera == 3) reconnectCctv03Vlc();
-                            });
-                            finishCctvFirebaseSave(requestId, true, "Camera settings saved to Firebase.", savedRoute);
-                        }).addOnFailureListener(error -> finishCctvFirebaseSave(requestId, false, "Could not verify the saved Firebase camera settings.", "")))
-                        .addOnFailureListener(error -> finishCctvFirebaseSave(requestId, false, "Firebase camera settings save failed: " + error.getMessage(), ""));
-            }).addOnFailureListener(error -> finishCctvFirebaseSave(requestId, false, "Could not read the assigned Firebase camera.", ""));
+            });
         }).addOnFailureListener(error -> finishCctvFirebaseSave(requestId, false, "Could not find this stream's Firebase assignment.", ""));
+    }
+
+    private void persistCctvStreamSettings(com.google.firebase.firestore.DocumentReference feedRef,
+                                             com.google.firebase.firestore.DocumentSnapshot existing,
+                                             String uid, String deviceId, int camera, String protocol,
+                                             String address, int port, String path, String requestId) {
+        boolean exists = existing != null && existing.exists();
+        if (exists && (!uid.equals(existing.getString("ownerUserId"))
+                || !("AV".equalsIgnoreCase(existing.getString("deviceType")) || "Camera".equalsIgnoreCase(existing.getString("deviceType"))))) {
+            finishCctvFirebaseSave(requestId, false, "The assigned Firebase feed is not an owned camera.", ""); return;
+        }
+        java.util.Map<String, Object> record = new java.util.HashMap<>();
+        record.put("ownerUserId", uid); record.put("deviceId", deviceId);
+        if (!exists) {
+            record.put("deviceType", "AV");
+            record.put("deviceName", deviceId);
+        }
+        record.put("ipAddress", address); record.put("protocol", protocol.toUpperCase(Locale.US));
+        record.put("port", port); record.put("streamPath", path);
+        record.put("updatedAt", com.google.firebase.firestore.FieldValue.serverTimestamp());
+        feedRef.set(record, com.google.firebase.firestore.SetOptions.merge()).addOnSuccessListener(ignored ->
+                feedRef.get().addOnSuccessListener(savedFeed -> {
+                    if (!uid.equals(savedFeed.getString("ownerUserId"))) {
+                        finishCctvFirebaseSave(requestId, false, "Firebase could not confirm the saved camera owner.", ""); return;
+                    }
+                    String savedType = savedFeed.getString("deviceType");
+                    if (!("AV".equalsIgnoreCase(savedType) || "Camera".equalsIgnoreCase(savedType))) {
+                        finishCctvFirebaseSave(requestId, false, "Firebase saved the route, but the assigned feed is not a camera.", ""); return;
+                    }
+                    String savedRoute = firebaseCameraRoute(savedFeed);
+                    if (savedRoute.isEmpty()) { finishCctvFirebaseSave(requestId, false, "Firebase saved the camera, but its streaming address is invalid.", ""); return; }
+                    String cameraKey = String.format(Locale.US, "%02d", camera);
+                    getPrefs().edit().putString(PREF_CCTV_IP_PREFIX + cameraKey, address)
+                            .putBoolean(PREF_CCTV_LOCAL_OVERRIDE_PREFIX + cameraKey, camera <= 3)
+                            .putString(PREF_CCTV_PROTOCOL_PREFIX + camera, protocol)
+                            .putInt(PREF_CCTV_PORT_PREFIX + camera, port)
+                            .putString(PREF_CCTV_PATH_PREFIX + camera, path).apply();
+                    if (userStreamMode && camera <= 3) assignedStreamUrls[camera] = savedRoute;
+                    runOnUiThread(() -> {
+                        rtspCredentialsRejected[camera] = false;
+                        if (camera == 1) reconnectIpWebcamVlc();
+                        else if (camera == 2) reconnectCctv02Vlc();
+                        else if (camera == 3) reconnectCctv03Vlc();
+                    });
+                    finishCctvFirebaseSave(requestId, true, "Camera settings saved to Firebase.", savedRoute);
+                }).addOnFailureListener(error -> finishCctvFirebaseSave(requestId, false, "Could not verify the saved Firebase camera settings.", "")))
+                .addOnFailureListener(error -> finishCctvFirebaseSave(requestId, false, "Firebase camera settings save failed: " + error.getMessage(), ""));
     }
 
     private String cctvRtspCredentialsKey(int camera) {
