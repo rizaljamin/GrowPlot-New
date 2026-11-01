@@ -504,20 +504,15 @@ window.GrowPlotSaveCloudProfile=function(callback){
   section.style.cssText='max-width:100%;box-sizing:border-box;margin:14px 0;padding:12px;border:1px solid #a0aaa0;border-radius:10px';
   section.innerHTML="<style>#growplotOwnedDevices{width:100%;max-width:100%;min-width:0;box-sizing:border-box;overflow-wrap:anywhere}#growplotOwnedDevices .gp-device-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}#growplotOwnedDevices label{display:flex;flex-direction:column;gap:5px;min-width:0;font-size:13px;font-weight:600}#growplotOwnedDevices input,#growplotOwnedDevices select{display:block;width:100%;max-width:100%;min-width:0;box-sizing:border-box;min-height:40px;padding:8px 10px;border:1px solid #cbd5d1;border-radius:7px;font-size:14px;background:#fff;color:#172e26}#growplotOwnedDevices .gp-device-actions{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-start;gap:10px;margin-top:16px}#growplotOwnedDevices .gp-device-actions button{flex:0 1 auto;width:auto;max-width:100%;min-height:40px;white-space:normal;border:1px solid #176b48;border-radius:10px;padding:10px 16px;background:#176b48;color:#fff;font:inherit;font-weight:700;cursor:pointer;box-shadow:0 2px 5px rgba(15,73,48,.15);transition:background .15s ease,transform .15s ease}#growplotOwnedDevices .gp-device-actions button:hover{background:#115537}#growplotOwnedDevices .gp-device-actions button:active{transform:translateY(1px)}#growplotOwnedDevices .gp-device-actions button:focus-visible{outline:3px solid #a5d6b8;outline-offset:2px}#growplotOwnedDevices #gpAssignDevice{background:#fff;color:#176b48}#growplotOwnedDevices #gpAssignDevice:hover{background:#eaf5ee}#growplotOwnedDevices #gpDeviceStatus{min-height:18px;margin:12px 0 0;font-size:13px}@media(max-width:620px){#growplotOwnedDevices .gp-device-grid{grid-template-columns:minmax(0,1fr)}#growplotOwnedDevices .gp-device-actions{flex-direction:row;align-items:center}#growplotOwnedDevices .gp-device-actions button{width:auto;max-width:100%}}</style><h3>Camera &amp; IoT Settings — Selected Plot</h3><p>Assign devices only to plots and sections in your account.</p><div class=\"gp-device-grid\"><label for=\"gpDeviceId\">Camera / Device<select id=\"gpDeviceId\"><option value=\"\">Select camera</option><option>CCTV01</option><option>CCTV02</option><option>CCTV03</option><option>CCTV04</option><option>CCTV05</option><option>CCTV06</option></select></label><label for=\"gpDeviceType\">Device type<select id=\"gpDeviceType\"><option value=\"AV\">Camera</option><option value=\"IoT\">IoT</option></select></label><label for=\"gpDeviceHost\">IP address / Host<input id=\"gpDeviceHost\" placeholder=\"192.168.1.228\"></label><label for=\"gpDevicePort\">Port<input id=\"gpDevicePort\" type=\"number\" min=\"1\" max=\"65535\" value=\"554\"></label><label for=\"gpDeviceProtocol\">Protocol<select id=\"gpDeviceProtocol\"><option>RTSP</option><option>HTTP</option><option>HTTPS</option><option>MQTT</option></select></label><label for=\"gpDevicePath\">Stream / endpoint<input id=\"gpDevicePath\" placeholder=\"/stream1\"></label><label for=\"gpDeviceUser\">Device username (optional)<input id=\"gpDeviceUser\" autocomplete=\"off\"></label><label for=\"gpDevicePassword\">Device password (optional, encrypted in cloud)<input id=\"gpDevicePassword\" type=\"password\" autocomplete=\"new-password\"></label><label for=\"gpGreenhouseId\">Greenhouse ID (optional)<input id=\"gpGreenhouseId\" placeholder=\"gh-1\"></label><label for=\"gpSectionId\">Section ID<input id=\"gpSectionId\" placeholder=\"section-1\"></label></div><div class=\"gp-device-actions\"><button type=\"button\" id=\"gpSaveDevice\"><span aria-hidden=\"true\">💾</span> Save Device</button><button type=\"button\" id=\"gpAssignDevice\"><span aria-hidden=\"true\">🔗</span> Assign Device</button></div><p id=\"gpDeviceStatus\" role=\"status\" aria-live=\"polite\"></p>";
   // Keep device settings scoped to the plot selected in Plot Management, including Demo Plot.
-  const deviceAccordion=document.createElement('details');
-  deviceAccordion.id='plotDeviceSettingsAccordion';
-  deviceAccordion.className='plot-accordion';
-  const heading=document.createElement('summary');
-  heading.textContent='Camera & IoT Settings';
-  const body=document.createElement('div');
-  body.className='plot-accordion-body';
-  deviceAccordion.append(heading,body);
-  body.appendChild(section);
-  const locationPanel=document.getElementById('plotLocationAccordion');
-  if(locationPanel&&locationPanel.parentElement===anchor.parentElement){
-   locationPanel.insertAdjacentElement('afterend',deviceAccordion);
+  // Reuse the existing always-open Camera & IoT card; never create a second accordion.
+  const existingCameraCard=document.getElementById('cameraIpSettingsSection');
+  const body=existingCameraCard?.querySelector('.plot-accordion-body');
+  if(body){
+   const legacy=body.querySelectorAll('.camera-ip-grid,.camera-ip-row,#saveCctvIps,#cctvIpStatus,.settings-feed-help');
+   legacy.forEach(node=>node.remove());
+   body.appendChild(section);
   }else{
-   anchor.parentElement.insertAdjacentElement('afterend',deviceAccordion);
+   anchor.insertAdjacentElement('afterend',section);
   }
   // Keep Data Feed immediately above the Add / Save / Delete plot buttons.
   function moveDataFeedBeforeActions(){
@@ -577,7 +572,6 @@ window.GrowPlotSaveCloudProfile=function(callback){
    const data=window.GrowPlotOwnedDeviceData||{},devices=Array.isArray(data.devices)?data.devices:[],assignments=Array.isArray(data.assignments)?data.assignments:[];
    const plotId=anchor.value;refreshDevicePicker();list.replaceChildren();
    const heading=document.createElement('strong');heading.textContent='Saved Cameras & IoT — '+(anchor.selectedOptions[0]?.textContent||plotId);list.appendChild(heading);
-   if(plotId==='plot-1'){const msg=document.createElement('p');msg.textContent='Demo Plot uses Camera & IoT Setting (Demo Plot).';list.appendChild(msg);return;}
    const matches=assignments.filter(a=>a.plotId===plotId);
    const info=document.createElement('p');info.textContent=matches.length+' assigned to this plot · '+devices.length+' saved in your account';list.appendChild(info);
    const shown=new Set();
