@@ -214,11 +214,10 @@ public class MainActivity extends Activity {
     private TextView ipWebcam3RefreshButton;
     private boolean cctv03OverlayShown;
     private boolean cctvVlcFeedsAllowedOnActiveScreen;
+    private int activeHomeStreamCamera = 1;
     private boolean cctv03CredentialsPromptShowing;
     private final boolean[] rtspCredentialCheckInProgress = new boolean[7];
     private final boolean[] rtspCredentialsRejected = new boolean[7];
-    private final boolean[] rtspConnectionPromptShowing = new boolean[7];
-    private final String[] rtspConnectionConfirmedTargets = new String[7];
     private boolean activityResumed;
     private volatile long cctvSnapshotIntervalMillis = 900_000L;
     private final Runnable cctv01SnapshotTicker = new Runnable() {
@@ -687,7 +686,9 @@ public class MainActivity extends Activity {
         resetCctvSurfaces(); // Always reset all old frames before starting the newly selected scope.
         if (!userStreamMode) refreshAssignedPlayers(); // Demo uses saved Settings IPs.
         else startLocalCctvStreamOverrides(); // Explicit per-device settings take priority over assigned defaults.
-        if (!userStreamMode) { return; }
+        if (!userStreamMode) {
+            return;
+        }
         com.google.firebase.auth.FirebaseUser user = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
         if (user == null || !plotId.matches("[A-Za-z0-9_-]{1,100}") || !greenhouseId.matches("greenhouse-[1-9][0-9]*")) {
             return;
@@ -1134,7 +1135,7 @@ public class MainActivity extends Activity {
 
     private void installCctv01VlcPositionListener() {
         if (web == null || isFinishing()) return;
-        web.evaluateJavascript("(()=>{const host=document.querySelector('#cameras');if(!host)return false;let css=document.getElementById('growplot-vlc-cctv-style');if(!css){css=document.createElement('style');css.id='growplot-vlc-cctv-style';css.textContent='#cameras .camera:nth-child(-n+3) .feedimg,#cameras .camera:nth-child(-n+3) .mocktag,#cameras .camera:nth-child(-n+3) .stamp{display:none!important}';document.head.appendChild(css)}let scheduled=false,last=['','',''];const send=()=>{if(scheduled)return true;scheduled=true;requestAnimationFrame(()=>{scheduled=false;const dashboard=document.getElementById('mainDashboard'),health=document.getElementById('healthPanel'),auth=document.getElementById('authScreen'),blockingOverlayActive=[...document.querySelectorAll('.modal.open,dialog[open],[role=\"dialog\"][aria-modal=\"true\"],#growplotUserManagementPage')].some(el=>{if(el.hidden)return false;const style=getComputedStyle(el);return style.display!=='none'&&style.visibility!=='hidden'&&style.visibility!=='collapse'&&el.getClientRects().length>0}),homeActive=!!dashboard&&!dashboard.hidden&&(!health||health.hidden)&&!blockingOverlayActive&&(!auth||auth.hidden),selectedMode=window.GrowPlotFeedSettings?window.GrowPlotFeedSettings.getStreamMode(1):'none',pickerOpen=!!document.querySelector('#homeStreamSourcePicker:not([hidden])'),streamHomeActive=homeActive&&selectedMode==='cctv-stream'&&!pickerOpen;if(window.GrowPlotBridge)GrowPlotBridge.setCctvVlcFeedsAllowedOnActiveScreen(streamHomeActive);for(let i=0;i<3;i++){const e=document.querySelector('#cameras .camera:nth-child('+(i+1)+') .feed');if(!e)continue;const im=e.querySelector('.feedimg');if(im&&im.hasAttribute('src'))im.removeAttribute('src');const r=e.getBoundingClientRect(),offscreen=r.bottom<=0||r.top>=window.innerHeight,coords=[r.left,r.top,r.width,r.height,offscreen?1:0,streamHomeActive?1:0].join(',');if(coords!==last[i]){last[i]=coords;if(i===0)GrowPlotBridge.updateCctv01VlcPosition(coords)}}});return true};if(!window.__growplotVlcPositionInstalled){window.addEventListener('scroll',send,{passive:true});window.addEventListener('resize',send,{passive:true});new MutationObserver(send).observe(host,{childList:true,subtree:true});new MutationObserver(send).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['hidden','class','open','style','role','aria-modal']});window.__growplotVlcPositionInstalled=true}send();setTimeout(send,400);setTimeout(send,1200);return true})()", null);
+        web.evaluateJavascript("(()=>{const host=document.querySelector('#cameras');if(!host)return false;let css=document.getElementById('growplot-vlc-cctv-style');if(!css){css=document.createElement('style');css.id='growplot-vlc-cctv-style';css.textContent='#cameras .camera .feedimg,#cameras .camera .mocktag,#cameras .camera .stamp{display:none!important}';document.head.appendChild(css)}let scheduled=false,last=['','',''];const send=()=>{if(scheduled)return true;scheduled=true;requestAnimationFrame(()=>{scheduled=false;const dashboard=document.getElementById('mainDashboard'),health=document.getElementById('healthPanel'),auth=document.getElementById('authScreen'),blockingOverlayActive=[...document.querySelectorAll('.modal.open,dialog[open],[role=\"dialog\"][aria-modal=\"true\"],#growplotUserManagementPage')].some(el=>{if(el.hidden)return false;const style=getComputedStyle(el);return style.display!=='none'&&style.visibility!=='hidden'&&style.visibility!=='collapse'&&el.getClientRects().length>0}),homeActive=!!dashboard&&!dashboard.hidden&&(!health||health.hidden)&&!blockingOverlayActive&&(!auth||auth.hidden),activeCamera=window.GrowPlotHomeStreamSelection||1,selectedMode=window.GrowPlotFeedSettings?window.GrowPlotFeedSettings.getStreamMode(activeCamera):'none',pickerOpen=!!document.querySelector('#homeStreamSourcePicker:not([hidden])'),streamHomeActive=homeActive&&selectedMode==='cctv-stream'&&!pickerOpen;if(window.GrowPlotBridge){GrowPlotBridge.setCctvVlcFeedsAllowedOnActiveScreen(streamHomeActive);GrowPlotBridge.setSelectedHomeStreamCamera(activeCamera)}const e=document.querySelector('#cameras .camera .feed');if(e){const im=e.querySelector('.feedimg');if(im&&im.hasAttribute('src'))im.removeAttribute('src');const r=e.getBoundingClientRect(),offscreen=r.bottom<=0||r.top>=window.innerHeight,coords=[r.left,r.top,r.width,r.height,offscreen?1:0,streamHomeActive?1:0].join(','),index=activeCamera-1;if(coords!==last[index]){last[index]=coords;const update=GrowPlotBridge['updateCctv0'+activeCamera+'VlcPosition'];if(update)update(coords)}}});return true};if(!window.__growplotVlcPositionInstalled){window.addEventListener('scroll',send,{passive:true});window.addEventListener('resize',send,{passive:true});new MutationObserver(send).observe(host,{childList:true,subtree:true});new MutationObserver(send).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['hidden','class','open','style','role','aria-modal']});window.__growplotVlcPositionInstalled=true}send();setTimeout(send,400);setTimeout(send,1200);return true})()", null);
     }
 
     /** Keep native VLC children out of the way unless the dashboard is active. */
@@ -1142,6 +1143,8 @@ public class MainActivity extends Activity {
         cctvVlcFeedsAllowedOnActiveScreen = allowed;
         if (allowed) return; // Position callbacks reveal feeds after valid dashboard bounds arrive.
         stopIpWebcamVlc();
+        stopCctv02Vlc();
+        stopCctv03Vlc();
         hideVlcFrame(ipWebcamVlcFrame);
         hideVlcFrame(ipWebcam2VlcFrame);
         hideVlcFrame(ipWebcam3VlcFrame);
@@ -1152,14 +1155,28 @@ public class MainActivity extends Activity {
 
     private void setHomeStreamCameraMode(boolean deviceCamera) {
         if (deviceCamera) {
-            cctv01OverlayShown = false;
-            stopIpWebcamVlc();
-            hideVlcFrame(ipWebcamVlcFrame);
+            stopSelectedHomeStreamCamera();
             return;
         }
         if (!activityResumed || web == null) return;
         cctvVlcFeedsAllowedOnActiveScreen = true;
         web.post(this::installCctv01VlcPositionListener);
+    }
+
+    private void setSelectedHomeStreamCamera(int camera) {
+        if (camera < 1 || camera > 3 || camera == activeHomeStreamCamera) return;
+        int previous = activeHomeStreamCamera;
+        if (previous == 1) { cctv01OverlayShown = false; stopIpWebcamVlc(); hideVlcFrame(ipWebcamVlcFrame); }
+        else if (previous == 2) { cctv02OverlayShown = false; stopCctv02Vlc(); hideVlcFrame(ipWebcam2VlcFrame); }
+        else { cctv03OverlayShown = false; stopCctv03Vlc(); hideVlcFrame(ipWebcam3VlcFrame); }
+        activeHomeStreamCamera = camera;
+        if (cctvVlcFeedsAllowedOnActiveScreen && web != null) web.post(this::installCctv01VlcPositionListener);
+    }
+
+    private void stopSelectedHomeStreamCamera() {
+        if (activeHomeStreamCamera == 1) { cctv01OverlayShown = false; stopIpWebcamVlc(); hideVlcFrame(ipWebcamVlcFrame); }
+        else if (activeHomeStreamCamera == 2) { cctv02OverlayShown = false; stopCctv02Vlc(); hideVlcFrame(ipWebcam2VlcFrame); }
+        else { cctv03OverlayShown = false; stopCctv03Vlc(); hideVlcFrame(ipWebcam3VlcFrame); }
     }
 
     private void hideVlcFrame(FrameLayout frame) {
@@ -1181,7 +1198,7 @@ public class MainActivity extends Activity {
             int height = Math.round(Float.parseFloat(values[3]) * density);
             boolean offscreen = "1".equals(values[4]);
             boolean homeActive = "1".equals(values[5]);
-            boolean shouldShow = !offscreen && homeActive && cctvVlcFeedsAllowedOnActiveScreen;
+            boolean shouldShow = !offscreen && homeActive && cctvVlcFeedsAllowedOnActiveScreen && activeHomeStreamCamera == 1;
             if (width <= 0 || height <= 0) return;
 
             if (ipWebcamVlcFrame == null) {
@@ -1287,7 +1304,6 @@ public class MainActivity extends Activity {
                 promptForRtspCredentials(1);
                 return;
             }
-            if (!confirmRtspConnectionTarget(1, configuredRoute, videoLayout)) return;
         }
         try {
             ArrayList<String> options = new ArrayList<>();
@@ -1348,7 +1364,7 @@ public class MainActivity extends Activity {
             int height = Math.round(Float.parseFloat(values[3]) * density);
             boolean offscreen = "1".equals(values[4]);
             boolean homeActive = "1".equals(values[5]);
-            boolean shouldShow = !offscreen && homeActive && cctvVlcFeedsAllowedOnActiveScreen;
+            boolean shouldShow = !offscreen && homeActive && cctvVlcFeedsAllowedOnActiveScreen && activeHomeStreamCamera == 2;
             if (width <= 0 || height <= 0) return;
 
             if (ipWebcam2VlcFrame == null) {
@@ -1396,6 +1412,7 @@ public class MainActivity extends Activity {
                     ipWebcam2VlcFrame.setLayoutParams(params);
                 }
             }
+            if (shouldShow && activityResumed && ipWebcam2VlcPlayer == null) startCctv02Vlc(ipWebcam2VlcLayout);
             if (shouldShow != cctv02OverlayShown) {
                 cctv02OverlayShown = shouldShow;
                 ipWebcam2VlcFrame.animate().cancel();
@@ -1431,7 +1448,7 @@ public class MainActivity extends Activity {
             int height = Math.round(Float.parseFloat(values[3]) * density);
             boolean offscreen = "1".equals(values[4]);
             boolean homeActive = "1".equals(values[5]);
-            boolean shouldShow = !offscreen && homeActive && cctvVlcFeedsAllowedOnActiveScreen;
+            boolean shouldShow = !offscreen && homeActive && cctvVlcFeedsAllowedOnActiveScreen && activeHomeStreamCamera == 3;
             if (width <= 0 || height <= 0) return;
 
             if (ipWebcam3VlcFrame == null) {
@@ -1479,6 +1496,7 @@ public class MainActivity extends Activity {
                     ipWebcam3VlcFrame.setLayoutParams(params);
                 }
             }
+            if (shouldShow && activityResumed && ipWebcam3VlcPlayer == null) startVigiCctv03Vlc(ipWebcam3VlcLayout);
             if (shouldShow != cctv03OverlayShown) {
                 cctv03OverlayShown = shouldShow;
                 ipWebcam3VlcFrame.animate().cancel();
@@ -1513,7 +1531,6 @@ public class MainActivity extends Activity {
                 promptForRtspCredentials(2);
                 return;
             }
-            if (!confirmRtspConnectionTarget(2, configuredRoute, videoLayout)) return;
         }
         try {
             ArrayList<String> options = new ArrayList<>();
@@ -1612,7 +1629,6 @@ public class MainActivity extends Activity {
             promptForRtspCredentials(3);
             return;
         }
-        if (configuredRtsp && !confirmRtspConnectionTarget(3, configuredRoute, videoLayout)) return;
         if (userStreamMode) {
             String route = configuredRoute;
             boolean rtsp = configuredRtsp;
@@ -1697,45 +1713,6 @@ public class MainActivity extends Activity {
         message.setGravity(Gravity.CENTER);
         message.setPadding(dp(12), dp(8), dp(12), dp(8));
         layout.addView(message, new FrameLayout.LayoutParams(-1, -1));
-    }
-
-    private boolean confirmRtspConnectionTarget(int camera, String route, VLCVideoLayout layout) {
-        if (camera < 1 || camera > 3 || !isRtspUrl(route)) return true;
-        String target = rtspConnectionTarget(route);
-        if (target.isEmpty() || target.equals(rtspConnectionConfirmedTargets[camera])) return true;
-        if (rtspConnectionPromptShowing[camera] || !activityResumed || isFinishing()) return false;
-        rtspConnectionPromptShowing[camera] = true;
-        String message = "Connecting to this RTSP address:\n\n" + target
-                + "\n\nCamera username and password are sent separately and are not shown here.";
-        android.app.AlertDialog dialog = new android.app.AlertDialog.Builder(this)
-                .setTitle(String.format(Locale.US, "Confirm CCTV%02d connection", camera))
-                .setMessage(message)
-                .setNegativeButton("Cancel", (d, which) -> { })
-                .setPositiveButton("Connect", (d, which) -> {
-                    rtspConnectionConfirmedTargets[camera] = target;
-                    startRtspCamera(camera, layout);
-                })
-                .create();
-        dialog.setOnDismissListener(d -> rtspConnectionPromptShowing[camera] = false);
-        dialog.show();
-        return false;
-    }
-
-    private String rtspConnectionTarget(String route) {
-        try {
-            Uri parsed = Uri.parse(route);
-            String scheme = parsed.getScheme();
-            String host = parsed.getHost();
-            if (scheme == null || host == null || host.isEmpty()) return "";
-            if (host.contains(":") && !host.startsWith("[")) host = "[" + host + "]";
-            int port = parsed.getPort();
-            if (port < 1) port = "rtsps".equalsIgnoreCase(scheme) ? 322 : 554;
-            String path = parsed.getEncodedPath();
-            if (path == null || path.isEmpty()) path = "/";
-            return scheme.toLowerCase(Locale.US) + "://" + host + ":" + port + path;
-        } catch (Exception invalidRoute) {
-            return "";
-        }
     }
 
     private void checkRejectedRtspCredentials(int camera, org.videolan.libvlc.MediaPlayer player,
@@ -4191,6 +4168,10 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface public void setCctvVlcFeedsAllowedOnActiveScreen(boolean allowed) {
             runOnUiThread(() -> MainActivity.this.setCctvVlcFeedsAllowedOnActiveScreen(allowed));
+        }
+
+        @JavascriptInterface public void setSelectedHomeStreamCamera(int camera) {
+            runOnUiThread(() -> MainActivity.this.setSelectedHomeStreamCamera(camera));
         }
 
         @JavascriptInterface public void updateCctv01VlcPosition(String coordinates) {
