@@ -262,6 +262,26 @@ public final class AccountApiBridge {
                 }
                 return;
             }
+            if("unlinkOwnedDevice".equals(action)){
+                String plotId=input.optString("plotId",""),greenhouseId=input.optString("greenhouseId",""),sectionId=input.optString("sectionId",""),deviceId=input.optString("deviceId","");
+                if(!plotId.matches("[A-Za-z0-9_-]{1,100}")||!greenhouseId.matches("greenhouse-[1-9][0-9]*")||!sectionId.matches("section-[1-9][0-9]*")||!deviceId.matches("[A-Za-z0-9_-]{1,100}")){
+                    respond(action,false,"Invalid assignment.",null);return;
+                }
+                String uid=user.getUid();
+                db.collection("feed_assignments").whereEqualTo("ownerUserId",uid).get().addOnSuccessListener(snapshot->{
+                    com.google.firebase.firestore.WriteBatch batch=db.batch();
+                    int removed=0;
+                    for(com.google.firebase.firestore.QueryDocumentSnapshot doc:snapshot){
+                        if(plotId.equals(doc.getString("plotId"))&&greenhouseId.equals(doc.getString("greenhouseId"))&&sectionId.equals(doc.getString("sectionId"))&&deviceId.equals(doc.getString("deviceId"))){
+                            batch.delete(doc.getReference());removed++;
+                        }
+                    }
+                    if(removed==0){respond(action,false,"Assignment not found.",null);return;}
+                    batch.commit().addOnSuccessListener(v->respond(action,true,"Camera unlinked; device retained.",null))
+                        .addOnFailureListener(e->respond(action,false,"Unlink failed: "+e.getMessage(),null));
+                }).addOnFailureListener(e->respond(action,false,"Unable to read assignments: "+e.getMessage(),null));
+                return;
+            }
             if("assignOwnedDevice".equals(action)){
                 String plotId=input.optString("plotId",""),greenhouseId=input.optString("greenhouseId",""),sectionId=input.optString("sectionId",""),deviceId=input.optString("deviceId","");
                 if(!plotId.matches("[A-Za-z0-9_-]{1,100}")||!greenhouseId.matches("greenhouse-[1-9][0-9]*")||!sectionId.matches("section-[1-9][0-9]*")||!deviceId.matches("[A-Za-z0-9_-]{1,100}")){
@@ -282,9 +302,19 @@ public final class AccountApiBridge {
                         Map<String,Object> record=new HashMap<>();
                         record.put("ownerUserId",uid);record.put("plotId",plotId);record.put("greenhouseId",greenhouseId);record.put("sectionId",sectionId);record.put("deviceId",deviceId);
                         record.put("updatedAt",com.google.firebase.firestore.FieldValue.serverTimestamp());
-                        db.collection("feed_assignments").document(uid+"_"+plotId+"_"+greenhouseId+"_"+sectionId+"_"+deviceId).set(record,SetOptions.merge())
-                            .addOnSuccessListener(v->respond(action,true,"Device assigned to section.",null))
-                            .addOnFailureListener(e->respond(action,false,"Assignment write failed: "+e.getMessage(),null));
+                        db.collection("feed_assignments").whereEqualTo("ownerUserId",uid).get().addOnSuccessListener(existing->{
+                            com.google.firebase.firestore.WriteBatch batch=db.batch();
+                            if("AV".equals(feed.getString("deviceType"))){
+                                for(com.google.firebase.firestore.QueryDocumentSnapshot link:existing){
+                                    if(!plotId.equals(link.getString("plotId"))||!greenhouseId.equals(link.getString("greenhouseId"))||!sectionId.equals(link.getString("sectionId"))||deviceId.equals(link.getString("deviceId")))continue;
+                                    String otherId=link.getString("deviceId");
+                                    if(otherId!=null&&("CCTV".equalsIgnoreCase(otherId.substring(0,Math.min(4,otherId.length())))||"VIGI".equalsIgnoreCase(otherId.substring(0,Math.min(4,otherId.length())))))batch.delete(link.getReference());
+                                }
+                            }
+                            batch.set(db.collection("feed_assignments").document(uid+"_"+plotId+"_"+greenhouseId+"_"+sectionId+"_"+deviceId),record,SetOptions.merge());
+                            batch.commit().addOnSuccessListener(v->respond(action,true,"Device assigned to section.",null))
+                                .addOnFailureListener(e->respond(action,false,"Assignment write failed: "+e.getMessage(),null));
+                        }).addOnFailureListener(e->respond(action,false,"Unable to check existing assignments: "+e.getMessage(),null));
                     }).addOnFailureListener(e->respond(action,false,"Device lookup failed: "+e.getMessage(),null));
                 }).addOnFailureListener(e->respond(action,false,"Plot lookup failed: "+e.getMessage(),null));
                 return;
