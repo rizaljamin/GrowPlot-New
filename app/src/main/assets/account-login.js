@@ -617,9 +617,11 @@ window.GrowPlotSaveCloudProfile=function(callback){
     item.style.flex='1 1 210px';
     const unlink=document.createElement('button');unlink.type='button';unlink.textContent='Unlink';
     unlink.style.cssText='padding:8px 12px;border:1px solid #b45b55;border-radius:8px;color:#8d302d;background:#fff;cursor:pointer';
-    unlink.onclick=()=>{
+    unlink.onclick=(event)=>{
+      event.stopPropagation();
       if(!currentUser||currentUser.developmentOnly||!api?.configured()){document.getElementById('gpDeviceStatus').textContent='Sign in required.';return;}
       if(!confirm('Unlink '+a.deviceId+' from '+a.greenhouseId+' / '+a.sectionId+'? The camera and its credentials will remain saved.'))return;
+      unlink.disabled=true;
       request('unlinkOwnedDevice',{plotId:a.plotId,greenhouseId:a.greenhouseId,sectionId:a.sectionId,deviceId:a.deviceId});
       document.getElementById('gpDeviceStatus').textContent='Unlinking camera assignment…';
     };
