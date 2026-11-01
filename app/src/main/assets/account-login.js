@@ -561,14 +561,12 @@ window.GrowPlotSaveCloudProfile=function(callback){
    devicePicker.value=ids.has(previous)?previous:'';
   }
   devicePicker.addEventListener('change',()=>{
-   const d=(window.GrowPlotOwnedDeviceData?.devices||[]).find(x=>x.deviceId===devicePicker.value);
-   if(d)selectSavedDevice(d,null);
-   else if(devicePicker.value==='CCTV01'){
-    document.getElementById('gpDeviceHost').value='192.168.0.7';
-    document.getElementById('gpDevicePort').value='8080';
-    document.getElementById('gpDeviceProtocol').value='HTTP';
-    document.getElementById('gpDevicePath').value='/videofeed';
-   }
+   const data=window.GrowPlotOwnedDeviceData||{};
+   const d=(data.devices||[]).find(x=>x.deviceId===devicePicker.value);
+   if(!d){clearCameraFields();return;}
+   const links=(data.assignments||[]).filter(x=>x.deviceId===d.deviceId);
+   const samePlot=links.find(x=>x.plotId===anchor.value);
+   selectSavedDevice(d,samePlot||null);
   });
 
   const currentPlot=()=>typeof plots!=='undefined'&&Array.isArray(plots)?plots.find(p=>p&&p.id===anchor.value):null;
@@ -579,15 +577,24 @@ window.GrowPlotSaveCloudProfile=function(callback){
   document.getElementById('savePlotBtn')?.addEventListener('click',()=>setTimeout(refreshTargets,0));
   refreshTargets();
   const list=document.createElement('div');list.id='gpSavedDevices';list.style.cssText='margin-top:14px;display:grid;gap:8px';section.appendChild(list);
+  function clearCameraFields(){
+   for(const id of ['gpDeviceHost','gpDevicePort','gpDevicePath','gpDeviceUser','gpDevicePassword'])document.getElementById(id).value='';
+   document.getElementById('gpDeviceProtocol').value='RTSP';
+   document.getElementById('gpDeviceType').value='AV';
+   document.getElementById('gpCameraAssignmentSummary').textContent='No saved Firebase configuration for this device.';
+  }
   function selectSavedDevice(d,a){
-   refreshDevicePicker();document.getElementById('gpDeviceId').value=d.deviceId||'';
+   refreshDevicePicker();devicePicker.value=d.deviceId||'';
+   // Never carry another camera's stale values into a different selection.
    for(const [id,key] of [['gpDeviceHost','ipAddress'],['gpDevicePort','port'],['gpDeviceProtocol','protocol'],['gpDevicePath','streamPath'],['gpDeviceUser','username'],['gpDeviceType','deviceType']]){
-    const el=document.getElementById(id);if(el&&d[key]!=null)el.value=String(d[key]);
+    const el=document.getElementById(id);if(el)el.value=d[key]==null?'':String(d[key]);
    }
-   if(a){ghSelect.value=a.greenhouseId;ghSelect.dispatchEvent(new Event('change'));secSelect.value=a.sectionId;}
+   document.getElementById('gpDevicePassword').value=''; // Passwords are encrypted and not returned to the UI.
+   if(a&&a.plotId===anchor.value){ghSelect.value=a.greenhouseId;ghSelect.dispatchEvent(new Event('change'));secSelect.value=a.sectionId;}
+   const links=(window.GrowPlotOwnedDeviceData?.assignments||[]).filter(x=>x.deviceId===d.deviceId);
    const summary=document.getElementById('gpCameraAssignmentSummary');
-   if(summary)summary.textContent=(d.deviceId||'Camera')+' · '+(d.ipAddress||'No IP')+' · '+(a?(a.plotId+' / '+a.greenhouseId+' / '+a.sectionId):'Not assigned to this selected section');
-   document.getElementById('gpDeviceStatus').textContent=a?'Loaded saved assignment.':'Saved device loaded. Select greenhouse and section, then Assign Device.';
+   if(summary)summary.textContent=(d.deviceId||'Camera')+' · '+(d.ipAddress||'No IP')+' · '+(links.length?links.map(x=>x.plotId+' / '+x.greenhouseId+' / '+x.sectionId).join('; '):'Unassigned');
+   document.getElementById('gpDeviceStatus').textContent=a?'Firebase device and current plot assignment loaded.':'Firebase device loaded. Existing assignments are shown above.';
   }
   window.GrowPlotRenderOwnedDevices=function(){
    const data=window.GrowPlotOwnedDeviceData||{},devices=Array.isArray(data.devices)?data.devices:[],assignments=Array.isArray(data.assignments)?data.assignments:[];
