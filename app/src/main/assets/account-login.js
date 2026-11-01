@@ -537,8 +537,9 @@ window.GrowPlotSaveCloudProfile=function(callback){
   const locationRow=document.createElement('div');
   locationRow.id='gpCameraLocationRow';
   locationRow.className='gp-device-grid';
-  locationRow.style.cssText='margin:0 0 14px;padding:12px;border:1px solid #b4cdbd;border-radius:9px;background:#f1f8f3';
+  locationRow.style.cssText='display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:0 0 14px;padding:12px;border:1px solid #b4cdbd;border-radius:9px;background:#f1f8f3';
   locationRow.append(ghSelect.parentElement,secSelect.parentElement);
+  for(const label of locationRow.children){label.style.cssText='display:flex;flex-direction:column;gap:5px;min-width:0;font-size:13px;font-weight:600';const select=label.querySelector('select');if(select)select.style.cssText='width:100%;min-width:0;box-sizing:border-box;min-height:40px;padding:8px 10px;border:1px solid #cbd5d1;border-radius:7px;background:#fff;color:#172e26';}
   section.insertAdjacentElement('beforebegin',locationRow);
   const inventorySummary=document.createElement('div');
   inventorySummary.id='gpCameraAssignmentSummary';
