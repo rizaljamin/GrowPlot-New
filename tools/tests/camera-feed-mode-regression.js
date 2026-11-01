@@ -33,6 +33,8 @@ assert.match(java,/private String addCctvRtspCredentials\(int camera, String rou
 assert.match(java,/private String cctvStreamUrl\(int camera\)[\s\S]*?userStreamMode && !hasLocalCctvStreamOverride\(camera\)[\s\S]*?PREF_CCTV_PROTOCOL_PREFIX \+ camera/,'explicit local RTSP settings override an assigned plot stream and survive app updates');
 assert.doesNotMatch(java,/confirmRtspConnectionTarget|rtspConnectionTarget/,'RTSP playback no longer asks for address confirmation');
 assert.match(java,/setSelectedHomeStreamCamera\(int camera\)[\s\S]*?activeHomeStreamCamera = camera/,'the Home slider selects the matching native camera player');
+assert.match(java,/if \(activityResumed && shouldShow\) startCctv02Vlc\(ipWebcam2VlcLayout\)/,'CCTV02 starts only when its slider section is selected in CCTV mode');
+assert.match(java,/if \(activityResumed && shouldShow\) startVigiCctv03Vlc\(ipWebcam3VlcLayout\)/,'CCTV03 starts only when its slider section is selected in CCTV mode');
 assert.match(html,/stream-selection-control[\s\S]*id="homeStreamSelection" type="range" min="1" max="3"/,'a centered three-section stream slider is present');
 assert.match(source,/window.setHomeStreamSelection=function\(value\)[\s\S]*getStreamMode\(selected,plotId\)[\s\S]*setSelectedHomeStreamCamera\(selected\)/,'sliding updates both the section source and native feed');
 assert.match(html,/streamSourceSettingsTitle\">Stream 01 \/ 03 sections/,'the selected stream and total section count are centered');
@@ -97,4 +99,4 @@ assert.match(java,/getFeedPhotoPreview\(int camera, String plotId\)/,'native bri
 assert.match(java,/Photo saved on this device and shown on the stream card/,'camera capture reports local save and visible preview');
 assert.match(java,/setCctvVlcFeedsAllowedOnActiveScreen\(boolean allowed\)[\s\S]*if \(allowed\) return[\s\S]*stopIpWebcamVlc\(\)/,'disabling the native stream also stops its player');
 assert.doesNotMatch(java,/ipWebcamRefreshButton\.setText\("↻ Refresh"\)/,'legacy in-frame refresh control is removed');
-console.log('PASS: camera-default canvas, native photo/file controls, Camera/CCTV picker flow, and CCTV gating.');
+console.log(

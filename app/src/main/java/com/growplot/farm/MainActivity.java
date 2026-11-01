@@ -1401,7 +1401,7 @@ public class MainActivity extends Activity {
                 params.leftMargin = left;
                 params.topMargin = top;
                 appRoot.addView(ipWebcam2VlcFrame, params);
-                if (activityResumed) startCctv02Vlc(ipWebcam2VlcLayout);
+                if (activityResumed && shouldShow) startCctv02Vlc(ipWebcam2VlcLayout);
             } else {
                 FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) ipWebcam2VlcFrame.getLayoutParams();
                 if (params.width != width || params.height != height || params.leftMargin != left || params.topMargin != top) {
@@ -1485,7 +1485,7 @@ public class MainActivity extends Activity {
                 params.leftMargin = left;
                 params.topMargin = top;
                 appRoot.addView(ipWebcam3VlcFrame, params);
-                if (activityResumed) startVigiCctv03Vlc(ipWebcam3VlcLayout);
+                if (activityResumed && shouldShow) startVigiCctv03Vlc(ipWebcam3VlcLayout);
             } else {
                 FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) ipWebcam3VlcFrame.getLayoutParams();
                 if (params.width != width || params.height != height || params.leftMargin != left || params.topMargin != top) {
@@ -7203,6 +7203,4 @@ public class MainActivity extends Activity {
     }
 
     private void sendToPage(String json) {
-        if (web != null) web.evaluateJavascript("window.onSnapshotScan && window.onSnapshotScan(" + json + ");", null);
-    }
-}
+        if (web != null) web.evaluateJavascript("window.onSnapshotScan && window.onSnapshotScan(" + 
