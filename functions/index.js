@@ -65,9 +65,23 @@ export const assignOwnedDevice=onCall({region:'us-central1',enforceAppCheck:fals
  const device=await db.collection('data_feeds').doc(feedDocId(uid,deviceId)).get();
  if(!plot.exists||plot.get('ownerUserId')!==uid)throw new HttpsError('permission-denied','Plot not owned by signed-in user');
  if(!device.exists||device.get('ownerUserId')!==uid)throw new HttpsError('permission-denied','Device not owned by signed-in user');
+ const assignments=db.collection('feed_assignments');
  const id=uid+'_'+plotId+'_'+sectionId+'_'+deviceId;
- await db.collection('feed_assignments').doc(id).set({ownerUserId:uid,plotId,sectionId,greenhouseId:greenhouseId||'',deviceId,updatedAt:FieldValue.serverTimestamp()},{merge:true});
- return {assigned:true,deviceId,plotId,sectionId};
+ // A section has one active camera. IoT sensors retain independent assignments.
+ // Transactionally remove only other camera links for this same plot/greenhouse/section.
+ const old=await assignments.where('ownerUserId','==',uid).where('plotId','==',plotId).where('sectionId','==',sectionId).get();
+ const batch=db.batch();
+ if(device.get('deviceType')==='AV'){
+  for(const doc of old.docs){
+   const a=doc.data();
+   if((a.greenhouseId||'')!==(greenhouseId||'')||a.deviceId===deviceId)continue;
+   const other=await db.collection('data_feeds').doc(feedDocId(uid,a.deviceId)).get();
+   if(!other.exists||other.get('deviceType')==='AV')batch.delete(doc.ref);
+  }
+ }
+ batch.set(assignments.doc(id),{ownerUserId:uid,plotId,sectionId,greenhouseId:greenhouseId||'',deviceId,updatedAt:FieldValue.serverTimestamp()},{merge:true});
+ await batch.commit();
+ return {assigned:true,deviceId,plotId,sectionId,greenhouseId:greenhouseId||''};
 });
 
 
