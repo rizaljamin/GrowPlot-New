@@ -830,6 +830,9 @@ public class MainActivity extends Activity {
     }
 
     private String cctvStreamUrl(int camera) {
+        // TEMPORARY CCTV01 DIAGNOSTIC: bypass Firebase and local settings to isolate playback.
+        // IP Webcam default MJPEG endpoint; remove after the field test.
+        if (camera == 1) return "http://192.168.68.57:8080/videofeed";
         // For user plots, a validated Firebase camera route is authoritative.
         // Local settings remain a fallback for offline/legacy cameras and demo plots.
         if (userStreamMode && camera >= 1 && camera <= 3) {
