@@ -667,6 +667,7 @@ public class MainActivity extends Activity {
         ++assignedStreamGeneration;
         activeStreamScope = "";
         java.util.Arrays.fill(assignedStreamUrls, null);
+        java.util.Arrays.fill(preferLocalAfterFirebaseFailure, false);
         // Demo is independent of Firebase and uses the three Settings camera URLs.
         userStreamMode = false;
         assignedStreamsLoading = false;
@@ -748,12 +749,56 @@ public class MainActivity extends Activity {
         return path.startsWith("/") && !path.contains("..") && !path.matches(".*[?#@].*") ? path : fallback;
     }
 
+    // The Firebase and local camera routes are tested sequentially, never concurrently.
+    private final boolean[] preferLocalAfterFirebaseFailure = new boolean[4];
+    private final boolean[] cameraPlaybackConfirmed = new boolean[4];
+
+    private String localCctvStreamUrl(int camera) {
+        String ip = cctvIp(camera);
+        return ip.isEmpty() ? "" : cctvStreamProtocol(camera) + "://" + ip + ":" + cctvStreamPort(camera) + cctvStreamPath(camera);
+    }
+
+    private void watchCameraPlayback(int camera, org.videolan.libvlc.MediaPlayer player, VLCVideoLayout layout) {
+        cameraPlaybackConfirmed[camera] = false;
+        mainHandler.postDelayed(() -> {
+            if (!activityResumed || activeHomeStreamCamera != camera || cameraPlaybackConfirmed[camera]
+                    || !isCurrentRtspPlayer(camera, player, layout)) return;
+            if (tryLocalStreamFallback(camera, player, layout)) return;
+            android.util.Log.w("GrowPlotStreams", "No playback confirmation for selected camera " + camera);
+        }, 10000L);
+    }
+
+    private boolean tryLocalStreamFallback(int camera, org.videolan.libvlc.MediaPlayer player, VLCVideoLayout layout) {
+        if (!userStreamMode || preferLocalAfterFirebaseFailure[camera] || !isCurrentRtspPlayer(camera, player, layout)) return false;
+        String firebaseRoute = assignedStreamUrls[camera];
+        String localRoute = localCctvStreamUrl(camera);
+        if (firebaseRoute == null || firebaseRoute.isEmpty() || localRoute.isEmpty()
+                || firebaseRoute.equals(localRoute) || !hasLocalCctvStreamOverride(camera)) return false;
+        preferLocalAfterFirebaseFailure[camera] = true;
+        android.util.Log.i("GrowPlotStreams", "Trying local fallback for camera " + camera);
+        startRtspCamera(camera, layout);
+        return true;
+    }
+
+    private void onCameraPlaybackEvent(int camera, org.videolan.libvlc.MediaPlayer player,
+                                       VLCVideoLayout layout, int eventType, String route) {
+        mainHandler.post(() -> {
+            if (!isCurrentRtspPlayer(camera, player, layout)) return;
+            if (eventType == org.videolan.libvlc.MediaPlayer.Event.Playing) {
+                cameraPlaybackConfirmed[camera] = true;
+            } else if (eventType == org.videolan.libvlc.MediaPlayer.Event.EncounteredError) {
+                if (tryLocalStreamFallback(camera, player, layout)) return;
+                if (isRtspUrl(route)) checkRejectedRtspCredentials(camera, player, layout, route);
+            }
+        });
+    }
+
     private String cctvStreamUrl(int camera) {
         // For user plots, a validated Firebase camera route is authoritative.
         // Local settings remain a fallback for offline/legacy cameras and demo plots.
         if (userStreamMode && camera >= 1 && camera <= 3) {
             String firebaseRoute = assignedStreamUrls[camera];
-            if (firebaseRoute != null && !firebaseRoute.isEmpty()) return firebaseRoute;
+            if (firebaseRoute != null && !firebaseRoute.isEmpty() && !preferLocalAfterFirebaseFailure[camera]) return firebaseRoute;
             if (!hasLocalCctvStreamOverride(camera)) return "";
         }
         String ip = cctvIp(camera);
@@ -774,6 +819,7 @@ public class MainActivity extends Activity {
         if (path == null || path.isEmpty()) path = "rtsp".equals(scheme) ? "/stream1" : "/videofeed";
         if (!path.startsWith("/") || path.contains("..") || path.contains("@") || path.contains("?")) return;
         assignedStreamUrls[slot] = scheme + "://" + host + ":" + actualPort + path;
+        preferLocalAfterFirebaseFailure[slot] = false;
         refreshAssignedPlayer(slot);
     }
 
@@ -1345,20 +1391,9 @@ public class MainActivity extends Activity {
             ipWebcamVlcPlayer.attachViews(videoLayout, null, true, false);
             // IP Webcam MJPEG: reconnect on VLC playback failure rather than leaving a black frame.
             final org.videolan.libvlc.MediaPlayer sessionPlayer = ipWebcamVlcPlayer;
-            sessionPlayer.setEventListener(event -> {
-                if (event.type == org.videolan.libvlc.MediaPlayer.Event.EncounteredError) {
-                    if (isRtspUrl(configuredRoute)) {
-                        mainHandler.post(() -> checkRejectedRtspCredentials(1, sessionPlayer, videoLayout, configuredRoute));
-                        return;
-                    }
-                    mainHandler.postDelayed(() -> {
-                        if (!isFinishing() && activityResumed && ipWebcamVlcPlayer == sessionPlayer
-                                && ipWebcamVlcLayout == videoLayout) {
-                            startIpWebcamVlc(videoLayout);
-                        }
-                    }, 5000L);
-                }
-            });
+            sessionPlayer.setEventListener(event ->
+                onCameraPlaybackEvent(1, sessionPlayer, videoLayout, event.type, configuredRoute));
+            watchCameraPlayback(1, sessionPlayer, videoLayout);
             String route = addCctvRtspCredentials(1, configuredRoute);
             Media media = new Media(ipWebcamVlc, Uri.parse(route));
             if (isRtspUrl(route)) addCctvRtspMediaOptions(media, 1);
@@ -1571,20 +1606,9 @@ public class MainActivity extends Activity {
             ipWebcam2VlcPlayer.attachViews(videoLayout, null, true, false);
             // IP Webcam MJPEG: reconnect on VLC playback failure rather than leaving a black frame.
             final org.videolan.libvlc.MediaPlayer sessionPlayer = ipWebcam2VlcPlayer;
-            sessionPlayer.setEventListener(event -> {
-                if (event.type == org.videolan.libvlc.MediaPlayer.Event.EncounteredError) {
-                    if (isRtspUrl(configuredRoute)) {
-                        mainHandler.post(() -> checkRejectedRtspCredentials(2, sessionPlayer, videoLayout, configuredRoute));
-                        return;
-                    }
-                    mainHandler.postDelayed(() -> {
-                        if (!isFinishing() && activityResumed && ipWebcam2VlcPlayer == sessionPlayer
-                                && ipWebcam2VlcLayout == videoLayout) {
-                            startCctv02Vlc(videoLayout);
-                        }
-                    }, 5000L);
-                }
-            });
+            sessionPlayer.setEventListener(event ->
+                onCameraPlaybackEvent(2, sessionPlayer, videoLayout, event.type, configuredRoute));
+            watchCameraPlayback(2, sessionPlayer, videoLayout);
             String route = addCctvRtspCredentials(2, configuredRoute);
             Media media = new Media(ipWebcam2Vlc, Uri.parse(route));
             if (isRtspUrl(route)) addCctvRtspMediaOptions(media, 2);
@@ -1672,11 +1696,9 @@ public class MainActivity extends Activity {
                 ipWebcam3VlcPlayer = new org.videolan.libvlc.MediaPlayer(ipWebcam3Vlc);
                 ipWebcam3VlcPlayer.attachViews(videoLayout, null, true, false);
                 final org.videolan.libvlc.MediaPlayer sessionPlayer = ipWebcam3VlcPlayer;
-                if (rtsp) sessionPlayer.setEventListener(event -> {
-                    if (event.type == org.videolan.libvlc.MediaPlayer.Event.EncounteredError) {
-                        mainHandler.post(() -> checkRejectedRtspCredentials(3, sessionPlayer, videoLayout, configuredRoute));
-                    }
-                });
+                sessionPlayer.setEventListener(event ->
+                    onCameraPlaybackEvent(3, sessionPlayer, videoLayout, event.type, configuredRoute));
+                watchCameraPlayback(3, sessionPlayer, videoLayout);
                 Media media = new Media(ipWebcam3Vlc, Uri.parse(route));
                 if (rtsp) addCctvRtspMediaOptions(media, 3);
                 media.addOption(":network-caching=350");
