@@ -818,7 +818,7 @@ public class MainActivity extends Activity {
                 cameraPlaybackConfirmed[camera] = true; // Connection only; not proof of video.
             } else if (eventType == org.videolan.libvlc.MediaPlayer.Event.Vout) {
                 // VLC reports an actual video output; only now reveal the feed.
-                if (player.getVoutCount() > 0) {
+                if (eventType == org.videolan.libvlc.MediaPlayer.Event.Vout) {
                     cameraVideoOutputReady[camera] = true;
                     showCameraSignalState(camera, "");
                 }
