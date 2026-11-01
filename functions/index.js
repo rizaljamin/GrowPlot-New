@@ -69,12 +69,12 @@ export const assignOwnedDevice=onCall({region:'us-central1',enforceAppCheck:fals
  const id=uid+'_'+plotId+'_'+sectionId+'_'+deviceId;
  // A section has one active camera. IoT sensors retain independent assignments.
  // Transactionally remove only other camera links for this same plot/greenhouse/section.
- const old=await assignments.where('ownerUserId','==',uid).where('plotId','==',plotId).where('sectionId','==',sectionId).get();
+ const old=await assignments.where('ownerUserId','==',uid).get();
  const batch=db.batch();
  if(device.get('deviceType')==='AV'){
   for(const doc of old.docs){
    const a=doc.data();
-   if((a.greenhouseId||'')!==(greenhouseId||'')||a.deviceId===deviceId)continue;
+   if(a.plotId!==plotId||a.sectionId!==sectionId||(a.greenhouseId||'')!==(greenhouseId||'')||a.deviceId===deviceId)continue;
    const other=await db.collection('data_feeds').doc(feedDocId(uid,a.deviceId)).get();
    if(!other.exists||other.get('deviceType')==='AV')batch.delete(doc.ref);
   }
