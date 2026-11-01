@@ -749,8 +749,12 @@ public class MainActivity extends Activity {
     }
 
     private String cctvStreamUrl(int camera) {
-        if (userStreamMode && !hasLocalCctvStreamOverride(camera)) {
-            return assignedStreamUrls[camera] == null ? "" : assignedStreamUrls[camera];
+        // For user plots, a validated Firebase camera route is authoritative.
+        // Local settings remain a fallback for offline/legacy cameras and demo plots.
+        if (userStreamMode && camera >= 1 && camera <= 3) {
+            String firebaseRoute = assignedStreamUrls[camera];
+            if (firebaseRoute != null && !firebaseRoute.isEmpty()) return firebaseRoute;
+            if (!hasLocalCctvStreamOverride(camera)) return "";
         }
         String ip = cctvIp(camera);
         return ip.isEmpty() ? "" : cctvStreamProtocol(camera) + "://" + ip + ":" + cctvStreamPort(camera) + cctvStreamPath(camera);
