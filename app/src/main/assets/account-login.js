@@ -418,47 +418,7 @@ window.GrowPlotSaveCloudProfile=function(callback){
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});else mount();
 })();
 
-// The demonstration plot is always read-only; cloud edits require an owner-managed plot.
-(function installDemoPlotGuard(){
- const protectedIds=new Set(['plot-1']);
- const manager=()=>document.getElementById('plotManagerSelect');
- const locked=()=>protectedIds.has(manager()?.value);
- const fields=['plotNumber','plotName','plotAddress','plotLatitude','plotLongitude','plotDescription','plotGreenhouseCount','plotSectionCount'];
- const actions=['savePlotBtn','deletePlotBtn','pickPlotOnMapBtn','useMapPinBtn','createDefaultFeedBtn','chooseCustomFeedBtn'];
- function refresh(){
-  const isLocked=locked();
-  for(const id of [...fields,...actions]){
-   const element=document.getElementById(id);
-   if(element){element.disabled=isLocked;element.setAttribute('aria-disabled',String(isLocked));}
-  }
-  const status=document.getElementById('plotManagementStatus');
-  const demoMessage='Demo Plot is read-only. Select one of your plots to edit settings.';
-  if(status){
-   if(isLocked)status.textContent=demoMessage;
-   else if(status.textContent===demoMessage)status.textContent='';
-  }
- }
- document.addEventListener('change',e=>{if(e.target?.id==='plotManagerSelect')queueMicrotask(refresh);},true);
- // The Plot panel is moved between Settings and Manage Farm; restore editability on entry.
- document.addEventListener('click',e=>{
-  if(e.target?.closest?.('[data-tab="plot"], [data-manage-tab="plot"], #manageFarmTab, #plotManagementSection, #plotManagerSelect'))setTimeout(refresh,0);
- },true);
- document.addEventListener('click',e=>{
-  const element=e.target?.closest?.('#savePlotBtn,#deletePlotBtn,#pickPlotOnMapBtn,#useMapPinBtn,#createDefaultFeedBtn,#chooseCustomFeedBtn');
-  if(!element||!locked())return;
-  e.preventDefault();e.stopImmediatePropagation();refresh();
- },true);
- // Prevent direct edits to demo fields, even when the page rerenders.
- document.addEventListener('beforeinput',e=>{
-  if(locked()&&fields.includes(e.target?.id)){e.preventDefault();}
- },true);
- // Avoid a MutationObserver feedback loop: updating status.textContent mutates
- // the observed subtree and previously froze navigation throughout the app.
- const start=()=>{refresh();const managerSelect=manager();if(managerSelect)managerSelect.addEventListener('focus',refresh);};
- if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
-})();
-
-
+// Demo Plot is managed through the same Plot Management controls as other plots.
 
 // Legacy camera IP settings apply only to the demonstration plot.
 // User-owned plots must use their Firebase device assignments instead.
@@ -552,7 +512,7 @@ window.GrowPlotSaveCloudProfile=function(callback){
    const data=window.GrowPlotOwnedDeviceData||{},devices=Array.isArray(data.devices)?data.devices:[],assignments=Array.isArray(data.assignments)?data.assignments:[];
    const plotId=anchor.value;list.replaceChildren();
    const heading=document.createElement('strong');heading.textContent='Saved Cameras & IoT — '+(anchor.selectedOptions[0]?.textContent||plotId);list.appendChild(heading);
-   if(plotId==='plot-1'){const msg=document.createElement('p');msg.textContent='Demo Plot uses Camera & IoT Setting (Demo Plot).';list.appendChild(msg);return;}
+   // Demo Plot uses the same device inventory and assignment view as other plots.
    const matches=assignments.filter(a=>a.plotId===plotId);
    const info=document.createElement('p');info.textContent=matches.length+' assigned to this plot · '+devices.length+' saved in your account';list.appendChild(info);
    const shown=new Set();
