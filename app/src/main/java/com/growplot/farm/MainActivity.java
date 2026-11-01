@@ -215,8 +215,8 @@ public class MainActivity extends Activity {
     private boolean cctv03OverlayShown;
     private boolean cctvVlcFeedsAllowedOnActiveScreen;
     private boolean cctv03CredentialsPromptShowing;
-    private boolean cctv03CredentialCheckInProgress;
-    private boolean cctv03CredentialsRejected;
+    private final boolean[] rtspCredentialCheckInProgress = new boolean[7];
+    private final boolean[] rtspCredentialsRejected = new boolean[7];
     private boolean activityResumed;
     private volatile long cctvSnapshotIntervalMillis = 900_000L;
     private final Runnable cctv01SnapshotTicker = new Runnable() {
@@ -840,6 +840,7 @@ public class MainActivity extends Activity {
                                     .putString(PREF_CCTV_PATH_PREFIX + camera, path).apply();
                             if (userStreamMode && camera <= 3) assignedStreamUrls[camera] = savedRoute;
                             runOnUiThread(() -> {
+                                rtspCredentialsRejected[camera] = false;
                                 if (camera == 1) reconnectIpWebcamVlc();
                                 else if (camera == 2) reconnectCctv02Vlc();
                                 else if (camera == 3) reconnectCctv03Vlc();
@@ -916,11 +917,21 @@ public class MainActivity extends Activity {
     }
 
     private String addCctvRtspCredentials(int camera, String route) {
-        if (!isRtspUrl(route) || route.substring(route.indexOf("://") + 3).split("/", 2)[0].contains("@")) return route;
+        if (!isRtspUrl(route)) return route;
         String[] credentials = cctvRtspCredentials(camera);
         if (credentials[0].isEmpty() || credentials[1].isEmpty()) return route;
         int schemeEnd = route.indexOf("://") + 3;
-        return route.substring(0, schemeEnd) + Uri.encode(credentials[0]) + ":" + Uri.encode(credentials[1]) + "@" + route.substring(schemeEnd);
+        int authorityEnd = route.indexOf('/', schemeEnd);
+        int queryStart = route.indexOf('?', schemeEnd);
+        int fragmentStart = route.indexOf('#', schemeEnd);
+        if (authorityEnd < 0 || (queryStart >= 0 && queryStart < authorityEnd)) authorityEnd = queryStart;
+        if (authorityEnd < 0 || (fragmentStart >= 0 && fragmentStart < authorityEnd)) authorityEnd = fragmentStart;
+        if (authorityEnd < 0) authorityEnd = route.length();
+        String authority = route.substring(schemeEnd, authorityEnd);
+        int oldUserInfo = authority.lastIndexOf('@');
+        if (oldUserInfo >= 0) authority = authority.substring(oldUserInfo + 1);
+        return route.substring(0, schemeEnd) + Uri.encode(credentials[0]) + ":" + Uri.encode(credentials[1])
+                + "@" + authority + route.substring(authorityEnd);
     }
 
     private void addCctvRtspMediaOptions(Media media, int camera) {
@@ -983,7 +994,7 @@ public class MainActivity extends Activity {
             System.arraycopy(cipher.getIV(), 0, combined, 0, cipher.getIV().length);
             System.arraycopy(ciphertext, 0, combined, cipher.getIV().length, ciphertext.length);
             if (!getPrefs().edit().putString(PREF_VIGI_CCTV03_CREDENTIALS, Base64.encodeToString(combined, Base64.NO_WRAP)).commit()) return false;
-            cctv03CredentialsRejected = false;
+            rtspCredentialsRejected[3] = false;
             return true;
         } catch (Exception ignored) { return false; }
     }
@@ -1266,6 +1277,15 @@ public class MainActivity extends Activity {
     private void startIpWebcamVlc(VLCVideoLayout videoLayout) {
         stopIpWebcamVlc();
         ipWebcamVlcLayout = videoLayout;
+        String configuredRoute = cctvStreamUrl(1);
+        if (configuredRoute.isEmpty()) return;
+        if (isRtspUrl(configuredRoute)) {
+            String[] credentials = cctvRtspCredentials(1);
+            if (credentials[0].isEmpty() || credentials[1].isEmpty() || rtspCredentialsRejected[1]) {
+                promptForRtspCredentials(1);
+                return;
+            }
+        }
         try {
             ArrayList<String> options = new ArrayList<>();
             options.add("--no-audio");
@@ -1280,6 +1300,10 @@ public class MainActivity extends Activity {
             final org.videolan.libvlc.MediaPlayer sessionPlayer = ipWebcamVlcPlayer;
             sessionPlayer.setEventListener(event -> {
                 if (event.type == org.videolan.libvlc.MediaPlayer.Event.EncounteredError) {
+                    if (isRtspUrl(configuredRoute)) {
+                        mainHandler.post(() -> checkRejectedRtspCredentials(1, sessionPlayer, videoLayout, configuredRoute));
+                        return;
+                    }
                     mainHandler.postDelayed(() -> {
                         if (!isFinishing() && activityResumed && ipWebcamVlcPlayer == sessionPlayer
                                 && ipWebcamVlcLayout == videoLayout) {
@@ -1288,8 +1312,7 @@ public class MainActivity extends Activity {
                     }, 5000L);
                 }
             });
-            if (cctvStreamUrl(1).isEmpty()) { stopIpWebcamVlc(); return; }
-            String route = addCctvRtspCredentials(1, cctvStreamUrl(1));
+            String route = addCctvRtspCredentials(1, configuredRoute);
             Media media = new Media(ipWebcamVlc, Uri.parse(route));
             if (isRtspUrl(route)) addCctvRtspMediaOptions(media, 1);
             media.addOption(":network-caching=250");
@@ -1479,6 +1502,15 @@ public class MainActivity extends Activity {
     private void startCctv02Vlc(VLCVideoLayout videoLayout) {
         stopCctv02Vlc();
         ipWebcam2VlcLayout = videoLayout;
+        String configuredRoute = cctvStreamUrl(2);
+        if (configuredRoute.isEmpty()) return;
+        if (isRtspUrl(configuredRoute)) {
+            String[] credentials = cctvRtspCredentials(2);
+            if (credentials[0].isEmpty() || credentials[1].isEmpty() || rtspCredentialsRejected[2]) {
+                promptForRtspCredentials(2);
+                return;
+            }
+        }
         try {
             ArrayList<String> options = new ArrayList<>();
             options.add("--no-audio");
@@ -1492,6 +1524,10 @@ public class MainActivity extends Activity {
             final org.videolan.libvlc.MediaPlayer sessionPlayer = ipWebcam2VlcPlayer;
             sessionPlayer.setEventListener(event -> {
                 if (event.type == org.videolan.libvlc.MediaPlayer.Event.EncounteredError) {
+                    if (isRtspUrl(configuredRoute)) {
+                        mainHandler.post(() -> checkRejectedRtspCredentials(2, sessionPlayer, videoLayout, configuredRoute));
+                        return;
+                    }
                     mainHandler.postDelayed(() -> {
                         if (!isFinishing() && activityResumed && ipWebcam2VlcPlayer == sessionPlayer
                                 && ipWebcam2VlcLayout == videoLayout) {
@@ -1500,21 +1536,7 @@ public class MainActivity extends Activity {
                     }, 5000L);
                 }
             });
-            String route = cctvStreamUrl(2);
-            if (route.isEmpty()) { stopCctv02Vlc(); return; }
-            if (userStreamMode && (route.startsWith("rtsp://") || route.startsWith("rtsps://"))) {
-                String[] credentials = cctvRtspCredentials(2);
-                if (credentials[0].isEmpty() || credentials[1].isEmpty()) {
-                    stopCctv02Vlc();
-                    promptForAssignedVigiCctv02Credentials();
-                    return;
-                }
-                int schemeEnd = route.indexOf("://") + 3;
-                if (!route.substring(schemeEnd).split("/",2)[0].contains("@")) {
-                    route = route.substring(0,schemeEnd)+Uri.encode(credentials[0])+":"+Uri.encode(credentials[1])+"@"+route.substring(schemeEnd);
-                }
-            }
-            route = addCctvRtspCredentials(2, route);
+            String route = addCctvRtspCredentials(2, configuredRoute);
             Media media = new Media(ipWebcam2Vlc, Uri.parse(route));
             if (isRtspUrl(route)) addCctvRtspMediaOptions(media, 2);
             media.addOption(":network-caching=250");
@@ -1575,25 +1597,24 @@ public class MainActivity extends Activity {
     private void startVigiCctv03Vlc(VLCVideoLayout videoLayout) {
         stopCctv03Vlc();
         ipWebcam3VlcLayout = videoLayout;
+        String configuredRoute = cctvStreamUrl(3);
+        if (configuredRoute == null || configuredRoute.isEmpty()) { stopCctv03Vlc(); return; }
+        boolean configuredRtsp = isRtspUrl(configuredRoute);
+        String[] credentials = vigiCctv03Credentials();
+        if (configuredRtsp && (credentials[0].isEmpty() || credentials[1].isEmpty() || rtspCredentialsRejected[3])) {
+            showCctv03VigiMessage(videoLayout, rtspCredentialsRejected[3]
+                    ? "VIGI rejected the saved login. Enter the correct camera username and password."
+                    : "Enter VIGI credentials to connect");
+            promptForRtspCredentials(3);
+            return;
+        }
         if (userStreamMode) {
-            String route = cctvStreamUrl(3);
-            if (route == null || route.isEmpty()) { stopCctv03Vlc(); return; }
-            boolean rtsp = isRtspUrl(route);
+            String route = configuredRoute;
+            boolean rtsp = configuredRtsp;
             // Assigned RTSP feeds must request camera credentials at connection time.
             // Never persist the camera password in Firebase or embed it in a log.
             if (rtsp) {
-                String[] credentials = vigiCctv03Credentials();
-                if (credentials[0].isEmpty() || credentials[1].isEmpty() || cctv03CredentialsRejected) {
-                    showCctv03VigiMessage(videoLayout, "Enter VIGI credentials to connect");
-                    promptForCctv03VigiCredentials();
-                    return;
-                }
-                if (!route.substring(route.indexOf("://") + 3).split("/", 2)[0].contains("@")) {
-                    int schemeEnd = route.indexOf("://") + 3;
-                    route = route.substring(0, schemeEnd)
-                            + Uri.encode(credentials[0]) + ":" + Uri.encode(credentials[1]) + "@"
-                            + route.substring(schemeEnd);
-                }
+                route = addCctvRtspCredentials(3, route);
             }
             try {
                 ArrayList<String> options = new ArrayList<>();
@@ -1601,6 +1622,12 @@ public class MainActivity extends Activity {
                 ipWebcam3Vlc = new LibVLC(this, options);
                 ipWebcam3VlcPlayer = new org.videolan.libvlc.MediaPlayer(ipWebcam3Vlc);
                 ipWebcam3VlcPlayer.attachViews(videoLayout, null, true, false);
+                final org.videolan.libvlc.MediaPlayer sessionPlayer = ipWebcam3VlcPlayer;
+                if (rtsp) sessionPlayer.setEventListener(event -> {
+                    if (event.type == org.videolan.libvlc.MediaPlayer.Event.EncounteredError) {
+                        mainHandler.post(() -> checkRejectedRtspCredentials(3, sessionPlayer, videoLayout, configuredRoute));
+                    }
+                });
                 Media media = new Media(ipWebcam3Vlc, Uri.parse(route));
                 if (rtsp) addCctvRtspMediaOptions(media, 3);
                 media.addOption(":network-caching=350");
@@ -1608,21 +1635,14 @@ public class MainActivity extends Activity {
             } catch (Exception error) { stopCctv03Vlc(); }
             return;
         }
-        String route = cctvStreamUrl(3);
-        String ip = cctvIp(3);
-        String[] credentials = vigiCctv03Credentials();
-        boolean rtsp = route.startsWith("rtsp://") || route.startsWith("rtsps://");
+        String route = configuredRoute;
+        boolean rtsp = configuredRtsp;
         for (int i = videoLayout.getChildCount() - 1; i >= 0; i--) {
             View child = videoLayout.getChildAt(i);
             if (child instanceof TextView) videoLayout.removeViewAt(i);
         }
         if (route.isEmpty()) {
             showCctv03VigiMessage(videoLayout, "Set the CCTV03 IP address in Stream 03 Settings");
-            return;
-        }
-        if (rtsp && (credentials[0].isEmpty() || credentials[1].isEmpty() || cctv03CredentialsRejected)) {
-            showCctv03VigiMessage(videoLayout, "Enter the VIGI camera account to connect");
-            promptForCctv03VigiCredentials();
             return;
         }
         try {
@@ -1637,7 +1657,7 @@ public class MainActivity extends Activity {
             if (rtsp) {
                 sessionPlayer.setEventListener(event -> {
                     if (event.type == org.videolan.libvlc.MediaPlayer.Event.EncounteredError) {
-                        mainHandler.post(() -> checkCctv03RejectedCredentials(sessionPlayer, ip, credentials));
+                        mainHandler.post(() -> checkRejectedRtspCredentials(3, sessionPlayer, videoLayout, configuredRoute));
                     }
                 });
                 route = addCctvRtspCredentials(3, route);
@@ -1674,26 +1694,36 @@ public class MainActivity extends Activity {
         layout.addView(message, new FrameLayout.LayoutParams(-1, -1));
     }
 
-    private void checkCctv03RejectedCredentials(org.videolan.libvlc.MediaPlayer player, String ip, String[] credentials) {
-        if (player != ipWebcam3VlcPlayer || cctv03CredentialCheckInProgress) return;
-        cctv03CredentialCheckInProgress = true;
+    private void checkRejectedRtspCredentials(int camera, org.videolan.libvlc.MediaPlayer player,
+                                             VLCVideoLayout videoLayout, String route) {
+        if (camera < 1 || camera > 3 || !isCurrentRtspPlayer(camera, player, videoLayout)
+                || rtspCredentialCheckInProgress[camera]) return;
+        rtspCredentialCheckInProgress[camera] = true;
+        String[] credentials = cctvRtspCredentials(camera);
+        Uri parsed = Uri.parse(route);
+        String host = parsed.getHost();
+        int port = parsed.getPort();
+        if (port < 1) port = "rtsps".equalsIgnoreCase(parsed.getScheme()) ? 322 : 554;
+        String path = parsed.getEncodedPath();
+        if (path == null || path.isEmpty()) path = "/stream1";
+        final int cameraPort = port;
+        final String cameraHost = host;
+        final String streamPath = path;
         cctvSnapshotWorker.execute(() -> {
-            RtspCredentialVerifier.Result result = RtspCredentialVerifier.verify(ip, 554, credentials[0], credentials[1]);
+            RtspCredentialVerifier.Result result = cameraHost == null || cameraHost.isEmpty()
+                    ? RtspCredentialVerifier.Result.UNKNOWN
+                    : RtspCredentialVerifier.verify(cameraHost, cameraPort, streamPath, credentials[0], credentials[1]);
             mainHandler.post(() -> {
-                cctv03CredentialCheckInProgress = false;
-                if (player != ipWebcam3VlcPlayer || !ip.equals(cctvIp(3))) return;
+                rtspCredentialCheckInProgress[camera] = false;
+                if (!isCurrentRtspPlayer(camera, player, videoLayout)) return;
                 if (result == RtspCredentialVerifier.Result.REJECTED) {
-                    cctv03CredentialsRejected = true;
-                    if (ipWebcam3VlcLayout != null) showCctv03VigiMessage(ipWebcam3VlcLayout, "VIGI rejected the saved login. Update the camera username or password.");
-                    if (cctvVlcFeedsAllowedOnActiveScreen) promptForCctv03VigiCredentials();
-                } else if (ipWebcam3VlcLayout != null) {
-                    showCctv03VigiMessage(ipWebcam3VlcLayout, "VIGI RTSP stream unavailable. Retrying connection…");
-                    final VLCVideoLayout retryLayout = ipWebcam3VlcLayout;
+                    rtspCredentialsRejected[camera] = true;
+                    if (camera == 3) showCctv03VigiMessage(videoLayout, "VIGI rejected the saved login. Enter the correct camera username and password.");
+                    promptForRtspCredentials(camera);
+                } else {
                     mainHandler.postDelayed(() -> {
-                        if (!isFinishing() && activityResumed && cctvVlcFeedsAllowedOnActiveScreen
-                                && !userStreamMode && !cctv03CredentialsRejected
-                                && player == ipWebcam3VlcPlayer && ipWebcam3VlcLayout == retryLayout) {
-                            startVigiCctv03Vlc(retryLayout);
+                        if (!isFinishing() && activityResumed && isCurrentRtspPlayer(camera, player, videoLayout)) {
+                            startRtspCamera(camera, videoLayout);
                         }
                     }, 5000L);
                 }
@@ -1701,31 +1731,45 @@ public class MainActivity extends Activity {
         });
     }
 
-    private void promptForCctv03VigiCredentials() {
-        if (!activityResumed || isFinishing() || cctv03CredentialsPromptShowing) return;
+    private boolean isCurrentRtspPlayer(int camera, org.videolan.libvlc.MediaPlayer player, VLCVideoLayout layout) {
+        return camera == 1 ? player == ipWebcamVlcPlayer && layout == ipWebcamVlcLayout
+                : camera == 2 ? player == ipWebcam2VlcPlayer && layout == ipWebcam2VlcLayout
+                : player == ipWebcam3VlcPlayer && layout == ipWebcam3VlcLayout;
+    }
+
+    private void startRtspCamera(int camera, VLCVideoLayout layout) {
+        if (camera == 1) startIpWebcamVlc(layout);
+        else if (camera == 2) startCctv02Vlc(layout);
+        else if (camera == 3) startVigiCctv03Vlc(layout);
+    }
+
+    private void promptForRtspCredentials(int camera) {
+        if (camera < 1 || camera > 3 || !activityResumed || isFinishing() || cctv03CredentialsPromptShowing) return;
         cctv03CredentialsPromptShowing = true;
         LinearLayout form = new LinearLayout(this);
         form.setOrientation(LinearLayout.VERTICAL);
         form.setPadding(dp(24), dp(8), dp(24), dp(4));
         TextView note = new TextView(this);
-        note.setText("Enter the camera account created in the VIGI app. GrowPlot will save it encrypted on this device.");
+        note.setText(camera == 3
+                ? "Enter the camera account created in the VIGI app. GrowPlot saves it encrypted on this device."
+                : "Enter the RTSP camera username and password. GrowPlot saves them encrypted on this device.");
         form.addView(note, new LinearLayout.LayoutParams(-1, -2));
         EditText username = new EditText(this);
         username.setSingleLine(true);
-        username.setHint("VIGI username");
-        String[] savedCredentials = vigiCctv03Credentials();
+        username.setHint(camera == 3 ? "VIGI username" : "Camera username");
+        String[] savedCredentials = cctvRtspCredentials(camera);
         username.setText(savedCredentials[0]);
         username.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD);
         form.addView(username, new LinearLayout.LayoutParams(-1, -2));
         EditText password = new EditText(this);
         password.setSingleLine(true);
-        password.setHint("VIGI password");
-        if (!cctv03CredentialsRejected) password.setText(savedCredentials[1]);
+        password.setHint(camera == 3 ? "VIGI password" : "Camera password");
+        if (!rtspCredentialsRejected[camera]) password.setText(savedCredentials[1]);
         password.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
         form.addView(password, new LinearLayout.LayoutParams(-1, -2));
 
         android.app.AlertDialog dialog = new android.app.AlertDialog.Builder(this)
-                .setTitle("Connect CCTV03 · VIGI")
+                .setTitle(camera == 3 ? "Connect CCTV03 · VIGI" : String.format(Locale.US, "Connect CCTV%02d · RTSP", camera))
                 .setView(form)
                 .setNegativeButton("Cancel", (d, which) -> { })
                 .setPositiveButton("Connect", null)
@@ -1735,54 +1779,24 @@ public class MainActivity extends Activity {
             String user = username.getText().toString().trim();
             String secret = password.getText().toString();
             if (user.isEmpty()) {
-                username.setError("Enter the VIGI username");
+                username.setError("Enter the camera username");
                 return;
             }
             if (secret.isEmpty()) {
-                password.setError("Enter the VIGI password");
+                password.setError("Enter the camera password");
                 return;
             }
-            if (!saveVigiCctv03Credentials(user, secret)) {
+            if (!saveCctvRtspCredentials(camera, user, secret)) {
                 password.setError("Could not protect these credentials on this device");
                 return;
             }
+            rtspCredentialsRejected[camera] = false;
             username.setText("");
             password.setText("");
             dialog.dismiss();
-            reconnectCctv03Vlc();
-        }));
-        dialog.show();
-    }
-
-    // CCTV02 can host an assigned VIGI RTSP feed (e.g. PP5 Section 2).
-    // Keep the camera login local to Android Keystore, not Firestore.
-    private void promptForAssignedVigiCctv02Credentials() {
-        if (!activityResumed || isFinishing() || cctv03CredentialsPromptShowing) return;
-        cctv03CredentialsPromptShowing = true;
-        LinearLayout form = new LinearLayout(this);
-        form.setOrientation(LinearLayout.VERTICAL);
-        form.setPadding(dp(24),dp(8),dp(24),dp(4));
-        EditText username = new EditText(this);
-        username.setSingleLine(true);
-        username.setHint("VIGI username");
-        username.setText(cctvRtspCredentials(2)[0]);
-        form.addView(username);
-        EditText password = new EditText(this);
-        password.setSingleLine(true);
-        password.setHint("VIGI password");
-        password.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
-        form.addView(password);
-        android.app.AlertDialog dialog = new android.app.AlertDialog.Builder(this)
-            .setTitle("Connect assigned CCTV02 · VIGI")
-            .setView(form).setNegativeButton("Cancel",(d,w)->{})
-            .setPositiveButton("Connect",null).create();
-        dialog.setOnDismissListener(d->cctv03CredentialsPromptShowing=false);
-        dialog.setOnShowListener(d->dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{
-            String user=username.getText().toString().trim(),secret=password.getText().toString();
-            if(user.isEmpty()){username.setError("Enter VIGI username");return;}
-            if(secret.isEmpty()){password.setError("Enter VIGI password");return;}
-            if(!saveCctvRtspCredentials(2,user,secret)){password.setError("Could not encrypt camera login on this device");return;}
-            password.setText("");dialog.dismiss();reconnectCctv02Vlc();
+            if (camera == 1) reconnectIpWebcamVlc();
+            else if (camera == 2) reconnectCctv02Vlc();
+            else reconnectCctv03Vlc();
         }));
         dialog.show();
     }

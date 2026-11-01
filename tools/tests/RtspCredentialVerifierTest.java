@@ -4,28 +4,32 @@ import java.net.*;
 import java.nio.charset.StandardCharsets;
 public class RtspCredentialVerifierTest {
     private static void check(boolean value) { if (!value) throw new AssertionError(); }
-    private static void basic(int finalStatus, RtspCredentialVerifier.Result expected) throws Exception {
+    private static void basic(int finalStatus, RtspCredentialVerifier.Result expected, String path) throws Exception {
         try (ServerSocket server = new ServerSocket(0)) {
             Thread worker = new Thread(() -> {
                 try {
                     for (int i = 0; i < 2; i++) try (Socket socket = server.accept()) {
                         BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
-                        String line; boolean credentials = false;
-                        while ((line=reader.readLine())!=null && !line.isEmpty()) if (line.equals("Authorization: Basic dXNlcjpwYXNz")) credentials=true;
+                        String line; boolean credentials = false, correctPath = false;
+                        while ((line=reader.readLine())!=null && !line.isEmpty()) {
+                            if (line.startsWith("DESCRIBE rtsp://127.0.0.1:" + server.getLocalPort() + path + " RTSP/1.0")) correctPath = true;
+                            if (line.equals("Authorization: Basic dXNlcjpwYXNz")) credentials=true;
+                        }
+                        if (!correctPath) throw new AssertionError("Configured RTSP path was not used");
                         if (i==1 && !credentials) throw new AssertionError("Saved credentials were not used");
                         int status = i==0?401:finalStatus;
                         socket.getOutputStream().write(("RTSP/1.0 "+status+" Status\r\nWWW-Authenticate: Basic realm=\"camera\"\r\nContent-Length: 0\r\n\r\n").getBytes(StandardCharsets.UTF_8));
                     }
                 } catch (Exception e) { throw new RuntimeException(e); }
             });worker.start();
-            check(RtspCredentialVerifier.verify("127.0.0.1", server.getLocalPort(), "user", "pass")==expected);
+            check(RtspCredentialVerifier.verify("127.0.0.1", server.getLocalPort(), path, "user", "pass")==expected);
             worker.join(6000);check(!worker.isAlive());
         }
     }
     public static void main(String[] args) throws Exception {
-        basic(200,RtspCredentialVerifier.Result.ACCEPTED);
-        basic(401,RtspCredentialVerifier.Result.REJECTED);
-        basic(503,RtspCredentialVerifier.Result.UNKNOWN);
+        basic(200,RtspCredentialVerifier.Result.ACCEPTED,"/vigi/stream1");
+        basic(401,RtspCredentialVerifier.Result.REJECTED,"/vigi/stream1");
+        basic(503,RtspCredentialVerifier.Result.UNKNOWN,"/vigi/stream1");
         try(ServerSocket closed=new ServerSocket(0)){int port=closed.getLocalPort();closed.close();check(RtspCredentialVerifier.verify("127.0.0.1",port,"user","pass")==RtspCredentialVerifier.Result.UNKNOWN);}
         java.lang.reflect.Method auth=RtspCredentialVerifier.class.getDeclaredMethod("authorization",String.class,String.class,String.class,String.class);auth.setAccessible(true);
         String digest=(String)auth.invoke(null,"Digest realm=\"camera\", nonce=\"123\", qop=\"auth,auth-int\", algorithm=MD5","rtsp://camera/stream1","user","pass");

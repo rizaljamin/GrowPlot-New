@@ -15,8 +15,12 @@ final class RtspCredentialVerifier {
         String challenge = "";
     }
     static Result verify(String host, int port, String username, String password) {
+        return verify(host, port, "/stream1", username, password);
+    }
+    static Result verify(String host, int port, String path, String username, String password) {
         try {
-            String uri = "rtsp://" + host + ":" + port + "/stream1";
+            if (path == null || !path.startsWith("/") || path.contains("\r") || path.contains("\n") || path.contains("..")) return Result.UNKNOWN;
+            String uri = "rtsp://" + host + ":" + port + path;
             Reply first = request(host, port, uri, "");
             if (first.status >= 200 && first.status < 300) return Result.ACCEPTED;
             if (first.status != 401) return Result.UNKNOWN;
