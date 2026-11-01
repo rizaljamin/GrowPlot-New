@@ -217,6 +217,8 @@ public class MainActivity extends Activity {
     private boolean cctv03CredentialsPromptShowing;
     private final boolean[] rtspCredentialCheckInProgress = new boolean[7];
     private final boolean[] rtspCredentialsRejected = new boolean[7];
+    private final boolean[] rtspConnectionPromptShowing = new boolean[7];
+    private final String[] rtspConnectionConfirmedTargets = new String[7];
     private boolean activityResumed;
     private volatile long cctvSnapshotIntervalMillis = 900_000L;
     private final Runnable cctv01SnapshotTicker = new Runnable() {
@@ -1285,6 +1287,7 @@ public class MainActivity extends Activity {
                 promptForRtspCredentials(1);
                 return;
             }
+            if (!confirmRtspConnectionTarget(1, configuredRoute, videoLayout)) return;
         }
         try {
             ArrayList<String> options = new ArrayList<>();
@@ -1510,6 +1513,7 @@ public class MainActivity extends Activity {
                 promptForRtspCredentials(2);
                 return;
             }
+            if (!confirmRtspConnectionTarget(2, configuredRoute, videoLayout)) return;
         }
         try {
             ArrayList<String> options = new ArrayList<>();
@@ -1608,6 +1612,7 @@ public class MainActivity extends Activity {
             promptForRtspCredentials(3);
             return;
         }
+        if (configuredRtsp && !confirmRtspConnectionTarget(3, configuredRoute, videoLayout)) return;
         if (userStreamMode) {
             String route = configuredRoute;
             boolean rtsp = configuredRtsp;
@@ -1692,6 +1697,45 @@ public class MainActivity extends Activity {
         message.setGravity(Gravity.CENTER);
         message.setPadding(dp(12), dp(8), dp(12), dp(8));
         layout.addView(message, new FrameLayout.LayoutParams(-1, -1));
+    }
+
+    private boolean confirmRtspConnectionTarget(int camera, String route, VLCVideoLayout layout) {
+        if (camera < 1 || camera > 3 || !isRtspUrl(route)) return true;
+        String target = rtspConnectionTarget(route);
+        if (target.isEmpty() || target.equals(rtspConnectionConfirmedTargets[camera])) return true;
+        if (rtspConnectionPromptShowing[camera] || !activityResumed || isFinishing()) return false;
+        rtspConnectionPromptShowing[camera] = true;
+        String message = "Connecting to this RTSP address:\n\n" + target
+                + "\n\nCamera username and password are sent separately and are not shown here.";
+        android.app.AlertDialog dialog = new android.app.AlertDialog.Builder(this)
+                .setTitle(String.format(Locale.US, "Confirm CCTV%02d connection", camera))
+                .setMessage(message)
+                .setNegativeButton("Cancel", (d, which) -> { })
+                .setPositiveButton("Connect", (d, which) -> {
+                    rtspConnectionConfirmedTargets[camera] = target;
+                    startRtspCamera(camera, layout);
+                })
+                .create();
+        dialog.setOnDismissListener(d -> rtspConnectionPromptShowing[camera] = false);
+        dialog.show();
+        return false;
+    }
+
+    private String rtspConnectionTarget(String route) {
+        try {
+            Uri parsed = Uri.parse(route);
+            String scheme = parsed.getScheme();
+            String host = parsed.getHost();
+            if (scheme == null || host == null || host.isEmpty()) return "";
+            if (host.contains(":") && !host.startsWith("[")) host = "[" + host + "]";
+            int port = parsed.getPort();
+            if (port < 1) port = "rtsps".equalsIgnoreCase(scheme) ? 322 : 554;
+            String path = parsed.getEncodedPath();
+            if (path == null || path.isEmpty()) path = "/";
+            return scheme.toLowerCase(Locale.US) + "://" + host + ":" + port + path;
+        } catch (Exception invalidRoute) {
+            return "";
+        }
     }
 
     private void checkRejectedRtspCredentials(int camera, org.videolan.libvlc.MediaPlayer player,
