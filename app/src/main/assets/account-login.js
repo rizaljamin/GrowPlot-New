@@ -549,13 +549,16 @@ window.GrowPlotSaveCloudProfile=function(callback){
 
   const devicePicker=document.getElementById('gpDeviceId');
   function refreshDevicePicker(){
-   const existing=devicePicker.value;
-   const devices=window.GrowPlotOwnedDeviceData?.devices||[];
-   for(const d of devices){
-    if(!d?.deviceId||Array.from(devicePicker.options).some(o=>o.value===d.deviceId))continue;
-    const option=document.createElement('option');option.value=d.deviceId;option.textContent=d.deviceId;devicePicker.appendChild(option);
+   const previous=devicePicker.value;
+   const devices=Array.isArray(window.GrowPlotOwnedDeviceData?.devices)?window.GrowPlotOwnedDeviceData.devices:[];
+   const ids=new Set(['CCTV01','CCTV02','CCTV03','CCTV04','CCTV05','CCTV06']);
+   for(const d of devices)if(d?.deviceId)ids.add(String(d.deviceId));
+   devicePicker.replaceChildren();
+   const placeholder=document.createElement('option');placeholder.value='';placeholder.textContent='Select camera';devicePicker.appendChild(placeholder);
+   for(const id of ids){
+    const option=document.createElement('option');option.value=id;option.textContent=id;devicePicker.appendChild(option);
    }
-   if(existing&&Array.from(devicePicker.options).some(o=>o.value===existing))devicePicker.value=existing;
+   devicePicker.value=ids.has(previous)?previous:'';
   }
   devicePicker.addEventListener('change',()=>{
    const d=(window.GrowPlotOwnedDeviceData?.devices||[]).find(x=>x.deviceId===devicePicker.value);
@@ -591,12 +594,11 @@ window.GrowPlotSaveCloudProfile=function(callback){
    const plotId=anchor.value;refreshDevicePicker();list.replaceChildren();
    const heading=document.createElement('strong');heading.textContent='Saved Cameras & IoT — '+(anchor.selectedOptions[0]?.textContent||plotId);list.appendChild(heading);
    const matches=assignments.filter(a=>a.plotId===plotId);
-   const picker=devicePicker;
-   for(const d of devices){
-    const links=assignments.filter(a=>a.deviceId===d.deviceId);
-    const option=Array.from(picker.options).find(o=>o.value===d.deviceId);
-    if(option)option.textContent=d.deviceId+(d.ipAddress?' — '+d.ipAddress:'')+(links.length?' · '+links.map(a=>a.plotId+'/'+a.greenhouseId+'/'+a.sectionId).join(', '):' · Unassigned');
-   }
+   // Device names stay short; assignment and IP appear in the configuration summary.
+   const selected=devices.find(d=>d.deviceId===devicePicker.value);
+   const selectedLinks=assignments.filter(a=>a.deviceId===devicePicker.value);
+   const summary=document.getElementById('gpCameraAssignmentSummary');
+   if(summary&&devicePicker.value)summary.textContent=devicePicker.value+(selected?.ipAddress?' · '+selected.ipAddress:'')+(selectedLinks.length?' · '+selectedLinks.map(a=>a.plotId+' / '+a.greenhouseId+' / '+a.sectionId).join('; '):' · Unassigned');
 
    const info=document.createElement('p');info.textContent=matches.length+' assigned to this plot · '+devices.length+' saved in your account';list.appendChild(info);
    const shown=new Set();
