@@ -752,6 +752,32 @@ public class MainActivity extends Activity {
     // The Firebase and local camera routes are tested sequentially, never concurrently.
     private final boolean[] preferLocalAfterFirebaseFailure = new boolean[4];
     private final boolean[] cameraPlaybackConfirmed = new boolean[4];
+    private final boolean[] cameraVideoOutputReady = new boolean[4];
+
+    private FrameLayout cameraVideoFrame(int camera) {
+        return camera == 1 ? ipWebcamVlcFrame : camera == 2 ? ipWebcam2VlcFrame : ipWebcam3VlcFrame;
+    }
+
+    private void showCameraSignalState(int camera, String state) {
+        FrameLayout frame = cameraVideoFrame(camera);
+        if (frame == null) return;
+        final int id = 0x47500000 + camera;
+        TextView label = frame.findViewById(id);
+        if (label == null) {
+            label = new TextView(this);
+            label.setId(id);
+            label.setTextColor(Color.WHITE);
+            label.setTextSize(13);
+            label.setGravity(Gravity.CENTER);
+            label.setPadding(dp(12), dp(8), dp(12), dp(8));
+            label.setBackgroundColor(0xCC102A20);
+            FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(-1, -2, Gravity.CENTER);
+            frame.addView(label, params);
+        }
+        label.setText(state);
+        label.setVisibility(cameraVideoOutputReady[camera] ? View.GONE : View.VISIBLE);
+    }
+
 
     private String localCctvStreamUrl(int camera) {
         String ip = cctvIp(camera);
@@ -760,11 +786,14 @@ public class MainActivity extends Activity {
 
     private void watchCameraPlayback(int camera, org.videolan.libvlc.MediaPlayer player, VLCVideoLayout layout) {
         cameraPlaybackConfirmed[camera] = false;
+        cameraVideoOutputReady[camera] = false;
+        showCameraSignalState(camera, "Checking CCTV" + String.format(java.util.Locale.US, "%02d", camera) + " video signal…");
         mainHandler.postDelayed(() -> {
-            if (!activityResumed || activeHomeStreamCamera != camera || cameraPlaybackConfirmed[camera]
+            if (!activityResumed || activeHomeStreamCamera != camera || cameraVideoOutputReady[camera]
                     || !isCurrentRtspPlayer(camera, player, layout)) return;
             if (tryLocalStreamFallback(camera, player, layout)) return;
-            android.util.Log.w("GrowPlotStreams", "No playback confirmation for selected camera " + camera);
+            showCameraSignalState(camera, "No video signal detected. Check camera address, RTSP path and network.");
+            android.util.Log.w("GrowPlotStreams", "No video output for selected camera " + camera);
         }, 10000L);
     }
 
@@ -775,6 +804,7 @@ public class MainActivity extends Activity {
         if (firebaseRoute == null || firebaseRoute.isEmpty() || localRoute.isEmpty()
                 || firebaseRoute.equals(localRoute) || !hasLocalCctvStreamOverride(camera)) return false;
         preferLocalAfterFirebaseFailure[camera] = true;
+        showCameraSignalState(camera, "Firebase has no video output. Testing local camera settings…");
         android.util.Log.i("GrowPlotStreams", "Trying local fallback for camera " + camera);
         startRtspCamera(camera, layout);
         return true;
@@ -785,7 +815,13 @@ public class MainActivity extends Activity {
         mainHandler.post(() -> {
             if (!isCurrentRtspPlayer(camera, player, layout)) return;
             if (eventType == org.videolan.libvlc.MediaPlayer.Event.Playing) {
-                cameraPlaybackConfirmed[camera] = true;
+                cameraPlaybackConfirmed[camera] = true; // Connection only; not proof of video.
+            } else if (eventType == org.videolan.libvlc.MediaPlayer.Event.Vout) {
+                // VLC reports an actual video output; only now reveal the feed.
+                if (player.getVoutCount() > 0) {
+                    cameraVideoOutputReady[camera] = true;
+                    showCameraSignalState(camera, "");
+                }
             } else if (eventType == org.videolan.libvlc.MediaPlayer.Event.EncounteredError) {
                 if (tryLocalStreamFallback(camera, player, layout)) return;
                 if (isRtspUrl(route)) checkRejectedRtspCredentials(camera, player, layout, route);
