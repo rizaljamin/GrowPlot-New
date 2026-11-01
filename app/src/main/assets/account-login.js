@@ -533,7 +533,13 @@ window.GrowPlotSaveCloudProfile=function(callback){
   const ghSelect=asDropdown(ghInput),secSelect=asDropdown(secInput);
   // Location first, then camera and its connection fields in one configuration card.
   const grid=section.querySelector('.gp-device-grid');
-  grid.prepend(ghSelect.parentElement,secSelect.parentElement);
+  // Put plot-location selectors ABOVE the CCTV configuration heading, not at the bottom of its fields.
+  const locationRow=document.createElement('div');
+  locationRow.id='gpCameraLocationRow';
+  locationRow.className='gp-device-grid';
+  locationRow.style.cssText='margin:0 0 14px;padding:12px;border:1px solid #b4cdbd;border-radius:9px;background:#f1f8f3';
+  locationRow.append(ghSelect.parentElement,secSelect.parentElement);
+  section.insertAdjacentElement('beforebegin',locationRow);
   const inventorySummary=document.createElement('div');
   inventorySummary.id='gpCameraAssignmentSummary';
   inventorySummary.style.cssText='padding:9px 11px;margin:10px 0;border:1px solid #b4cdbd;border-radius:8px;background:#f1f8f3;color:#194a32;font-size:13px';
