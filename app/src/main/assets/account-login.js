@@ -531,6 +531,15 @@ window.GrowPlotSaveCloudProfile=function(callback){
   const ghInput=document.getElementById('gpGreenhouseId'),secInput=document.getElementById('gpSectionId');
   function asDropdown(input){const select=document.createElement('select');select.id=input.id;select.setAttribute('aria-label',input.id==='gpGreenhouseId'?'Greenhouse':'Section');input.replaceWith(select);return select;}
   const ghSelect=asDropdown(ghInput),secSelect=asDropdown(secInput);
+  // Location first, then camera and its connection fields in one configuration card.
+  const grid=section.querySelector('.gp-device-grid');
+  grid.prepend(ghSelect.parentElement,secSelect.parentElement);
+  const inventorySummary=document.createElement('div');
+  inventorySummary.id='gpCameraAssignmentSummary';
+  inventorySummary.style.cssText='padding:9px 11px;margin:10px 0;border:1px solid #b4cdbd;border-radius:8px;background:#f1f8f3;color:#194a32;font-size:13px';
+  inventorySummary.textContent='Choose a camera to view its saved configuration and assignment.';
+  grid.insertAdjacentElement('afterend',inventorySummary);
+
   const devicePicker=document.getElementById('gpDeviceId');
   function refreshDevicePicker(){
    const existing=devicePicker.value;
@@ -566,6 +575,8 @@ window.GrowPlotSaveCloudProfile=function(callback){
     const el=document.getElementById(id);if(el&&d[key]!=null)el.value=String(d[key]);
    }
    if(a){ghSelect.value=a.greenhouseId;ghSelect.dispatchEvent(new Event('change'));secSelect.value=a.sectionId;}
+   const summary=document.getElementById('gpCameraAssignmentSummary');
+   if(summary)summary.textContent=(d.deviceId||'Camera')+' · '+(d.ipAddress||'No IP')+' · '+(a?(a.plotId+' / '+a.greenhouseId+' / '+a.sectionId):'Not assigned to this selected section');
    document.getElementById('gpDeviceStatus').textContent=a?'Loaded saved assignment.':'Saved device loaded. Select greenhouse and section, then Assign Device.';
   }
   window.GrowPlotRenderOwnedDevices=function(){
@@ -573,6 +584,13 @@ window.GrowPlotSaveCloudProfile=function(callback){
    const plotId=anchor.value;refreshDevicePicker();list.replaceChildren();
    const heading=document.createElement('strong');heading.textContent='Saved Cameras & IoT — '+(anchor.selectedOptions[0]?.textContent||plotId);list.appendChild(heading);
    const matches=assignments.filter(a=>a.plotId===plotId);
+   const picker=devicePicker;
+   for(const d of devices){
+    const links=assignments.filter(a=>a.deviceId===d.deviceId);
+    const option=Array.from(picker.options).find(o=>o.value===d.deviceId);
+    if(option)option.textContent=d.deviceId+(d.ipAddress?' — '+d.ipAddress:'')+(links.length?' · '+links.map(a=>a.plotId+'/'+a.greenhouseId+'/'+a.sectionId).join(', '):' · Unassigned');
+   }
+
    const info=document.createElement('p');info.textContent=matches.length+' assigned to this plot · '+devices.length+' saved in your account';list.appendChild(info);
    const shown=new Set();
    const plot=currentPlot(), ghCount=count(plot?.greenhouseCount), secCount=count(plot?.sectionsPerGreenhouse);
