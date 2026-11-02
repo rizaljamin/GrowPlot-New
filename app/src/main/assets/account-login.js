@@ -257,6 +257,10 @@ window.GrowPlotAccountResponse=function(response){
   const status=document.getElementById('gpDeviceStatus');
   if(!response.ok){if(status)status.textContent=response.message||'Demo Plot initialization failed.';window.GrowPlotPendingDemoAssignment=null;return;}
   window.GrowPlotDemoPlotInitialized=true;
+  if(window.GrowPlotDemoConfigPending){
+   window.GrowPlotDemoConfigPending=false;
+   request('loadPlotConfig',{plotId:'plot-1'});
+  }
   const pending=window.GrowPlotPendingDemoAssignment;window.GrowPlotPendingDemoAssignment=null;
   if(pending){request('assignOwnedDevice',pending);if(status)status.textContent='Demo Plot created in Firebase. Assigning camera…';}
   return;
@@ -625,7 +629,12 @@ window.GrowPlotSaveCloudProfile=function(callback){
    window.GrowPlotFirebasePlotConfigs=window.GrowPlotFirebasePlotConfigs||{};
    delete window.GrowPlotFirebasePlotConfigs[id];
    refreshTargets();
-   if(window.GrowPlotCurrentUser&&!window.GrowPlotCurrentUser.developmentOnly&&api?.configured())request('loadPlotConfig',{plotId:id});
+   if(window.GrowPlotCurrentUser&&!window.GrowPlotCurrentUser.developmentOnly&&api?.configured()){
+    if(id==='plot-1'&&String(window.GrowPlotCurrentUser.email||'').trim().toLowerCase()==='growplot2026@gmail.com'){
+     window.GrowPlotDemoConfigPending=true;
+     request('ensureDemoPlot',{});
+    }else request('loadPlotConfig',{plotId:id});
+   }
    else refreshTargets('Sign in to load plot configuration from Firebase.');
   }
   anchor.addEventListener('change',loadTargets);
