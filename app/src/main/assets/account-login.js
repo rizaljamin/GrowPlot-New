@@ -734,7 +734,19 @@ window.GrowPlotSaveCloudProfile=function(callback){
     const d=devices.find(x=>x.deviceId===a.deviceId);
     const detail=document.createElement('div');
     detail.style.cssText='padding:8px 10px;border:1px solid #b4cdbd;border-radius:7px;background:#f1f8f3;color:#194a32;font-size:13px';
-    detail.textContent=(a.deviceId||'Unknown camera')+' · '+(a.greenhouseId||'Unknown greenhouse')+' / '+(a.sectionId||'Unknown section')+' · IP: '+(d?.ipAddress||'Not configured');
+    const fields=[
+     ['Plot ID',a.plotId],['Greenhouse ID',a.greenhouseId],['Section ID',a.sectionId],
+     ['CCTV / Device ID',a.deviceId],['Device name',d?.deviceName],['Device type',d?.deviceType],
+     ['IP address',d?.ipAddress],['Port',d?.port],['Protocol',d?.protocol],
+     ['Stream endpoint',d?.streamPath],['Device username',d?.username],
+     ['Signed-in account',window.GrowPlotCurrentUser?.email]
+    ];
+    const heading=document.createElement('strong');heading.textContent=a.deviceId||'Assigned device';detail.appendChild(heading);
+    for(const [label,value] of fields){
+     const line=document.createElement('div');
+     line.textContent=label+': '+(value===undefined||value===null||value===''?'Not configured':String(value));
+     detail.appendChild(line);
+    }
     assignmentDetails.appendChild(detail);
    }
    list.appendChild(assignmentDetails);
