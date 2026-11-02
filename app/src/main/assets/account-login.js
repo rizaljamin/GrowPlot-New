@@ -710,7 +710,7 @@ window.GrowPlotSaveCloudProfile=function(callback){
    const plotId=anchor.value,sectionId=val('gpSectionId'),deviceId=val('gpDeviceId');
    if(!currentPlot()||!ghSelect.value||!secSelect.value){status.textContent='Select a configured greenhouse and section in this plot first.';return;}
    if(!/^[A-Za-z0-9_-]{1,100}$/.test(sectionId)||!/^[A-Za-z0-9_-]{1,100}$/.test(deviceId)){status.textContent='Enter valid section and device IDs.';return;}
-   if(plotId==='plot-1'&&!window.GrowPlotCloudProfile?.admin&&!window.GrowPlotCloudProfile?.powerUser){
+   if(plotId==='plot-1'&&!window.GrowPlotCloudProfile?.admin){
     status.textContent='Demo Plot assignment is restricted to administrators.';return;
    }
    if(plotId==='plot-1'&&!window.GrowPlotDemoPlotInitialized){
