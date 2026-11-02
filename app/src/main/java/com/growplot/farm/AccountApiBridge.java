@@ -185,12 +185,29 @@ public final class AccountApiBridge {
             }
             FirebaseUser user=auth.getCurrentUser();
             if(user==null){respond(action,false,"Sign in first.",null);return;}
+            if("saveDemoPlot".equals(action)){
+                if(!("growplot2026@gmail.com".equalsIgnoreCase(user.getEmail()) || "rizaljamin@gmail.com".equalsIgnoreCase(user.getEmail())) || !user.isEmailVerified()){respond(action,false,"Verified Demo Plot administrator account required.",null);return;}
+                int gh=input.optInt("greenhouseCount",0),sec=input.optInt("sectionsPerGreenhouse",0);
+                if(gh<1||gh>100||sec<1||sec>100){respond(action,false,"Greenhouse and section counts must be 1–100.",null);return;}
+                Map<String,Object> changes=new HashMap<>();
+                changes.put("id","plot-1");changes.put("number","1");changes.put("name","Demo Plot");
+                changes.put("systemManaged",true);changes.put("readOnly",true);
+                changes.put("greenhouseCount",gh);changes.put("sectionsPerGreenhouse",sec);
+                changes.put("address",input.optString("address",""));
+                changes.put("latitude",input.optString("latitude",""));
+                changes.put("longitude",input.optString("longitude",""));
+                changes.put("description",input.optString("description",""));
+                db.collection("plots").document("plot-1").set(changes,SetOptions.merge())
+                    .addOnSuccessListener(v->respond(action,true,"Shared Demo Plot saved to Firebase.",null))
+                    .addOnFailureListener(e->respond(action,false,"Firebase save failed: "+e.getMessage(),null));
+                return;
+            }
             if("loadPlotConfig".equals(action)){
                 String plotId=input.optString("plotId","");
                 if(!plotId.matches("[A-Za-z0-9_-]{1,100}")){respond(action,false,"Invalid plot ID.",null);return;}
                 String uid=user.getUid();
-                db.collection("plots").document(uid+"_"+plotId).get().addOnSuccessListener(doc->{
-                    if(!doc.exists()||!uid.equals(doc.getString("ownerUserId"))){respond(action,false,"Plot configuration not found in Firebase.",null);return;}
+                db.collection("plots").document("plot-1".equals(plotId)?"plot-1":uid+"_"+plotId).get().addOnSuccessListener(doc->{
+                    if(!doc.exists()||(!"plot-1".equals(plotId)&&!uid.equals(doc.getString("ownerUserId")))){respond(action,false,"Plot configuration not found in Firebase.",null);return;}
                     try{
                         JSONObject data=new JSONObject();
                         data.put("plotId",plotId);
@@ -300,18 +317,17 @@ public final class AccountApiBridge {
                 return;
             }
             if("ensureDemoPlot".equals(action)){
-                user.getIdToken(false).addOnSuccessListener(token->{
-                    if(!Boolean.TRUE.equals(token.getClaims().get("admin")) && !"growplot2026@gmail.com".equalsIgnoreCase(user.getEmail())){
-                        respond(action,false,"Administrator access required to initialize Demo Plot.",null);return;
-                    }
+                if(!("growplot2026@gmail.com".equalsIgnoreCase(user.getEmail()) || "rizaljamin@gmail.com".equalsIgnoreCase(user.getEmail())) || !user.isEmailVerified()){respond(action,false,"Verified Demo Plot administrator account required.",null);return;}
+                com.google.firebase.firestore.DocumentReference ref=db.collection("plots").document("plot-1");
+                ref.get().addOnSuccessListener(existing->{
+                    if(existing.exists()){respond(action,true,"Shared Demo Plot already exists.",null);return;}
                     Map<String,Object> demo=new HashMap<>();
                     demo.put("id","plot-1");demo.put("number","1");demo.put("name","Demo Plot");
-                    demo.put("ownerUserId",user.getUid());demo.put("systemManaged",true);demo.put("readOnly",true);
+                    demo.put("systemManaged",true);demo.put("readOnly",true);
                     demo.put("greenhouseCount",1);demo.put("sectionsPerGreenhouse",2);
-                    db.collection("plots").document(user.getUid()+"_plot-1").set(demo,SetOptions.merge())
-                        .addOnSuccessListener(v->respond(action,true,"Demo Plot Firebase record initialized; existing fields preserved.",null))
-                        .addOnFailureListener(e->respond(action,false,"Demo Plot setup failed: "+e.getMessage(),null));
-                }).addOnFailureListener(e->respond(action,false,"Administrator token check failed: "+e.getMessage(),null));
+                    ref.set(demo).addOnSuccessListener(v->respond(action,true,"Shared Demo Plot initialized.",null))
+                        .addOnFailureListener(e->respond(action,false,"Demo Plot initialization failed: "+e.getMessage(),null));
+                }).addOnFailureListener(e->respond(action,false,"Demo Plot lookup failed: "+e.getMessage(),null));
                 return;
             }
             if("assignOwnedDevice".equals(action)){
@@ -320,10 +336,11 @@ public final class AccountApiBridge {
                     respond(action,false,"Select a valid plot, greenhouse, section and device.",null);return;
                 }
                 String uid=user.getUid();
-                com.google.firebase.firestore.DocumentReference plotRef=db.collection("plots").document(uid+"_"+plotId);
+                if("plot-1".equals(plotId)&&(!("growplot2026@gmail.com".equalsIgnoreCase(user.getEmail()) || "rizaljamin@gmail.com".equalsIgnoreCase(user.getEmail()))||!user.isEmailVerified())){respond(action,false,"Verified Demo Plot administrator account required.",null);return;}
+                com.google.firebase.firestore.DocumentReference plotRef=db.collection("plots").document("plot-1".equals(plotId)?"plot-1":uid+"_"+plotId);
                 com.google.firebase.firestore.DocumentReference feedRef=db.collection("data_feeds").document(uid+"_"+deviceId);
                 plotRef.get().addOnSuccessListener(plot->{
-                    if(!plot.exists()||!uid.equals(plot.getString("ownerUserId"))){respond(action,false,"Plot not found in your Firebase account.",null);return;}
+                    if(!plot.exists()||(!"plot-1".equals(plotId)&&!uid.equals(plot.getString("ownerUserId")))){respond(action,false,"Plot not found in your Firebase account.",null);return;}
                     Number ghCount=plot.getDouble("greenhouseCount"),secCount=plot.getDouble("sectionsPerGreenhouse");
                     int gh=Integer.parseInt(greenhouseId.substring(11)),sec=Integer.parseInt(sectionId.substring(8));
                     if(ghCount==null||secCount==null||gh>ghCount.intValue()||sec>secCount.intValue()){
