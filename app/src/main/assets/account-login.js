@@ -555,10 +555,15 @@ window.GrowPlotSaveCloudProfile=function(callback){
    for(const d of devices)if(d?.deviceId)ids.add(String(d.deviceId));
    devicePicker.replaceChildren();
    const placeholder=document.createElement('option');placeholder.value='';placeholder.textContent='Select camera';devicePicker.appendChild(placeholder);
+   const assignments=window.GrowPlotOwnedDeviceData?.assignments||[];
    for(const id of ids){
-    const option=document.createElement('option');option.value=id;option.textContent=id;devicePicker.appendChild(option);
+    const option=document.createElement('option');option.value=id;
+    const other=assignments.find(a=>a.deviceId===id&&a.plotId!==anchor.value);
+    option.disabled=!!other;
+    option.textContent=id+(other?' (assigned to '+other.plotId+' — unlink first)':'');
+    devicePicker.appendChild(option);
    }
-   devicePicker.value=ids.has(previous)?previous:'';
+   devicePicker.value=ids.has(previous)&&!Array.from(devicePicker.options).find(o=>o.value===previous)?.disabled?previous:'';
   }
   devicePicker.addEventListener('change',()=>{
    const data=window.GrowPlotOwnedDeviceData||{};
