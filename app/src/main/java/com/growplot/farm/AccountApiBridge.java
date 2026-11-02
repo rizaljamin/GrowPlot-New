@@ -298,28 +298,32 @@ public final class AccountApiBridge {
             }
             if("unlinkOwnedDevice".equals(action)){
                 String plotId=input.optString("plotId",""),greenhouseId=input.optString("greenhouseId",""),sectionId=input.optString("sectionId",""),deviceId=input.optString("deviceId","");
-                if(!plotId.matches("[A-Za-z0-9_-]{1,100}")||!greenhouseId.matches("greenhouse-[1-9][0-9]*")||!sectionId.matches("section-[1-9][0-9]*")||!deviceId.matches("[A-Za-z0-9_-]{1,100}")){
+                if(!plotId.matches("[A-Za-z0-9_-]{1,100}")||!greenhouseId.matches("greenhouse-[1-9][0-9]*")||!sectionId.matches("section-[1-9][0-9]*") ){
                     respond(action,false,"Invalid assignment.",null);return;
                 }
                 String uid=user.getUid();
                 db.collection("feed_assignments").whereEqualTo("ownerUserId",uid).get().addOnSuccessListener(snapshot->{
                     com.google.firebase.firestore.WriteBatch batch=db.batch();
                     int removed=0;
+                    String matchedDeviceId=null;
                     for(com.google.firebase.firestore.QueryDocumentSnapshot doc:snapshot){
-                        if(plotId.equals(doc.getString("plotId"))&&greenhouseId.equals(doc.getString("greenhouseId"))&&sectionId.equals(doc.getString("sectionId"))&&deviceId.equals(doc.getString("deviceId"))){
+                        if(plotId.equals(doc.getString("plotId"))&&greenhouseId.equals(doc.getString("greenhouseId"))&&sectionId.equals(doc.getString("sectionId")) ){
+                            matchedDeviceId=doc.getString("deviceId");
                             batch.delete(doc.getReference());removed++;
                         }
                     }
-                    if(removed==0){respond(action,false,"Assignment not found.",null);return;}
+                    if(removed==0){respond(action,false,"No camera assigned to selected section.",null);return;}
+                    if(matchedDeviceId==null||!matchedDeviceId.matches("[A-Za-z0-9_-]{1,100}")){respond(action,false,"Invalid assigned camera ID.",null);return;}
+                    final String unlinkedDeviceId=matchedDeviceId;
                     // The camera ID stays in inventory, but its endpoint must no longer
                     // be usable after unlink. Commit both changes atomically.
-                    com.google.firebase.firestore.DocumentReference feedRef=db.collection("data_feeds").document(uid+"_"+deviceId);
+                    com.google.firebase.firestore.DocumentReference feedRef=db.collection("data_feeds").document(uid+"_"+unlinkedDeviceId);
                     batch.update(feedRef,"ipAddress","","updatedAt",com.google.firebase.firestore.FieldValue.serverTimestamp());
                     batch.commit().addOnSuccessListener(v->{
                         try{
                             JSONObject result=new JSONObject();
                             result.put("plotId",plotId);result.put("greenhouseId",greenhouseId);
-                            result.put("sectionId",sectionId);result.put("deviceId",deviceId);
+                            result.put("sectionId",sectionId);result.put("deviceId",unlinkedDeviceId);
                             respond(action,true,"Camera unlinked and IP address cleared in Firebase.",result);
                         }catch(Exception e){respond(action,true,"Camera unlinked and IP address cleared in Firebase.",null);}
                     }).addOnFailureListener(e->respond(action,false,"Unlink failed: "+e.getMessage(),null));
