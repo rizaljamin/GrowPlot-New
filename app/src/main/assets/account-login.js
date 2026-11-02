@@ -728,6 +728,16 @@ window.GrowPlotSaveCloudProfile=function(callback){
    if(summary&&devicePicker.value)summary.textContent=devicePicker.value+(selected?.ipAddress?' · '+selected.ipAddress:'')+(selectedLinks.length?' · '+selectedLinks.map(a=>a.plotId+' / '+a.greenhouseId+' / '+a.sectionId).join('; '):' · Unassigned');
 
    const info=document.createElement('p');info.textContent=matches.length+' assigned to this plot · '+devices.length+' saved in your account';list.appendChild(info);
+   const assignmentDetails=document.createElement('div');
+   assignmentDetails.style.cssText='display:grid;gap:6px;margin:6px 0 10px';
+   for(const a of [...matches].sort((x,y)=>String(x.greenhouseId+'-'+x.sectionId).localeCompare(String(y.greenhouseId+'-'+y.sectionId),undefined,{numeric:true}))){
+    const d=devices.find(x=>x.deviceId===a.deviceId);
+    const detail=document.createElement('div');
+    detail.style.cssText='padding:8px 10px;border:1px solid #b4cdbd;border-radius:7px;background:#f1f8f3;color:#194a32;font-size:13px';
+    detail.textContent=(a.deviceId||'Unknown camera')+' · '+(a.greenhouseId||'Unknown greenhouse')+' / '+(a.sectionId||'Unknown section')+' · IP: '+(d?.ipAddress||'Not configured');
+    assignmentDetails.appendChild(detail);
+   }
+   list.appendChild(assignmentDetails);
    const shown=new Set();
    const config=window.GrowPlotFirebasePlotConfigs?.[plotId];
    const ghCount=config?Number(config.greenhouseCount):0, secCount=config?Number(config.sectionsPerGreenhouse):0;
