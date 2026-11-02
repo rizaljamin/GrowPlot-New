@@ -644,13 +644,11 @@ public class MainActivity extends Activity {
         if (!force && scope.equals(activeStreamScope)) return;
         activeStreamScope = scope;
         final int generation = ++assignedStreamGeneration;
-        userStreamMode = !"plot-1".equals(plotId);
+        userStreamMode = true; // Every plot, including Demo Plot, resolves streams from Firebase assignments.
         java.util.Arrays.fill(assignedStreamUrls, null);
         assignedStreamsLoading = userStreamMode;
         resetCctvSurfaces(); // Always reset all old frames before starting the newly selected scope.
-        if (!userStreamMode) refreshAssignedPlayers(); // Demo uses saved Settings IPs.
-        if (!userStreamMode) { return; }
-        com.google.firebase.auth.FirebaseUser user = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+                com.google.firebase.auth.FirebaseUser user = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
         if (user == null || !plotId.matches("[A-Za-z0-9_-]{1,100}") || !greenhouseId.matches("greenhouse-[1-9][0-9]*")) {
             return;
         }
@@ -658,11 +656,11 @@ public class MainActivity extends Activity {
         com.google.firebase.firestore.FirebaseFirestore store = com.google.firebase.firestore.FirebaseFirestore.getInstance();
         // Administrator scope is granted only by a verified Firebase custom claim.
         user.getIdToken(false).addOnSuccessListener(token -> {
+            // Query the signed-in owner's assignments. Existing Firestore rules deny
+            // unrestricted cross-owner listing, even for UI administrators.
             boolean admin = Boolean.TRUE.equals(token.getClaims().get("admin"))
                     || Boolean.TRUE.equals(token.getClaims().get("powerUser"));
-            com.google.firebase.firestore.Query assignments = admin
-                    ? store.collection("feed_assignments")
-                    : store.collection("feed_assignments").whereEqualTo("ownerUserId",uid);
+            com.google.firebase.firestore.Query assignments = store.collection("feed_assignments").whereEqualTo("ownerUserId",uid);
             assignments.get().addOnSuccessListener(rows -> {
                 if (generation != assignedStreamGeneration) return;
                 assignedStreamsLoading = false;
@@ -672,7 +670,7 @@ public class MainActivity extends Activity {
                     if (section == null || deviceId == null || !section.matches("section-[1-3]") || !deviceId.matches("[A-Za-z0-9_-]{1,100}")) continue;
                     int slot = Integer.parseInt(section.substring(8));
                     String ownerUid=assignment.getString("ownerUserId");
-                    if(ownerUid==null||(!admin&&!uid.equals(ownerUid)))continue;
+                    if(ownerUid==null||!uid.equals(ownerUid))continue;
                     store.collection("data_feeds").document(ownerUid+"_"+deviceId).get().addOnSuccessListener(device -> {
                         if (generation != assignedStreamGeneration || !device.exists() || !ownerUid.equals(device.getString("ownerUserId")) || !("AV".equalsIgnoreCase(device.getString("deviceType")) || "Camera".equalsIgnoreCase(device.getString("deviceType")))) return;
                         String host = device.getString("ipAddress"),protocol=device.getString("protocol"),path=device.getString("streamPath");
