@@ -326,7 +326,7 @@ window.GrowPlotAccountResponse=function(response){
    const previousUid=currentUser&&(currentUser.uid||currentUser.id);const incomingUid=data.user&&(data.user.uid||data.user.id);
    if(previousUid&&previousUid!==incomingUid&&typeof plots!=='undefined'&&Array.isArray(plots)){for(let i=plots.length-1;i>=0;i--)if(plots[i]?.id!=='plot-1')plots.splice(i,1);}
    currentUser=data.user;window.GrowPlotCurrentUser=currentUser;
-   if(currentUser&&api&&api.configured()){request('loadVigiCloudCredentials',{});window.GrowPlotReloadOwnedDevices();setTimeout(()=>window.GrowPlotRefreshHomeStreams?.(),500);}
+   if(currentUser&&api&&api.configured()){request('loadVigiCloudCredentials',{});window.GrowPlotReloadOwnedDevices();window.GrowPlotLoadCameraTargets?.();setTimeout(()=>window.GrowPlotRefreshHomeStreams?.(),500);}
    if(!currentUser){msg('Invalid account response');return;}
    if(currentUser.role==='ADMIN'){request('profile',{});adminStats();}
    else {request('profile',{});}
@@ -628,7 +628,7 @@ window.GrowPlotSaveCloudProfile=function(callback){
 
   const currentPlot=()=>typeof plots!=='undefined'&&Array.isArray(plots)?plots.find(p=>p&&p.id===anchor.value):null;
   const count=(v)=>Number.isInteger(Number(v))&&Number(v)>0?Math.min(Number(v),100):1;
-  function populate(select,n,prefix){const old=select.value;select.replaceChildren();const placeholder=document.createElement('option');placeholder.value='';placeholder.textContent='Select '+prefix;select.appendChild(placeholder);for(let i=1;i<=n;i++){const opt=document.createElement('option');opt.value=prefix.toLowerCase()+'-'+i;opt.textContent=prefix+' '+String(i).padStart(2,'0');select.appendChild(opt);}if([...select.options].some(o=>o.value===old))select.value=old;}
+  function populate(select,n,prefix){const old=select.value;select.replaceChildren();const placeholder=document.createElement('option');placeholder.value='';placeholder.textContent='Select '+prefix;select.appendChild(placeholder);for(let i=1;i<=n;i++){const opt=document.createElement('option');opt.value=prefix.toLowerCase()+'-'+i;opt.textContent=prefix+' '+String(i).padStart(2,'0');select.appendChild(opt);}select.value=[...select.options].some(o=>o.value===old&&old)?old:(n>0?select.options[1].value:'');}
   function refreshTargets(error){
    const id=anchor.value;
    const config=window.GrowPlotFirebasePlotConfigs?.[id];
@@ -649,8 +649,7 @@ window.GrowPlotSaveCloudProfile=function(callback){
    const id=anchor.value;
    window.GrowPlotRequestedConfigPlot=id;
    window.GrowPlotFirebasePlotConfigs=window.GrowPlotFirebasePlotConfigs||{};
-   delete window.GrowPlotFirebasePlotConfigs[id];
-   refreshTargets();
+   if(!window.GrowPlotFirebasePlotConfigs[id])refreshTargets();
    if(window.GrowPlotCurrentUser&&!window.GrowPlotCurrentUser.developmentOnly&&api?.configured()){
     if(id==='plot-1'&&['growplot2026@gmail.com','rizaljamin@gmail.com'].includes(String(window.GrowPlotCurrentUser.email||'').trim().toLowerCase())){
      window.GrowPlotDemoConfigPending=true;
@@ -659,6 +658,7 @@ window.GrowPlotSaveCloudProfile=function(callback){
    }
    else refreshTargets('Sign in to load plot configuration from Firebase.');
   }
+  window.GrowPlotLoadCameraTargets=loadTargets;
   anchor.addEventListener('change',loadTargets);
   anchor.addEventListener('change',()=>{
    // Refresh labels and assignment summary for the newly selected plot.
