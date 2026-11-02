@@ -303,13 +303,6 @@ public final class AccountApiBridge {
                     respond(action,false,"Select a valid plot, greenhouse, section and device.",null);return;
                 }
                 String uid=user.getUid();
-                if("plot-1".equals(plotId)){
-                    user.getIdToken(false).addOnSuccessListener(token->{
-                        if(!Boolean.TRUE.equals(token.getClaims().get("admin")))respond(action,false,"Demo Plot assignment requires admin access.",null);
-                        else respond(action,false,"Initialize Demo Plot in Firebase first, then assign its camera.",null);
-                    });
-                    return;
-                }
                 com.google.firebase.firestore.DocumentReference plotRef=db.collection("plots").document(uid+"_"+plotId);
                 com.google.firebase.firestore.DocumentReference feedRef=db.collection("data_feeds").document(uid+"_"+deviceId);
                 plotRef.get().addOnSuccessListener(plot->{
