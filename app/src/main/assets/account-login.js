@@ -303,6 +303,7 @@ window.GrowPlotAccountResponse=function(response){
    window.GrowPlotFirebasePlotConfigs[requested]=response.data;
   }
   window.GrowPlotRefreshCameraTargets?.(response.ok?null:(response.error||response.message||'Firebase plot configuration unavailable'));
+  window.GrowPlotRefreshTargetsFromAssignments?.();
   return;
  }
  if(response.action==='loadOwnedDevices'){
@@ -310,6 +311,7 @@ window.GrowPlotAccountResponse=function(response){
   if(!response.ok){if(status)status.textContent='Firebase retrieval error: '+(response.error||'Unable to load saved devices');return;}
   window.GrowPlotOwnedDeviceData=response.data||{};
   if(typeof window.GrowPlotRenderOwnedDevices==='function')window.GrowPlotRenderOwnedDevices();
+  window.GrowPlotRefreshTargetsFromAssignments?.();
   return;
  }
  if(response.action==='passwordReset'){
@@ -643,13 +645,33 @@ window.GrowPlotSaveCloudProfile=function(callback){
    populate(ghSelect,Number(config.greenhouseCount),'Greenhouse');
    populate(secSelect,ghSelect.value?Number(config.sectionsPerGreenhouse):0,'Section');
    if(status)status.textContent='Firebase plot configuration: '+config.greenhouseCount+' greenhouse(s), '+config.sectionsPerGreenhouse+' section(s) per greenhouse.';
+   window.GrowPlotRefreshUnlinkButton?.();
   }
+  // Firebase assignments are a fallback when a legacy plot has no readable count fields.
+  // Do not invent sections: only expose IDs actually recorded in Firestore.
+  function refreshTargetsFromAssignments(){
+   const id=anchor.value;
+   if(window.GrowPlotFirebasePlotConfigs?.[id])return;
+   const links=(window.GrowPlotOwnedDeviceData?.assignments||[]).filter(a=>a.plotId===id);
+   const ghIds=[...new Set(links.map(a=>a.greenhouseId).filter(v=>/^greenhouse-[1-9][0-9]*$/.test(v)))].sort((a,b)=>Number(a.split('-')[1])-Number(b.split('-')[1]));
+   const secIds=[...new Set(links.map(a=>a.sectionId).filter(v=>/^section-[1-9][0-9]*$/.test(v)))].sort((a,b)=>Number(a.split('-')[1])-Number(b.split('-')[1]));
+   if(!ghIds.length||!secIds.length)return;
+   const fill=(el,ids,label)=>{
+    const previous=el.value;el.replaceChildren();
+    for(const v of ids){const o=document.createElement('option');o.value=v;o.textContent=label+' '+String(Number(v.split('-')[1])).padStart(2,'0');el.appendChild(o);}
+    el.value=ids.includes(previous)?previous:ids[0];el.disabled=false;
+   };
+   fill(ghSelect,ghIds,'Greenhouse');fill(secSelect,secIds,'Section');
+   document.getElementById('gpDeviceStatus').textContent='Sections loaded from Firebase camera assignments; plot configuration counts unavailable.';
+   window.GrowPlotRefreshUnlinkButton?.();
+  }
+  window.GrowPlotRefreshTargetsFromAssignments=refreshTargetsFromAssignments;
   window.GrowPlotRefreshCameraTargets=refreshTargets;
   function loadTargets(){
    const id=anchor.value;
    window.GrowPlotRequestedConfigPlot=id;
    window.GrowPlotFirebasePlotConfigs=window.GrowPlotFirebasePlotConfigs||{};
-   if(!window.GrowPlotFirebasePlotConfigs[id])refreshTargets();
+   if(!window.GrowPlotFirebasePlotConfigs[id]){refreshTargets();refreshTargetsFromAssignments();}
    if(window.GrowPlotCurrentUser&&!window.GrowPlotCurrentUser.developmentOnly&&api?.configured()){
     if(id==='plot-1'&&['growplot2026@gmail.com','rizaljamin@gmail.com'].includes(String(window.GrowPlotCurrentUser.email||'').trim().toLowerCase())){
      window.GrowPlotDemoConfigPending=true;
