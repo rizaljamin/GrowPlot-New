@@ -289,6 +289,12 @@ window.GrowPlotAccountResponse=function(response){
 
  if(response&&response.action==='saveDataFeeds'){const node=document.getElementById('growplotFeedCloudStatus');if(node)node.textContent=response.ok?'Firebase: CCTV01–CCTV03 saved successfully.':'Firebase save failed: '+(response.error||'Unknown error');return;}
 
+ if(response.action==='saveDemoPlot'){
+  const status=document.getElementById('plotManagementStatus');
+  if(status)status.textContent=response.ok?'Demo Plot saved to Firebase.':(response.error||'Firebase save failed.');
+  if(response.ok)request('loadPlotConfig',{plotId:'plot-1'});
+  return;
+ }
  if(response.action==='loadPlotConfig'){
   const requested=response.data?.plotId||window.GrowPlotRequestedConfigPlot;
   if(!requested||requested!==document.getElementById('plotManagerSelect')?.value)return;
@@ -434,14 +440,15 @@ window.GrowPlotSaveCloudProfile=function(callback){
 (function installDemoPlotGuard(){
  const protectedIds=new Set(['plot-1']);
  const manager=()=>document.getElementById('plotManagerSelect');
- const locked=()=>protectedIds.has(manager()?.value);
+ const demoAdmin=()=>['growplot2026@gmail.com','rizaljamin@gmail.com'].includes(String(window.GrowPlotCurrentUser?.email||'').trim().toLowerCase());
+ const locked=()=>protectedIds.has(manager()?.value)&&!demoAdmin();
  const fields=['plotNumber','plotName','plotAddress','plotLatitude','plotLongitude','plotDescription','plotGreenhouseCount','plotSectionCount'];
  const actions=['savePlotBtn','deletePlotBtn','pickPlotOnMapBtn','useMapPinBtn','createDefaultFeedBtn','chooseCustomFeedBtn'];
  function refresh(){
   const isLocked=locked();
   for(const id of [...fields,...actions]){
    const element=document.getElementById(id);
-   if(element){element.disabled=isLocked;element.setAttribute('aria-disabled',String(isLocked));}
+   if(element){const disable=isLocked||(manager()?.value==='plot-1'&&id==='deletePlotBtn');element.disabled=disable;element.setAttribute('aria-disabled',String(disable));}
   }
   const status=document.getElementById('plotManagementStatus');
   const demoMessage='Demo Plot is read-only. Select one of your plots to edit settings.';
@@ -451,6 +458,13 @@ window.GrowPlotSaveCloudProfile=function(callback){
   }
  }
  document.addEventListener('change',e=>{if(e.target?.id==='plotManagerSelect')queueMicrotask(refresh);},true);
+ window.GrowPlotRefreshDemoAdminControls=refresh;
+ document.addEventListener('click',e=>{
+  if(e.target?.id!=='savePlotBtn'||manager()?.value!=='plot-1'||!demoAdmin())return;
+  const val=id=>document.getElementById(id)?.value||'';
+  request('saveDemoPlot',{greenhouseCount:Number(val('plotGreenhouseCount')),sectionsPerGreenhouse:Number(val('plotSectionCount')),address:val('plotAddress'),latitude:val('plotLatitude'),longitude:val('plotLongitude'),description:val('plotDescription')});
+  const status=document.getElementById('plotManagementStatus');if(status)status.textContent='Saving shared Demo Plot to Firebase…';
+ },true);
  // The Plot panel is moved between Settings and Manage Farm; restore editability on entry.
  document.addEventListener('click',e=>{
   if(e.target?.closest?.('[data-tab="plot"], [data-manage-tab="plot"], #manageFarmTab, #plotManagementSection, #plotManagerSelect'))setTimeout(refresh,0);
@@ -630,7 +644,7 @@ window.GrowPlotSaveCloudProfile=function(callback){
    delete window.GrowPlotFirebasePlotConfigs[id];
    refreshTargets();
    if(window.GrowPlotCurrentUser&&!window.GrowPlotCurrentUser.developmentOnly&&api?.configured()){
-    if(id==='plot-1'&&String(window.GrowPlotCurrentUser.email||'').trim().toLowerCase()==='growplot2026@gmail.com'){
+    if(id==='plot-1'&&['growplot2026@gmail.com','rizaljamin@gmail.com'].includes(String(window.GrowPlotCurrentUser.email||'').trim().toLowerCase())){
      window.GrowPlotDemoConfigPending=true;
      request('ensureDemoPlot',{});
     }else request('loadPlotConfig',{plotId:id});
@@ -765,7 +779,7 @@ window.GrowPlotSaveCloudProfile=function(callback){
    const plotId=anchor.value,sectionId=val('gpSectionId'),deviceId=val('gpDeviceId');
    if(!currentPlot()||!ghSelect.value||!secSelect.value){status.textContent='Select a configured greenhouse and section in this plot first.';return;}
    if(!/^[A-Za-z0-9_-]{1,100}$/.test(sectionId)||!/^[A-Za-z0-9_-]{1,100}$/.test(deviceId)){status.textContent='Enter valid section and device IDs.';return;}
-   if(plotId==='plot-1'&&String(currentUser?.email||window.GrowPlotCurrentUser?.email||'').trim().toLowerCase()!=='growplot2026@gmail.com'){
+   if(plotId==='plot-1'&&!['growplot2026@gmail.com','rizaljamin@gmail.com'].includes(String(window.GrowPlotCurrentUser?.email||currentUser?.email||'').trim().toLowerCase())){
     status.textContent='Demo Plot assignment is restricted to administrators.';return;
    }
    if(plotId==='plot-1'&&!window.GrowPlotDemoPlotInitialized){
