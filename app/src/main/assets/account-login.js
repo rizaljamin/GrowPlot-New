@@ -635,9 +635,13 @@ window.GrowPlotSaveCloudProfile=function(callback){
    const config=window.GrowPlotFirebasePlotConfigs?.[id];
    const status=document.getElementById('gpDeviceStatus');
    if(error||!config||!Number.isInteger(Number(config.greenhouseCount))||!Number.isInteger(Number(config.sectionsPerGreenhouse))||Number(config.greenhouseCount)<1||Number(config.sectionsPerGreenhouse)<1){
-    populate(ghSelect,0,'Greenhouse');populate(secSelect,0,'Section');
-    ghSelect.disabled=true;secSelect.disabled=true;
-    if(status)status.textContent=error||'Loading greenhouse and section configuration from Firebase…';
+    // Keep both pickers usable while Firebase configuration is loading or unavailable.
+    const plot=currentPlot();
+    const gh=count(plot?.greenhouseCount),sections=count(plot?.sectionsPerGreenhouse);
+    populate(ghSelect,gh,'Greenhouse');populate(secSelect,sections,'Section');
+    ghSelect.disabled=false;secSelect.disabled=false;
+    if(status)status.textContent=error||'Waiting for Firebase plot configuration; selectors remain available.';
+    window.GrowPlotRefreshUnlinkButton?.();
     return;
    }
    ghSelect.disabled=false;secSelect.disabled=false;
