@@ -70,6 +70,10 @@ export const assignOwnedDevice=onCall({region:'us-central1',enforceAppCheck:fals
  // A section has one active camera. IoT sensors retain independent assignments.
  // Transactionally remove only other camera links for this same plot/greenhouse/section.
  const old=await assignments.where('ownerUserId','==',uid).get();
+ if(device.get('deviceType')==='AV'){
+  const conflicting=old.docs.find(doc=>{const a=doc.data();return a.deviceId===deviceId&&(a.plotId!==plotId||a.sectionId!==sectionId||(a.greenhouseId||'')!==(greenhouseId||''));});
+  if(conflicting)throw new HttpsError('failed-precondition','Camera is already assigned elsewhere. Unlink it first.');
+ }
  const batch=db.batch();
  if(device.get('deviceType')==='AV'){
   for(const doc of old.docs){
