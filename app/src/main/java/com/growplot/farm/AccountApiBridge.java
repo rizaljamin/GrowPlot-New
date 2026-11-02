@@ -311,8 +311,18 @@ public final class AccountApiBridge {
                         }
                     }
                     if(removed==0){respond(action,false,"Assignment not found.",null);return;}
-                    batch.commit().addOnSuccessListener(v->respond(action,true,"Camera unlinked; device retained.",null))
-                        .addOnFailureListener(e->respond(action,false,"Unlink failed: "+e.getMessage(),null));
+                    // The camera ID stays in inventory, but its endpoint must no longer
+                    // be usable after unlink. Commit both changes atomically.
+                    com.google.firebase.firestore.DocumentReference feedRef=db.collection("data_feeds").document(uid+"_"+deviceId);
+                    batch.update(feedRef,"ipAddress","","updatedAt",com.google.firebase.firestore.FieldValue.serverTimestamp());
+                    batch.commit().addOnSuccessListener(v->{
+                        try{
+                            JSONObject result=new JSONObject();
+                            result.put("plotId",plotId);result.put("greenhouseId",greenhouseId);
+                            result.put("sectionId",sectionId);result.put("deviceId",deviceId);
+                            respond(action,true,"Camera unlinked and IP address cleared in Firebase.",result);
+                        }catch(Exception e){respond(action,true,"Camera unlinked and IP address cleared in Firebase.",null);}
+                    }).addOnFailureListener(e->respond(action,false,"Unlink failed: "+e.getMessage(),null));
                 }).addOnFailureListener(e->respond(action,false,"Unable to read assignments: "+e.getMessage(),null));
                 return;
             }
