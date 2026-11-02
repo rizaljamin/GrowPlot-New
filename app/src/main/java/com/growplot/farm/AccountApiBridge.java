@@ -303,6 +303,15 @@ public final class AccountApiBridge {
                         record.put("ownerUserId",uid);record.put("plotId",plotId);record.put("greenhouseId",greenhouseId);record.put("sectionId",sectionId);record.put("deviceId",deviceId);
                         record.put("updatedAt",com.google.firebase.firestore.FieldValue.serverTimestamp());
                         db.collection("feed_assignments").whereEqualTo("ownerUserId",uid).get().addOnSuccessListener(existing->{
+                            // A saved camera cannot be linked to another plot/greenhouse/section until unlinked.
+                            if("AV".equals(feed.getString("deviceType"))){
+                                for(com.google.firebase.firestore.QueryDocumentSnapshot link:existing){
+                                    if(!deviceId.equals(link.getString("deviceId")))continue;
+                                    if(!plotId.equals(link.getString("plotId"))||!greenhouseId.equals(link.getString("greenhouseId"))||!sectionId.equals(link.getString("sectionId"))){
+                                        respond(action,false,"Camera already assigned to "+link.getString("plotId")+" / "+link.getString("greenhouseId")+" / "+link.getString("sectionId")+". Unlink it first.",null);return;
+                                    }
+                                }
+                            }
                             com.google.firebase.firestore.WriteBatch batch=db.batch();
                             if("AV".equals(feed.getString("deviceType"))){
                                 for(com.google.firebase.firestore.QueryDocumentSnapshot link:existing){
