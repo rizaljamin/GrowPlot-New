@@ -747,30 +747,19 @@ window.GrowPlotSaveCloudProfile=function(callback){
    
    return true;
   }
-  function selectedAssignment(){
-   const plotId=anchor.value,greenhouseId=ghSelect.value,sectionId=secSelect.value,deviceId=devicePicker.value;
-   return (window.GrowPlotOwnedDeviceData?.assignments||[]).find(a=>a.plotId===plotId&&a.greenhouseId===greenhouseId&&a.sectionId===sectionId&&a.deviceId===deviceId);
-  }
-  function unlinkTarget(){
-   const links=(window.GrowPlotOwnedDeviceData?.assignments||[]).filter(a=>a.plotId===anchor.value);
-   const exact=links.find(a=>a.greenhouseId===ghSelect.value&&a.sectionId===secSelect.value);
-   const selected=links.find(a=>a.deviceId===devicePicker.value);
-   return selected||exact||null;
-  }
   function refreshUnlinkButton(){
    const btn=document.getElementById('gpUnlinkDevice');if(!btn)return;
-   const a=unlinkTarget();btn.disabled=!a;
-   btn.title=a?'Unlink '+a.deviceId+' from '+a.greenhouseId+' / '+a.sectionId:'Select an assigned camera or occupied section';
+   btn.disabled=!(anchor.value&&ghSelect.value&&secSelect.value);
   }
-  [devicePicker,ghSelect,secSelect,anchor].forEach(el=>el?.addEventListener('change',()=>setTimeout(refreshUnlinkButton,0)));
+  [ghSelect,secSelect,anchor].forEach(el=>el?.addEventListener('change',refreshUnlinkButton));
   document.getElementById('gpUnlinkDevice').onclick=()=>{
    if(!guard())return;
-   const a=unlinkTarget();
-   if(!a){status.textContent='Select a camera assigned to this plot to unlink.';refreshUnlinkButton();return;}
-   if(!confirm('Unlink '+a.deviceId+' from '+a.greenhouseId+' / '+a.sectionId+' and clear its saved IP address in Firebase? The camera ID will remain available.'))return;
+   const plotId=anchor.value,greenhouseId=ghSelect.value,sectionId=secSelect.value;
+   if(!plotId||!greenhouseId||!sectionId){status.textContent='Select a greenhouse and section first.';return;}
+   if(!confirm('Unlink the camera assigned to '+greenhouseId+' / '+sectionId+' and clear its saved IP address?'))return;
    document.getElementById('gpUnlinkDevice').disabled=true;
-   request('unlinkOwnedDevice',{plotId:a.plotId,greenhouseId:a.greenhouseId,sectionId:a.sectionId,deviceId:a.deviceId});
-   status.textContent='Unlinking camera assignment…';
+   request('unlinkOwnedDevice',{plotId,greenhouseId,sectionId});
+   status.textContent='Checking Firebase assignment and unlinking camera…';
   };
   window.GrowPlotRefreshUnlinkButton=refreshUnlinkButton;
   refreshUnlinkButton();
