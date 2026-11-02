@@ -577,9 +577,14 @@ window.GrowPlotSaveCloudProfile=function(callback){
    const assignments=window.GrowPlotOwnedDeviceData?.assignments||[];
    for(const id of ids){
     const option=document.createElement('option');option.value=id;
-    const other=assignments.find(a=>a.deviceId===id&&a.plotId!==anchor.value);
-    option.disabled=!!other;
-    option.textContent=id+(other?' (assigned to '+other.plotId+' — unlink first)':'');
+    const links=assignments.filter(a=>a.deviceId===id);
+    const elsewhere=links.find(a=>a.plotId!==anchor.value);
+    const here=links.find(a=>a.plotId===anchor.value);
+    option.disabled=!!elsewhere;
+    option.textContent=id+(elsewhere
+      ?' — Assigned to '+elsewhere.plotId+' (unlink first)'
+      :here?' — Assigned: '+here.greenhouseId+' / '+here.sectionId
+      :' — Unassigned');
     devicePicker.appendChild(option);
    }
    devicePicker.value=ids.has(previous)&&!Array.from(devicePicker.options).find(o=>o.value===previous)?.disabled?previous:'';
@@ -589,6 +594,8 @@ window.GrowPlotSaveCloudProfile=function(callback){
    const d=(data.devices||[]).find(x=>x.deviceId===devicePicker.value);
    if(!d){clearCameraFields();return;}
    const links=(data.assignments||[]).filter(x=>x.deviceId===d.deviceId);
+   const otherPlot=links.find(x=>x.plotId!==anchor.value);
+   if(otherPlot){devicePicker.value='';return;}
    const samePlot=links.find(x=>x.plotId===anchor.value);
    selectSavedDevice(d,samePlot||null);
   });
@@ -622,6 +629,10 @@ window.GrowPlotSaveCloudProfile=function(callback){
    else refreshTargets('Sign in to load plot configuration from Firebase.');
   }
   anchor.addEventListener('change',loadTargets);
+  anchor.addEventListener('change',()=>{
+   // Refresh labels and assignment summary for the newly selected plot.
+   window.GrowPlotRenderOwnedDevices?.();
+  });
   ghSelect.addEventListener('change',()=>{const config=window.GrowPlotFirebasePlotConfigs?.[anchor.value];populate(secSelect,ghSelect.value?Number(config?.sectionsPerGreenhouse||0):0,'Section');});
   document.getElementById('savePlotBtn')?.addEventListener('click',()=>setTimeout(loadTargets,300));
   loadTargets();
