@@ -357,7 +357,15 @@ window.GrowPlotAccountResponse=function(response){
    }else{if(typeof fillPlotSelectors==='function')fillPlotSelectors();goHome();setTimeout(syncAuthorizedHomePlots,0);if(typeof window.GrowPlotNewUserPreview==='function')window.GrowPlotNewUserPreview();}
  }else if(response.action==='saveOwnedDevice'||response.action==='assignOwnedDevice'||response.action==='unlinkOwnedDevice'){
    const node=document.getElementById('gpDeviceStatus');
-   if(node)node.textContent=response.ok?(response.action==='saveOwnedDevice'?'✓ '+(response.message||'Device saved.'):(response.action==='unlinkOwnedDevice'?'✓ CCTV unlinked from the section. Active streaming stopped; camera configuration retained.':'✓ Device assigned successfully.')):('Firebase error: '+(response.error||'Request failed (no error details returned)'));if(response.ok&&response.action==='saveOwnedDevice'){const password=document.getElementById('gpDevicePassword');if(password)password.value='';window.GrowPlotReloadOwnedDevices();}if(response.ok&&(response.action==='assignOwnedDevice'||response.action==='unlinkOwnedDevice')){window.GrowPlotReloadOwnedDevices();window.GrowPlotRefreshHomeStreams?.(true);}
+   if(node)node.textContent=response.ok?(response.action==='saveOwnedDevice'?'✓ '+(response.message||'Device saved.'):(response.action==='unlinkOwnedDevice'?'✓ '+(data.deviceId||'CCTV')+' successfully unlinked from '+(data.greenhouseId||'greenhouse')+' / '+(data.sectionId||'section')+'. IP address cleared in Firebase; streaming refresh requested.':'✓ Device assigned successfully.')):('Firebase error: '+(response.error||'Request failed (no error details returned)'));
+   if(response.ok&&response.action==='unlinkOwnedDevice'){
+     const selected=document.getElementById('gpDeviceId');
+     if(selected?.value===data.deviceId){
+       const host=document.getElementById('gpDeviceHost');if(host)host.value='';
+       const summary=document.getElementById('gpCameraAssignmentSummary');
+       if(summary)summary.textContent=data.deviceId+' · Unassigned · IP address cleared';
+     }
+   }if(response.ok&&response.action==='saveOwnedDevice'){const password=document.getElementById('gpDevicePassword');if(password)password.value='';window.GrowPlotReloadOwnedDevices();}if(response.ok&&(response.action==='assignOwnedDevice'||response.action==='unlinkOwnedDevice')){window.GrowPlotReloadOwnedDevices();window.GrowPlotRefreshHomeStreams?.(true);}
  }else if(response.action==='stats'){
    const p=document.getElementById('growplotAdminStats');if(p)p.textContent='GrowPlot users: '+data.totalUsers+' | Standard users: '+data.standardUsers+' | Administrators: '+data.administrators+' | Logged in last 7 days: '+data.loggedInLast7Days;const d=document.getElementById('growplotUserManagementDetails');if(d)d.textContent='Total users: '+data.totalUsers+' | Standard users: '+data.standardUsers+' | Administrators: '+data.administrators+' | Logged in last 7 days: '+data.loggedInLast7Days;
  }else if(response.action==='saveProfile'){const saved=data.saved===true;if(saved){msg('Data saved successfully to Firebase.');saveNotice('Data saved successfully to Firebase.',true);}else saveNotice('Save was not confirmed by Firebase.',false);const callback=saveProfileCallback;saveProfileCallback=null;if(callback)callback(saved,response.error||''); }
@@ -748,7 +756,7 @@ window.GrowPlotSaveCloudProfile=function(callback){
    if(!guard())return;
    const a=selectedAssignment()||(window.GrowPlotOwnedDeviceData?.assignments||[]).find(x=>x.plotId===anchor.value&&x.deviceId===devicePicker.value);
    if(!a){status.textContent='Select a camera assigned to this plot to unlink.';refreshUnlinkButton();return;}
-   if(!confirm('Unlink '+a.deviceId+' from '+a.greenhouseId+' / '+a.sectionId+'? The saved camera configuration will be retained.'))return;
+   if(!confirm('Unlink '+a.deviceId+' from '+a.greenhouseId+' / '+a.sectionId+' and clear its saved IP address in Firebase? The camera ID will remain available.'))return;
    document.getElementById('gpUnlinkDevice').disabled=true;
    request('unlinkOwnedDevice',{plotId:a.plotId,greenhouseId:a.greenhouseId,sectionId:a.sectionId,deviceId:a.deviceId});
    status.textContent='Unlinking camera assignment…';
