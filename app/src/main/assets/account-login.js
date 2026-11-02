@@ -253,6 +253,15 @@ window.GrowPlotLoginImageFeedStatus=function(result){
 }
 window.GrowPlotReloadOwnedDevices=function(){if(window.GrowPlotCurrentUser&&!window.GrowPlotCurrentUser.developmentOnly&&api?.configured())request('loadOwnedDevices',{});};
 window.GrowPlotAccountResponse=function(response){
+ if(response?.action==='ensureDemoPlot'){
+  const status=document.getElementById('gpDeviceStatus');
+  if(!response.ok){if(status)status.textContent=response.message||'Demo Plot initialization failed.';window.GrowPlotPendingDemoAssignment=null;return;}
+  window.GrowPlotDemoPlotInitialized=true;
+  const pending=window.GrowPlotPendingDemoAssignment;window.GrowPlotPendingDemoAssignment=null;
+  if(pending){request('assignOwnedDevice',pending);if(status)status.textContent='Demo Plot created in Firebase. Assigning camera…';}
+  return;
+ }
+
  if(response&&response.action==='listAccessUsers'){
   const status=document.getElementById('gpAllowAccessStatus');
   if(response.ok)renderAccessUsers(response.data||{});
@@ -701,6 +710,13 @@ window.GrowPlotSaveCloudProfile=function(callback){
    const plotId=anchor.value,sectionId=val('gpSectionId'),deviceId=val('gpDeviceId');
    if(!currentPlot()||!ghSelect.value||!secSelect.value){status.textContent='Select a configured greenhouse and section in this plot first.';return;}
    if(!/^[A-Za-z0-9_-]{1,100}$/.test(sectionId)||!/^[A-Za-z0-9_-]{1,100}$/.test(deviceId)){status.textContent='Enter valid section and device IDs.';return;}
+   if(plotId==='plot-1'&&!window.GrowPlotCloudProfile?.admin&&!window.GrowPlotCloudProfile?.powerUser){
+    status.textContent='Demo Plot assignment is restricted to administrators.';return;
+   }
+   if(plotId==='plot-1'&&!window.GrowPlotDemoPlotInitialized){
+    window.GrowPlotPendingDemoAssignment={plotId,sectionId,deviceId,greenhouseId:val('gpGreenhouseId')};
+    request('ensureDemoPlot',{});status.textContent='Initializing Demo Plot in Firebase…';return;
+   }
    request('assignOwnedDevice',{plotId,sectionId,deviceId,greenhouseId:val('gpGreenhouseId')});
    status.textContent='Assigning device to your selected plot…';
   };
