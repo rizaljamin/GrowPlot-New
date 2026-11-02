@@ -714,6 +714,7 @@ window.GrowPlotSaveCloudProfile=function(callback){
     matrix.appendChild(row);
    }
    list.appendChild(matrix);
+   window.GrowPlotRefreshUnlinkButton?.();
    if(!devices.length){const empty=document.createElement('p');empty.textContent='No saved devices found for this Firebase account.';list.appendChild(empty);}
   };
   anchor.addEventListener('change',()=>{window.GrowPlotRenderOwnedDevices();window.GrowPlotReloadOwnedDevices();});
@@ -750,11 +751,21 @@ window.GrowPlotSaveCloudProfile=function(callback){
    const plotId=anchor.value,greenhouseId=ghSelect.value,sectionId=secSelect.value,deviceId=devicePicker.value;
    return (window.GrowPlotOwnedDeviceData?.assignments||[]).find(a=>a.plotId===plotId&&a.greenhouseId===greenhouseId&&a.sectionId===sectionId&&a.deviceId===deviceId);
   }
-  function refreshUnlinkButton(){const btn=document.getElementById('gpUnlinkDevice');if(btn)btn.disabled=!(window.GrowPlotOwnedDeviceData?.assignments||[]).some(a=>a.plotId===anchor.value&&a.deviceId===devicePicker.value);}
+  function unlinkTarget(){
+   const links=(window.GrowPlotOwnedDeviceData?.assignments||[]).filter(a=>a.plotId===anchor.value);
+   const exact=links.find(a=>a.greenhouseId===ghSelect.value&&a.sectionId===secSelect.value);
+   const selected=links.find(a=>a.deviceId===devicePicker.value);
+   return selected||exact||null;
+  }
+  function refreshUnlinkButton(){
+   const btn=document.getElementById('gpUnlinkDevice');if(!btn)return;
+   const a=unlinkTarget();btn.disabled=!a;
+   btn.title=a?'Unlink '+a.deviceId+' from '+a.greenhouseId+' / '+a.sectionId:'Select an assigned camera or occupied section';
+  }
   [devicePicker,ghSelect,secSelect,anchor].forEach(el=>el?.addEventListener('change',()=>setTimeout(refreshUnlinkButton,0)));
   document.getElementById('gpUnlinkDevice').onclick=()=>{
    if(!guard())return;
-   const a=selectedAssignment()||(window.GrowPlotOwnedDeviceData?.assignments||[]).find(x=>x.plotId===anchor.value&&x.deviceId===devicePicker.value);
+   const a=unlinkTarget();
    if(!a){status.textContent='Select a camera assigned to this plot to unlink.';refreshUnlinkButton();return;}
    if(!confirm('Unlink '+a.deviceId+' from '+a.greenhouseId+' / '+a.sectionId+' and clear its saved IP address in Firebase? The camera ID will remain available.'))return;
    document.getElementById('gpUnlinkDevice').disabled=true;
