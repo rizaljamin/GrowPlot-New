@@ -642,6 +642,7 @@ window.GrowPlotSaveCloudProfile=function(callback){
     ghSelect.disabled=false;secSelect.disabled=false;
     if(status)status.textContent=error||'Waiting for Firebase plot configuration; selectors remain available.';
     window.GrowPlotRefreshUnlinkButton?.();
+    showAvailableSections();
     return;
    }
    ghSelect.disabled=false;secSelect.disabled=false;
@@ -650,7 +651,22 @@ window.GrowPlotSaveCloudProfile=function(callback){
    if(status)status.textContent='Firebase plot configuration: '+config.greenhouseCount+' greenhouse(s), '+config.sectionsPerGreenhouse+' section(s) per greenhouse.';
    window.GrowPlotRefreshUnlinkButton?.();
    window.GrowPlotSelectAssignedCamera?.();
+   showAvailableSections();
   }
+  function showAvailableSections(){
+   const config=window.GrowPlotFirebasePlotConfigs?.[anchor.value];
+   const plot=currentPlot();
+   const gh=Number(config?.greenhouseCount||plot?.greenhouseCount||1);
+   const sections=Number(config?.sectionsPerGreenhouse||plot?.sectionsPerGreenhouse||1);
+   const name=anchor.selectedOptions[0]?.textContent||anchor.value;
+   const lines=[];
+   for(let g=1;g<=gh&&g<=100;g++)for(let n=1;n<=sections&&n<=100;n++){
+    lines.push('Greenhouse '+String(g).padStart(2,'0')+' — Section '+String(n).padStart(2,'0'));
+   }
+   const status=document.getElementById('gpDeviceStatus');
+   if(status)status.textContent=name+': '+gh+' greenhouse(s), '+sections+' section(s) per greenhouse. Available sections: '+lines.join('; ')+(config?' (Firebase)':' (local; awaiting Firebase)');
+  }
+  window.GrowPlotShowAvailableSections=showAvailableSections;
   window.GrowPlotRefreshCameraTargets=refreshTargets;
   function loadTargets(){
    const id=anchor.value;
