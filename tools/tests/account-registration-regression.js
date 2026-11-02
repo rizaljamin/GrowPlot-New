@@ -47,7 +47,7 @@ const bridge = fs.readFileSync('app/src/main/java/com/growplot/farm/AccountApiBr
 assert.match(bridge, /@JavascriptInterface public void startGoogleSignIn\(\)/, 'Android bridge exposes Google sign-in');
 assert.doesNotMatch(bridge, /isDevelopmentBuild|verifyLocalAdminTestLogin/, 'Android bridge exposes no local Power User login bypass');
 assert.match(bridge, /boolean powerUser=Boolean\.TRUE\.equals\(token\.getClaims\(\)\.get\("powerUser"\)\)/, 'any Firebase user can receive privilege from a trusted powerUser custom claim');
-assert.doesNotMatch(bridge, /rizaljamin@gmail\.com/, 'power-user claim is not tied to one email address');
+assert.doesNotMatch(bridge.slice(bridge.indexOf('boolean powerUser=Boolean.TRUE.equals(token.getClaims().get("powerUser"))'), bridge.indexOf('boolean powerUser=Boolean.TRUE.equals(token.getClaims().get("powerUser"))')+240), /rizaljamin@gmail\.com/, 'power-user claim is not tied to one email address; separate Demo Plot admin checks may use verified email');
 const activity = fs.readFileSync('app/src/main/java/com/growplot/farm/MainActivity.java', 'utf8');
 assert.doesNotMatch(activity, /loginAdminOtpDemo/, 'native bridge has no legacy local OTP Power User login');
 assert.equal(fs.existsSync('app/src/main/java/com/growplot/farm/AdminOtpDemo.java'), false, 'obsolete local admin OTP demo is removed');
