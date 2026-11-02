@@ -597,7 +597,7 @@ window.GrowPlotSaveCloudProfile=function(callback){
   function refreshDevicePicker(){
    const previous=devicePicker.value;
    const devices=Array.isArray(window.GrowPlotOwnedDeviceData?.devices)?window.GrowPlotOwnedDeviceData.devices:[];
-   const ids=new Set(['CCTV01','CCTV02','CCTV03','CCTV04','CCTV05','CCTV06']);
+   const ids=new Set();
    for(const d of devices)if(d?.deviceId)ids.add(String(d.deviceId));
    devicePicker.replaceChildren();
    const placeholder=document.createElement('option');placeholder.value='';placeholder.textContent='Select camera';devicePicker.appendChild(placeholder);
