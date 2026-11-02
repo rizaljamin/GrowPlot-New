@@ -185,6 +185,23 @@ public final class AccountApiBridge {
             }
             FirebaseUser user=auth.getCurrentUser();
             if(user==null){respond(action,false,"Sign in first.",null);return;}
+            if("loadPlotConfig".equals(action)){
+                String plotId=input.optString("plotId","");
+                if(!plotId.matches("[A-Za-z0-9_-]{1,100}")){respond(action,false,"Invalid plot ID.",null);return;}
+                String uid=user.getUid();
+                db.collection("plots").document(uid+"_"+plotId).get().addOnSuccessListener(doc->{
+                    if(!doc.exists()||!uid.equals(doc.getString("ownerUserId"))){respond(action,false,"Plot configuration not found in Firebase.",null);return;}
+                    try{
+                        JSONObject data=new JSONObject();
+                        data.put("plotId",plotId);
+                        Number gh=(Number)doc.get("greenhouseCount"),sections=(Number)doc.get("sectionsPerGreenhouse");
+                        data.put("greenhouseCount",gh==null?JSONObject.NULL:gh.intValue());
+                        data.put("sectionsPerGreenhouse",sections==null?JSONObject.NULL:sections.intValue());
+                        respond(action,true,"",data);
+                    }catch(Exception e){respond(action,false,"Invalid Firebase plot configuration: "+e.getMessage(),null);}
+                }).addOnFailureListener(e->respond(action,false,"Plot configuration read failed: "+e.getMessage(),null));
+                return;
+            }
             if("loadOwnedDevices".equals(action)){
                 String uid=user.getUid();
                 db.collection("data_feeds").whereEqualTo("ownerUserId",uid).get().addOnSuccessListener(devices->{
