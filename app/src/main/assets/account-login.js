@@ -285,6 +285,16 @@ window.GrowPlotAccountResponse=function(response){
 
  if(response&&response.action==='saveDataFeeds'){const node=document.getElementById('growplotFeedCloudStatus');if(node)node.textContent=response.ok?'Firebase: CCTV01–CCTV03 saved successfully.':'Firebase save failed: '+(response.error||'Unknown error');return;}
 
+ if(response.action==='loadPlotConfig'){
+  const requested=response.data?.plotId||window.GrowPlotRequestedConfigPlot;
+  if(!requested||requested!==document.getElementById('plotManagerSelect')?.value)return;
+  if(response.ok&&response.data){
+   window.GrowPlotFirebasePlotConfigs=window.GrowPlotFirebasePlotConfigs||{};
+   window.GrowPlotFirebasePlotConfigs[requested]=response.data;
+  }
+  window.GrowPlotRefreshCameraTargets?.(response.ok?null:(response.error||response.message||'Firebase plot configuration unavailable'));
+  return;
+ }
  if(response.action==='loadOwnedDevices'){
   const status=document.getElementById('gpDeviceStatus'),list=document.getElementById('gpSavedDevices');
   if(!response.ok){if(status)status.textContent='Firebase retrieval error: '+(response.error||'Unable to load saved devices');return;}
@@ -586,10 +596,35 @@ window.GrowPlotSaveCloudProfile=function(callback){
   const currentPlot=()=>typeof plots!=='undefined'&&Array.isArray(plots)?plots.find(p=>p&&p.id===anchor.value):null;
   const count=(v)=>Number.isInteger(Number(v))&&Number(v)>0?Math.min(Number(v),100):1;
   function populate(select,n,prefix){const old=select.value;select.replaceChildren();const placeholder=document.createElement('option');placeholder.value='';placeholder.textContent='Select '+prefix;select.appendChild(placeholder);for(let i=1;i<=n;i++){const opt=document.createElement('option');opt.value=prefix.toLowerCase()+'-'+i;opt.textContent=prefix+' '+String(i).padStart(2,'0');select.appendChild(opt);}if([...select.options].some(o=>o.value===old))select.value=old;}
-  function refreshTargets(){const plot=currentPlot();populate(ghSelect,count(plot?.greenhouseCount),'Greenhouse');populate(secSelect,ghSelect.value?count(plot?.sectionsPerGreenhouse):0,'Section');}
-  anchor.addEventListener('change',refreshTargets);ghSelect.addEventListener('change',()=>{populate(secSelect,ghSelect.value?count(currentPlot()?.sectionsPerGreenhouse):0,'Section');});
-  document.getElementById('savePlotBtn')?.addEventListener('click',()=>setTimeout(refreshTargets,0));
-  refreshTargets();
+  function refreshTargets(error){
+   const id=anchor.value;
+   const config=window.GrowPlotFirebasePlotConfigs?.[id];
+   const status=document.getElementById('gpDeviceStatus');
+   if(error||!config||!Number.isInteger(Number(config.greenhouseCount))||!Number.isInteger(Number(config.sectionsPerGreenhouse))||Number(config.greenhouseCount)<1||Number(config.sectionsPerGreenhouse)<1){
+    populate(ghSelect,0,'Greenhouse');populate(secSelect,0,'Section');
+    ghSelect.disabled=true;secSelect.disabled=true;
+    if(status)status.textContent=error||'Loading greenhouse and section configuration from Firebase…';
+    return;
+   }
+   ghSelect.disabled=false;secSelect.disabled=false;
+   populate(ghSelect,Number(config.greenhouseCount),'Greenhouse');
+   populate(secSelect,ghSelect.value?Number(config.sectionsPerGreenhouse):0,'Section');
+   if(status)status.textContent='Firebase plot configuration: '+config.greenhouseCount+' greenhouse(s), '+config.sectionsPerGreenhouse+' section(s) per greenhouse.';
+  }
+  window.GrowPlotRefreshCameraTargets=refreshTargets;
+  function loadTargets(){
+   const id=anchor.value;
+   window.GrowPlotRequestedConfigPlot=id;
+   window.GrowPlotFirebasePlotConfigs=window.GrowPlotFirebasePlotConfigs||{};
+   delete window.GrowPlotFirebasePlotConfigs[id];
+   refreshTargets();
+   if(window.GrowPlotCurrentUser&&!window.GrowPlotCurrentUser.developmentOnly&&api?.configured())request('loadPlotConfig',{plotId:id});
+   else refreshTargets('Sign in to load plot configuration from Firebase.');
+  }
+  anchor.addEventListener('change',loadTargets);
+  ghSelect.addEventListener('change',()=>{const config=window.GrowPlotFirebasePlotConfigs?.[anchor.value];populate(secSelect,ghSelect.value?Number(config?.sectionsPerGreenhouse||0):0,'Section');});
+  document.getElementById('savePlotBtn')?.addEventListener('click',()=>setTimeout(loadTargets,300));
+  loadTargets();
   const list=document.createElement('div');list.id='gpSavedDevices';list.style.cssText='margin-top:14px;display:grid;gap:8px';section.appendChild(list);
   function clearCameraFields(){
    for(const id of ['gpDeviceHost','gpDevicePort','gpDevicePath','gpDeviceUser','gpDevicePassword'])document.getElementById(id).value='';
