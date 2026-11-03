@@ -336,7 +336,7 @@ public final class AccountApiBridge {
             if("ensureDemoPlot".equals(action)){
                 if(!("growplot2026@gmail.com".equalsIgnoreCase(user.getEmail()) || "rizaljamin@gmail.com".equalsIgnoreCase(user.getEmail())) || !user.isEmailVerified()){respond(action,false,"Verified Demo Plot administrator account required.",null);return;}
                 // Demo Plot already exists as an owner-prefixed document. Do not create a duplicate.
-                db.collection("plots").whereEqualTo("id","plot-1").get()
+                db.collection("plots").whereEqualTo("id","plot-1").whereEqualTo("ownerEmail","growplot2026@gmail.com").get()
                     .addOnSuccessListener(snapshot->{
                         boolean found=false;
                         for(com.google.firebase.firestore.QueryDocumentSnapshot plot:snapshot){
@@ -392,7 +392,7 @@ public final class AccountApiBridge {
                     }).addOnFailureListener(e->respond(action,false,"Device lookup failed: "+e.getMessage(),null));
                 };
                 if("plot-1".equals(plotId)){
-                    db.collection("plots").whereEqualTo("id","plot-1").get()
+                    db.collection("plots").whereEqualTo("id","plot-1").whereEqualTo("ownerEmail","growplot2026@gmail.com").get()
                         .addOnSuccessListener(snapshot->{
                             com.google.firebase.firestore.DocumentSnapshot demo=null;
                             for(com.google.firebase.firestore.QueryDocumentSnapshot candidate:snapshot){
