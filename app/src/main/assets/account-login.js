@@ -361,7 +361,8 @@ window.GrowPlotAccountResponse=function(response){
    if(node)node.textContent=response.ok?(response.action==='saveOwnedDevice'?'✓ '+(response.message||'Device saved.'):(response.action==='unlinkOwnedDevice'?'✓ '+(data.deviceId||'CCTV')+' successfully unlinked from '+(data.greenhouseId||'greenhouse')+' / '+(data.sectionId||'section')+'. IP address cleared in Firebase; streaming refresh requested.':'✓ Device assigned successfully.')):('Firebase error: '+(response.error||'Request failed (no error details returned)'));
    if(response.ok&&response.action==='unlinkOwnedDevice'){
      window.GrowPlotUnlinkedNotices=window.GrowPlotUnlinkedNotices||{};
-     window.GrowPlotUnlinkedNotices[data.plotId+'|'+data.deviceId]={plotId:data.plotId,deviceId:data.deviceId,greenhouseId:data.greenhouseId,sectionId:data.sectionId};
+     const device=(window.GrowPlotOwnedDeviceData?.devices||[]).find(d=>d.deviceId===data.deviceId);
+     window.GrowPlotUnlinkedNotices[data.plotId+'|'+data.deviceId]={plotId:data.plotId,deviceId:data.deviceId,greenhouseId:data.greenhouseId,sectionId:data.sectionId,ipAddress:device?.ipAddress,username:device?.username};
      window.GrowPlotRenderOwnedDevices?.();
      const selected=document.getElementById('gpDeviceId');
      if(selected?.value===data.deviceId){
@@ -751,21 +752,18 @@ window.GrowPlotSaveCloudProfile=function(callback){
      line.textContent=label+': '+(value===undefined||value===null||value===''?'Not configured':String(value));
      detail.appendChild(line);
     }
-    const action=document.createElement('button');action.type='button';action.textContent='Unlink '+(a.deviceId||'camera');
-    action.style.cssText='margin-top:8px;padding:8px 12px;border-radius:7px;background:#176b48;color:#fff;border:0';
-    action.onclick=()=>{
-     if(!guard())return;
-     if(!confirm('Unlink '+a.deviceId+' from '+a.plotId+' / '+a.greenhouseId+' / '+a.sectionId+'?'))return;
-     action.disabled=true;action.textContent='Unlinking…';
-     request('unlinkOwnedDevice',{plotId:a.plotId,greenhouseId:a.greenhouseId,sectionId:a.sectionId,deviceId:a.deviceId});
-    };
-    detail.appendChild(action);
     assignmentDetails.appendChild(detail);
    }
    for(const notice of Object.values(window.GrowPlotUnlinkedNotices||{})){
-    if(notice.plotId!==plotId)continue;
-    const line=document.createElement('div');line.style.cssText='padding:10px;border:1px solid #a4c9b2;border-radius:7px;background:#eaf5ee;color:#176b48;font-weight:700';
-    line.textContent=notice.deviceId+' · '+notice.greenhouseId+' / '+notice.sectionId+' — UNLINKED';assignmentDetails.appendChild(line);
+    if(notice.plotId!==plotId||matches.some(a=>a.deviceId===notice.deviceId&&a.greenhouseId===notice.greenhouseId&&a.sectionId===notice.sectionId))continue;
+    const detail=document.createElement('div');
+    detail.style.cssText='padding:8px 10px;border:1px solid #a4c9b2;border-radius:7px;background:#f1f8f3;color:#62796b;font-size:13px';
+    const crossed=document.createElement('div');
+    crossed.style.textDecoration='line-through';
+    crossed.textContent=(notice.deviceId||'Camera')+' · Plot ID: '+notice.plotId+' · Greenhouse ID: '+notice.greenhouseId+' · Section ID: '+notice.sectionId+' · IP: '+(notice.ipAddress||'Not configured')+' · Username: '+(notice.username||'Not configured');
+    detail.appendChild(crossed);
+    const label=document.createElement('strong');label.textContent='UNLINKED';label.style.color='#176b48';detail.appendChild(label);
+    assignmentDetails.appendChild(detail);
    }
    list.appendChild(assignmentDetails);
    const shown=new Set();
@@ -819,16 +817,18 @@ window.GrowPlotSaveCloudProfile=function(callback){
   }
   function refreshUnlinkButton(){
    const btn=document.getElementById('gpUnlinkDevice');if(!btn)return;
-   btn.disabled=!(anchor.value&&ghSelect.value&&secSelect.value);
+   btn.disabled=!(anchor.value&&ghSelect.value&&secSelect.value&&(window.GrowPlotOwnedDeviceData?.assignments||[]).some(a=>a.plotId===anchor.value&&a.greenhouseId===ghSelect.value&&a.sectionId===secSelect.value&&(!devicePicker.value||a.deviceId===devicePicker.value)));
   }
   [ghSelect,secSelect,anchor].forEach(el=>el?.addEventListener('change',refreshUnlinkButton));
   document.getElementById('gpUnlinkDevice').onclick=()=>{
    if(!guard())return;
    const plotId=anchor.value,greenhouseId=ghSelect.value,sectionId=secSelect.value;
    if(!plotId||!greenhouseId||!sectionId){status.textContent='Select a greenhouse and section first.';return;}
-   if(!confirm('Unlink the camera assigned to '+greenhouseId+' / '+sectionId+' and clear its saved IP address?'))return;
+   const match=(window.GrowPlotOwnedDeviceData?.assignments||[]).find(a=>a.plotId===plotId&&a.greenhouseId===greenhouseId&&a.sectionId===sectionId&&(!devicePicker.value||a.deviceId===devicePicker.value));
+   if(!match){status.textContent='No matching camera assignment for this section.';return;}
+   if(!confirm('Unlink '+match.deviceId+' from '+greenhouseId+' / '+sectionId+' and clear its saved IP address?'))return;
    document.getElementById('gpUnlinkDevice').disabled=true;
-   request('unlinkOwnedDevice',{plotId,greenhouseId,sectionId});
+   request('unlinkOwnedDevice',{plotId,greenhouseId,sectionId,deviceId:match.deviceId});
    status.textContent='Checking Firebase assignment and unlinking camera…';
   };
   window.GrowPlotRefreshUnlinkButton=refreshUnlinkButton;
