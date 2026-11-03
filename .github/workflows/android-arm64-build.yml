@@ -1,5 +1,5 @@
 name: GrowPlot ARM64 APK
-run-name: 'GrowPlot v0.7.02 Build 34 | ARM64 APK | ${{ github.event_name }}'
+run-name: 'GrowPlot v0.7.02 Build 35 | ARM64 APK | ${{ github.event_name }}'
 # Build 13: CCTV picker and Firebase camera assignment safeguard (server function requires deployment).
 
 on:
