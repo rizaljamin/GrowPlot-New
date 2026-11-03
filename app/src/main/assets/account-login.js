@@ -216,8 +216,8 @@ function connectAssignedImageFeed(data){
  const preferredPlotId=String(data&&data.selectedPlotId||selectedPlotId||'');
  const plot=plotsForUser.find(p=>String(p.id)===preferredPlotId)||plotsForUser[0];
  if(!plot){saveNotice('Image Feed not connected: assign a plot to this account first.',false);return;}
- selectedPlotId=String(plot.id);
- if(typeof fillPlotSelectors==='function')fillPlotSelectors();
+ // Image-feed cloud connection must never change the Home streaming selection.
+ // Demo Plot uses its own native camera settings regardless of signed-in user.
  const user=window.GrowPlotCurrentUser||currentUser;
  const attempt=String(user&&(user.uid||user.id)||'')+'|'+String(plot.id);
  if(window.__growPlotImageFeedLoginAttempt===attempt)return;
@@ -316,7 +316,13 @@ window.GrowPlotAccountResponse=function(response){
    window.GrowPlotReloadOwnedDevices();
    setTimeout(syncAuthorizedHomePlots,0);
    setTimeout(()=>window.dispatchEvent(new Event('growplot-plot-profile-updated')),0);
-   connectAssignedImageFeed(data);
+   // Connect a user-owned Drive feed only when the selected Home plot is user-owned.
+   // Demo Plot streaming is independent of Drive and Firebase assignments.
+   if(String(document.getElementById('plot')?.value||selectedPlotId)==='plot-1'){
+     window.GrowPlotRefreshHomeStreams?.();
+   }else{
+     connectAssignedImageFeed(data);
+   }
    // Never replace the Demo Plot with a stale device-local user record.
    if(Array.isArray(data.plots)&&data.plots.length){
      if(typeof plots!=='undefined'&&Array.isArray(plots)){
@@ -658,9 +664,9 @@ const preview=document.getElementById('growplotPreviewButton');if(preview)previe
    if(!window.GrowPlotCurrentUser&&plot.value!=='plot-1')syncAuthorizedHomePlots();
    const plotId=window.GrowPlotCurrentUser?(plot.value||'plot-1'):'plot-1';
    const rawGh=String(gh.value||'1');
-   const greenhouse=!window.GrowPlotCurrentUser?'greenhouse-1':(/^greenhouse-[1-9][0-9]*$/.test(rawGh)?rawGh:'greenhouse-'+(Number(rawGh)||1));
+   const greenhouse=plotId==='plot-1'?'greenhouse-1':(/^greenhouse-[1-9][0-9]*$/.test(rawGh)?rawGh:'greenhouse-'+(Number(rawGh)||1));
    const uid=window.GrowPlotCurrentUser?.uid||window.GrowPlotCurrentUser?.userId||'';
-   const scope=uid+'|'+plotId+'|'+greenhouse;
+   const scope=(plotId==='plot-1'?'demo':uid)+'|'+plotId+'|'+greenhouse;
    if(!force&&scope===previous)return;
    previous=scope;
    window.GrowPlotBridge?.setActiveStreamingContext?.(plotId,greenhouse);
