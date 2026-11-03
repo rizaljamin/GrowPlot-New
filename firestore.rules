@@ -63,8 +63,9 @@ service cloud.firestore {
         && assignmentId == request.auth.uid + '_' + request.resource.data.plotId + '_' + request.resource.data.greenhouseId + '_' + request.resource.data.sectionId + '_' + request.resource.data.deviceId
         && ((request.resource.data.plotId == 'plot-1'
           && isDemoAdmin()
-          && exists(/databases/$(database)/documents/plots/plot-1)
-          && get(/databases/$(database)/documents/plots/plot-1).data.systemManaged == true)
+          && exists(/databases/$(database)/documents/plots/$(request.auth.uid + '_plot-1'))
+          && get(/databases/$(database)/documents/plots/$(request.auth.uid + '_plot-1')).data.ownerUserId == request.auth.uid
+          && get(/databases/$(database)/documents/plots/$(request.auth.uid + '_plot-1')).data.systemManaged == true)
           || (request.resource.data.plotId != 'plot-1'
           && get(/databases/$(database)/documents/plots/$(request.auth.uid + '_' + request.resource.data.plotId)).data.ownerUserId == request.auth.uid))
         && get(/databases/$(database)/documents/data_feeds/$(request.auth.uid + '_' + request.resource.data.deviceId)).data.ownerUserId == request.auth.uid;
