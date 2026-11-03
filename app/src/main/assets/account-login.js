@@ -216,8 +216,7 @@ function connectAssignedImageFeed(data){
  const preferredPlotId=String(data&&data.selectedPlotId||selectedPlotId||'');
  const plot=plotsForUser.find(p=>String(p.id)===preferredPlotId)||plotsForUser[0];
  if(!plot){saveNotice('Image Feed not connected: assign a plot to this account first.',false);return;}
- selectedPlotId=String(plot.id);
- if(typeof fillPlotSelectors==='function')fillPlotSelectors();
+ // Cloud feed connection must not change the Home plot selection.
  const user=window.GrowPlotCurrentUser||currentUser;
  const attempt=String(user&&(user.uid||user.id)||'')+'|'+String(plot.id);
  if(window.__growPlotImageFeedLoginAttempt===attempt)return;
@@ -884,9 +883,9 @@ const preview=document.getElementById('growplotPreviewButton');if(preview)previe
    if(!window.GrowPlotCurrentUser&&plot.value!=='plot-1')syncAuthorizedHomePlots();
    const plotId=window.GrowPlotCurrentUser?(plot.value||'plot-1'):'plot-1';
    const rawGh=String(gh.value||'1');
-   const greenhouse=!window.GrowPlotCurrentUser?'greenhouse-1':(/^greenhouse-[1-9][0-9]*$/.test(rawGh)?rawGh:'greenhouse-'+(Number(rawGh)||1));
+   const greenhouse=plotId==='plot-1'?'greenhouse-1':(/^greenhouse-[1-9][0-9]*$/.test(rawGh)?rawGh:'greenhouse-'+(Number(rawGh)||1));
    const uid=window.GrowPlotCurrentUser?.uid||window.GrowPlotCurrentUser?.userId||'';
-   const scope=uid+'|'+plotId+'|'+greenhouse;
+   const scope=(plotId==='plot-1'?'demo':uid)+'|'+plotId+'|'+greenhouse;
    if(!force&&scope===previous)return;
    previous=scope;
    window.GrowPlotBridge?.setActiveStreamingContext?.(plotId,greenhouse);
