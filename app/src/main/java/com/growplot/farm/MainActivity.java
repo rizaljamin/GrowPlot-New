@@ -644,15 +644,11 @@ public class MainActivity extends Activity {
         if (!force && scope.equals(activeStreamScope)) return;
         activeStreamScope = scope;
         final int generation = ++assignedStreamGeneration;
-        // Demo Plot always uses its saved local camera settings, independent of Firebase login.
-        userStreamMode = !"plot-1".equals(plotId);
+        // All plots, including shared Demo Plot, resolve their assigned cameras from Firestore.
+        userStreamMode = true;
         java.util.Arrays.fill(assignedStreamUrls, null);
         assignedStreamsLoading = userStreamMode;
         resetCctvSurfaces(); // Clear old frames before loading the selected plot.
-        if (!userStreamMode) {
-            refreshAssignedPlayers();
-            return;
-        }
         com.google.firebase.auth.FirebaseUser user = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
         if (user == null || !plotId.matches("[A-Za-z0-9_-]{1,100}") || !greenhouseId.matches("greenhouse-[1-9][0-9]*")) {
             return;
