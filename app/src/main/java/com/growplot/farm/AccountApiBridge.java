@@ -355,6 +355,7 @@ public final class AccountApiBridge {
                 }
                 String uid=user.getUid();
                 if("plot-1".equals(plotId)&&(!("growplot2026@gmail.com".equalsIgnoreCase(user.getEmail()) || "rizaljamin@gmail.com".equalsIgnoreCase(user.getEmail()))||!user.isEmailVerified())){respond(action,false,"Verified Demo Plot administrator account required.",null);return;}
+                com.google.firebase.firestore.DocumentReference feedRef=db.collection("data_feeds").document(uid+"_"+deviceId);
                 java.util.function.Consumer<com.google.firebase.firestore.DocumentSnapshot> onPlot = plot->{
                     if(!plot.exists()||(!"plot-1".equals(plotId)&&!uid.equals(plot.getString("ownerUserId")))){respond(action,false,"Plot not found in your Firebase account.",null);return;}
                     Number ghCount=plot.getDouble("greenhouseCount"),secCount=plot.getDouble("sectionsPerGreenhouse");
