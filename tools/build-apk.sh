@@ -143,6 +143,12 @@ Signing status: $SIGNING_STATE
 Pl@ntNet status: $PLANTNET_STATE
 YOLO status: $YOLO_STATE
 Vertex status: $VERTEX_STATE
+Release focus: Camera/CCTV assignment to plot, greenhouse and section; preserve existing Demo Plot.
+Build 36 main focus (v0.7.02): Investigate camera-to-section linking and Demo Plot 1 assignment failures.
+Build 36 retrospective: Plot field id=plot-1 is NOT the Firestore document ID; actual document ID is {ownerUID}_plot-1. The original direct document("plot-1") lookup missed the existing plot.
+Final correction (subsequent builds): Query existing plots by id=plot-1 and ownerEmail=growplot2026@gmail.com, verify systemManaged, and do not create duplicate Demo Plot documents.
+Regression focus: Verify Demo Plot lookup, camera assignment/link/unlink, existing plot records, and Java compilation.
+Historical note: Build 36 focus does not imply the final fix was shipped in Build 36.
 Device verification: pending; install and test on the user's Android tablet.
 EOF
 printf 'Build outputs:\n%s\n%s\n' "$ARM64_OUT" "$ZIP_OUT"
