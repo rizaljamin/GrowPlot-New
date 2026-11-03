@@ -255,7 +255,7 @@ window.GrowPlotReloadOwnedDevices=function(){if(window.GrowPlotCurrentUser&&!win
 window.GrowPlotAccountResponse=function(response){
  if(response?.action==='ensureDemoPlot'){
   const status=document.getElementById('gpDeviceStatus');
-  if(!response.ok){if(status)status.textContent=response.message||'Demo Plot initialization failed.';window.GrowPlotPendingDemoAssignment=null;return;}
+  if(!response.ok){if(status)status.textContent='Demo Plot initialization failed: '+(response.error||response.message||'Unknown Firebase error');window.GrowPlotPendingDemoAssignment=null;return;}
   window.GrowPlotDemoPlotInitialized=true;
   if(window.GrowPlotDemoConfigPending){
    window.GrowPlotDemoConfigPending=false;
@@ -844,18 +844,23 @@ window.GrowPlotSaveCloudProfile=function(callback){
   };
   document.getElementById('gpAssignDevice').onclick=()=>{
    if(!guard())return;
-   const plotId=anchor.value,sectionId=val('gpSectionId'),deviceId=val('gpDeviceId');
-   if(!currentPlot()||!ghSelect.value||!secSelect.value){status.textContent='Select a configured greenhouse and section in this plot first.';return;}
-   if(!/^[A-Za-z0-9_-]{1,100}$/.test(sectionId)||!/^[A-Za-z0-9_-]{1,100}$/.test(deviceId)){status.textContent='Enter valid section and device IDs.';return;}
+   const plotId=anchor.value,greenhouseId=ghSelect.value,sectionId=secSelect.value,deviceId=devicePicker.value;
+   if(!plotId||!greenhouseId||!sectionId||!deviceId){
+    status.textContent='Select a plot, greenhouse, section and saved camera first.';return;
+   }
+   const saved=(window.GrowPlotOwnedDeviceData?.devices||[]).find(d=>d.deviceId===deviceId);
+   if(!saved){status.textContent='Camera not found in Firebase. Save Device first.';return;}
    if(plotId==='plot-1'&&!['growplot2026@gmail.com','rizaljamin@gmail.com'].includes(String(window.GrowPlotCurrentUser?.email||currentUser?.email||'').trim().toLowerCase())){
     status.textContent='Demo Plot assignment is restricted to administrators.';return;
    }
+   const payload={plotId,greenhouseId,sectionId,deviceId};
    if(plotId==='plot-1'&&!window.GrowPlotDemoPlotInitialized){
-    window.GrowPlotPendingDemoAssignment={plotId,sectionId,deviceId,greenhouseId:val('gpGreenhouseId')};
-    request('ensureDemoPlot',{});status.textContent='Initializing Demo Plot in Firebase…';return;
+    window.GrowPlotPendingDemoAssignment=payload;
+    status.textContent='Initializing Demo Plot in Firebase…';
+    request('ensureDemoPlot',{});return;
    }
-   request('assignOwnedDevice',{plotId,sectionId,deviceId,greenhouseId:val('gpGreenhouseId')});
-   status.textContent='Assigning device to your selected plot…';
+   status.textContent='Assigning '+deviceId+' to '+greenhouseId+' / '+sectionId+'…';
+   request('assignOwnedDevice',payload);
   };
  }
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});else mount();
