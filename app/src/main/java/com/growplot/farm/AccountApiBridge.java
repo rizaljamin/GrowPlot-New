@@ -335,22 +335,17 @@ public final class AccountApiBridge {
             }
             if("ensureDemoPlot".equals(action)){
                 if(!("growplot2026@gmail.com".equalsIgnoreCase(user.getEmail()) || "rizaljamin@gmail.com".equalsIgnoreCase(user.getEmail())) || !user.isEmailVerified()){respond(action,false,"Verified Demo Plot administrator account required.",null);return;}
-                com.google.firebase.firestore.DocumentReference ref=db.collection("plots").document("plot-1");
-                ref.get().addOnSuccessListener(existing->{
-                    if(existing.exists()){
-                        if("growplot2026@gmail.com".equalsIgnoreCase(existing.getString("ownerEmail"))){respond(action,true,"Shared Demo Plot already exists with GrowPlot owner.",null);return;}
-                        ref.update("ownerEmail","growplot2026@gmail.com")
-                            .addOnSuccessListener(v->respond(action,true,"Existing Demo Plot owner recorded.",null))
-                            .addOnFailureListener(e->respond(action,false,"Demo Plot owner update failed: "+e.getMessage(),null));
-                        return;
-                    }
-                    Map<String,Object> demo=new HashMap<>();
-                    demo.put("id","plot-1");demo.put("number","1");demo.put("name","Demo Plot");demo.put("ownerEmail","growplot2026@gmail.com");
-                    demo.put("systemManaged",true);demo.put("readOnly",true);
-                    demo.put("greenhouseCount",1);demo.put("sectionsPerGreenhouse",2);
-                    ref.set(demo).addOnSuccessListener(v->respond(action,true,"Shared Demo Plot initialized.",null))
-                        .addOnFailureListener(e->respond(action,false,"Demo Plot initialization failed: "+e.getMessage(),null));
-                }).addOnFailureListener(e->respond(action,false,"Demo Plot lookup failed: "+e.getMessage(),null));
+                // Demo Plot already exists as an owner-prefixed document. Do not create a duplicate.
+                db.collection("plots").whereEqualTo("id","plot-1").get()
+                    .addOnSuccessListener(snapshot->{
+                        boolean found=false;
+                        for(com.google.firebase.firestore.QueryDocumentSnapshot plot:snapshot){
+                            if("growplot2026@gmail.com".equalsIgnoreCase(plot.getString("ownerEmail"))
+                                && Boolean.TRUE.equals(plot.getBoolean("systemManaged"))){found=true;break;}
+                        }
+                        respond(action,found,found?"Existing Demo Plot found.":"Existing Demo Plot not found in Firebase.",null);
+                    })
+                    .addOnFailureListener(e->respond(action,false,"Demo Plot lookup failed: "+e.getMessage(),null));
                 return;
             }
             if("assignOwnedDevice".equals(action)){
@@ -360,9 +355,7 @@ public final class AccountApiBridge {
                 }
                 String uid=user.getUid();
                 if("plot-1".equals(plotId)&&(!("growplot2026@gmail.com".equalsIgnoreCase(user.getEmail()) || "rizaljamin@gmail.com".equalsIgnoreCase(user.getEmail()))||!user.isEmailVerified())){respond(action,false,"Verified Demo Plot administrator account required.",null);return;}
-                com.google.firebase.firestore.DocumentReference plotRef=db.collection("plots").document("plot-1".equals(plotId)?"plot-1":uid+"_"+plotId);
-                com.google.firebase.firestore.DocumentReference feedRef=db.collection("data_feeds").document(uid+"_"+deviceId);
-                plotRef.get().addOnSuccessListener(plot->{
+                java.util.function.Consumer<com.google.firebase.firestore.DocumentSnapshot> onPlot = plot->{
                     if(!plot.exists()||(!"plot-1".equals(plotId)&&!uid.equals(plot.getString("ownerUserId")))){respond(action,false,"Plot not found in your Firebase account.",null);return;}
                     Number ghCount=plot.getDouble("greenhouseCount"),secCount=plot.getDouble("sectionsPerGreenhouse");
                     int gh=Integer.parseInt(greenhouseId.substring(11)),sec=Integer.parseInt(sectionId.substring(8));
@@ -397,7 +390,24 @@ public final class AccountApiBridge {
                                 .addOnFailureListener(e->respond(action,false,"Assignment write failed: "+e.getMessage(),null));
                         }).addOnFailureListener(e->respond(action,false,"Unable to check existing assignments: "+e.getMessage(),null));
                     }).addOnFailureListener(e->respond(action,false,"Device lookup failed: "+e.getMessage(),null));
-                }).addOnFailureListener(e->respond(action,false,"Plot lookup failed: "+e.getMessage(),null));
+                };
+                if("plot-1".equals(plotId)){
+                    db.collection("plots").whereEqualTo("id","plot-1").get()
+                        .addOnSuccessListener(snapshot->{
+                            com.google.firebase.firestore.DocumentSnapshot demo=null;
+                            for(com.google.firebase.firestore.QueryDocumentSnapshot candidate:snapshot){
+                                if("growplot2026@gmail.com".equalsIgnoreCase(candidate.getString("ownerEmail"))
+                                    && Boolean.TRUE.equals(candidate.getBoolean("systemManaged"))){demo=candidate;break;}
+                            }
+                            if(demo==null){respond(action,false,"Existing Demo Plot not found in Firebase.",null);return;}
+                            onPlot.accept(demo);
+                        })
+                        .addOnFailureListener(e->respond(action,false,"Demo Plot lookup failed: "+e.getMessage(),null));
+                }else{
+                    db.collection("plots").document(uid+"_"+plotId).get()
+                        .addOnSuccessListener(onPlot::accept)
+                        .addOnFailureListener(e->respond(action,false,"Plot lookup failed: "+e.getMessage(),null));
+                }
                 return;
             }
             if("saveOwnedDevice".equals(action)||"assignOwnedDevice".equals(action)){
