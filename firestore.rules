@@ -34,9 +34,23 @@ service cloud.firestore {
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ownerEmail'])
           && request.resource.data.ownerEmail == 'growplot2026@gmail.com');
     }
+    // A demo camera is readable only when its owner has linked that exact
+    // device to a Demo Plot section. No write permissions are broadened.
+    function isDemoLinkedCamera(deviceId) {
+      return request.auth != null
+        && resource.data.deviceType == 'AV'
+        && resource.data.ownerUserId is string
+        && resource.data.deviceId is string
+        && deviceId == resource.data.ownerUserId + '_' + resource.data.deviceId
+        && (
+          exists(/databases/$(database)/documents/feed_assignments/$(resource.data.ownerUserId + '_plot-1_greenhouse-1_section-1_' + resource.data.deviceId))
+          || exists(/databases/$(database)/documents/feed_assignments/$(resource.data.ownerUserId + '_plot-1_greenhouse-1_section-2_' + resource.data.deviceId))
+          || exists(/databases/$(database)/documents/feed_assignments/$(resource.data.ownerUserId + '_plot-1_greenhouse-1_section-3_' + resource.data.deviceId))
+        );
+    }
     match /data_feeds/{deviceId} {
       allow read: if request.auth != null
-        && resource.data.ownerUserId == request.auth.uid;
+        && (resource.data.ownerUserId == request.auth.uid || isDemoLinkedCamera(deviceId));
       allow create: if request.auth != null
         && deviceId.matches(request.auth.uid + '_[A-Za-z0-9_-]+')
         && request.resource.data.ownerUserId == request.auth.uid
@@ -50,7 +64,7 @@ service cloud.firestore {
     }
     match /feed_assignments/{assignmentId} {
       allow read: if request.auth != null
-        && resource.data.ownerUserId == request.auth.uid;
+        && (resource.data.ownerUserId == request.auth.uid || resource.data.plotId == "plot-1");
       // A signed-in owner may pair only an existing owned plot and device.
       allow create: if request.auth != null
         && assignmentId.matches(request.auth.uid + '_[A-Za-z0-9_-]+')
