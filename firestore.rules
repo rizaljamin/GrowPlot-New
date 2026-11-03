@@ -44,6 +44,9 @@ service cloud.firestore {
           exists(/databases/$(database)/documents/feed_assignments/$(resource.data.ownerUserId + '_plot-1_greenhouse-1_section-1_' + resource.data.deviceId))
           || exists(/databases/$(database)/documents/feed_assignments/$(resource.data.ownerUserId + '_plot-1_greenhouse-1_section-2_' + resource.data.deviceId))
           || exists(/databases/$(database)/documents/feed_assignments/$(resource.data.ownerUserId + '_plot-1_greenhouse-1_section-3_' + resource.data.deviceId))
+          || exists(/databases/$(database)/documents/feed_assignments/$(resource.data.ownerUserId + '_plot-1_greenhouse-1_section-4_' + resource.data.deviceId))
+          || exists(/databases/$(database)/documents/feed_assignments/$(resource.data.ownerUserId + '_plot-1_greenhouse-1_section-5_' + resource.data.deviceId))
+          || exists(/databases/$(database)/documents/feed_assignments/$(resource.data.ownerUserId + '_plot-1_greenhouse-1_section-6_' + resource.data.deviceId))
         );
     }
     match /data_feeds/{deviceId} {
