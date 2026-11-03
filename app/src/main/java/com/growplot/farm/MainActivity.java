@@ -654,23 +654,20 @@ public class MainActivity extends Activity {
         }
         final String uid = user.getUid();
         com.google.firebase.firestore.FirebaseFirestore store = com.google.firebase.firestore.FirebaseFirestore.getInstance();
-        // Administrator scope is granted only by a verified Firebase custom claim.
-        user.getIdToken(false).addOnSuccessListener(token -> {
-            // Query the signed-in owner's assignments. Existing Firestore rules deny
-            // unrestricted cross-owner listing, even for UI administrators.
-            boolean admin = Boolean.TRUE.equals(token.getClaims().get("admin"))
-                    || Boolean.TRUE.equals(token.getClaims().get("powerUser"));
-            com.google.firebase.firestore.Query assignments = store.collection("feed_assignments").whereEqualTo("ownerUserId",uid);
-            assignments.get().addOnSuccessListener(rows -> {
-                if (generation != assignedStreamGeneration) return;
-                assignedStreamsLoading = false;
+        // Keep private plots owner-scoped. Demo Plot reads only its linked cameras.
+        com.google.firebase.firestore.Query assignments = "plot-1".equals(plotId)
+            ? store.collection("feed_assignments").whereEqualTo("plotId","plot-1")
+            : store.collection("feed_assignments").whereEqualTo("ownerUserId",uid);
+        java.util.function.Consumer<com.google.firebase.firestore.QuerySnapshot> applyAssignments = rows -> {
+            if (generation != assignedStreamGeneration) return;
+            assignedStreamsLoading = false;
                 for (com.google.firebase.firestore.QueryDocumentSnapshot assignment : rows) {
                     if (!plotId.equals(assignment.getString("plotId")) || !greenhouseId.equals(assignment.getString("greenhouseId"))) continue;
                     String section = assignment.getString("sectionId"), deviceId = assignment.getString("deviceId");
                     if (section == null || deviceId == null || !section.matches("section-[1-3]") || !deviceId.matches("[A-Za-z0-9_-]{1,100}")) continue;
                     int slot = Integer.parseInt(section.substring(8));
                     String ownerUid=assignment.getString("ownerUserId");
-                    if(ownerUid==null||!uid.equals(ownerUid))continue;
+                    if(ownerUid==null||(!"plot-1".equals(plotId)&&!uid.equals(ownerUid)))continue;
                     store.collection("data_feeds").document(ownerUid+"_"+deviceId).get().addOnSuccessListener(device -> {
                         if (generation != assignedStreamGeneration || !device.exists() || !ownerUid.equals(device.getString("ownerUserId")) || !("AV".equalsIgnoreCase(device.getString("deviceType")) || "Camera".equalsIgnoreCase(device.getString("deviceType")))) return;
                         String host = device.getString("ipAddress"),protocol=device.getString("protocol"),path=device.getString("streamPath");
@@ -685,8 +682,18 @@ public class MainActivity extends Activity {
                         refreshAssignedPlayer(slot);
                     });
                 }
-            }).addOnFailureListener(e -> { assignedStreamsLoading = false; android.util.Log.w("GrowPlotStreams", "Assignment retrieval failed", e); });
-        }).addOnFailureListener(e -> { assignedStreamsLoading=false; android.util.Log.w("GrowPlotStreams","Privilege verification failed",e); });
+        };
+        assignments.get().addOnSuccessListener(applyAssignments::accept).addOnFailureListener(e -> {
+            android.util.Log.w("GrowPlotStreams","Shared assignment read failed; checking owner-scoped fallback",e);
+            // Preserve the last known working behavior for the camera owner.
+            if ("plot-1".equals(plotId)) {
+                store.collection("feed_assignments").whereEqualTo("ownerUserId",uid).get()
+                    .addOnSuccessListener(applyAssignments::accept)
+                    .addOnFailureListener(err -> {assignedStreamsLoading=false;android.util.Log.w("GrowPlotStreams","Owner assignment fallback failed",err);});
+            } else {
+                assignedStreamsLoading=false;
+            }
+        });
     }
 
     private String cctvStreamUrl(int camera) {
