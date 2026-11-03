@@ -12,8 +12,9 @@ service cloud.firestore {
         && plotId.matches(request.auth.uid + '_[A-Za-z0-9_-]+'))
         || (plotId == 'plot-1'
           && isDemoAdmin()
-          && request.resource.data.keys().hasOnly(['id','number','name','systemManaged','readOnly','greenhouseCount','sectionsPerGreenhouse'])
+          && request.resource.data.keys().hasOnly(['id','number','name','ownerEmail','systemManaged','readOnly','greenhouseCount','sectionsPerGreenhouse'])
           && request.resource.data.id == 'plot-1'
+          && request.resource.data.ownerEmail == 'growplot2026@gmail.com'
           && request.resource.data.systemManaged == true
           && request.resource.data.readOnly == true
           && request.resource.data.greenhouseCount == 1
@@ -23,10 +24,15 @@ service cloud.firestore {
       allow delete: if request.auth != null
         && plotId != 'plot-1'
         && resource.data.ownerUserId == request.auth.uid;
-      allow update: if request.auth != null
+      allow update: if (request.auth != null
         && plotId != 'plot-1'
         && resource.data.ownerUserId == request.auth.uid
-        && request.resource.data.ownerUserId == request.auth.uid;
+        && request.resource.data.ownerUserId == request.auth.uid)
+        || (plotId == 'plot-1'
+          && isDemoAdmin()
+          && resource.data.systemManaged == true
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ownerEmail'])
+          && request.resource.data.ownerEmail == 'growplot2026@gmail.com');
     }
     match /data_feeds/{deviceId} {
       allow read: if request.auth != null
