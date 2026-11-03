@@ -262,7 +262,7 @@ window.GrowPlotAccountResponse=function(response){
    request('loadPlotConfig',{plotId:'plot-1'});
   }
   const pending=window.GrowPlotPendingDemoAssignment;window.GrowPlotPendingDemoAssignment=null;
-  if(pending){request('assignOwnedDevice',pending);if(status)status.textContent='Demo Plot created in Firebase. Assigning camera…';}
+  if(pending){request('assignOwnedDevice',pending);if(status)status.textContent='Demo Plot verified in Firebase. Assigning camera…';}
   return;
  }
 
@@ -854,7 +854,8 @@ window.GrowPlotSaveCloudProfile=function(callback){
     status.textContent='Demo Plot assignment is restricted to administrators.';return;
    }
    const payload={plotId,greenhouseId,sectionId,deviceId};
-   if(plotId==='plot-1'&&!window.GrowPlotDemoPlotInitialized){
+   // Always verify the shared Demo Plot exists before assigning; a local flag is not proof of a Firestore document.
+   if(plotId==='plot-1'){
     window.GrowPlotPendingDemoAssignment=payload;
     status.textContent='Initializing Demo Plot in Firebase…';
     request('ensureDemoPlot',{});return;
