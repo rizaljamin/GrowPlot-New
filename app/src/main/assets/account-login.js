@@ -826,7 +826,7 @@ window.GrowPlotSaveCloudProfile=function(callback){
    if(!plotId||!greenhouseId||!sectionId){status.textContent='Select a greenhouse and section first.';return;}
    const match=(window.GrowPlotOwnedDeviceData?.assignments||[]).find(a=>a.plotId===plotId&&a.greenhouseId===greenhouseId&&a.sectionId===sectionId&&(!devicePicker.value||a.deviceId===devicePicker.value));
    if(!match){status.textContent='No matching camera assignment for this section.';return;}
-   if(!confirm('Unlink '+match.deviceId+' from '+greenhouseId+' / '+sectionId+' and clear its saved IP address?'))return;
+   // User explicitly requested immediate unlink without a confirmation dialog.
    document.getElementById('gpUnlinkDevice').disabled=true;
    request('unlinkOwnedDevice',{plotId,greenhouseId,sectionId,deviceId:match.deviceId});
    status.textContent='Checking Firebase assignment and unlinking camera…';
