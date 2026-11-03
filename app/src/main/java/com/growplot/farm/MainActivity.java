@@ -650,6 +650,11 @@ public class MainActivity extends Activity {
         assignedStreamsLoading = userStreamMode;
         resetCctvSurfaces(); // Clear old frames before loading the selected plot.
         com.google.firebase.auth.FirebaseUser user = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+        if (user == null && "plot-1".equals(plotId)) {
+            // Signed-out Dashboard uses the locally configured Demo Plot camera streams.
+            returnToDemoStreams();
+            return;
+        }
         if (user == null || !plotId.matches("[A-Za-z0-9_-]{1,100}") || !greenhouseId.matches("greenhouse-[1-9][0-9]*")) {
             return;
         }
