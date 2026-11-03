@@ -13,25 +13,9 @@ service cloud.firestore {
         && resource.data.ownerUserId == request.auth.uid
         && request.resource.data.ownerUserId == request.auth.uid;
     }
-    // Only cameras explicitly linked to Demo Plot are readable across accounts.
-    // All data_feeds writes and non-Demo reads retain owner-only rules.
-    function isDemoLinkedCamera(deviceId) {
-      return request.auth != null
-        && resource.data.ownerUserId is string
-        && resource.data.deviceId is string
-        && deviceId == resource.data.ownerUserId + '_' + resource.data.deviceId
-        && (
-          exists(/databases/$(database)/documents/feed_assignments/$(resource.data.ownerUserId + '_plot-1_greenhouse-1_section-1_' + resource.data.deviceId))
-          ||           exists(/databases/$(database)/documents/feed_assignments/$(resource.data.ownerUserId + '_plot-1_greenhouse-1_section-2_' + resource.data.deviceId))
-          ||           exists(/databases/$(database)/documents/feed_assignments/$(resource.data.ownerUserId + '_plot-1_greenhouse-1_section-3_' + resource.data.deviceId))
-          ||           exists(/databases/$(database)/documents/feed_assignments/$(resource.data.ownerUserId + '_plot-1_greenhouse-1_section-4_' + resource.data.deviceId))
-          ||           exists(/databases/$(database)/documents/feed_assignments/$(resource.data.ownerUserId + '_plot-1_greenhouse-1_section-5_' + resource.data.deviceId))
-          ||           exists(/databases/$(database)/documents/feed_assignments/$(resource.data.ownerUserId + '_plot-1_greenhouse-1_section-6_' + resource.data.deviceId))
-        );
-    }
     match /data_feeds/{deviceId} {
       allow read: if request.auth != null
-        && (resource.data.ownerUserId == request.auth.uid || isDemoLinkedCamera(deviceId));
+        && resource.data.ownerUserId == request.auth.uid;
       allow create: if request.auth != null
         && deviceId.matches(request.auth.uid + '_[A-Za-z0-9_-]+')
         && request.resource.data.ownerUserId == request.auth.uid
@@ -45,7 +29,7 @@ service cloud.firestore {
     }
     match /feed_assignments/{assignmentId} {
       allow read: if request.auth != null
-        && (resource.data.ownerUserId == request.auth.uid || resource.data.plotId == "plot-1");
+        && resource.data.ownerUserId == request.auth.uid;
       // A signed-in owner may pair only an existing owned plot and device.
       allow create: if request.auth != null
         && assignmentId.matches(request.auth.uid + '_[A-Za-z0-9_-]+')
