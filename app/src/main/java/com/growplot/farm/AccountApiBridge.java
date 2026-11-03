@@ -307,7 +307,7 @@ public final class AccountApiBridge {
                     int removed=0;
                     String matchedDeviceId=null;
                     for(com.google.firebase.firestore.QueryDocumentSnapshot doc:snapshot){
-                        if(plotId.equals(doc.getString("plotId"))&&greenhouseId.equals(doc.getString("greenhouseId"))&&sectionId.equals(doc.getString("sectionId")) ){
+                        if(plotId.equals(doc.getString("plotId"))&&greenhouseId.equals(doc.getString("greenhouseId"))&&sectionId.equals(doc.getString("sectionId"))&&(deviceId.isEmpty()||deviceId.equals(doc.getString("deviceId"))) ){
                             matchedDeviceId=doc.getString("deviceId");
                             batch.delete(doc.getReference());removed++;
                         }
@@ -318,7 +318,10 @@ public final class AccountApiBridge {
                     // The camera ID stays in inventory, but its endpoint must no longer
                     // be usable after unlink. Commit both changes atomically.
                     com.google.firebase.firestore.DocumentReference feedRef=db.collection("data_feeds").document(uid+"_"+unlinkedDeviceId);
-                    batch.update(feedRef,"ipAddress","","updatedAt",com.google.firebase.firestore.FieldValue.serverTimestamp());
+                    Map<String,Object> cleared=new HashMap<>();
+                    cleared.put("ipAddress","");
+                    cleared.put("updatedAt",com.google.firebase.firestore.FieldValue.serverTimestamp());
+                    batch.set(feedRef,cleared,SetOptions.merge());
                     batch.commit().addOnSuccessListener(v->{
                         try{
                             JSONObject result=new JSONObject();
