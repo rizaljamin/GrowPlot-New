@@ -660,9 +660,7 @@ public class MainActivity extends Activity {
             // unrestricted cross-owner listing, even for UI administrators.
             boolean admin = Boolean.TRUE.equals(token.getClaims().get("admin"))
                     || Boolean.TRUE.equals(token.getClaims().get("powerUser"));
-            com.google.firebase.firestore.Query assignments = "plot-1".equals(plotId)
-                    ? store.collection("feed_assignments").whereEqualTo("plotId","plot-1")
-                    : store.collection("feed_assignments").whereEqualTo("ownerUserId",uid);
+            com.google.firebase.firestore.Query assignments = store.collection("feed_assignments").whereEqualTo("ownerUserId",uid);
             assignments.get().addOnSuccessListener(rows -> {
                 if (generation != assignedStreamGeneration) return;
                 assignedStreamsLoading = false;
@@ -672,7 +670,7 @@ public class MainActivity extends Activity {
                     if (section == null || deviceId == null || !section.matches("section-[1-3]") || !deviceId.matches("[A-Za-z0-9_-]{1,100}")) continue;
                     int slot = Integer.parseInt(section.substring(8));
                     String ownerUid=assignment.getString("ownerUserId");
-                    if(ownerUid==null||(!"plot-1".equals(plotId)&&!uid.equals(ownerUid)))continue;
+                    if(ownerUid==null||!uid.equals(ownerUid))continue;
                     store.collection("data_feeds").document(ownerUid+"_"+deviceId).get().addOnSuccessListener(device -> {
                         if (generation != assignedStreamGeneration || !device.exists() || !ownerUid.equals(device.getString("ownerUserId")) || !("AV".equalsIgnoreCase(device.getString("deviceType")) || "Camera".equalsIgnoreCase(device.getString("deviceType")))) return;
                         String host = device.getString("ipAddress"),protocol=device.getString("protocol"),path=device.getString("streamPath");
