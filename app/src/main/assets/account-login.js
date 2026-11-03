@@ -360,13 +360,16 @@ window.GrowPlotAccountResponse=function(response){
    const node=document.getElementById('gpDeviceStatus');
    if(node)node.textContent=response.ok?(response.action==='saveOwnedDevice'?'✓ '+(response.message||'Device saved.'):(response.action==='unlinkOwnedDevice'?'✓ '+(data.deviceId||'CCTV')+' successfully unlinked from '+(data.greenhouseId||'greenhouse')+' / '+(data.sectionId||'section')+'. IP address cleared in Firebase; streaming refresh requested.':'✓ Device assigned successfully.')):('Firebase error: '+(response.error||'Request failed (no error details returned)'));
    if(response.ok&&response.action==='unlinkOwnedDevice'){
+     window.GrowPlotUnlinkedNotices=window.GrowPlotUnlinkedNotices||{};
+     window.GrowPlotUnlinkedNotices[data.plotId+'|'+data.deviceId]={plotId:data.plotId,deviceId:data.deviceId,greenhouseId:data.greenhouseId,sectionId:data.sectionId};
+     window.GrowPlotRenderOwnedDevices?.();
      const selected=document.getElementById('gpDeviceId');
      if(selected?.value===data.deviceId){
        const host=document.getElementById('gpDeviceHost');if(host)host.value='';
        const summary=document.getElementById('gpCameraAssignmentSummary');
        if(summary)summary.textContent=data.deviceId+' · Unassigned · IP address cleared';
      }
-   }if(response.ok&&response.action==='saveOwnedDevice'){const password=document.getElementById('gpDevicePassword');if(password)password.value='';window.GrowPlotReloadOwnedDevices();}if(response.ok&&(response.action==='assignOwnedDevice'||response.action==='unlinkOwnedDevice')){window.GrowPlotReloadOwnedDevices();window.GrowPlotRefreshHomeStreams?.(true);}
+   }if(response.ok&&response.action==='saveOwnedDevice'){const password=document.getElementById('gpDevicePassword');if(password)password.value='';window.GrowPlotReloadOwnedDevices();}if(response.ok&&(response.action==='assignOwnedDevice'||response.action==='unlinkOwnedDevice')){if(response.action==='assignOwnedDevice')window.GrowPlotUnlinkedNotices={};window.GrowPlotReloadOwnedDevices();window.GrowPlotRefreshHomeStreams?.(true);}
  }else if(response.action==='stats'){
    const p=document.getElementById('growplotAdminStats');if(p)p.textContent='GrowPlot users: '+data.totalUsers+' | Standard users: '+data.standardUsers+' | Administrators: '+data.administrators+' | Logged in last 7 days: '+data.loggedInLast7Days;const d=document.getElementById('growplotUserManagementDetails');if(d)d.textContent='Total users: '+data.totalUsers+' | Standard users: '+data.standardUsers+' | Administrators: '+data.administrators+' | Logged in last 7 days: '+data.loggedInLast7Days;
  }else if(response.action==='saveProfile'){const saved=data.saved===true;if(saved){msg('Data saved successfully to Firebase.');saveNotice('Data saved successfully to Firebase.',true);}else saveNotice('Save was not confirmed by Firebase.',false);const callback=saveProfileCallback;saveProfileCallback=null;if(callback)callback(saved,response.error||''); }
@@ -716,6 +719,7 @@ window.GrowPlotSaveCloudProfile=function(callback){
    if(link){const device=(window.GrowPlotOwnedDeviceData?.devices||[]).find(d=>d.deviceId===link.deviceId);if(device)selectSavedDevice(device,link);}
    window.GrowPlotRefreshUnlinkButton?.();
   };
+  window.GrowPlotUnlinkedNotices=window.GrowPlotUnlinkedNotices||{};
   window.GrowPlotRenderOwnedDevices=function(){
    const data=window.GrowPlotOwnedDeviceData||{},devices=Array.isArray(data.devices)?data.devices:[],assignments=Array.isArray(data.assignments)?data.assignments:[];
    const plotId=anchor.value;refreshDevicePicker();list.replaceChildren();
@@ -747,7 +751,21 @@ window.GrowPlotSaveCloudProfile=function(callback){
      line.textContent=label+': '+(value===undefined||value===null||value===''?'Not configured':String(value));
      detail.appendChild(line);
     }
+    const action=document.createElement('button');action.type='button';action.textContent='Unlink '+(a.deviceId||'camera');
+    action.style.cssText='margin-top:8px;padding:8px 12px;border-radius:7px;background:#176b48;color:#fff;border:0';
+    action.onclick=()=>{
+     if(!guard())return;
+     if(!confirm('Unlink '+a.deviceId+' from '+a.plotId+' / '+a.greenhouseId+' / '+a.sectionId+'?'))return;
+     action.disabled=true;action.textContent='Unlinking…';
+     request('unlinkOwnedDevice',{plotId:a.plotId,greenhouseId:a.greenhouseId,sectionId:a.sectionId,deviceId:a.deviceId});
+    };
+    detail.appendChild(action);
     assignmentDetails.appendChild(detail);
+   }
+   for(const notice of Object.values(window.GrowPlotUnlinkedNotices||{})){
+    if(notice.plotId!==plotId)continue;
+    const line=document.createElement('div');line.style.cssText='padding:10px;border:1px solid #a4c9b2;border-radius:7px;background:#eaf5ee;color:#176b48;font-weight:700';
+    line.textContent=notice.deviceId+' · '+notice.greenhouseId+' / '+notice.sectionId+' — UNLINKED';assignmentDetails.appendChild(line);
    }
    list.appendChild(assignmentDetails);
    const shown=new Set();
