@@ -337,9 +337,15 @@ public final class AccountApiBridge {
                 if(!("growplot2026@gmail.com".equalsIgnoreCase(user.getEmail()) || "rizaljamin@gmail.com".equalsIgnoreCase(user.getEmail())) || !user.isEmailVerified()){respond(action,false,"Verified Demo Plot administrator account required.",null);return;}
                 com.google.firebase.firestore.DocumentReference ref=db.collection("plots").document("plot-1");
                 ref.get().addOnSuccessListener(existing->{
-                    if(existing.exists()){respond(action,true,"Shared Demo Plot already exists.",null);return;}
+                    if(existing.exists()){
+                        if("growplot2026@gmail.com".equalsIgnoreCase(existing.getString("ownerEmail"))){respond(action,true,"Shared Demo Plot already exists with GrowPlot owner.",null);return;}
+                        ref.update("ownerEmail","growplot2026@gmail.com")
+                            .addOnSuccessListener(v->respond(action,true,"Existing Demo Plot owner recorded.",null))
+                            .addOnFailureListener(e->respond(action,false,"Demo Plot owner update failed: "+e.getMessage(),null));
+                        return;
+                    }
                     Map<String,Object> demo=new HashMap<>();
-                    demo.put("id","plot-1");demo.put("number","1");demo.put("name","Demo Plot");
+                    demo.put("id","plot-1");demo.put("number","1");demo.put("name","Demo Plot");demo.put("ownerEmail","growplot2026@gmail.com");
                     demo.put("systemManaged",true);demo.put("readOnly",true);
                     demo.put("greenhouseCount",1);demo.put("sectionsPerGreenhouse",2);
                     ref.set(demo).addOnSuccessListener(v->respond(action,true,"Shared Demo Plot initialized.",null))
