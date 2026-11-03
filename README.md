@@ -1,4 +1,14 @@
-# GrowPlot — v0.7.02 Build 10 (Play AAB preparation)
+# GrowPlot — v0.7.03 Build 01
+
+## Current ARM64 release — v0.7.03 Build 01
+
+- **Version:** v0.7.03 Build 01; **versionCode:** 305; Android package `com.growplot.farm`.
+- **Release focus:** stabilize Camera/CCTV device-to-plot/greenhouse/section assignment and preserve existing Demo Plot data.
+- **Build 36 retrospective (v0.7.02):** the principal focus was debugging camera assignment/linking to Demo Plot 1. The eventual confirmed root cause was an application lookup mismatch: the plot's field `id` is `plot-1`, while the actual Firestore document ID is `{ownerUID}_plot-1`. Calling `collection("plots").document("plot-1")` searched for a different, nonexistent document. The corrected application queries the existing record using `id = "plot-1"` and `ownerEmail = "growplot2026@gmail.com"`, then checks `systemManaged`; it does not create a duplicate plot.
+- **Engineering lesson:** validate actual Firestore document paths and field values before changing security rules. Test the lookup, assignment flow, and Java compilation before treating an APK as ready.
+- **Verification scope:** the user confirmed that the camera assignment works after the fix. Each subsequent APK still requires build-artifact and on-device verification.
+
+The camera-assignment issue consumed approximately 36 development builds; Build 36 is recorded here as the requested focus milestone, **not** as a claim that the final correction was already present in that particular build.
 
 ## Google Play internal testing AAB
 
@@ -8,7 +18,7 @@ After the AAB is uploaded to the Internal testing track, add tester accounts and
 
 GrowPlot is an Android farm-management application with CCTV monitoring, Google Drive image feeds, A.I Plant Health, diagnosis workflows and plot management.
 
-**Current source target:** v0.7.02 Build 10 (`versionCode=275`, Android package `com.growplot.farm`), prepared to target API 36 and build a Play upload AAB. Build 10 is preparation only; no signed AAB has been generated yet. The latest validated ARM64 APK remains Build 09. It shows a compact Plot/CCTV Summary with plant identity first and the latest OpenCV, Vertex, and Pl@ntNet results for each camera. The local development-only Power User login shortcut is removed. Firebase power-user access uses trusted `powerUser` or `admin` custom claims, with no hard-coded email allowlist. Build 09 passed its GitHub Actions build and package checks in run #572 (source `6448e4a23fcac35e0532f243507e02cb50e8ef61`). APK artifact: [download from run #572](https://github.com/rizaljamin/GrowPlot-New/actions/runs/40159381248/artifacts/12586390088). Android device verification remains pending. Build 08 Drive authorization and Maintenance changes are described below.
+**Historical Build 10 baseline:** v0.7.02 Build 10 (`versionCode=275`, Android package `com.growplot.farm`), prepared to target API 36 and build a Play upload AAB. Build 10 is preparation only; no signed AAB has been generated yet. The latest validated ARM64 APK remains Build 09. It shows a compact Plot/CCTV Summary with plant identity first and the latest OpenCV, Vertex, and Pl@ntNet results for each camera. The local development-only Power User login shortcut is removed. Firebase power-user access uses trusted `powerUser` or `admin` custom claims, with no hard-coded email allowlist. Build 09 passed its GitHub Actions build and package checks in run #572 (source `6448e4a23fcac35e0532f243507e02cb50e8ef61`). APK artifact: [download from run #572](https://github.com/rizaljamin/GrowPlot-New/actions/runs/40159381248/artifacts/12586390088). Android device verification remains pending. Build 08 Drive authorization and Maintenance changes are described below.
 
 ## Live CCTV snapshot capture
 
