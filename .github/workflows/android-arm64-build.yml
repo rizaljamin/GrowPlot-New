@@ -5,7 +5,7 @@ run-name: 'GrowPlot v0.7.03 Build 06 | ARM64 APK | ${{ github.event_name }}'
 on:
   workflow_dispatch:
   push:
-    branches: [main, growplot-v0702-build11-camera-iot]
+    branches: [main, growplot-v0702-build11-camera-iot, fix/plot-camera-identity-build07]
     paths:
       - 'version.properties'
       - 'app/**'
