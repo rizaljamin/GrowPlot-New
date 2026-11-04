@@ -565,9 +565,9 @@ public class MainActivity extends Activity {
         return getPrefs().getString(PREF_CCTV_IP_PREFIX + String.format(Locale.US, "%02d", camera), defaultCctvIp(camera));
     }
 
-    // Owner-scoped camera routes. Demo plot deliberately keeps legacy local IP settings.
+    // All Home streams are driven by the current Firebase assignment, never device-local IPs.
     private final String[] assignedStreamUrls = new String[4];
-    private volatile boolean userStreamMode = false;
+    private volatile boolean userStreamMode = true;
     private int assignedStreamGeneration = 0;
     private String activeStreamScope = "";
     private boolean assignedStreamsLoading = false;
@@ -627,15 +627,74 @@ public class MainActivity extends Activity {
         if (ipWebcam3VlcFrame != null) ipWebcam3VlcFrame.setBackgroundColor(Color.BLACK);
     }
 
+    // A signed-out Demo Plot must use the same Firebase source as a signed-in Demo Plot.
     private void returnToDemoStreams() {
-        ++assignedStreamGeneration;
-        activeStreamScope = "";
-        java.util.Arrays.fill(assignedStreamUrls, null);
-        // Demo is independent of Firebase and uses the three Settings camera URLs.
-        userStreamMode = false;
-        assignedStreamsLoading = false;
-        resetCctvSurfaces();
-        refreshAssignedPlayers();
+        loadAssignedStreams("plot-1", "greenhouse-1", true);
+    }
+
+    // The public callable reads only Demo Plot configuration/assignments with the Admin SDK
+    // and returns sanitized section routes. This does not grant public Firestore access
+    // to private camera records, passwords or other users' plots.
+    private void loadPublicDemoStreams(final int generation, final String greenhouseId) {
+        java.util.Map<String,Object> request = new java.util.HashMap<>();
+        request.put("greenhouseId", greenhouseId);
+        com.google.firebase.functions.FirebaseFunctions.getInstance("us-central1")
+            .getHttpsCallable("publicDemoStreamConfig").call(request)
+            .addOnSuccessListener(result -> {
+                if (generation != assignedStreamGeneration) return;
+                Object returned = result.getData();
+                if (!(returned instanceof java.util.Map)) {
+                    android.util.Log.w("GrowPlotStreams", "Demo Plot callable returned invalid metadata");
+                    assignedStreamsLoading = false;
+                    return;
+                }
+                java.util.Map<?,?> config = (java.util.Map<?,?>) returned;
+                Object rawCount = config.get("sectionsPerGreenhouse");
+                int sectionCount = rawCount instanceof Number
+                    ? Math.max(0,Math.min(100,((Number)rawCount).intValue())) : 0;
+                java.util.Arrays.fill(assignedStreamUrls, null);
+                org.json.JSONArray publicLabels = new org.json.JSONArray();
+                Object data = config.get("streams");
+                if (data instanceof java.util.List) {
+                    for (Object entry : (java.util.List<?>)data) {
+                        if (!(entry instanceof java.util.Map)) continue;
+                        java.util.Map<?,?> row = (java.util.Map<?,?>)entry;
+                        String sectionId = String.valueOf(row.get("sectionId"));
+                        String deviceId = String.valueOf(row.get("deviceId"));
+                        String route = String.valueOf(row.get("streamUrl"));
+                        if (!sectionId.matches("section-[1-3]") || !deviceId.matches("[A-Za-z0-9_-]{1,100}")) continue;
+                        int section = Integer.parseInt(sectionId.substring(8));
+                        if (section>sectionCount) continue;
+                        if (!route.matches("(?i)(?:rtsp|https?|rtsps)://[A-Za-z0-9.-]+:[0-9]{1,5}/[^\\s?#@]*")) continue;
+                        assignedStreamUrls[section] = route;
+                        org.json.JSONObject label = new org.json.JSONObject();
+                        try {
+                            label.put("sectionId", sectionId);
+                            label.put("deviceId", deviceId);
+                            publicLabels.put(label);
+                        } catch (org.json.JSONException ignored) {}
+                    }
+                }
+                assignedStreamsLoading = false;
+                refreshAssignedPlayers();
+                org.json.JSONObject ui = new org.json.JSONObject();
+                try {
+                    ui.put("sectionsPerGreenhouse",sectionCount);
+                    ui.put("greenhouseId",greenhouseId);
+                    ui.put("streams",publicLabels);
+                } catch (org.json.JSONException ignored) {}
+                if (web!=null)web.evaluateJavascript(
+                    "window.GrowPlotApplyDemoStreamConfig&&window.GrowPlotApplyDemoStreamConfig("+ui.toString()+")",null);
+            })
+            .addOnFailureListener(error -> {
+                if (generation != assignedStreamGeneration) return;
+                android.util.Log.w("GrowPlotStreams", "Demo Plot Firebase configuration unavailable; no legacy IP fallback", error);
+                assignedStreamsLoading = false;
+                java.util.Arrays.fill(assignedStreamUrls, null);
+                resetCctvSurfaces();
+                if(web!=null)web.evaluateJavascript(
+                    "window.GrowPlotDemoStreamUnavailable&&window.GrowPlotDemoStreamUnavailable()",null);
+            });
     }
 
     private void loadAssignedStreams(String plotId, String greenhouseId, boolean force) {
@@ -650,9 +709,8 @@ public class MainActivity extends Activity {
         assignedStreamsLoading = userStreamMode;
         resetCctvSurfaces(); // Clear old frames before loading the selected plot.
         com.google.firebase.auth.FirebaseUser user = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
-        if (user == null && "plot-1".equals(plotId)) {
-            // Signed-out Dashboard uses the locally configured Demo Plot camera streams.
-            returnToDemoStreams();
+        if ("plot-1".equals(plotId) && "greenhouse-1".equals(greenhouseId)) {
+            loadPublicDemoStreams(generation, greenhouseId);
             return;
         }
         if (user == null || !plotId.matches("[A-Za-z0-9_-]{1,100}") || !greenhouseId.matches("greenhouse-[1-9][0-9]*")) {
@@ -703,9 +761,8 @@ public class MainActivity extends Activity {
     }
 
     private String cctvStreamUrl(int camera) {
-        if (userStreamMode) return assignedStreamUrls[camera] == null ? "" : assignedStreamUrls[camera];
-        String ip = cctvIp(camera);
-        return ip.isEmpty() ? "" : "http://" + ip + ":8080/videofeed";
+        if (camera<1 || camera>=assignedStreamUrls.length) return "";
+        return assignedStreamUrls[camera] == null ? "" : assignedStreamUrls[camera];
     }
 
     private String[] vigiCctv03Credentials() {
@@ -895,7 +952,7 @@ public class MainActivity extends Activity {
 
     private void installCctv01VlcPositionListener() {
         if (web == null || isFinishing()) return;
-        web.evaluateJavascript("(()=>{const host=document.querySelector('#cameras');if(!host)return false;let css=document.getElementById('growplot-vlc-cctv-style');if(!css){css=document.createElement('style');css.id='growplot-vlc-cctv-style';css.textContent='#cameras .camera:nth-child(-n+3) .feedimg,#cameras .camera:nth-child(-n+3) .mocktag,#cameras .camera:nth-child(-n+3) .stamp{display:none!important}';document.head.appendChild(css)}let scheduled=false,last=['','',''];const send=()=>{if(scheduled)return true;scheduled=true;requestAnimationFrame(()=>{scheduled=false;const dashboard=document.getElementById('mainDashboard'),health=document.getElementById('healthPanel'),auth=document.getElementById('authScreen'),blockingOverlayActive=[...document.querySelectorAll('.modal.open,dialog[open],[role=\"dialog\"][aria-modal=\"true\"],#growplotUserManagementPage')].some(el=>{if(el.hidden)return false;const style=getComputedStyle(el);return style.display!=='none'&&style.visibility!=='hidden'&&style.visibility!=='collapse'&&el.getClientRects().length>0}),homeActive=!!dashboard&&!dashboard.hidden&&(!health||health.hidden)&&!blockingOverlayActive&&(!auth||auth.hidden);if(window.GrowPlotBridge)GrowPlotBridge.setCctvVlcFeedsAllowedOnActiveScreen(homeActive);for(let i=0;i<3;i++){const e=document.querySelector('#cameras .camera:nth-child('+(i+1)+') .feed');if(!e)continue;const im=e.querySelector('.feedimg');if(im&&im.hasAttribute('src'))im.removeAttribute('src');const r=e.getBoundingClientRect(),offscreen=r.bottom<=0||r.top>=window.innerHeight,coords=[r.left,r.top,r.width,r.height,offscreen?1:0,homeActive?1:0].join(',');if(coords!==last[i]){last[i]=coords;if(i===0)GrowPlotBridge.updateCctv01VlcPosition(coords);else if(i===1)GrowPlotBridge.updateCctv02VlcPosition(coords);else GrowPlotBridge.updateCctv03VlcPosition(coords)}}});return true};if(!window.__growplotVlcPositionInstalled){window.addEventListener('scroll',send,{passive:true});window.addEventListener('resize',send,{passive:true});new MutationObserver(send).observe(host,{childList:true,subtree:true});new MutationObserver(send).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['hidden','class','open','style','role','aria-modal']});window.__growplotVlcPositionInstalled=true}send();setTimeout(send,400);setTimeout(send,1200);return true})()", null);
+        web.evaluateJavascript("(()=>{const host=document.querySelector('#cameras');if(!host)return false;let css=document.getElementById('growplot-vlc-cctv-style');if(!css){css=document.createElement('style');css.id='growplot-vlc-cctv-style';css.textContent='#cameras .camera:nth-child(-n+3) .feedimg,#cameras .camera:nth-child(-n+3) .mocktag,#cameras .camera:nth-child(-n+3) .stamp{display:none!important}';document.head.appendChild(css)}let scheduled=false,last=['','',''];const send=()=>{if(scheduled)return true;scheduled=true;requestAnimationFrame(()=>{scheduled=false;const dashboard=document.getElementById('mainDashboard'),health=document.getElementById('healthPanel'),auth=document.getElementById('authScreen'),blockingOverlayActive=[...document.querySelectorAll('.modal.open,dialog[open],[role=\"dialog\"][aria-modal=\"true\"],#growplotUserManagementPage')].some(el=>{if(el.hidden)return false;const style=getComputedStyle(el);return style.display!=='none'&&style.visibility!=='hidden'&&style.visibility!=='collapse'&&el.getClientRects().length>0}),homeActive=!!dashboard&&!dashboard.hidden&&(!health||health.hidden)&&!blockingOverlayActive&&(!auth||auth.hidden);if(window.GrowPlotBridge)GrowPlotBridge.setCctvVlcFeedsAllowedOnActiveScreen(homeActive);for(let i=0;i<3;i++){const e=document.querySelector('#cameras .camera:nth-child('+(i+1)+') .feed');if(!e){const absent='0,0,1,1,1,0';if(last[i]!==absent){last[i]=absent;if(i===0)GrowPlotBridge.updateCctv01VlcPosition(absent);else if(i===1)GrowPlotBridge.updateCctv02VlcPosition(absent);else GrowPlotBridge.updateCctv03VlcPosition(absent)}continue;}const im=e.querySelector('.feedimg');if(im&&im.hasAttribute('src'))im.removeAttribute('src');const r=e.getBoundingClientRect(),offscreen=r.bottom<=0||r.top>=window.innerHeight,coords=[r.left,r.top,r.width,r.height,offscreen?1:0,homeActive?1:0].join(',');if(coords!==last[i]){last[i]=coords;if(i===0)GrowPlotBridge.updateCctv01VlcPosition(coords);else if(i===1)GrowPlotBridge.updateCctv02VlcPosition(coords);else GrowPlotBridge.updateCctv03VlcPosition(coords)}}});return true};if(!window.__growplotVlcPositionInstalled){window.addEventListener('scroll',send,{passive:true});window.addEventListener('resize',send,{passive:true});new MutationObserver(send).observe(host,{childList:true,subtree:true});new MutationObserver(send).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['hidden','class','open','style','role','aria-modal']});window.__growplotVlcPositionInstalled=true}send();setTimeout(send,400);setTimeout(send,1200);return true})()", null);
     }
 
     /** Keep native VLC children out of the way unless the dashboard is active. */
