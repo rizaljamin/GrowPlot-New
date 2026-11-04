@@ -55,7 +55,7 @@ main{max-width:760px;margin:0 auto;padding:16px 14px 32px}.summary{display:flex;
 <main id="mainDashboard"><section class="tank-mini" aria-label="Sample fertigation tank IoT readings"><div class="tank-icon" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8.5 16 4l10 4.5v16L16 29 6 24.5v-16Z"/><path d="M6 8.5 16 13l10-4.5M16 13v16"/><path d="M9 17c2 0 2-1.5 4-1.5s2 1.5 4 1.5 2-1.5 4-1.5 2 1.5 3 1.5"/><path d="M11 5.8 21 10.3"/></svg></div><div class="tank-mini-body"><div class="tank-mini-title">Fertigation Tank <span class="mockstatus">SIMULATED</span></div><div class="tank-context" id="tankContext">Plot 1 · Greenhouse 1</div><div class="tank-mini-values"><div><span>EC</span><b>1.42</b></div><div><span>NPK</span><b>12-8-16</b></div><div><span>pH</span><b>6.2</b></div><div><span>Water temp</span><b>27.4°</b></div></div><div class="tank-time">Sample reading · 08 Oct 2026 · 2:40 PM MYT</div></div></section>
 
 <div class="section-head"><h2 id="title">Greenhouse 1 cameras</h2><span>6 cameras · 3 rows</span></div><div id="cameras" class="camera-grid"></div>
-<div class="note"><b>Camera feed:</b> Demo Plot streams use Firebase-linked cameras and configured sections. Photo history belongs to the selected plot. Tank and section IoT readings are simulated until sensors are connected.</div>
+<div class="note">Demo streams follow Firebase plot sections and CCTV assignments. IoT values are simulated.</div>
 <div class="foot">GrowPlot · Plant health diagnosis · {{GROWPLOT_VERSION}}</div></main>
 <section id="authScreen" class="auth-screen" hidden aria-label="GrowPlot sign in">
 <div class="auth-page-top"><button class="auth-back" id="authBackBtn" type="button">‹ Dashboard</button><span>🌱 GrowPlot</span></div>
@@ -180,7 +180,7 @@ function render(){
  const selectedPlot=plots.find(p=>p.id===document.getElementById('plot').value)||plots[0],plot=selectedPlot?plotLabel(selectedPlot):'Plot',gh=document.getElementById('gh').value;selectedPlotId=selectedPlot?.id||selectedPlotId;loadConfirmedPlantIds(selectedPlotId);
  const demo=selectedPlot?.id==='plot-1';
  const total=demo?Math.max(0,Math.min(6,Number(window.GrowPlotDemoSectionCount)||0)):6;
- const countLabel=document.querySelector('.section-head span');if(countLabel)countLabel.textContent=total+' camera'+(total===1?'':'s')+' · '+Math.ceil(total/3)+' row'+(Math.ceil(total/3)===1?'':'s');
+ const countLabel=typeof document.querySelector==='function'?document.querySelector('.section-head span'):null;if(countLabel)countLabel.textContent=total+' camera'+(total===1?'':'s')+' · '+Math.ceil(total/3)+' row'+(Math.ceil(total/3)===1?'':'s');
  document.getElementById('title').textContent='Greenhouse '+gh+' cameras';document.getElementById('tankContext').textContent=plot+' · Greenhouse '+gh;cameraRoot.innerHTML='';
  for(let i=1;i<=total;i++){
   const id=String(i).padStart(2,'0'),s=quadrantSeeds[i-1],plant=plantIds[i-1],isLive=i<=3,photoUrl='https://appassets.androidplatform.net/assets/images/'+encodeURIComponent(selectedPlot.id)+'/cctv_'+id+'.jpg';
