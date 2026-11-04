@@ -295,7 +295,7 @@ window.GrowPlotAccountResponse=function(response){
  if(response.action==='saveDemoPlot'){
   const status=document.getElementById('plotManagementStatus');
   if(status)status.textContent=response.ok?'Demo Plot saved to Firebase.':(response.error||'Firebase save failed.');
-  if(response.ok){request('loadPlotConfig',{plotId:'plot-1'});setTimeout(()=>window.GrowPlotRefreshHomeStreams?.(true),250);}
+  if(response.ok)request('loadPlotConfig',{plotId:'plot-1'});
   return;
  }
  if(response.action==='loadPlotConfig'){

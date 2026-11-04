@@ -3,7 +3,7 @@ name: Deploy Firestore and Storage Rules
 on:
   workflow_dispatch:
   push:
-    branches: [main, growplot-v0702-build11-camera-iot]
+    branches: [growplot-v0702-build11-camera-iot]
     paths:
       - firestore.rules
       - storage.rules

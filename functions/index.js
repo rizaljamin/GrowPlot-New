@@ -3,7 +3,6 @@ import {initializeApp} from 'firebase-admin/app';
 import {getFirestore, FieldValue} from 'firebase-admin/firestore';
 import {KeyManagementServiceClient} from '@google-cloud/kms';
 import {GoogleAuth} from 'google-auth-library';
-import {projectDemoStreamConfig} from './demo-streams.js';
 initializeApp();
 const db=getFirestore(), kms=new KeyManagementServiceClient();
 const key=process.env.GROWPLOT_KMS_KEY_NAME;
@@ -89,34 +88,6 @@ export const assignOwnedDevice=onCall({region:'us-central1',enforceAppCheck:fals
  return {assigned:true,deviceId,plotId,sectionId,greenhouseId:greenhouseId||''};
 });
 
-
-
-// Public Demo Plot preview. Returns only active camera URLs and section counts.
-// Firestore remains private: the Admin SDK reads assignments server-side and
-// never returns device usernames, cloud credentials, owner IDs or other plots.
-export const publicDemoStreamConfig=onCall({
- region:'us-central1',enforceAppCheck:false,maxInstances:3
-},async request=>{
- const greenhouseId=request.data?.greenhouseId||'greenhouse-1';
- if(typeof greenhouseId!=='string'||!/^greenhouse-[1-9][0-9]*$/.test(greenhouseId))
-  throw new HttpsError('invalid-argument','Invalid Demo Plot greenhouse');
- const canonical=await db.collection('plots').doc('plot-1').get();
- let demo=canonical.exists?canonical.data():null;
- if(!demo){
-  const candidates=await db.collection('plots').where('id','==','plot-1').get();
-  demo=candidates.docs.map(doc=>doc.data()).find(item=>item.systemManaged===true&&item.ownerEmail==='growplot2026@gmail.com')
-   ||candidates.docs.map(doc=>doc.data()).find(item=>item.systemManaged===true)
-   ||null;
- }
- if(!demo)return {plotId:'plot-1',greenhouseId,greenhouseCount:0,sectionsPerGreenhouse:0,streams:[]};
- const assignments=await db.collection('feed_assignments').where('plotId','==','plot-1').get();
- const links=assignments.docs.map(doc=>doc.data()).filter(row=>row.greenhouseId===greenhouseId&&typeof row.ownerUserId==='string'&&/^[A-Za-z0-9_-]{1,100}$/.test(row.ownerUserId)&&typeof row.deviceId==='string'&&/^[A-Za-z0-9_-]{1,100}$/.test(row.deviceId));
- const ids=[...new Set(links.map(row=>row.ownerUserId+'_'+row.deviceId))].slice(0,100);
- const deviceDocs=await Promise.all(ids.map(id=>db.collection('data_feeds').doc(id).get()));
- const devices={};
- deviceDocs.forEach((doc,index)=>{if(doc.exists)devices[ids[index]]=doc.data();});
- return projectDemoStreamConfig(demo,links,devices,greenhouseId);
-});
 
 // Authenticated Vertex image diagnosis. Images are sent inline and are not stored by this function.
 const VERTEX_PROJECT_ID = process.env.GCLOUD_PROJECT || 'growplot';
