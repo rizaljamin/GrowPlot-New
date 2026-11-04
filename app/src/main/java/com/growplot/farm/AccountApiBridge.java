@@ -185,6 +185,40 @@ public final class AccountApiBridge {
             }
             FirebaseUser user=auth.getCurrentUser();
             if(user==null){respond(action,false,"Sign in first.",null);return;}
+            if("saveDemoPlot".equals(action)){
+                if(!("growplot2026@gmail.com".equalsIgnoreCase(user.getEmail()) || "rizaljamin@gmail.com".equalsIgnoreCase(user.getEmail())) || !user.isEmailVerified()){respond(action,false,"Verified Demo Plot administrator account required.",null);return;}
+                int gh=input.optInt("greenhouseCount",0),sec=input.optInt("sectionsPerGreenhouse",0);
+                if(gh<1||gh>100||sec<1||sec>100){respond(action,false,"Greenhouse and section counts must be 1–100.",null);return;}
+                Map<String,Object> changes=new HashMap<>();
+                changes.put("id","plot-1");changes.put("number","1");changes.put("name","Demo Plot");
+                changes.put("systemManaged",true);changes.put("readOnly",true);
+                changes.put("greenhouseCount",gh);changes.put("sectionsPerGreenhouse",sec);
+                changes.put("address",input.optString("address",""));
+                changes.put("latitude",input.optString("latitude",""));
+                changes.put("longitude",input.optString("longitude",""));
+                changes.put("description",input.optString("description",""));
+                db.collection("plots").document("plot-1").set(changes,SetOptions.merge())
+                    .addOnSuccessListener(v->respond(action,true,"Shared Demo Plot saved to Firebase.",null))
+                    .addOnFailureListener(e->respond(action,false,"Firebase save failed: "+e.getMessage(),null));
+                return;
+            }
+            if("loadPlotConfig".equals(action)){
+                String plotId=input.optString("plotId","");
+                if(!plotId.matches("[A-Za-z0-9_-]{1,100}")){respond(action,false,"Invalid plot ID.",null);return;}
+                String uid=user.getUid();
+                db.collection("plots").document("plot-1".equals(plotId)?"plot-1":uid+"_"+plotId).get().addOnSuccessListener(doc->{
+                    if(!doc.exists()||(!"plot-1".equals(plotId)&&!uid.equals(doc.getString("ownerUserId")))){respond(action,false,"Plot configuration not found in Firebase.",null);return;}
+                    try{
+                        JSONObject data=new JSONObject();
+                        data.put("plotId",plotId);
+                        Number gh=(Number)doc.get("greenhouseCount"),sections=(Number)doc.get("sectionsPerGreenhouse");
+                        data.put("greenhouseCount",gh==null?JSONObject.NULL:gh.intValue());
+                        data.put("sectionsPerGreenhouse",sections==null?JSONObject.NULL:sections.intValue());
+                        respond(action,true,"",data);
+                    }catch(Exception e){respond(action,false,"Invalid Firebase plot configuration: "+e.getMessage(),null);}
+                }).addOnFailureListener(e->respond(action,false,"Plot configuration read failed: "+e.getMessage(),null));
+                return;
+            }
             if("loadOwnedDevices".equals(action)){
                 String uid=user.getUid();
                 db.collection("data_feeds").whereEqualTo("ownerUserId",uid).get().addOnSuccessListener(devices->{
@@ -262,16 +296,68 @@ public final class AccountApiBridge {
                 }
                 return;
             }
+            if("unlinkOwnedDevice".equals(action)){
+                String plotId=input.optString("plotId",""),greenhouseId=input.optString("greenhouseId",""),sectionId=input.optString("sectionId",""),deviceId=input.optString("deviceId","");
+                if(!plotId.matches("[A-Za-z0-9_-]{1,100}")||!greenhouseId.matches("greenhouse-[1-9][0-9]*")||!sectionId.matches("section-[1-9][0-9]*") ){
+                    respond(action,false,"Invalid assignment.",null);return;
+                }
+                String uid=user.getUid();
+                db.collection("feed_assignments").whereEqualTo("ownerUserId",uid).get().addOnSuccessListener(snapshot->{
+                    com.google.firebase.firestore.WriteBatch batch=db.batch();
+                    int removed=0;
+                    String matchedDeviceId=null;
+                    for(com.google.firebase.firestore.QueryDocumentSnapshot doc:snapshot){
+                        if(plotId.equals(doc.getString("plotId"))&&greenhouseId.equals(doc.getString("greenhouseId"))&&sectionId.equals(doc.getString("sectionId"))&&(deviceId.isEmpty()||deviceId.equals(doc.getString("deviceId"))) ){
+                            matchedDeviceId=doc.getString("deviceId");
+                            batch.delete(doc.getReference());removed++;
+                        }
+                    }
+                    if(removed==0){respond(action,false,"No camera assigned to selected section.",null);return;}
+                    if(matchedDeviceId==null||!matchedDeviceId.matches("[A-Za-z0-9_-]{1,100}")){respond(action,false,"Invalid assigned camera ID.",null);return;}
+                    final String unlinkedDeviceId=matchedDeviceId;
+                    // The camera ID stays in inventory, but its endpoint must no longer
+                    // be usable after unlink. Commit both changes atomically.
+                    com.google.firebase.firestore.DocumentReference feedRef=db.collection("data_feeds").document(uid+"_"+unlinkedDeviceId);
+                    Map<String,Object> cleared=new HashMap<>();
+                    cleared.put("ipAddress","");
+                    cleared.put("updatedAt",com.google.firebase.firestore.FieldValue.serverTimestamp());
+                    batch.set(feedRef,cleared,SetOptions.merge());
+                    batch.commit().addOnSuccessListener(v->{
+                        try{
+                            JSONObject result=new JSONObject();
+                            result.put("plotId",plotId);result.put("greenhouseId",greenhouseId);
+                            result.put("sectionId",sectionId);result.put("deviceId",unlinkedDeviceId);
+                            respond(action,true,"Camera unlinked and IP address cleared in Firebase.",result);
+                        }catch(Exception e){respond(action,true,"Camera unlinked and IP address cleared in Firebase.",null);}
+                    }).addOnFailureListener(e->respond(action,false,"Unlink failed: "+e.getMessage(),null));
+                }).addOnFailureListener(e->respond(action,false,"Unable to read assignments: "+e.getMessage(),null));
+                return;
+            }
+            if("ensureDemoPlot".equals(action)){
+                if(!("growplot2026@gmail.com".equalsIgnoreCase(user.getEmail()) || "rizaljamin@gmail.com".equalsIgnoreCase(user.getEmail())) || !user.isEmailVerified()){respond(action,false,"Verified Demo Plot administrator account required.",null);return;}
+                // Demo Plot already exists as an owner-prefixed document. Do not create a duplicate.
+                db.collection("plots").whereEqualTo("id","plot-1").whereEqualTo("ownerEmail","growplot2026@gmail.com").get()
+                    .addOnSuccessListener(snapshot->{
+                        boolean found=false;
+                        for(com.google.firebase.firestore.QueryDocumentSnapshot plot:snapshot){
+                            if("growplot2026@gmail.com".equalsIgnoreCase(plot.getString("ownerEmail"))
+                                && Boolean.TRUE.equals(plot.getBoolean("systemManaged"))){found=true;break;}
+                        }
+                        respond(action,found,found?"Existing Demo Plot found.":"Existing Demo Plot not found in Firebase.",null);
+                    })
+                    .addOnFailureListener(e->respond(action,false,"Demo Plot lookup failed: "+e.getMessage(),null));
+                return;
+            }
             if("assignOwnedDevice".equals(action)){
                 String plotId=input.optString("plotId",""),greenhouseId=input.optString("greenhouseId",""),sectionId=input.optString("sectionId",""),deviceId=input.optString("deviceId","");
                 if(!plotId.matches("[A-Za-z0-9_-]{1,100}")||!greenhouseId.matches("greenhouse-[1-9][0-9]*")||!sectionId.matches("section-[1-9][0-9]*")||!deviceId.matches("[A-Za-z0-9_-]{1,100}")){
                     respond(action,false,"Select a valid plot, greenhouse, section and device.",null);return;
                 }
                 String uid=user.getUid();
-                com.google.firebase.firestore.DocumentReference plotRef=db.collection("plots").document(uid+"_"+plotId);
+                if("plot-1".equals(plotId)&&(!("growplot2026@gmail.com".equalsIgnoreCase(user.getEmail()) || "rizaljamin@gmail.com".equalsIgnoreCase(user.getEmail()))||!user.isEmailVerified())){respond(action,false,"Verified Demo Plot administrator account required.",null);return;}
                 com.google.firebase.firestore.DocumentReference feedRef=db.collection("data_feeds").document(uid+"_"+deviceId);
-                plotRef.get().addOnSuccessListener(plot->{
-                    if(!plot.exists()||!uid.equals(plot.getString("ownerUserId"))){respond(action,false,"Plot not found in your Firebase account.",null);return;}
+                java.util.function.Consumer<com.google.firebase.firestore.DocumentSnapshot> onPlot = plot->{
+                    if(!plot.exists()||(!"plot-1".equals(plotId)&&!uid.equals(plot.getString("ownerUserId")))){respond(action,false,"Plot not found in your Firebase account.",null);return;}
                     Number ghCount=plot.getDouble("greenhouseCount"),secCount=plot.getDouble("sectionsPerGreenhouse");
                     int gh=Integer.parseInt(greenhouseId.substring(11)),sec=Integer.parseInt(sectionId.substring(8));
                     if(ghCount==null||secCount==null||gh>ghCount.intValue()||sec>secCount.intValue()){
@@ -282,11 +368,47 @@ public final class AccountApiBridge {
                         Map<String,Object> record=new HashMap<>();
                         record.put("ownerUserId",uid);record.put("plotId",plotId);record.put("greenhouseId",greenhouseId);record.put("sectionId",sectionId);record.put("deviceId",deviceId);
                         record.put("updatedAt",com.google.firebase.firestore.FieldValue.serverTimestamp());
-                        db.collection("feed_assignments").document(uid+"_"+plotId+"_"+greenhouseId+"_"+sectionId+"_"+deviceId).set(record,SetOptions.merge())
-                            .addOnSuccessListener(v->respond(action,true,"Device assigned to section.",null))
-                            .addOnFailureListener(e->respond(action,false,"Assignment write failed: "+e.getMessage(),null));
+                        db.collection("feed_assignments").whereEqualTo("ownerUserId",uid).get().addOnSuccessListener(existing->{
+                            // A saved camera cannot be linked to another plot/greenhouse/section until unlinked.
+                            if("AV".equals(feed.getString("deviceType"))){
+                                for(com.google.firebase.firestore.QueryDocumentSnapshot link:existing){
+                                    if(!deviceId.equals(link.getString("deviceId")))continue;
+                                    if(!plotId.equals(link.getString("plotId"))||!greenhouseId.equals(link.getString("greenhouseId"))||!sectionId.equals(link.getString("sectionId"))){
+                                        respond(action,false,"Camera already assigned to "+link.getString("plotId")+" / "+link.getString("greenhouseId")+" / "+link.getString("sectionId")+". Unlink it first.",null);return;
+                                    }
+                                }
+                            }
+                            com.google.firebase.firestore.WriteBatch batch=db.batch();
+                            if("AV".equals(feed.getString("deviceType"))){
+                                for(com.google.firebase.firestore.QueryDocumentSnapshot link:existing){
+                                    if(!plotId.equals(link.getString("plotId"))||!greenhouseId.equals(link.getString("greenhouseId"))||!sectionId.equals(link.getString("sectionId"))||deviceId.equals(link.getString("deviceId")))continue;
+                                    String otherId=link.getString("deviceId");
+                                    if(otherId!=null&&("CCTV".equalsIgnoreCase(otherId.substring(0,Math.min(4,otherId.length())))||"VIGI".equalsIgnoreCase(otherId.substring(0,Math.min(4,otherId.length())))))batch.delete(link.getReference());
+                                }
+                            }
+                            batch.set(db.collection("feed_assignments").document(uid+"_"+plotId+"_"+greenhouseId+"_"+sectionId+"_"+deviceId),record,SetOptions.merge());
+                            batch.commit().addOnSuccessListener(v->respond(action,true,"Device assigned to section.",null))
+                                .addOnFailureListener(e->respond(action,false,"Assignment write failed: "+e.getMessage(),null));
+                        }).addOnFailureListener(e->respond(action,false,"Unable to check existing assignments: "+e.getMessage(),null));
                     }).addOnFailureListener(e->respond(action,false,"Device lookup failed: "+e.getMessage(),null));
-                }).addOnFailureListener(e->respond(action,false,"Plot lookup failed: "+e.getMessage(),null));
+                };
+                if("plot-1".equals(plotId)){
+                    db.collection("plots").whereEqualTo("id","plot-1").whereEqualTo("ownerEmail","growplot2026@gmail.com").get()
+                        .addOnSuccessListener(snapshot->{
+                            com.google.firebase.firestore.DocumentSnapshot demo=null;
+                            for(com.google.firebase.firestore.QueryDocumentSnapshot candidate:snapshot){
+                                if("growplot2026@gmail.com".equalsIgnoreCase(candidate.getString("ownerEmail"))
+                                    && Boolean.TRUE.equals(candidate.getBoolean("systemManaged"))){demo=candidate;break;}
+                            }
+                            if(demo==null){respond(action,false,"Existing Demo Plot not found in Firebase.",null);return;}
+                            onPlot.accept(demo);
+                        })
+                        .addOnFailureListener(e->respond(action,false,"Demo Plot lookup failed: "+e.getMessage(),null));
+                }else{
+                    db.collection("plots").document(uid+"_"+plotId).get()
+                        .addOnSuccessListener(onPlot::accept)
+                        .addOnFailureListener(e->respond(action,false,"Plot lookup failed: "+e.getMessage(),null));
+                }
                 return;
             }
             if("saveOwnedDevice".equals(action)||"assignOwnedDevice".equals(action)){
