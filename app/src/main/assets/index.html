@@ -111,7 +111,46 @@ function savePlotData(){plots.forEach(p=>{p.dataFeed=p.dataFeed||{enabled:false,
 function updateFeedScope(){const manager=document.getElementById('plotManagerSelect'),id=manager&&manager.value?manager.value:selectedPlotId,p=plots.find(item=>item.id===id)||plots[0],label=document.getElementById('feedLocationLabel');if(label&&p)label.textContent=feedLocationText(p)}
 function defaultFeedFolder(p){const number=String(parseInt(p&&p.number,10)||1).padStart(2,'0'),name=(p&&p.name||'').trim(),slug=!name||/^Add plot name$|^New plot$/i.test(name)?'plot':name.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'').slice(0,26);return p&&p.id==='plot-1'&&slug==='demo'?'Plot01_demo':'plot'+number+'_'+(slug||'plot')}
 function feedLocationText(p){let location='';try{if(window.GrowPlotBridge)location=GrowPlotBridge.getFeedLocation(p.id)||''}catch(e){}if(location)return location;const cloudPath=p&&(p.relativepath||(p.dataFeed&&p.dataFeed.relativePath));return cloudPath?'Saved in Firebase · '+cloudPath+' (choose folder on this device to connect)':'Not connected · choose a folder under /Projects/GrowPlot/Image_Feed'}
-function fillPlotSelectors(){const main=document.getElementById('plot'),manager=document.getElementById('plotManagerSelect');main.innerHTML='';manager.innerHTML='';plots.forEach(p=>{const a=document.createElement('option');a.value=p.id;a.textContent=plotLabel(p);main.appendChild(a);const b=document.createElement('option');b.value=p.id;b.textContent=plotLabel(p);manager.appendChild(b)});main.value=selectedPlotId;manager.value=selectedPlotId}
+// Use the stable plot ID, not the human-facing plot number, as the dropdown identity.
+function plotPickerRecords(plotList, uid, signedIn){
+ const seen=new Set();
+ return (Array.isArray(plotList)?plotList:[]).filter(p=>{
+  const id=String(p&&p.id||'').trim();
+  if(!id||seen.has(id))return false;
+  if(id!=='plot-1'&&signedIn&&String(p.ownerUserId||'')!==String(uid))return false;
+  seen.add(id);return true;
+ });
+}
+function fillPlotSelectors(){
+ const main=document.getElementById('plot'),manager=document.getElementById('plotManagerSelect');
+ if(!main||!manager)return;
+ const uid=String(window.GrowPlotCurrentUser?.uid||window.GrowPlotCurrentUser?.id||'');
+ const allowed=plotPickerRecords(plots,uid,!!uid);
+ const available=new Set(allowed.map(p=>String(p.id)));
+ const oldManager=String(manager.value||'');
+ const oldMainOptions=new Set(Array.from(main.options).map(o=>o.value));
+ if(!available.has(String(selectedPlotId)))selectedPlotId=available.has('plot-1')?'plot-1':(allowed[0]?.id||'');
+ const plotNumbers=new Map();
+ for(const p of allowed){const number=String(p.number||'');plotNumbers.set(number,(plotNumbers.get(number)||0)+1);}
+ const label=p=>{
+  const id=String(p.id);
+  const base=id==='plot-1'?'Plot 1 — Demo Plot':plotLabel(p);
+  return id!=='plot-1'&&(plotNumbers.get(String(p.number||''))||0)>1?base+' [ID: '+id+']':base;
+ };
+ function update(select){
+  const names=allowed.map(label);
+  if(select.options.length!==allowed.length||allowed.some((p,i)=>select.options[i]?.value!==String(p.id)||select.options[i]?.textContent!==names[i])){
+   select.replaceChildren();
+   allowed.forEach((p,i)=>{const option=document.createElement('option');option.value=String(p.id);option.textContent=names[i];select.appendChild(option);});
+  }
+ }
+ update(main);update(manager);
+ main.value=selectedPlotId;
+ // A background refresh must not reset the plot currently being edited.
+ // A newly created Home plot takes precedence over an old Settings selection.
+ const keepManager=available.has(oldManager)&&oldMainOptions.has(String(selectedPlotId));
+ manager.value=keepManager?oldManager:selectedPlotId;
+}
 let plotMapThumbnailPosition=null,plotMapThumbnailPlotId='',plotMapThumbnailLookupId='';
 function getPlotCoordinates(p){const latField=document.getElementById('plotLatitude'),lonField=document.getElementById('plotLongitude'),latText=latField?latField.value.trim():String(p&&p.latitude||'').trim(),lonText=lonField?lonField.value.trim():String(p&&p.longitude||'').trim();if(!latText||!lonText)return null;const lat=Number(latText),lon=Number(lonText);return Number.isFinite(lat)&&lat>=-90&&lat<=90&&Number.isFinite(lon)&&lon>=-180&&lon<=180?{lat,lng:lon}:null}
 function getPlotAddress(p){const field=document.getElementById('plotAddress');return (field?field.value:String(p&&p.address||'')).trim()}

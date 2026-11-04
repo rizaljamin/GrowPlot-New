@@ -6,7 +6,7 @@ function syncAuthorizedHomePlots(){
  const profile=window.GrowPlotCloudProfile,power=!!(uid&&profile?.powerUser===true);
  const seen=new Set(['plot-1']);
  const safe=(uid&&Array.isArray(profile?.plots)?profile.plots:[]).filter(p=>{
-  if(!p||!p.id||seen.has(String(p.id))||(!power&&String(p.ownerUserId||'')!==uid))return false;
+  if(!p||!p.id||seen.has(String(p.id))||String(p.ownerUserId||'')!==uid)return false;
   seen.add(String(p.id));return true;
  }).sort((a,b)=>String(a.id).localeCompare(String(b.id),undefined,{numeric:true,sensitivity:'base'}));
  const choices=[{id:'plot-1',name:'Demo Plot'},...safe];

@@ -518,7 +518,12 @@ public final class AccountApiBridge {
                     boolean powerUser=Boolean.TRUE.equals(token.getClaims().get("powerUser"))
                         || Boolean.TRUE.equals(token.getClaims().get("admin"));
                     db.collection("users").document(user.getUid()).get().addOnSuccessListener(profile->{
-                    db.collection("plots").get()
+                    // Normal plot management must not fetch every account's plots.
+                    // Power-user directory discovery remains separate from editing.
+                    com.google.firebase.firestore.Query visiblePlots=powerUser
+                        ?db.collection("plots")
+                        :db.collection("plots").whereEqualTo("ownerUserId",user.getUid());
+                    visiblePlots.get()
                       .addOnSuccessListener(owned->{
                         JSONObject out=new JSONObject();
                         try{

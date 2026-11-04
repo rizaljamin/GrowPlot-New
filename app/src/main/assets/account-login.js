@@ -93,7 +93,7 @@ function syncAuthorizedHomePlots(){
  const profile=window.GrowPlotCloudProfile,power=!!(uid&&profile?.powerUser===true);
  const seen=new Set(['plot-1']);
  const safe=(uid&&Array.isArray(profile?.plots)?profile.plots:[]).filter(p=>{
-  if(!p||!p.id||seen.has(String(p.id)))return false;
+  if(!p||!p.id||seen.has(String(p.id))||String(p.ownerUserId||'')!==uid)return false;
   seen.add(String(p.id));return true;
  }).sort((a,b)=>String(a.id).localeCompare(String(b.id),undefined,{numeric:true,sensitivity:'base'}));
  const choices=[{id:'plot-1',name:'Demo Plot'},...safe];
@@ -340,8 +340,12 @@ window.GrowPlotAccountResponse=function(response){
    // plot before it renders. Do not erase persisted local records.
    if(typeof plots!=='undefined'&&Array.isArray(plots)){
      const uid=String(currentUser?.uid||currentUser?.id||'');
-     const authorized=Array.isArray(data.plots)?data.plots.filter(p=>p&&p.id&&
-       true):[];
+     const seenPlotIds=new Set(['plot-1']);
+     const authorized=Array.isArray(data.plots)?data.plots.filter(p=>{
+       const id=String(p?.id||'');
+       if(!id||seenPlotIds.has(id)||String(p.ownerUserId||'')!==uid)return false;
+       seenPlotIds.add(id);return true;
+     }):[];
      const demoPlot=plots.find(p=>p&&p.id==='plot-1')||{id:'plot-1',name:'Demo Plot'};
      plots.splice(0,plots.length,demoPlot,...authorized);
      selectedPlotId=authorized.some(p=>p.id===data.selectedPlotId)?data.selectedPlotId:'plot-1';
@@ -378,7 +382,7 @@ window.GrowPlotAccountResponse=function(response){
        const summary=document.getElementById('gpCameraAssignmentSummary');
        if(summary)summary.textContent=data.deviceId+' · Unassigned · IP address cleared';
      }
-   }if(response.ok&&response.action==='saveOwnedDevice'){const password=document.getElementById('gpDevicePassword');if(password)password.value='';window.GrowPlotReloadOwnedDevices();}if(response.ok&&(response.action==='assignOwnedDevice'||response.action==='unlinkOwnedDevice')){if(response.action==='assignOwnedDevice')window.GrowPlotUnlinkedNotices={};window.GrowPlotReloadOwnedDevices();window.GrowPlotRefreshHomeStreams?.(true);}
+   }if(response.ok&&response.action==='saveOwnedDevice'){const savedId=String(window.GrowPlotLastSavedDeviceId||'');if(document.getElementById('gpDeviceId')?.value===savedId){const password=document.getElementById('gpDevicePassword');if(password)password.value='';window.GrowPlotCameraSaveAcknowledged?.(savedId);}window.GrowPlotReloadOwnedDevices();}if(response.ok&&(response.action==='assignOwnedDevice'||response.action==='unlinkOwnedDevice')){if(response.action==='assignOwnedDevice')window.GrowPlotUnlinkedNotices={};window.GrowPlotReloadOwnedDevices();window.GrowPlotRefreshHomeStreams?.(true);}
  }else if(response.action==='stats'){
    const p=document.getElementById('growplotAdminStats');if(p)p.textContent='GrowPlot users: '+data.totalUsers+' | Standard users: '+data.standardUsers+' | Administrators: '+data.administrators+' | Logged in last 7 days: '+data.loggedInLast7Days;const d=document.getElementById('growplotUserManagementDetails');if(d)d.textContent='Total users: '+data.totalUsers+' | Standard users: '+data.standardUsers+' | Administrators: '+data.administrators+' | Logged in last 7 days: '+data.loggedInLast7Days;
  }else if(response.action==='saveProfile'){const saved=data.saved===true;if(saved){msg('Data saved successfully to Firebase.');saveNotice('Data saved successfully to Firebase.',true);}else saveNotice('Save was not confirmed by Firebase.',false);const callback=saveProfileCallback;saveProfileCallback=null;if(callback)callback(saved,response.error||''); }
@@ -606,13 +610,17 @@ window.GrowPlotSaveCloudProfile=function(callback){
   grid.insertAdjacentElement('afterend',inventorySummary);
 
   const devicePicker=document.getElementById('gpDeviceId');
+  let manuallySelectedCamera=false,cameraFormDirty=false,manualCameraId='';
+  const deviceEditFields=new Set(['gpDeviceHost','gpDevicePort','gpDeviceProtocol','gpDevicePath','gpDeviceUser','gpDevicePassword','gpDeviceType']);
+  section.addEventListener('input',event=>{if(deviceEditFields.has(event.target?.id))cameraFormDirty=true;});
+  section.addEventListener('change',event=>{if(deviceEditFields.has(event.target?.id))cameraFormDirty=true;});
+  window.GrowPlotCameraSaveAcknowledged=id=>{if(devicePicker.value===id)cameraFormDirty=false;};
   function refreshDevicePicker(){
-   const previous=devicePicker.value;
+   const previous=devicePicker.value||manualCameraId;
    const devices=Array.isArray(window.GrowPlotOwnedDeviceData?.devices)?window.GrowPlotOwnedDeviceData.devices:[];
    const ids=new Set();
    for(const d of devices)if(d?.deviceId)ids.add(String(d.deviceId));
-   devicePicker.replaceChildren();
-   const placeholder=document.createElement('option');placeholder.value='';placeholder.textContent='Select camera';devicePicker.appendChild(placeholder);
+   const wanted=[{value:'',label:'Select camera',disabled:false}];
    const assignments=window.GrowPlotOwnedDeviceData?.assignments||[];
    for(const id of ids){
     const option=document.createElement('option');option.value=id;
@@ -624,11 +632,16 @@ window.GrowPlotSaveCloudProfile=function(callback){
       ?' — Assigned to '+elsewhere.plotId+' (unlink first)'
       :here?' — Assigned: '+here.greenhouseId+' / '+here.sectionId
       :' — Unassigned');
-    devicePicker.appendChild(option);
+    wanted.push({value:option.value,label:option.textContent,disabled:option.disabled});
    }
+   const changed=devicePicker.options.length!==wanted.length||wanted.some((item,i)=>devicePicker.options[i]?.value!==item.value||devicePicker.options[i]?.textContent!==item.label||devicePicker.options[i]?.disabled!==item.disabled);
+   if(changed){devicePicker.replaceChildren();for(const item of wanted){const option=document.createElement('option');option.value=item.value;option.textContent=item.label;option.disabled=item.disabled;devicePicker.appendChild(option);}}
    devicePicker.value=ids.has(previous)&&!Array.from(devicePicker.options).find(o=>o.value===previous)?.disabled?previous:'';
   }
   devicePicker.addEventListener('change',()=>{
+   manuallySelectedCamera=!!devicePicker.value;
+   manualCameraId=devicePicker.value;
+   cameraFormDirty=false;
    const data=window.GrowPlotOwnedDeviceData||{};
    const d=(data.devices||[]).find(x=>x.deviceId===devicePicker.value);
    if(!d){clearCameraFields();return;}
@@ -699,8 +712,8 @@ window.GrowPlotSaveCloudProfile=function(callback){
    // Refresh labels and assignment summary for the newly selected plot.
    window.GrowPlotRenderOwnedDevices?.();
   });
-  ghSelect.addEventListener('change',()=>{const config=window.GrowPlotFirebasePlotConfigs?.[anchor.value];if(config)populate(secSelect,ghSelect.value?Number(config.sectionsPerGreenhouse||0):0,'Section');window.GrowPlotRefreshUnlinkButton?.();});
-  secSelect.addEventListener('change',()=>window.GrowPlotSelectAssignedCamera?.());
+  ghSelect.addEventListener('change',event=>{if(event.isTrusted){manuallySelectedCamera=false;cameraFormDirty=false;manualCameraId='';}const config=window.GrowPlotFirebasePlotConfigs?.[anchor.value];if(config)populate(secSelect,ghSelect.value?Number(config.sectionsPerGreenhouse||0):0,'Section');window.GrowPlotRefreshUnlinkButton?.();});
+  secSelect.addEventListener('change',event=>{if(event.isTrusted){manuallySelectedCamera=false;cameraFormDirty=false;manualCameraId='';}window.GrowPlotSelectAssignedCamera?.();});
   document.getElementById('savePlotBtn')?.addEventListener('click',()=>setTimeout(loadTargets,300));
   loadTargets();
   const list=document.createElement('div');list.id='gpSavedDevices';list.style.cssText='margin-top:14px;display:grid;gap:8px';section.appendChild(list);
@@ -711,6 +724,7 @@ window.GrowPlotSaveCloudProfile=function(callback){
    document.getElementById('gpCameraAssignmentSummary').textContent='No saved Firebase configuration for this device.';
   }
   function selectSavedDevice(d,a){
+   if(cameraFormDirty&&devicePicker.value===d.deviceId)return; // Keep an unsaved IP edit.
    refreshDevicePicker();devicePicker.value=d.deviceId||'';
    // Never carry another camera's stale values into a different selection.
    for(const [id,key] of [['gpDeviceHost','ipAddress'],['gpDevicePort','port'],['gpDeviceProtocol','protocol'],['gpDevicePath','streamPath'],['gpDeviceUser','username'],['gpDeviceType','deviceType']]){
@@ -724,6 +738,7 @@ window.GrowPlotSaveCloudProfile=function(callback){
    document.getElementById('gpDeviceStatus').textContent=a?'Firebase device and current plot assignment loaded.':'Firebase device loaded. Existing assignments are shown above.';
   }
   window.GrowPlotSelectAssignedCamera=()=>{
+   if(manuallySelectedCamera||cameraFormDirty){window.GrowPlotRefreshUnlinkButton?.();return;}
    const link=(window.GrowPlotOwnedDeviceData?.assignments||[]).find(a=>a.plotId===anchor.value&&a.greenhouseId===ghSelect.value&&a.sectionId===secSelect.value);
    if(link){const device=(window.GrowPlotOwnedDeviceData?.devices||[]).find(d=>d.deviceId===link.deviceId);if(device)selectSavedDevice(device,link);}
    window.GrowPlotRefreshUnlinkButton?.();
@@ -793,7 +808,7 @@ window.GrowPlotSaveCloudProfile=function(callback){
    window.GrowPlotRefreshUnlinkButton?.();
    if(!devices.length){const empty=document.createElement('p');empty.textContent='No saved devices found for this Firebase account.';list.appendChild(empty);}
   };
-  anchor.addEventListener('change',()=>{window.GrowPlotRenderOwnedDevices();window.GrowPlotReloadOwnedDevices();});
+  anchor.addEventListener('change',()=>{manuallySelectedCamera=false;cameraFormDirty=false;manualCameraId='';devicePicker.value='';clearCameraFields();window.GrowPlotRenderOwnedDevices();window.GrowPlotReloadOwnedDevices();});
   // Keep the Manage Farm selector synchronized with the authoritative Home plot.
   function syncManagedPlotFromHome(){
    const home=document.getElementById('plot');
@@ -809,7 +824,7 @@ window.GrowPlotSaveCloudProfile=function(callback){
   }
   document.getElementById('plot')?.addEventListener('change',()=>setTimeout(syncManagedPlotFromHome,0));
   document.addEventListener('click',e=>{
-   if(e.target?.closest?.('#manageFarmTab,[data-tab="manage-farm"],#manageFarmModal,#growplotOwnedDevices'))
+   if(e.target?.closest?.('#manageFarmTab,[data-tab="manage-farm"]'))
     setTimeout(syncManagedPlotFromHome,0);
   },true);
   window.GrowPlotSyncManagedPlotFromHome=syncManagedPlotFromHome;
@@ -847,8 +862,9 @@ window.GrowPlotSaveCloudProfile=function(callback){
    if(!Number.isInteger(port)||port<1||port>65535){status.textContent='Enter a valid port.';return;}
    const deviceId=val('gpDeviceId'),ipAddress=val('gpDeviceHost');
    if(!/^[A-Za-z0-9_-]{1,100}$/.test(deviceId)||!/^[A-Za-z0-9.-]{1,253}$/.test(ipAddress)){status.textContent='Enter a valid device ID and IP/hostname.';return;}
-   request('saveOwnedDevice',{deviceId,deviceType:val('gpDeviceType'),deviceName:deviceId,ipAddress,port,protocol:val('gpDeviceProtocol'),streamPath:val('gpDevicePath'),username:val('gpDeviceUser'),password:document.getElementById('gpDevicePassword').value});
-   status.textContent='Saving device to your Firebase account…';
+   window.GrowPlotLastSavedDeviceId=deviceId;
+    request('saveOwnedDevice',{deviceId,deviceType:val('gpDeviceType'),deviceName:deviceId,ipAddress,port,protocol:val('gpDeviceProtocol'),streamPath:val('gpDevicePath'),username:val('gpDeviceUser'),password:document.getElementById('gpDevicePassword').value});
+   status.textContent='Saving '+deviceId+' ('+ipAddress+') to your Firebase account…';
   };
   document.getElementById('gpAssignDevice').onclick=()=>{
    if(!guard())return;
