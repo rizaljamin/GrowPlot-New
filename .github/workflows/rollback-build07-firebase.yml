@@ -1,0 +1,37 @@
+name: Emergency restore GrowPlot Build 07 Firebase configuration
+
+on:
+  push:
+    branches: [rollback/deploy-build07-firebase]
+    paths:
+      - '.github/workflows/rollback-build07-firebase.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: growplot-build07-firebase-rollback
+  cancel-in-progress: false
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    environment: firebase-production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GROWPLOT_FIREBASE_DEPLOY_SERVICE_ACCOUNT }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Ensure exact Build 07 source identity
+        run: |
+          grep -Fxq 'versionName=0.7.03 Build 07' version.properties
+          grep -Fxq 'versionCode=311' version.properties
+          test ! -f functions/demo-streams.js
+          test ! -f app/src/main/assets/demo-stream-ui.js
+      - name: Restore Build 07 Firestore security rules
+        run: npx --yes firebase-tools@14 deploy --only firestore:rules --project growplot --non-interactive
+      - name: Remove Build 08 public Demo Plot stream callable
+        run: npx --yes firebase-tools@14 functions:delete publicDemoStreamConfig --region us-central1 --project growplot --force
