@@ -5794,16 +5794,18 @@ public class MainActivity extends Activity {
         scanInProgress = true;
         scanWorker.execute(() -> {
             try {
+                // The Drive storage-paths.json grant is refreshed before scanning. Prefer that
+                // configured path over a cached Drive API folder ID, which can point at an old
+                // empty folder after the plot's feed path changes.
                 boolean folderSource = treeUri != null || (apiFolderId != null && !apiFolderId.isEmpty());
                 List<FeedDocument> images = new ArrayList<>();
-                if (apiFolderId != null && !apiFolderId.isEmpty()) {
-                    images.addAll(queryDriveImageFeed(apiFolderId, plotId));
-                } else if (treeUri != null) {
+                if (treeUri != null) {
                     String rootDocumentId = getPrefs().getString(feedFolderDocumentKey(plotId), null);
                     if (rootDocumentId == null || rootDocumentId.isEmpty()) rootDocumentId = DocumentsContract.getTreeDocumentId(treeUri);
                     images.addAll(queryImageFeedFolder(treeUri, rootDocumentId));
-                }
-                else for (Uri uri : selected) images.add(new FeedDocument(uri, getDisplayName(uri), 0));
+                } else if (apiFolderId != null && !apiFolderId.isEmpty()) {
+                    images.addAll(queryDriveImageFeed(apiFolderId, plotId));
+                } else for (Uri uri : selected) images.add(new FeedDocument(uri, getDisplayName(uri), 0));
                 scanSelectedImages(images, folderSource, plotId);
             } catch (Exception error) {
                 String message = apiFolderId != null && !apiFolderId.isEmpty()
