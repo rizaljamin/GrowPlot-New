@@ -1,6 +1,6 @@
 2026-11-06 | v0.7.03 Build 12 | versionCode 316 | com.growplot.farm
 Changes: Daily photo history now sorts the selected plot's actual saved photos by capture time and shows the latest four, oldest to newest. It no longer reserves slots for dates without photos or substitutes bundled sample photos into photo history. Weekly, monthly, and yearly history still selects the latest saved photo inside each calendar period. Existing cached daily history is migrated into the same latest-four ordering.
-Validation: GitHub ARM64 build pending. Verify saved-photo ordering and feed-folder scanning on the tablet after install.
+Validation: GitHub Actions ARM64 build #834 passed; the manifest confirms versionCode 316 and the current GrowPlot stable signing certificate. Saved-photo ordering and feed-folder scanning still require tablet verification.
 
 2026-11-06 | v0.7.03 Build 11 | versionCode 315 | com.growplot.farm
 Changes: Keep daily, weekly, and monthly timeline photos inside their own Malaysia-calendar period; leave periods with no matching photo empty instead of showing another date's image. Keep CCTV02/CCTV03 snapshot retry tickers alive while VLC temporarily reconnects, restart all three snapshot checks on app resume and interval changes, and prevent overlapping Drive checks per camera.
