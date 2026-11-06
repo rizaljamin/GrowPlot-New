@@ -50,8 +50,8 @@ service cloud.firestore {
         );
     }
     match /data_feeds/{deviceId} {
-      allow read: if request.auth != null
-        && (resource.data.ownerUserId == request.auth.uid || isDemoLinkedCamera(deviceId));
+      allow read: if (request.auth != null && resource.data.ownerUserId == request.auth.uid)
+        || isDemoLinkedCamera(deviceId);
       allow create: if request.auth != null
         && deviceId.matches(request.auth.uid + '_[A-Za-z0-9_-]+')
         && request.resource.data.ownerUserId == request.auth.uid
