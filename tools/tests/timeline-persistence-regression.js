@@ -12,7 +12,7 @@ api.saveCameraTimeline('plot-2','daily',daily);
 api=context();
 const restored=api.loadCameraTimeline('plot-2','daily')[1].slots;
 assert.strictEqual(restored.length,4,'daily history should retain exactly the latest four saved photos');
-assert.deepStrictEqual(restored.map(slot=>slot.timestamp),[base+2*86400000,base+3*86400000,base+4*86400000,base+5*86400000],'daily history should sort saved photos by capture time, oldest to newest');
+assert.deepStrictEqual(Array.from(restored,slot=>slot.timestamp),[base+2*86400000,base+3*86400000,base+4*86400000,base+5*86400000],'daily history should sort saved photos by capture time, oldest to newest');
 assert.strictEqual(api.loadCameraTimeline('plot-2','weekly')[1].slots[3].available,false,'weekly timeline should keep its own interval data');
 assert.strictEqual(api.loadCameraTimeline('plot-1','daily')[1].slots.length,0,'timeline cache must be scoped to the selected plot');
 const cached=Array.from({length:6},(_,i)=>api.emptyTimeline(i+1,'daily'));
