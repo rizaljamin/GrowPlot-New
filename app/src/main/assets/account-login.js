@@ -256,6 +256,26 @@ window.GrowPlotLoginImageFeedStatus=function(result){
 }
 window.GrowPlotReloadOwnedDevices=function(){if(window.GrowPlotCurrentUser&&!window.GrowPlotCurrentUser.developmentOnly&&api?.configured())request('loadOwnedDevices',{});};
 window.GrowPlotAccountResponse=function(response){
+ if(response?.action==='guestSession'){
+  if(!response.ok){msg(response.error||'Guest Firebase sign-in unavailable.');return;}
+  if(currentUser)return; // Do not overwrite a registered login response.
+  window.GrowPlotGuestIdentity='Guest';
+  window.GrowPlotCloudProfile=null;
+  // users/Guest is the logical display ID, not the anonymous Firebase UID.
+  if(typeof plots!=='undefined'&&Array.isArray(plots)){
+   const existing=plots.find(p=>p?.id==='plot-1');
+   plots.splice(0,plots.length,existing||{id:'plot-1',number:'1',name:'Demo Plot'});
+   selectedPlotId='plot-1';
+  }
+  if(typeof fillPlotSelectors==='function')fillPlotSelectors();
+  syncAuthorizedHomePlots();
+  const selector=document.getElementById('plot');
+  if(selector)selector.value='plot-1';
+  document.getElementById('userBtn')?.setAttribute('title','Guest — Plot 1 Demo Plot');
+  if(typeof render==='function')render();
+  window.GrowPlotBridge?.refreshActiveStreamingContext?.('plot-1','greenhouse-1');
+  return;
+ }
  if(response?.action==='ensureDemoPlot'){
   const status=document.getElementById('gpDeviceStatus');
   if(!response.ok){if(status)status.textContent='Demo Plot initialization failed: '+(response.error||response.message||'Unknown Firebase error');window.GrowPlotPendingDemoAssignment=null;return;}
@@ -330,6 +350,7 @@ window.GrowPlotAccountResponse=function(response){
    const previousUid=currentUser&&(currentUser.uid||currentUser.id);const incomingUid=data.user&&(data.user.uid||data.user.id);
    if(previousUid&&previousUid!==incomingUid&&typeof plots!=='undefined'&&Array.isArray(plots)){for(let i=plots.length-1;i>=0;i--)if(plots[i]?.id!=='plot-1')plots.splice(i,1);}
    currentUser=data.user;window.GrowPlotCurrentUser=currentUser;
+   window.GrowPlotGuestIdentity=null;
    if(currentUser&&api&&api.configured()){request('loadVigiCloudCredentials',{});window.GrowPlotReloadOwnedDevices();window.GrowPlotLoadCameraTargets?.();setTimeout(()=>window.GrowPlotRefreshHomeStreams?.(),500);}
    if(!currentUser){msg('Invalid account response');return;}
    if(currentUser.role==='ADMIN'){request('profile',{});adminStats();}
@@ -892,6 +913,8 @@ window.GrowPlotSaveCloudProfile=function(callback){
 })();
 
 const preview=document.getElementById('growplotPreviewButton');if(preview)preview.remove();
+// Restore an existing Firebase session or sign into the shared Guest UI anonymously.
+api?.ensureGuestSession?.();
 // Development build permits demo administrator access; no false cloud-authentication claims.
 })();
 
