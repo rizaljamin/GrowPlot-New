@@ -81,4 +81,25 @@ final class TimelineBuckets {
         }
         return selected;
     }
+
+    static int[] latestPhotoIndices(List<Period> periods, List<Long> captureTimes) {
+        int[] selected = new int[periods.size()];
+        long[] latest = new long[periods.size()];
+        for (int i = 0; i < selected.length; i++) {
+            selected[i] = -1;
+            latest[i] = Long.MIN_VALUE;
+        }
+        for (int photoIndex = 0; photoIndex < captureTimes.size(); photoIndex++) {
+            long capturedAt = captureTimes.get(photoIndex);
+            for (int periodIndex = 0; periodIndex < periods.size(); periodIndex++) {
+                Period period = periods.get(periodIndex);
+                if (capturedAt >= period.startMillis && capturedAt < period.endMillis
+                        && capturedAt > latest[periodIndex]) {
+                    latest[periodIndex] = capturedAt;
+                    selected[periodIndex] = photoIndex;
+                }
+            }
+        }
+        return selected;
+    }
 }
