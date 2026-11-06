@@ -1,3 +1,7 @@
+2026-11-06 | v0.7.03 Build 10 | versionCode 314 | com.growplot.farm
+Changes: Resolve the plot feed from the configured Google Drive storage path before a cached API folder ID, preventing stale folder IDs from hiding current images. Align bundled Plot 2/Plot 3 paths with growplot2026@gmail.com Image_Feed folders. Show bundled sample photos and sample health copy only for Demo Plot; private plots show actual saved timeline photos and their configured feed path.
+Validation: Timeline/path regression checks and ARM64 build pending. Drive storage-paths.json points Plot 2 to Image_Feed/growplot2026@gmail.com/plot02_pp5, matching the saved CCTV01/CCTV02 images. Device confirmation of the tablet's folder grant and live scan pending.
+
 2026-11-06 | v0.7.03 Build 09 | versionCode 313 | com.growplot.farm
 Changes: Fix A.I Health photo timelines to show the four current Malaysia-calendar periods, choose the latest saved photo within each period, fill gaps with the newest unused saved photos, and repeat only when fewer than four unique photos exist. Clearly mark fallback and repeated images and retain their actual capture timestamps.
 Validation: Timeline regression coverage and ARM64 build pending. Drive review for growplot2026@gmail.com found saved CCTV snapshots, but capture dates are irregular; actual device capture/upload cadence still needs on-device verification.
