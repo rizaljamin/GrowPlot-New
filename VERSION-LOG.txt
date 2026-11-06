@@ -1,6 +1,6 @@
 2026-11-06 | v0.7.03 Build 08 | versionCode 312 | com.growplot.farm
 Changes: Let signed-out Guest Dashboard users read Plot 1 Demo Plot camera assignments and linked CCTV IP settings from Firebase. Public Firestore read access is restricted to Demo Plot assignments and cameras linked to those assignments; private plot assignments remain owner-authenticated.
-Validation: Firebase Firestore and Storage deployment workflow run 42142078174 completed successfully. ARM64 Build 08 package validation pending.
+Validation: Firestore and Storage rules deployment passed in GitHub Actions run 42142078174. ARM64 Build 08 passed regression checks, package/manifest verification, and signing verification in run 42142654695. APK SHA-256: 92456b0d46780a18b20249ae7fe3eabb3c4179a1c2d9e69d27fab94d30b431b7; Firebase Google OAuth SHA-1 matches the configured stable signer. Artifact ID 13467094908. Android device playback verification pending.
 
 2026-10-25 | v0.7.02 Build 10 | versionCode 275 | com.growplot.farm
 Preparation: Upgrade compileSdk/targetSdk to API 36, Android Gradle Plugin to 8.9.1 and Gradle to 8.11.1. Add a signed Play App Bundle build script and manual GitHub Actions workflow for Internal testing.
