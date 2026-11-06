@@ -6393,17 +6393,9 @@ public class MainActivity extends Activity {
 
     private JSONArray makeTimelinePhotos(Map<Integer, List<Photo>> photosByCamera) throws Exception {
         JSONArray timelines = new JSONArray();
-        // Anchor the four buckets to the latest capture in the selected plot's configured
-        // Drive folder, rather than today's date. Historical Drive photos must remain visible.
-        long newestCapture = 0L;
-        for (List<Photo> cameraPhotos : photosByCamera.values()) {
-            if (cameraPhotos == null) continue;
-            for (Photo photo : cameraPhotos) {
-                if (photo.capturedAt > newestCapture && photo.capturedAt <= System.currentTimeMillis() + 86_400_000L)
-                    newestCapture = photo.capturedAt;
-            }
-        }
-        long anchorTime = newestCapture > 0 ? newestCapture : System.currentTimeMillis();
+        // Always show the four calendar periods ending today. Older saved images are
+        // used to fill gaps without changing the period labels.
+        long anchorTime = System.currentTimeMillis();
         List<TimelineBuckets.Period> periods = TimelineBuckets.latestFour(timelineInterval, anchorTime);
         String periodName = "daily".equals(timelineInterval) ? "Day" : "monthly".equals(timelineInterval) ? "Month"
                 : "yearly".equals(timelineInterval) ? "Year" : "Week";
@@ -6415,7 +6407,13 @@ public class MainActivity extends Activity {
             JSONArray slots = new JSONArray();
             List<Long> captureTimes = new ArrayList<>();
             if (group != null) for (Photo photo : group) captureTimes.add(photo.capturedAt);
-            int[] selectedPhoto = TimelineBuckets.earliestPhotoIndices(periods, captureTimes);
+            int[] selectedPhoto = TimelineBuckets.latestPhotoIndices(periods, captureTimes);
+            Set<Integer> usedPhotos = new HashSet<>();
+            for (int photoIndex : selectedPhoto) if (photoIndex >= 0) usedPhotos.add(photoIndex);
+            List<Integer> fallbackOrder = new ArrayList<>();
+            for (int photoIndex = 0; photoIndex < captureTimes.size(); photoIndex++) fallbackOrder.add(photoIndex);
+            Collections.sort(fallbackOrder, (left, right) ->
+                    Long.compare(captureTimes.get(right), captureTimes.get(left)));
             timeline.put("baselineDate", formatDay(periods.get(0).startMillis));
             for (int slotIndex = 0; slotIndex < periods.size(); slotIndex++) {
                 TimelineBuckets.Period period = periods.get(slotIndex);
@@ -6424,7 +6422,25 @@ public class MainActivity extends Activity {
                 slot.put("day", period.index);
                 slot.put("label", periodName + " " + period.index + " (start " + startDate + ")");
                 slot.put("expectedDate", startDate);
-                Photo best = selectedPhoto[slotIndex] >= 0 ? group.get(selectedPhoto[slotIndex]) : null;
+                boolean fallback = selectedPhoto[slotIndex] < 0;
+                boolean repeated = false;
+                int chosenIndex = selectedPhoto[slotIndex];
+                if (fallback) {
+                    for (int candidate : fallbackOrder) {
+                        if (!usedPhotos.contains(candidate)) {
+                            chosenIndex = candidate;
+                            usedPhotos.add(candidate);
+                            break;
+                        }
+                    }
+                    if (chosenIndex < 0 && !fallbackOrder.isEmpty()) {
+                        chosenIndex = fallbackOrder.get(0);
+                        repeated = true;
+                    }
+                }
+                slot.put("fallback", fallback);
+                slot.put("repeated", repeated);
+                Photo best = chosenIndex >= 0 && group != null ? group.get(chosenIndex) : null;
                 if (best != null && best.historyFile == null) best.historyFile = archivePhoto(best);
                 slot.put("available", best != null && best.historyFile != null);
                 if (best != null && best.historyFile != null) {

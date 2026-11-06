@@ -1,3 +1,7 @@
+2026-11-06 | v0.7.03 Build 09 | versionCode 313 | com.growplot.farm
+Changes: Fix A.I Health photo timelines to show the four current Malaysia-calendar periods, choose the latest saved photo within each period, fill gaps with the newest unused saved photos, and repeat only when fewer than four unique photos exist. Clearly mark fallback and repeated images and retain their actual capture timestamps.
+Validation: Timeline regression coverage and ARM64 build pending. Drive review for growplot2026@gmail.com found saved CCTV snapshots, but capture dates are irregular; actual device capture/upload cadence still needs on-device verification.
+
 2026-11-06 | v0.7.03 Build 08 | versionCode 312 | com.growplot.farm
 Changes: Let signed-out Guest Dashboard users read Plot 1 Demo Plot camera assignments and linked CCTV IP settings from Firebase. Public Firestore read access is restricted to Demo Plot assignments and cameras linked to those assignments; private plot assignments remain owner-authenticated.
 Validation: Firestore and Storage rules deployment passed in GitHub Actions run 42142078174. ARM64 Build 08 passed regression checks, package/manifest verification, and signing verification in run 42142654695. APK SHA-256: 92456b0d46780a18b20249ae7fe3eabb3c4179a1c2d9e69d27fab94d30b431b7; Firebase Google OAuth SHA-1 matches the configured stable signer. Artifact ID 13467094908. Android device playback verification pending.
