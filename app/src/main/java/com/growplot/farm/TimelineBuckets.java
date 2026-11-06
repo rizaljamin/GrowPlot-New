@@ -2,6 +2,7 @@ package com.growplot.farm;
 
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.TimeZone;
@@ -100,6 +101,17 @@ final class TimelineBuckets {
                 }
             }
         }
+        return selected;
+    }
+
+    /** Returns the latest four saved photos in capture-time order, oldest first. */
+    static int[] latestFourPhotoIndices(List<Long> captureTimes) {
+        List<Integer> sorted = new ArrayList<>();
+        for (int i = 0; i < captureTimes.size(); i++) sorted.add(i);
+        sorted.sort(Comparator.comparingLong(captureTimes::get));
+        int first = Math.max(0, sorted.size() - 4);
+        int[] selected = new int[sorted.size() - first];
+        for (int i = 0; i < selected.length; i++) selected[i] = sorted.get(first + i);
         return selected;
     }
 }

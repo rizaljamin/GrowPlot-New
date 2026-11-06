@@ -6400,12 +6400,12 @@ public class MainActivity extends Activity {
 
     private JSONArray makeTimelinePhotos(Map<Integer, List<Photo>> photosByCamera) throws Exception {
         JSONArray timelines = new JSONArray();
-        // Show the latest photo captured inside each of the four calendar periods.
-        // Leave a period empty when no photo exists; borrowing another period's
-        // image makes the timeline dates misleading.
+        // Daily shows the latest four saved photos, sorted by capture time.
+        // Weekly/monthly/yearly keep one latest photo from each calendar period.
         long anchorTime = System.currentTimeMillis();
         List<TimelineBuckets.Period> periods = TimelineBuckets.latestFour(timelineInterval, anchorTime);
-        String periodName = "daily".equals(timelineInterval) ? "Day" : "monthly".equals(timelineInterval) ? "Month"
+        boolean daily = "daily".equals(timelineInterval);
+        String periodName = "monthly".equals(timelineInterval) ? "Month"
                 : "yearly".equals(timelineInterval) ? "Year" : "Week";
         for (int camera = 1; camera <= 6; camera++) {
             List<Photo> group = photosByCamera.get(camera);
@@ -6415,17 +6415,20 @@ public class MainActivity extends Activity {
             JSONArray slots = new JSONArray();
             List<Long> captureTimes = new ArrayList<>();
             if (group != null) for (Photo photo : group) captureTimes.add(photo.capturedAt);
-            int[] selectedPhoto = TimelineBuckets.latestPhotoIndices(periods, captureTimes);
+            int[] selectedPhoto = daily ? TimelineBuckets.latestFourPhotoIndices(captureTimes)
+                    : TimelineBuckets.latestPhotoIndices(periods, captureTimes);
+            int slotCount = daily ? selectedPhoto.length : periods.size();
             timeline.put("baselineDate", formatDay(periods.get(0).startMillis));
-            for (int slotIndex = 0; slotIndex < periods.size(); slotIndex++) {
-                TimelineBuckets.Period period = periods.get(slotIndex);
-                String startDate = formatDay(period.startMillis);
+            for (int slotIndex = 0; slotIndex < slotCount; slotIndex++) {
                 JSONObject slot = new JSONObject();
-                slot.put("day", period.index);
-                slot.put("label", periodName + " " + period.index + " (start " + startDate + ")");
-                slot.put("expectedDate", startDate);
                 int chosenIndex = selectedPhoto[slotIndex];
                 Photo best = chosenIndex >= 0 && group != null ? group.get(chosenIndex) : null;
+                String startDate = daily && best != null ? formatDay(best.capturedAt)
+                        : formatDay(periods.get(slotIndex).startMillis);
+                slot.put("day", daily ? slotIndex + 1 : periods.get(slotIndex).index);
+                slot.put("label", daily ? "Photo " + (slotIndex + 1) + " (" + startDate + ")"
+                        : periodName + " " + periods.get(slotIndex).index + " (start " + startDate + ")");
+                slot.put("expectedDate", startDate);
                 if (best != null && best.historyFile == null) best.historyFile = archivePhoto(best);
                 slot.put("available", best != null && best.historyFile != null);
                 if (best != null && best.historyFile != null) {
