@@ -13,7 +13,7 @@ api=context();
 const restored=api.loadCameraTimeline('plot-2','daily')[1].slots;
 assert.strictEqual(restored.length,4,'daily history should retain exactly the latest four saved photos');
 assert.deepStrictEqual(Array.from(restored,slot=>slot.timestamp),[base+2*86400000,base+3*86400000,base+4*86400000,base+5*86400000],'daily history should sort saved photos by capture time, oldest to newest');
-assert.strictEqual(api.loadCameraTimeline('plot-2','weekly')[1].slots[3].available,false,'weekly timeline should keep its own interval data');
+assert.strictEqual(api.loadCameraTimeline('plot-2','weekly')[1].slots.length,0,'weekly timeline should not show empty date windows without saved photos');
 assert.strictEqual(api.loadCameraTimeline('plot-1','daily')[1].slots.length,0,'timeline cache must be scoped to the selected plot');
 const cached=Array.from({length:6},(_,i)=>api.emptyTimeline(i+1,'daily'));
 assert(api.addCachedCurrentPhotos('plot-2','daily',[{camera:2,timestamp:base+8*86400000}],cached),'a cached current photo should populate an otherwise empty daily history');
@@ -22,7 +22,7 @@ const privateEmpty=Array.from({length:6},(_,i)=>api.emptyTimeline(i+1,'daily'));
 assert.strictEqual(api.applySuppliedBaselineIfEmpty('plot-1','daily',privateEmpty),privateEmpty,'photo history must not replace saved photos with bundled samples');
 assert(java.includes('TimelineBuckets.latestFourPhotoIndices(captureTimes)'),'daily history should select the latest four saved photos');
 assert(java.includes('TimelineBuckets.latestPhotoIndices(periods, captureTimes)'),'weekly, monthly, and yearly history should keep calendar-period selection');
-assert(html.includes('Latest 4 saved photos'),'Daily view should describe saved-photo selection');
+assert(html.includes('Latest saved photos'),'Daily view should describe saved-photo selection');
 assert(html.includes('No saved photos found'),'empty daily history should not show sample photos or blank calendar dates');
 assert(java.indexOf('if (treeUri != null) {',java.indexOf('private synchronized void scanSnapshotFolder(String requestedPlotId)'))<java.indexOf('else if (apiFolderId != null',java.indexOf('private synchronized void scanSnapshotFolder(String requestedPlotId)')),'configured Drive path should take precedence over a stale cached API folder');
 
