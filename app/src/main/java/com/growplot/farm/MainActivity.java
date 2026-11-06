@@ -567,7 +567,7 @@ public class MainActivity extends Activity {
 
     // Owner-scoped camera routes. Demo plot deliberately keeps legacy local IP settings.
     private final String[] assignedStreamUrls = new String[4];
-    private volatile boolean userStreamMode = false;
+    private volatile boolean userStreamMode = true;
     private int assignedStreamGeneration = 0;
     private String activeStreamScope = "";
     private boolean assignedStreamsLoading = false;
@@ -628,14 +628,49 @@ public class MainActivity extends Activity {
     }
 
     private void returnToDemoStreams() {
-        ++assignedStreamGeneration;
-        activeStreamScope = "";
+        // Guest/logout Demo Plot mapping is sourced from Firebase, never local IP settings.
+        final int generation = ++assignedStreamGeneration;
+        activeStreamScope = "|plot-1|greenhouse-1";
         java.util.Arrays.fill(assignedStreamUrls, null);
-        // Demo is independent of Firebase and uses the three Settings camera URLs.
-        userStreamMode = false;
-        assignedStreamsLoading = false;
+        userStreamMode = true;
+        assignedStreamsLoading = true;
         resetCctvSurfaces();
-        refreshAssignedPlayers();
+        loadGuestDemoStreams(generation);
+    }
+
+    private void loadGuestDemoStreams(final int generation) {
+        com.google.firebase.functions.FirebaseFunctions.getInstance("us-central1")
+            .getHttpsCallable("demoGuestCctvRoutes").call()
+            .addOnSuccessListener(result -> {
+                if (generation != assignedStreamGeneration) return;
+                java.util.Arrays.fill(assignedStreamUrls, null);
+                Object response = result.getData();
+                if (response instanceof java.util.Map) {
+                    Object rows = ((java.util.Map<?,?>)response).get("streams");
+                    if (rows instanceof java.util.List) {
+                        for (Object entry : (java.util.List<?>)rows) {
+                            if (!(entry instanceof java.util.Map)) continue;
+                            java.util.Map<?,?> row = (java.util.Map<?,?>)entry;
+                            String section = String.valueOf(row.get("sectionId"));
+                            String route = String.valueOf(row.get("streamUrl"));
+                            if (!section.matches("section-[1-3]")
+                                || !route.matches("(?i)(?:http|https|rtsp)://[0-9.]+:[0-9]{1,5}/[A-Za-z0-9/_~.+%-]*")) continue;
+                            int slot = Integer.parseInt(section.substring(8));
+                            assignedStreamUrls[slot] = route;
+                        }
+                    }
+                }
+                assignedStreamsLoading = false;
+                refreshAssignedPlayers();
+            })
+            .addOnFailureListener(error -> {
+                if (generation != assignedStreamGeneration) return;
+                assignedStreamsLoading = false;
+                java.util.Arrays.fill(assignedStreamUrls, null);
+                resetCctvSurfaces();
+                android.util.Log.w("GrowPlotStreams",
+                    "Guest Demo Plot Firebase routes unavailable; local IP fallback disabled", error);
+            });
     }
 
     private void loadAssignedStreams(String plotId, String greenhouseId, boolean force) {
@@ -651,8 +686,7 @@ public class MainActivity extends Activity {
         resetCctvSurfaces(); // Clear old frames before loading the selected plot.
         com.google.firebase.auth.FirebaseUser user = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
         if (user == null && "plot-1".equals(plotId)) {
-            // Signed-out Dashboard uses the locally configured Demo Plot camera streams.
-            returnToDemoStreams();
+            loadGuestDemoStreams(generation);
             return;
         }
         if (user == null || !plotId.matches("[A-Za-z0-9_-]{1,100}") || !greenhouseId.matches("greenhouse-[1-9][0-9]*")) {
@@ -1064,8 +1098,23 @@ public class MainActivity extends Activity {
                     }, 5000L);
                 }
             });
-            if (cctvStreamUrl(1).isEmpty()) { stopIpWebcamVlc(); return; }
-            Media media = new Media(ipWebcamVlc, Uri.parse(cctvStreamUrl(1)));
+            String route = cctvStreamUrl(1);
+            if (route.isEmpty()) { stopIpWebcamVlc(); return; }
+            // Section 01 may be assigned CCTV03 (VIGI RTSP). Credentials remain on-device.
+            if (userStreamMode && route.startsWith("rtsp://")) {
+                String[] credentials = vigiCctv03Credentials();
+                if (credentials[0].isEmpty() || credentials[1].isEmpty()) {
+                    stopIpWebcamVlc();
+                    showCctv03VigiMessage(videoLayout,
+                        "VIGI credentials required: configure CCTV03 in Settings");
+                    return;
+                }
+                int start = route.indexOf("://") + 3;
+                if (!route.substring(start).split("/",2)[0].contains("@"))
+                    route = route.substring(0,start) + Uri.encode(credentials[0])
+                        + ":" + Uri.encode(credentials[1]) + "@" + route.substring(start);
+            }
+            Media media = new Media(ipWebcamVlc, Uri.parse(route));
             media.addOption(":network-caching=250");
             media.addOption(":live-caching=250");
             ipWebcamVlcPlayer.setMedia(media);
