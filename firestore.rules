@@ -6,6 +6,10 @@ service cloud.firestore {
         && request.auth.token.email_verified == true
         && request.auth.token.email in ['growplot2026@gmail.com', 'rizaljamin@gmail.com'];
     }
+    function isAnonymousGuest() {
+      return request.auth != null
+        && request.auth.token.firebase.sign_in_provider == 'anonymous';
+    }
     match /plots/{plotId} {
       allow create: if (request.auth != null
         && request.resource.data.ownerUserId == request.auth.uid
@@ -19,8 +23,10 @@ service cloud.firestore {
           && request.resource.data.readOnly == true
           && request.resource.data.greenhouseCount == 1
           && request.resource.data.sectionsPerGreenhouse == 2);
-      // All authenticated users may view plots; only owners may delete.
-      allow read: if request.auth != null;
+      // Anonymous guests can read only the shared Demo Plot; regular signed-in
+      // account behavior remains unchanged.
+      allow read: if request.auth != null
+        && (!isAnonymousGuest() || plotId == 'plot-1');
       allow delete: if request.auth != null
         && plotId != 'plot-1'
         && resource.data.ownerUserId == request.auth.uid;
