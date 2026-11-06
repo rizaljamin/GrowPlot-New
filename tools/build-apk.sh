@@ -51,6 +51,7 @@ node "$ROOT/tools/tests/plantnet-analysis-regression.js" || fail "Pl@ntNet analy
 node "$ROOT/tools/tests/manage-farm-regression.js" || fail "Manage Farm regression check failed"
 node "$ROOT/tools/tests/account-registration-regression.js" || fail "Account registration regression check failed"
 node "$ROOT/tools/tests/plot-camera-identity-regression.js" || fail "Plot/CCTV identity regression check failed"
+node "$ROOT/tools/tests/guest-default-demo-regression.js" || fail "Guest account and Demo streaming regression check failed"
 node "$ROOT/tools/tests/data-feed-ui-regression.js" || fail "Data-feed UI regression check failed"
 node "$ROOT/tools/tests/drive-folder-discovery-regression.js" || fail "Drive folder discovery regression check failed"
 node "$ROOT/tools/tests/plant-hsv-regression.js" || fail "Plant HSV regression check failed"

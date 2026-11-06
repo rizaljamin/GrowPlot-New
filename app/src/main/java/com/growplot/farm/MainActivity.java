@@ -565,9 +565,9 @@ public class MainActivity extends Activity {
         return getPrefs().getString(PREF_CCTV_IP_PREFIX + String.format(Locale.US, "%02d", camera), defaultCctvIp(camera));
     }
 
-    // Owner-scoped camera routes. Demo plot deliberately keeps legacy local IP settings.
+    // Guest and registered users resolve Demo Plot camera slots from Firebase assignments.
     private final String[] assignedStreamUrls = new String[4];
-    private volatile boolean userStreamMode = false;
+    private volatile boolean userStreamMode = true;
     private int assignedStreamGeneration = 0;
     private String activeStreamScope = "";
     private boolean assignedStreamsLoading = false;
@@ -628,14 +628,8 @@ public class MainActivity extends Activity {
     }
 
     private void returnToDemoStreams() {
-        ++assignedStreamGeneration;
-        activeStreamScope = "";
-        java.util.Arrays.fill(assignedStreamUrls, null);
-        // Demo is independent of Firebase and uses the three Settings camera URLs.
-        userStreamMode = false;
-        assignedStreamsLoading = false;
-        resetCctvSurfaces();
-        refreshAssignedPlayers();
+        // Logout/Guest uses the existing Firebase Demo Plot camera assignment path.
+        loadAssignedStreams("plot-1", "greenhouse-1", true);
     }
 
     private void loadAssignedStreams(String plotId, String greenhouseId, boolean force) {
@@ -651,8 +645,7 @@ public class MainActivity extends Activity {
         resetCctvSurfaces(); // Clear old frames before loading the selected plot.
         com.google.firebase.auth.FirebaseUser user = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
         if (user == null && "plot-1".equals(plotId)) {
-            // Signed-out Dashboard uses the locally configured Demo Plot camera streams.
-            returnToDemoStreams();
+            // Wait for the anonymous Firebase session; never start local saved IPs.
             return;
         }
         if (user == null || !plotId.matches("[A-Za-z0-9_-]{1,100}") || !greenhouseId.matches("greenhouse-[1-9][0-9]*")) {
@@ -703,9 +696,8 @@ public class MainActivity extends Activity {
     }
 
     private String cctvStreamUrl(int camera) {
-        if (userStreamMode) return assignedStreamUrls[camera] == null ? "" : assignedStreamUrls[camera];
-        String ip = cctvIp(camera);
-        return ip.isEmpty() ? "" : "http://" + ip + ":8080/videofeed";
+        return camera >= 1 && camera <= 3 && assignedStreamUrls[camera] != null
+            ? assignedStreamUrls[camera] : "";
     }
 
     private String[] vigiCctv03Credentials() {
@@ -1064,8 +1056,23 @@ public class MainActivity extends Activity {
                     }, 5000L);
                 }
             });
-            if (cctvStreamUrl(1).isEmpty()) { stopIpWebcamVlc(); return; }
-            Media media = new Media(ipWebcamVlc, Uri.parse(cctvStreamUrl(1)));
+            String route = cctvStreamUrl(1);
+            if (route.isEmpty()) { stopIpWebcamVlc(); return; }
+            // Section 01 can be assigned CCTV03 (RTSP), not necessarily CCTV01.
+            if (route.startsWith("rtsp://") || route.startsWith("rtsps://")) {
+                String[] credentials = vigiCctv03Credentials();
+                if (credentials[0].isEmpty() || credentials[1].isEmpty()) {
+                    stopIpWebcamVlc();
+                    showCctv03VigiMessage(videoLayout, "VIGI camera credentials required in Settings");
+                    return;
+                }
+                int start = route.indexOf("://") + 3;
+                if (!route.substring(start).split("/", 2)[0].contains("@"))
+                    route = route.substring(0, start)
+                        + Uri.encode(credentials[0]) + ":" + Uri.encode(credentials[1])
+                        + "@" + route.substring(start);
+            }
+            Media media = new Media(ipWebcamVlc, Uri.parse(route));
             media.addOption(":network-caching=250");
             media.addOption(":live-caching=250");
             ipWebcamVlcPlayer.setMedia(media);
