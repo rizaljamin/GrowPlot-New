@@ -571,6 +571,7 @@ public class MainActivity extends Activity {
     private int assignedStreamGeneration = 0;
     private String activeStreamScope = "";
     private boolean assignedStreamsLoading = false;
+    private boolean demoGuestAuthPending = false;
 
     private void refreshAssignedPlayers() {
         if (ipWebcamVlcLayout != null) startIpWebcamVlc(ipWebcamVlcLayout);
@@ -628,14 +629,9 @@ public class MainActivity extends Activity {
     }
 
     private void returnToDemoStreams() {
-        ++assignedStreamGeneration;
-        activeStreamScope = "";
-        java.util.Arrays.fill(assignedStreamUrls, null);
-        // Demo is independent of Firebase and uses the three Settings camera URLs.
-        userStreamMode = false;
-        assignedStreamsLoading = false;
-        resetCctvSurfaces();
-        refreshAssignedPlayers();
+        // Guest Dashboard and the signed-out Home view use the shared Demo Plot
+        // camera assignments stored in Firebase.
+        loadAssignedStreams("plot-1", "greenhouse-1", true);
     }
 
     private void loadAssignedStreams(String plotId, String greenhouseId, boolean force) {
@@ -651,8 +647,23 @@ public class MainActivity extends Activity {
         resetCctvSurfaces(); // Clear old frames before loading the selected plot.
         com.google.firebase.auth.FirebaseUser user = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
         if (user == null && "plot-1".equals(plotId)) {
-            // Signed-out Dashboard uses the locally configured Demo Plot camera streams.
-            returnToDemoStreams();
+            // Give signed-out guests a Firebase identity so Firestore rules can
+            // expose only the shared Demo Plot assignments and linked camera IPs.
+            if (demoGuestAuthPending) return;
+            demoGuestAuthPending = true;
+            com.google.firebase.auth.FirebaseAuth.getInstance().signInAnonymously()
+                .addOnSuccessListener(this, result -> {
+                    demoGuestAuthPending = false;
+                    loadAssignedStreams("plot-1", greenhouseId, true);
+                })
+                .addOnFailureListener(this, error -> {
+                    demoGuestAuthPending = false;
+                    if (generation == assignedStreamGeneration) assignedStreamsLoading = false;
+                    android.util.Log.w("GrowPlotStreams", "Guest Firebase sign-in failed", error);
+                    runOnUiThread(() -> Toast.makeText(MainActivity.this,
+                        "Demo Plot needs Firebase Anonymous sign-in enabled. Check the connection and try again.",
+                        Toast.LENGTH_LONG).show());
+                });
             return;
         }
         if (user == null || !plotId.matches("[A-Za-z0-9_-]{1,100}") || !greenhouseId.matches("greenhouse-[1-9][0-9]*")) {
