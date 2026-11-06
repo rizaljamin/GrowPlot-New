@@ -1,3 +1,7 @@
+2026-11-06 | v0.7.03 Build 14 | versionCode 318 | com.growplot.farm
+Changes: Weekly and monthly timelines now select the latest four calendar periods that contain saved photos, based on photo capture dates rather than today. Empty timelines no longer display date windows based on today. Build 13 also adds a swipeable single-photo slider and a Drive API scan fallback.
+Validation: GitHub ARM64 build pending. Verify saved-photo discovery and date ordering on the tablet.
+
 2026-11-06 | v0.7.03 Build 13 | versionCode 317 | com.growplot.farm
 Changes: Replace the four-tile photo history with one large photo card and arrow/swipe navigation. If Android’s Google Drive folder provider returns an empty listing, retry photo discovery through the saved Drive API folder.
 Validation: GitHub ARM64 build pending; photo discovery and slider interaction require tablet verification.
