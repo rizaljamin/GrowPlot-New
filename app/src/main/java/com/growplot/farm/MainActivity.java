@@ -6407,9 +6407,7 @@ public class MainActivity extends Activity {
     private JSONArray makeTimelinePhotos(Map<Integer, List<Photo>> photosByCamera) throws Exception {
         JSONArray timelines = new JSONArray();
         // Daily shows the latest four saved photos, sorted by capture time.
-        // Weekly/monthly/yearly keep one latest photo from each calendar period.
-        long anchorTime = System.currentTimeMillis();
-        List<TimelineBuckets.Period> periods = TimelineBuckets.latestFour(timelineInterval, anchorTime);
+        // Other intervals use the latest four calendar periods that contain saved photos.
         boolean daily = "daily".equals(timelineInterval);
         String periodName = "monthly".equals(timelineInterval) ? "Month"
                 : "yearly".equals(timelineInterval) ? "Year" : "Week";
@@ -6421,10 +6419,12 @@ public class MainActivity extends Activity {
             JSONArray slots = new JSONArray();
             List<Long> captureTimes = new ArrayList<>();
             if (group != null) for (Photo photo : group) captureTimes.add(photo.capturedAt);
+            List<TimelineBuckets.Period> periods = daily ? new ArrayList<>()
+                    : TimelineBuckets.latestSavedPeriods(timelineInterval, captureTimes);
             int[] selectedPhoto = daily ? TimelineBuckets.latestFourPhotoIndices(captureTimes)
                     : TimelineBuckets.latestPhotoIndices(periods, captureTimes);
             int slotCount = daily ? selectedPhoto.length : periods.size();
-            timeline.put("baselineDate", formatDay(periods.get(0).startMillis));
+            timeline.put("baselineDate", periods.isEmpty() ? "" : formatDay(periods.get(0).startMillis));
             for (int slotIndex = 0; slotIndex < slotCount; slotIndex++) {
                 JSONObject slot = new JSONObject();
                 int chosenIndex = selectedPhoto[slotIndex];
