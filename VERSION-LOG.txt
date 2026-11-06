@@ -1,3 +1,7 @@
+2026-11-06 | v0.7.03 Build 13 | versionCode 317 | com.growplot.farm
+Changes: Replace the four-tile photo history with one large photo card and arrow/swipe navigation. If Android’s Google Drive folder provider returns an empty listing, retry photo discovery through the saved Drive API folder.
+Validation: GitHub ARM64 build pending; photo discovery and slider interaction require tablet verification.
+
 2026-11-06 | v0.7.03 Build 12 | versionCode 316 | com.growplot.farm
 Changes: Daily photo history now sorts the selected plot's actual saved photos by capture time and shows the latest four, oldest to newest. It no longer reserves slots for dates without photos or substitutes bundled sample photos into photo history. Weekly, monthly, and yearly history still selects the latest saved photo inside each calendar period. Existing cached daily history is migrated into the same latest-four ordering.
 Validation: GitHub Actions ARM64 build #834 passed; the manifest confirms versionCode 316 and the current GrowPlot stable signing certificate. Saved-photo ordering and feed-folder scanning still require tablet verification.
