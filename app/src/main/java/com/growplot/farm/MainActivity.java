@@ -1,3 +1,6 @@
+Warning: truncated output (original token count: 100905)
+Total output lines: 6727
+
 package com.growplot.farm;
 
 import android.app.Activity;
@@ -224,8 +227,8 @@ public class MainActivity extends Activity {
     };
     private final Runnable cctv02SnapshotTicker = new Runnable() {
         @Override public void run() {
-            if (!activityResumed || ipWebcam2VlcPlayer == null || ipWebcam2VlcLayout == null) return;
-            checkIpWebcamBeforeSnapshot(2);
+            if (!activityResumed) return;
+            if (ipWebcam2VlcPlayer != null && ipWebcam2VlcLayout != null) checkIpWebcamBeforeSnapshot(2);
             mainHandler.postDelayed(this, nextSnapshotCheckDelay(2));
         }
     };
@@ -1625,8 +1628,9 @@ public class MainActivity extends Activity {
 
     private boolean snapshotDue(int camera) {
         String plotId=safePlotId(getPrefs().getString(PREF_ACTIVE_PLOT_ID,DEFAULT_PLOT_ID));
+        String flightKey=snapshotFlightKey(camera,plotId);
         long last=getPrefs().getLong(snapshotLastSuccessKey(camera,plotId),0L);
-        return !snapshotInFlight.contains(snapshotFlightKey(camera,plotId))
+        return !snapshotInFlight.contains(flightKey) && !snapshotDriveCheckInFlight.contains(flightKey)
                 && (last<=0 || System.currentTimeMillis()-last>=cctvSnapshotIntervalMillis);
     }
     private boolean snapshotFeedCanCapture(int camera) {
@@ -2360,6 +2364,14 @@ public class MainActivity extends Activity {
         if (ipWebcam3VlcLayout != null && ipWebcam3VlcPlayer == null) {
             mainHandler.postDelayed(this::reconnectCctv03Vlc, 800);
         }
+        // Keep the retry loops alive while VLC is starting or recovering. The
+        // tickers back off while a feed is unavailable and restart capture when it returns.
+        mainHandler.removeCallbacks(cctv01SnapshotTicker);
+        mainHandler.removeCallbacks(cctv02SnapshotTicker);
+        mainHandler.removeCallbacks(cctv03SnapshotTicker);
+        mainHandler.postDelayed(cctv01SnapshotTicker, nextSnapshotCheckDelay(1));
+        mainHandler.postDelayed(cctv02SnapshotTicker, nextSnapshotCheckDelay(2));
+        mainHandler.postDelayed(cctv03SnapshotTicker, nextSnapshotCheckDelay(3));
     }
 
     @Override protected void onPause() {
@@ -3421,73 +3433,7 @@ public class MainActivity extends Activity {
                     byte[] buffer = new byte[65536];
                     int read;
                     while ((read = input.read(buffer)) != -1) output.write(buffer, 0, read);
-                    output.flush();
-                } catch (Exception error) {
-                    temp.delete();
-                    throw error;
-                }
-                if (item.size >= 0 && temp.length() != item.size) {
-                    temp.delete();
-                    throw new IllegalStateException("Drive download was incomplete for " + item.displayName);
-                }
-                if (cached.exists()) cached.delete();
-                if (!temp.renameTo(cached)) throw new IllegalStateException("Could not finalize Drive playback cache");
-            }
-            String relativeUrl = "https://appassets.androidplatform.net/assets/diagnosis/" + plotId + "/"
-                    + String.format(Locale.US, "cctv_%02d", camera) + "/" + cacheName;
-            JSONObject row = new JSONObject();
-            row.put("camera", camera);
-            row.put("plotId", plotId);
-            row.put("kind", video ? "video" : "photo");
-            row.put("url", relativeUrl);
-            row.put("fileName", item.displayName);
-            row.put("driveSaved", true);
-            row.put("drivePath", "Diagnosis/" + plotFolder + "/" + quadrantName + "/" + item.displayName);
-            row.put("driveDocumentId", item.documentId);
-            long date = item.modified > 0 ? item.modified : cached.lastModified();
-            row.put("capturedAt", new SimpleDateFormat("dd MMM yyyy HH:mm", Locale.US).format(new Date(date)) + " MYT");
-            if (video) {
-                File poster = createDiagnosisVideoPoster(cached, camera, plotId);
-                if (poster != null) {
-                    keepNames.add(poster.getName());
-                    row.put("thumbnailUrl", relativeUrl.replace(cacheName, poster.getName()));
-                }
-            }
-            result.put(row);
-            if (!video) {
-                saveDiagnosisMediaIndex(camera, plotId, row);
-                uploadDiagnosisPhotoToFirebase(camera, plotId, cached, row);
-            }
-        }
-        File[] cachedFiles = directory.listFiles();
-        if (cachedFiles != null) for (File cachedFile : cachedFiles) {
-            if (!keepNames.contains(cachedFile.getName())) cachedFile.delete();
-        }
-        return result;
-    }
-
-    private String findExistingChildFolder(Uri treeUri, String parentDocumentId, String folderName) throws Exception {
-        Uri childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, parentDocumentId);
-        String[] columns = {DocumentsContract.Document.COLUMN_DOCUMENT_ID,
-                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
-                DocumentsContract.Document.COLUMN_MIME_TYPE};
-        try (Cursor cursor = getContentResolver().query(childrenUri, columns, null, null, null)) {
-            if (cursor == null) throw new IllegalStateException("Google Drive could not list folders");
-            int idColumn = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DOCUMENT_ID);
-            int nameColumn = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME);
-            int mimeColumn = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_MIME_TYPE);
-            while (cursor.moveToNext()) {
-                if (idColumn >= 0 && nameColumn >= 0 && mimeColumn >= 0
-                        && folderName.equals(cursor.getString(nameColumn))
-                        && DocumentsContract.Document.MIME_TYPE_DIR.equals(cursor.getString(mimeColumn))) {
-                    return cursor.getString(idColumn);
-                }
-            }
-        }
-        return null;
-    }
-
-    private File createDiagnosisVideoPoster(File video, int camera, String plotId) {
+        …905 tokens truncated…Poster(File video, int camera, String plotId) {
         MediaMetadataRetriever retriever = new MediaMetadataRetriever();
         Bitmap frame = null;
         try {
@@ -3871,13 +3817,9 @@ public class MainActivity extends Activity {
                 mainHandler.removeCallbacks(cctv01SnapshotTicker);
                 mainHandler.removeCallbacks(cctv02SnapshotTicker);
                 mainHandler.removeCallbacks(cctv03SnapshotTicker);
-                if (activityResumed && ipWebcamVlcPlayer != null && ipWebcamVlcLayout != null) {
+                if (activityResumed) {
                     mainHandler.postDelayed(cctv01SnapshotTicker, nextSnapshotCheckDelay(1));
-                }
-                if (activityResumed && ipWebcam2VlcPlayer != null && ipWebcam2VlcLayout != null) {
                     mainHandler.postDelayed(cctv02SnapshotTicker, nextSnapshotCheckDelay(2));
-                }
-                if (activityResumed && ipWebcam3VlcPlayer != null && ipWebcam3VlcLayout != null) {
                     mainHandler.postDelayed(cctv03SnapshotTicker, nextSnapshotCheckDelay(3));
                 }
             });
@@ -6395,8 +6337,9 @@ public class MainActivity extends Activity {
 
     private JSONArray makeTimelinePhotos(Map<Integer, List<Photo>> photosByCamera) throws Exception {
         JSONArray timelines = new JSONArray();
-        // Always show the four calendar periods ending today. Older saved images are
-        // used to fill gaps without changing the period labels.
+        // Show the latest photo captured inside each of the four calendar periods.
+        // Leave a period empty when no photo exists; borrowing another period's
+        // image makes the timeline dates misleading.
         long anchorTime = System.currentTimeMillis();
         List<TimelineBuckets.Period> periods = TimelineBuckets.latestFour(timelineInterval, anchorTime);
         String periodName = "daily".equals(timelineInterval) ? "Day" : "monthly".equals(timelineInterval) ? "Month"
@@ -6410,12 +6353,6 @@ public class MainActivity extends Activity {
             List<Long> captureTimes = new ArrayList<>();
             if (group != null) for (Photo photo : group) captureTimes.add(photo.capturedAt);
             int[] selectedPhoto = TimelineBuckets.latestPhotoIndices(periods, captureTimes);
-            Set<Integer> usedPhotos = new HashSet<>();
-            for (int photoIndex : selectedPhoto) if (photoIndex >= 0) usedPhotos.add(photoIndex);
-            List<Integer> fallbackOrder = new ArrayList<>();
-            for (int photoIndex = 0; photoIndex < captureTimes.size(); photoIndex++) fallbackOrder.add(photoIndex);
-            Collections.sort(fallbackOrder, (left, right) ->
-                    Long.compare(captureTimes.get(right), captureTimes.get(left)));
             timeline.put("baselineDate", formatDay(periods.get(0).startMillis));
             for (int slotIndex = 0; slotIndex < periods.size(); slotIndex++) {
                 TimelineBuckets.Period period = periods.get(slotIndex);
@@ -6424,24 +6361,7 @@ public class MainActivity extends Activity {
                 slot.put("day", period.index);
                 slot.put("label", periodName + " " + period.index + " (start " + startDate + ")");
                 slot.put("expectedDate", startDate);
-                boolean fallback = selectedPhoto[slotIndex] < 0;
-                boolean repeated = false;
                 int chosenIndex = selectedPhoto[slotIndex];
-                if (fallback) {
-                    for (int candidate : fallbackOrder) {
-                        if (!usedPhotos.contains(candidate)) {
-                            chosenIndex = candidate;
-                            usedPhotos.add(candidate);
-                            break;
-                        }
-                    }
-                    if (chosenIndex < 0 && !fallbackOrder.isEmpty()) {
-                        chosenIndex = fallbackOrder.get(0);
-                        repeated = true;
-                    }
-                }
-                slot.put("fallback", fallback);
-                slot.put("repeated", repeated);
                 Photo best = chosenIndex >= 0 && group != null ? group.get(chosenIndex) : null;
                 if (best != null && best.historyFile == null) best.historyFile = archivePhoto(best);
                 slot.put("available", best != null && best.historyFile != null);

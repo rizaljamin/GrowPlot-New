@@ -1,3 +1,7 @@
+2026-11-06 | v0.7.03 Build 11 | versionCode 315 | com.growplot.farm
+Changes: Keep daily, weekly, and monthly timeline photos inside their own Malaysia-calendar period; leave periods with no matching photo empty instead of showing another date's image. Keep CCTV02/CCTV03 snapshot retry tickers alive while VLC temporarily reconnects, restart all three snapshot checks on app resume and interval changes, and prevent overlapping Drive checks per camera.
+Validation: All JavaScript regression checks passed. Local ARM64 compilation is unavailable in this environment because the project requires JDK 17 and only JDK 21 is installed; the GitHub ARM64 build and Android tablet verification are pending.
+
 2026-11-06 | v0.7.03 Build 10 | versionCode 314 | com.growplot.farm
 Changes: Resolve the plot feed from the configured Google Drive storage path before a cached API folder ID, preventing stale folder IDs from hiding current images. Align bundled Plot 2/Plot 3 paths with growplot2026@gmail.com Image_Feed folders. Show bundled sample photos and sample health copy only for Demo Plot; private plots show actual saved timeline photos and their configured feed path.
 Validation: Timeline/path regression checks and ARM64 build pending. Drive storage-paths.json points Plot 2 to Image_Feed/growplot2026@gmail.com/plot02_pp5, matching the saved CCTV01/CCTV02 images. Device confirmation of the tablet's folder grant and live scan pending.

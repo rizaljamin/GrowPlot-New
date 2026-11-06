@@ -9,13 +9,19 @@ assert.match(java, /private long nextSnapshotCheckDelay\(int camera\)[\s\S]*?if 
 assert.match(java, /private final Runnable cctv01SnapshotTicker[\s\S]*?checkIpWebcamBeforeSnapshot\(1\);[\s\S]*?postDelayed\(this, nextSnapshotCheckDelay\(1\)\)/,
   'CCTV01 recurring timer retries based on capture success/due time');
 assert.match(java, /private final Runnable cctv02SnapshotTicker[\s\S]*?postDelayed\(this, nextSnapshotCheckDelay\(2\)\)/,
-  'CCTV02 keeps due-aware retry scheduling');
+  'CCTV02 keeps due-aware retry scheduling even while VLC is temporarily absent');
+assert.match(java, /private final Runnable cctv02SnapshotTicker[\s\S]*?if \(!activityResumed\) return;[\s\S]*?if \(ipWebcam2VlcPlayer != null && ipWebcam2VlcLayout != null\) checkIpWebcamBeforeSnapshot\(2\);[\s\S]*?postDelayed\(this, nextSnapshotCheckDelay\(2\)\)/,
+  'CCTV02 reschedules its ticker instead of abandoning it when its player is temporarily absent');
 assert.match(java, /private final Runnable cctv03SnapshotTicker[\s\S]*?checkIpWebcamBeforeSnapshot\(3\);[\s\S]*?postDelayed\(this, nextSnapshotCheckDelay\(3\)\)/,
   'CCTV03 recurring timer retries based on capture success/due time');
+assert.match(java, /private final Runnable cctv03SnapshotTicker[\s\S]*?if \(ipWebcam3VlcPlayer != null && ipWebcam3VlcLayout != null\) checkIpWebcamBeforeSnapshot\(3\);[\s\S]*?postDelayed\(this, nextSnapshotCheckDelay\(3\)\)/,
+  'CCTV03 reschedules its ticker while its player is temporarily absent');
 assert.match(java, /mainHandler\.postDelayed\(cctv01SnapshotTicker, nextSnapshotCheckDelay\(1\)\)/,
   'starting or changing the interval for CCTV01 does not reset a full interval when overdue');
 assert.match(java, /mainHandler\.postDelayed\(cctv03SnapshotTicker, nextSnapshotCheckDelay\(3\)\)/,
   'starting or changing the interval for CCTV03 respects the saved due time');
+assert.match(java, /setCctvSnapshotIntervalMinutes\(double minutes\)[\s\S]*?putLong\(PREF_CCTV_SNAPSHOT_INTERVAL_MILLIS, intervalMillis\)\.apply\(\)[\s\S]*?if \(activityResumed\) \{[\s\S]*?postDelayed\(cctv01SnapshotTicker[\s\S]*?postDelayed\(cctv02SnapshotTicker[\s\S]*?postDelayed\(cctv03SnapshotTicker/,
+  'interval changes persist and restart checks for every camera even before VLC reconnects');
 assert.match(java, /saveFeedPhotoToDrive\(null, frame, plotId, camera, false\)[\s\S]*?putLong\(snapshotLastSuccessKey\(camera,plotId\),System\.currentTimeMillis\(\)\)/,
   'the next interval is measured from a successful Drive save');
 console.log('PASS: CCTV snapshot timers are due-aware and retry after inactive feeds, missing folder access, or failed saves.');

@@ -21,12 +21,14 @@ assert(scan.includes('saveCameraTimeline(selectedPlotId,timelineInterval,cameraT
 assert(scan.includes('Array.isArray(data.timelinePhotos)'),'status-only scans should leave the saved timeline intact');
 assert(html.includes('cameraTimeline=loadCameraTimeline(selectedPlotId,value)'),'switching intervals should restore that interval while its scan runs');
 assert(java.includes('TimelineBuckets.latestPhotoIndices(periods, captureTimes)'),'timeline should choose the latest photo per period');
-assert(java.includes('slot.put("fallback", fallback)')&&java.includes('slot.put("repeated", repeated)'),'timeline should label gap-fill and repeated photos');
-assert(java.includes('for (int candidate : fallbackOrder)'),'missing periods should use other saved photos before repeating');
+assert(!java.includes('fallbackOrder'),'a missing daily/weekly/monthly period must not borrow a photo from a different date');
+assert(!java.includes('slot.put("fallback", fallback)')&&!java.includes('slot.put("repeated", repeated)'),'timeline entries must not describe substituted or repeated photos');
+assert(html.includes('A period with no saved photo remains empty.'),'the timeline should explain that empty periods stay empty');
+assert(java.includes('Show the latest photo captured inside each of the four calendar periods.'),'each period should display only a photo captured inside its own date range');
 assert(java.indexOf('if (treeUri != null) {',java.indexOf('private synchronized void scanSnapshotFolder(String requestedPlotId)'))<java.indexOf('else if (apiFolderId != null',java.indexOf('private synchronized void scanSnapshotFolder(String requestedPlotId)')),'configured Drive path should take precedence over a stale cached API folder');
 const privateEmpty=Array.from({length:6},(_,i)=>api.emptyTimeline(i+1,'daily'));
 assert(!api.applySuppliedBaselineIfEmpty('plot-2','daily',privateEmpty).some(camera=>camera.slots.some(slot=>slot.suppliedBaseline)),'private plots must not substitute bundled sample photos');
 const demoEmpty=Array.from({length:6},(_,i)=>api.emptyTimeline(i+1,'daily'));
 assert(api.applySuppliedBaselineIfEmpty('plot-1','daily',demoEmpty).some(camera=>camera.slots.some(slot=>slot.suppliedBaseline)),'Demo Plot may retain its labeled sample baseline');
 
-console.log('PASS: interval timelines restore by plot/interval; actual-period photos use the latest capture; missing periods fill from unused saved photos and repeats are marked.');
+console.log('PASS: interval timelines restore by plot/interval; actual-period photos use the latest capture and missing periods remain empty.');
