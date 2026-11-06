@@ -32,7 +32,46 @@ public final class AccountApiBridge {
     private final FirebaseFirestore db=FirebaseFirestore.getInstance();
     public AccountApiBridge(Activity activity, WebView web){this.activity=activity;this.web=web;}
     @JavascriptInterface public boolean configured(){return com.google.firebase.FirebaseApp.getApps(activity).size()>0;}
-    @JavascriptInterface public void logout(){auth.signOut();}
+    // Firestore users/Guest is a shared display profile, not a Firebase Auth UID.
+    // Each guest uses Firebase's anonymous sign-in to satisfy existing read rules;
+    // never overwrite or impersonate a registered Firebase account.
+    private boolean guestSignInPending=false;
+    @JavascriptInterface public void ensureGuestSession(){
+        activity.runOnUiThread(()->{
+            FirebaseUser session=auth.getCurrentUser();
+            if(session!=null){
+                if(session.isAnonymous())guestSessionResponse();
+                else accountResponse("login",session); // Restore an existing registered session.
+                return;
+            }
+            if(guestSignInPending)return;
+            guestSignInPending=true;
+            auth.signInAnonymously().addOnSuccessListener(result->{
+                guestSignInPending=false;
+                FirebaseUser active=auth.getCurrentUser();
+                if(active!=null&&active.isAnonymous())guestSessionResponse();
+            }).addOnFailureListener(error->{
+                guestSignInPending=false;
+                respond("guestSession",false,
+                    "Guest authentication unavailable. Enable Anonymous sign-in in Firebase Authentication.",null);
+            });
+        });
+    }
+    private void guestSessionResponse(){
+        JSONObject profile=new JSONObject();
+        try{
+            profile.put("id","Guest");
+            profile.put("displayName","Guest");
+            profile.put("plotId","plot-1");
+        }catch(Exception ignored){}
+        respond("guestSession",true,"",profile);
+    }
+    @JavascriptInterface public void logout(){
+        activity.runOnUiThread(()->{
+            auth.signOut();
+            ensureGuestSession();
+        });
+    }
     @JavascriptInterface public void startGoogleSignIn(){
         activity.runOnUiThread(()->{
             int resource=activity.getResources().getIdentifier("default_web_client_id","string",activity.getPackageName());
