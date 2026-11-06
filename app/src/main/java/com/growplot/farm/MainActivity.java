@@ -1,6 +1,3 @@
-Warning: truncated output (original token count: 100905)
-Total output lines: 6727
-
 package com.growplot.farm;
 
 import android.app.Activity;
@@ -3433,7 +3430,73 @@ public class MainActivity extends Activity {
                     byte[] buffer = new byte[65536];
                     int read;
                     while ((read = input.read(buffer)) != -1) output.write(buffer, 0, read);
-        …905 tokens truncated…Poster(File video, int camera, String plotId) {
+                    output.flush();
+                } catch (Exception error) {
+                    temp.delete();
+                    throw error;
+                }
+                if (item.size >= 0 && temp.length() != item.size) {
+                    temp.delete();
+                    throw new IllegalStateException("Drive download was incomplete for " + item.displayName);
+                }
+                if (cached.exists()) cached.delete();
+                if (!temp.renameTo(cached)) throw new IllegalStateException("Could not finalize Drive playback cache");
+            }
+            String relativeUrl = "https://appassets.androidplatform.net/assets/diagnosis/" + plotId + "/"
+                    + String.format(Locale.US, "cctv_%02d", camera) + "/" + cacheName;
+            JSONObject row = new JSONObject();
+            row.put("camera", camera);
+            row.put("plotId", plotId);
+            row.put("kind", video ? "video" : "photo");
+            row.put("url", relativeUrl);
+            row.put("fileName", item.displayName);
+            row.put("driveSaved", true);
+            row.put("drivePath", "Diagnosis/" + plotFolder + "/" + quadrantName + "/" + item.displayName);
+            row.put("driveDocumentId", item.documentId);
+            long date = item.modified > 0 ? item.modified : cached.lastModified();
+            row.put("capturedAt", new SimpleDateFormat("dd MMM yyyy HH:mm", Locale.US).format(new Date(date)) + " MYT");
+            if (video) {
+                File poster = createDiagnosisVideoPoster(cached, camera, plotId);
+                if (poster != null) {
+                    keepNames.add(poster.getName());
+                    row.put("thumbnailUrl", relativeUrl.replace(cacheName, poster.getName()));
+                }
+            }
+            result.put(row);
+            if (!video) {
+                saveDiagnosisMediaIndex(camera, plotId, row);
+                uploadDiagnosisPhotoToFirebase(camera, plotId, cached, row);
+            }
+        }
+        File[] cachedFiles = directory.listFiles();
+        if (cachedFiles != null) for (File cachedFile : cachedFiles) {
+            if (!keepNames.contains(cachedFile.getName())) cachedFile.delete();
+        }
+        return result;
+    }
+
+    private String findExistingChildFolder(Uri treeUri, String parentDocumentId, String folderName) throws Exception {
+        Uri childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, parentDocumentId);
+        String[] columns = {DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+                DocumentsContract.Document.COLUMN_MIME_TYPE};
+        try (Cursor cursor = getContentResolver().query(childrenUri, columns, null, null, null)) {
+            if (cursor == null) throw new IllegalStateException("Google Drive could not list folders");
+            int idColumn = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DOCUMENT_ID);
+            int nameColumn = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME);
+            int mimeColumn = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_MIME_TYPE);
+            while (cursor.moveToNext()) {
+                if (idColumn >= 0 && nameColumn >= 0 && mimeColumn >= 0
+                        && folderName.equals(cursor.getString(nameColumn))
+                        && DocumentsContract.Document.MIME_TYPE_DIR.equals(cursor.getString(mimeColumn))) {
+                    return cursor.getString(idColumn);
+                }
+            }
+        }
+        return null;
+    }
+
+    private File createDiagnosisVideoPoster(File video, int camera, String plotId) {
         MediaMetadataRetriever retriever = new MediaMetadataRetriever();
         Bitmap frame = null;
         try {
