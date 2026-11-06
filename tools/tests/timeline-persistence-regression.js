@@ -20,4 +20,7 @@ const scan=html.slice(html.indexOf('window.onSnapshotScan=function'),html.indexO
 assert(scan.includes('saveCameraTimeline(selectedPlotId,timelineInterval,cameraTimeline)'),'successful scans should persist the selected interval timeline');
 assert(scan.includes('Array.isArray(data.timelinePhotos)'),'status-only scans should leave the saved timeline intact');
 assert(html.includes('cameraTimeline=loadCameraTimeline(selectedPlotId,value)'),'switching intervals should restore that interval while its scan runs');
-console.log('PASS: interval timelines restore by plot/interval, and dated cached or supplied photos render in the correct interval through a verified Android asset path.');
+assert(java.includes('TimelineBuckets.latestPhotoIndices(periods, captureTimes)'),'timeline should choose the latest photo per period');
+assert(java.includes('slot.put("fallback", fallback)')&&java.includes('slot.put("repeated", repeated)'),'timeline should label gap-fill and repeated photos');
+assert(java.includes('for (int candidate : fallbackOrder)'),'missing periods should use other saved photos before repeating');
+console.log('PASS: interval timelines restore by plot/interval; actual-period photos use the latest capture; missing periods fill from unused saved photos and repeats are marked.');
