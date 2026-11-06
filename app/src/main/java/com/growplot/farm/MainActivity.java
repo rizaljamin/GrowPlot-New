@@ -571,7 +571,6 @@ public class MainActivity extends Activity {
     private int assignedStreamGeneration = 0;
     private String activeStreamScope = "";
     private boolean assignedStreamsLoading = false;
-    private boolean demoGuestAuthPending = false;
 
     private void refreshAssignedPlayers() {
         if (ipWebcamVlcLayout != null) startIpWebcamVlc(ipWebcamVlcLayout);
@@ -646,30 +645,13 @@ public class MainActivity extends Activity {
         assignedStreamsLoading = userStreamMode;
         resetCctvSurfaces(); // Clear old frames before loading the selected plot.
         com.google.firebase.auth.FirebaseUser user = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
-        if (user == null && "plot-1".equals(plotId)) {
-            // Give signed-out guests a Firebase identity so Firestore rules can
-            // expose only the shared Demo Plot assignments and linked camera IPs.
-            if (demoGuestAuthPending) return;
-            demoGuestAuthPending = true;
-            com.google.firebase.auth.FirebaseAuth.getInstance().signInAnonymously()
-                .addOnSuccessListener(this, result -> {
-                    demoGuestAuthPending = false;
-                    loadAssignedStreams("plot-1", greenhouseId, true);
-                })
-                .addOnFailureListener(this, error -> {
-                    demoGuestAuthPending = false;
-                    if (generation == assignedStreamGeneration) assignedStreamsLoading = false;
-                    android.util.Log.w("GrowPlotStreams", "Guest Firebase sign-in failed", error);
-                    runOnUiThread(() -> Toast.makeText(MainActivity.this,
-                        "Demo Plot needs Firebase Anonymous sign-in enabled. Check the connection and try again.",
-                        Toast.LENGTH_LONG).show());
-                });
+        if (!plotId.matches("[A-Za-z0-9_-]{1,100}") || !greenhouseId.matches("greenhouse-[1-9][0-9]*")
+                || (user == null && !"plot-1".equals(plotId))) {
             return;
         }
-        if (user == null || !plotId.matches("[A-Za-z0-9_-]{1,100}") || !greenhouseId.matches("greenhouse-[1-9][0-9]*")) {
-            return;
-        }
-        final String uid = user.getUid();
+        // Guests may read only shared Demo Plot assignments; private plots still
+        // require an authenticated account and remain owner-scoped.
+        final String uid = user == null ? "" : user.getUid();
         com.google.firebase.firestore.FirebaseFirestore store = com.google.firebase.firestore.FirebaseFirestore.getInstance();
         // Keep private plots owner-scoped. Demo Plot reads only its linked cameras.
         com.google.firebase.firestore.Query assignments = "plot-1".equals(plotId)
@@ -703,7 +685,7 @@ public class MainActivity extends Activity {
         assignments.get().addOnSuccessListener(applyAssignments::accept).addOnFailureListener(e -> {
             android.util.Log.w("GrowPlotStreams","Shared assignment read failed; checking owner-scoped fallback",e);
             // Preserve the last known working behavior for the camera owner.
-            if ("plot-1".equals(plotId)) {
+            if ("plot-1".equals(plotId) && user != null) {
                 store.collection("feed_assignments").whereEqualTo("ownerUserId",uid).get()
                     .addOnSuccessListener(applyAssignments::accept)
                     .addOnFailureListener(err -> {assignedStreamsLoading=false;android.util.Log.w("GrowPlotStreams","Owner assignment fallback failed",err);});
