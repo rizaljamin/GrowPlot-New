@@ -5808,6 +5808,12 @@ public class MainActivity extends Activity {
                     String rootDocumentId = getPrefs().getString(feedFolderDocumentKey(plotId), null);
                     if (rootDocumentId == null || rootDocumentId.isEmpty()) rootDocumentId = DocumentsContract.getTreeDocumentId(treeUri);
                     images.addAll(queryImageFeedFolder(treeUri, rootDocumentId));
+                    // Google Drive's Android document provider can occasionally return an empty
+                    // listing for a valid persisted folder grant. If the signed-in Drive API
+                    // folder is also available, use it to discover the saved images.
+                    if (images.isEmpty() && apiFolderId != null && !apiFolderId.isEmpty()) {
+                        images.addAll(queryDriveImageFeed(apiFolderId, plotId));
+                    }
                 } else if (apiFolderId != null && !apiFolderId.isEmpty()) {
                     images.addAll(queryDriveImageFeed(apiFolderId, plotId));
                 } else for (Uri uri : selected) images.add(new FeedDocument(uri, getDisplayName(uri), 0));
