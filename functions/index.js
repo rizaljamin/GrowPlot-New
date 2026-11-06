@@ -89,6 +89,50 @@ export const assignOwnedDevice=onCall({region:'us-central1',enforceAppCheck:fals
 });
 
 
+// Read-only guest preview for the shared Demo Plot ONLY. No Firestore rule change.
+// Exposes private-LAN stream routes, not account identifiers, passwords, tokens,
+// encrypted credentials, unrelated plots, or arbitrary Firebase document paths.
+function demoLanHost(host) {
+ if(typeof host!=='string'||!/^(?:\d{1,3}\.){3}\d{1,3}$/.test(host))return false;
+ const parts=host.split('.').map(Number);
+ if(parts.some(n=>n>255))return false;
+ return parts[0]===10||(parts[0]===172&&parts[1]>=16&&parts[1]<=31)||(parts[0]===192&&parts[1]===168);
+}
+function demoGuestRoute(device) {
+ if(!device||!['AV','Camera'].includes(device.deviceType)||!demoLanHost(device.ipAddress))return null;
+ const protocol=String(device.protocol||'HTTP').toUpperCase();
+ if(!['HTTP','HTTPS','RTSP'].includes(protocol))return null;
+ const port=device.port==null?(protocol==='RTSP'?554:8080):Number(device.port);
+ if(!Number.isInteger(port)||port<1||port>65535)return null;
+ const path=String(device.streamPath||(protocol==='RTSP'?'/stream1':'/videofeed'));
+ if(!/^\/[A-Za-z0-9/_~.+%-]*$/.test(path)||path.includes('..'))return null;
+ return protocol.toLowerCase()+'://'+device.ipAddress+':'+port+path;
+}
+export const demoGuestCctvRoutes=onCall({
+ region:'us-central1',enforceAppCheck:false,maxInstances:2,timeoutSeconds:20
+},async () => {
+ const linked=await db.collection('feed_assignments').where('plotId','==','plot-1').get();
+ const assignments=linked.docs.map(doc=>doc.data()).filter(a=>
+   a.greenhouseId==='greenhouse-1'
+   && /^section-[1-3]$/.test(String(a.sectionId||''))
+   && typeof a.ownerUserId==='string'&&/^[A-Za-z0-9_-]{1,100}$/.test(a.ownerUserId)
+   && typeof a.deviceId==='string'&&/^[A-Za-z0-9_-]{1,100}$/.test(a.deviceId)
+ ).sort((a,b)=>(b.updatedAt?.toMillis?.()||0)-(a.updatedAt?.toMillis?.()||0));
+ const streams=[],seen=new Set();
+ for(const assignment of assignments.slice(0,30)) {
+  if(seen.has(assignment.sectionId))continue;
+  const deviceSnap=await db.collection('data_feeds')
+    .doc(assignment.ownerUserId+'_'+assignment.deviceId).get();
+  const device=deviceSnap.exists?deviceSnap.data():null;
+  if(!device||device.ownerUserId!==assignment.ownerUserId||device.deviceId!==assignment.deviceId)continue;
+  const streamUrl=demoGuestRoute(device);
+  if(!streamUrl)continue;
+  seen.add(assignment.sectionId);
+  streams.push({sectionId:assignment.sectionId,streamUrl});
+ }
+ return {plotId:'plot-1',greenhouseId:'greenhouse-1',streams};
+});
+
 // Authenticated Vertex image diagnosis. Images are sent inline and are not stored by this function.
 const VERTEX_PROJECT_ID = process.env.GCLOUD_PROJECT || 'growplot';
 const VERTEX_CALLABLE_REGION = 'us-central1';
