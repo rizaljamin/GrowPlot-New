@@ -628,14 +628,9 @@ public class MainActivity extends Activity {
     }
 
     private void returnToDemoStreams() {
-        ++assignedStreamGeneration;
-        activeStreamScope = "";
-        java.util.Arrays.fill(assignedStreamUrls, null);
-        // Demo is independent of Firebase and uses the three Settings camera URLs.
-        userStreamMode = false;
-        assignedStreamsLoading = false;
-        resetCctvSurfaces();
-        refreshAssignedPlayers();
+        // Guest Dashboard and the signed-out Home view use the shared Demo Plot
+        // camera assignments stored in Firebase.
+        loadAssignedStreams("plot-1", "greenhouse-1", true);
     }
 
     private void loadAssignedStreams(String plotId, String greenhouseId, boolean force) {
@@ -650,15 +645,13 @@ public class MainActivity extends Activity {
         assignedStreamsLoading = userStreamMode;
         resetCctvSurfaces(); // Clear old frames before loading the selected plot.
         com.google.firebase.auth.FirebaseUser user = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
-        if (user == null && "plot-1".equals(plotId)) {
-            // Signed-out Dashboard uses the locally configured Demo Plot camera streams.
-            returnToDemoStreams();
+        if (!plotId.matches("[A-Za-z0-9_-]{1,100}") || !greenhouseId.matches("greenhouse-[1-9][0-9]*")
+                || (user == null && !"plot-1".equals(plotId))) {
             return;
         }
-        if (user == null || !plotId.matches("[A-Za-z0-9_-]{1,100}") || !greenhouseId.matches("greenhouse-[1-9][0-9]*")) {
-            return;
-        }
-        final String uid = user.getUid();
+        // Guests may read only shared Demo Plot assignments; private plots still
+        // require an authenticated account and remain owner-scoped.
+        final String uid = user == null ? "" : user.getUid();
         com.google.firebase.firestore.FirebaseFirestore store = com.google.firebase.firestore.FirebaseFirestore.getInstance();
         // Keep private plots owner-scoped. Demo Plot reads only its linked cameras.
         com.google.firebase.firestore.Query assignments = "plot-1".equals(plotId)
@@ -692,7 +685,7 @@ public class MainActivity extends Activity {
         assignments.get().addOnSuccessListener(applyAssignments::accept).addOnFailureListener(e -> {
             android.util.Log.w("GrowPlotStreams","Shared assignment read failed; checking owner-scoped fallback",e);
             // Preserve the last known working behavior for the camera owner.
-            if ("plot-1".equals(plotId)) {
+            if ("plot-1".equals(plotId) && user != null) {
                 store.collection("feed_assignments").whereEqualTo("ownerUserId",uid).get()
                     .addOnSuccessListener(applyAssignments::accept)
                     .addOnFailureListener(err -> {assignedStreamsLoading=false;android.util.Log.w("GrowPlotStreams","Owner assignment fallback failed",err);});

@@ -19,7 +19,8 @@ service cloud.firestore {
           && request.resource.data.readOnly == true
           && request.resource.data.greenhouseCount == 1
           && request.resource.data.sectionsPerGreenhouse == 2);
-      // All authenticated users may view plots; only owners may delete.
+      // Plot documents remain authenticated; guests need only the shared Demo
+      // Plot camera assignment and linked camera IP records below.
       allow read: if request.auth != null;
       allow delete: if request.auth != null
         && plotId != 'plot-1'
@@ -36,8 +37,7 @@ service cloud.firestore {
     }
     // Demo camera read-only access: a device must have a linked Demo Plot assignment.
     function isDemoLinkedCamera(deviceId) {
-      return request.auth != null
-        && resource.data.ownerUserId is string
+      return resource.data.ownerUserId is string
         && resource.data.deviceId is string
         && deviceId == resource.data.ownerUserId + '_' + resource.data.deviceId
         && (
@@ -50,8 +50,8 @@ service cloud.firestore {
         );
     }
     match /data_feeds/{deviceId} {
-      allow read: if request.auth != null
-        && (resource.data.ownerUserId == request.auth.uid || isDemoLinkedCamera(deviceId));
+      allow read: if (request.auth != null && resource.data.ownerUserId == request.auth.uid)
+        || isDemoLinkedCamera(deviceId);
       allow create: if request.auth != null
         && deviceId.matches(request.auth.uid + '_[A-Za-z0-9_-]+')
         && request.resource.data.ownerUserId == request.auth.uid
@@ -64,8 +64,10 @@ service cloud.firestore {
         && resource.data.ownerUserId == request.auth.uid;
     }
     match /feed_assignments/{assignmentId} {
-      allow read: if request.auth != null
-        && (resource.data.ownerUserId == request.auth.uid || resource.data.plotId == "plot-1");
+      // Public guest reads are restricted to shared Demo Plot assignments.
+      // Private assignments remain visible only to their signed-in owner.
+      allow read: if resource.data.plotId == "plot-1"
+        || (request.auth != null && resource.data.ownerUserId == request.auth.uid);
       // A signed-in owner may pair only an existing owned plot and device.
       allow create: if request.auth != null
         && assignmentId.matches(request.auth.uid + '_[A-Za-z0-9_-]+')
