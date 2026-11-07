@@ -38,7 +38,8 @@ VERSION_NAME="$(sed -n 's/^versionName=//p' "$IDENTITY" | head -n1)"
 VERSION_CODE="$(sed -n 's/^versionCode=//p' "$IDENTITY" | head -n1)"
 [[ -n "$VERSION_NAME" && "$VERSION_CODE" =~ ^[1-9][0-9]*$ ]] || fail "invalid version.properties"
 TEMP_JS="$(mktemp --suffix=.js)"
-trap 'rm -f "$TEMP_JS"' EXIT
+TIMELINE_TEST_CLASSES="$(mktemp -d)"
+trap 'rm -f "$TEMP_JS"; rm -rf "$TIMELINE_TEST_CLASSES"' EXIT
 python3 - "$ROOT/app/src/main/assets/index.html" > "$TEMP_JS" <<'PY'
 import re, sys
 html = open(sys.argv[1], encoding='utf-8').read()
@@ -46,6 +47,13 @@ scripts = re.findall(r'<script(?:\s[^>]*)?>(.*?)</script\s*>', html, flags=re.S|
 print('\n'.join(scripts))
 PY
 node --check "$TEMP_JS" || fail "inline JavaScript syntax check failed"
+# Unit-test period bucketing directly with Java, before the Android build.
+javac -d "$TIMELINE_TEST_CLASSES" \
+  "$ROOT/app/src/main/java/com/growplot/farm/TimelineBuckets.java" \
+  "$ROOT/tools/tests/TimelineBucketsSmokeTest.java" \
+  || fail "Java photo-timeline regression compilation failed"
+java -cp "$TIMELINE_TEST_CLASSES" com.growplot.farm.TimelineBucketsSmokeTest \
+  || fail "Java photo-timeline regression check failed"
 node "$ROOT/tools/tests/kindwise-regression.js" || fail "Kindwise integration regression check failed"
 node "$ROOT/tools/tests/plantnet-analysis-regression.js" || fail "Pl@ntNet analysis integration regression check failed"
 node "$ROOT/tools/tests/manage-farm-regression.js" || fail "Manage Farm regression check failed"
