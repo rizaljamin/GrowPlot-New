@@ -567,6 +567,10 @@ public class MainActivity extends Activity {
 
     // Owner-scoped camera routes. Demo plot deliberately keeps legacy local IP settings.
     private final String[] assignedStreamUrls = new String[4];
+    private final String[] assignedStreamDeviceIds = new String[4];
+    private final String[] assignedStreamUsernames = new String[4];
+    private boolean assignedCameraPromptShowing = false;
+    private final boolean[] assignedCameraPromptPending = new boolean[4];
     private volatile boolean userStreamMode = false;
     private int assignedStreamGeneration = 0;
     private String activeStreamScope = "";
@@ -642,6 +646,8 @@ public class MainActivity extends Activity {
         // All plots, including shared Demo Plot, resolve their assigned cameras from Firestore.
         userStreamMode = true;
         java.util.Arrays.fill(assignedStreamUrls, null);
+        java.util.Arrays.fill(assignedStreamDeviceIds, null);
+        java.util.Arrays.fill(assignedStreamUsernames, null);
         assignedStreamsLoading = userStreamMode;
         resetCctvSurfaces(); // Clear old frames before loading the selected plot.
         com.google.firebase.auth.FirebaseUser user = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
@@ -677,6 +683,8 @@ public class MainActivity extends Activity {
                         if (actualPort < 1 || actualPort > 65535) return;
                         if (path == null || path.isEmpty()) path = "rtsp".equals(scheme) ? "/stream1" : "/videofeed";
                         if (!path.startsWith("/") || path.contains("..") || path.contains("@") || path.contains("?")) return;
+                        assignedStreamDeviceIds[slot] = deviceId;
+                        assignedStreamUsernames[slot] = device.getString("username") == null ? "" : device.getString("username");
                         assignedStreamUrls[slot] = scheme+"://"+host+":"+actualPort+path;
                         refreshAssignedPlayer(slot);
                     });
@@ -699,6 +707,173 @@ public class MainActivity extends Activity {
         if (userStreamMode) return assignedStreamUrls[camera] == null ? "" : assignedStreamUrls[camera];
         String ip = cctvIp(camera);
         return ip.isEmpty() ? "" : "http://" + ip + ":8080/videofeed";
+    }
+
+    private String assignedCredentialIdentity(String deviceId) {
+        if (deviceId == null || !deviceId.matches("[A-Za-z0-9_-]{1,100}")) return "";
+        com.google.firebase.auth.FirebaseUser user = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+        String owner = user == null ? "guest" : user.getUid();
+        return owner + "_" + deviceId;
+    }
+
+    private String assignedCredentialKeyAlias(String identity) {
+        String id = java.util.UUID.nameUUIDFromBytes(identity.getBytes(StandardCharsets.UTF_8)).toString().replace("-", "");
+        return "GrowPlotCamera_" + id;
+    }
+
+    private String[] assignedCameraCredentials(String deviceId) {
+        String identity = assignedCredentialIdentity(deviceId);
+        if (identity.isEmpty()) return new String[]{"", ""};
+        try {
+            String encoded = getPrefs().getString("assigned_camera_credentials_" + identity, "");
+            if (encoded.isEmpty()) return new String[]{"", ""};
+            byte[] combined = Base64.decode(encoded, Base64.NO_WRAP);
+            byte[] iv = java.util.Arrays.copyOfRange(combined, 0, 12);
+            byte[] ciphertext = java.util.Arrays.copyOfRange(combined, 12, combined.length);
+            KeyStore store = KeyStore.getInstance("AndroidKeyStore");
+            store.load(null);
+            SecretKey key = (SecretKey) store.getKey(assignedCredentialKeyAlias(identity), null);
+            if (key == null) return new String[]{"", ""};
+            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+            cipher.init(Cipher.DECRYPT_MODE, key, new GCMParameterSpec(128, iv));
+            JSONObject value = new JSONObject(new String(cipher.doFinal(ciphertext), StandardCharsets.UTF_8));
+            return new String[]{value.optString("username", ""), value.optString("password", "")};
+        } catch (Exception ignored) { return new String[]{"", ""}; }
+    }
+
+    boolean saveAssignedCameraCredentials(String deviceId, String username, String password) {
+        String identity = assignedCredentialIdentity(deviceId);
+        if (identity.isEmpty() || username == null || username.trim().isEmpty() || password == null || password.isEmpty()) return false;
+        try {
+            String alias = assignedCredentialKeyAlias(identity);
+            KeyStore store = KeyStore.getInstance("AndroidKeyStore");
+            store.load(null);
+            if (!store.containsAlias(alias)) {
+                KeyGenerator generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore");
+                generator.init(new KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
+                        .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                        .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                        .setRandomizedEncryptionRequired(true).build());
+                generator.generateKey();
+                store.load(null);
+            }
+            SecretKey key = (SecretKey) store.getKey(alias, null);
+            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+            cipher.init(Cipher.ENCRYPT_MODE, key);
+            JSONObject value = new JSONObject();
+            value.put("username", username.trim());
+            value.put("password", password);
+            byte[] encrypted = cipher.doFinal(value.toString().getBytes(StandardCharsets.UTF_8));
+            byte[] combined = new byte[cipher.getIV().length + encrypted.length];
+            System.arraycopy(cipher.getIV(), 0, combined, 0, cipher.getIV().length);
+            System.arraycopy(encrypted, 0, combined, cipher.getIV().length, encrypted.length);
+            return getPrefs().edit().putString("assigned_camera_credentials_" + identity,
+                    Base64.encodeToString(combined, Base64.NO_WRAP)).commit();
+        } catch (Exception ignored) { return false; }
+    }
+
+    private String routeWithAssignedCredentials(int slot, String route, VLCVideoLayout layout) {
+        if (!userStreamMode || route == null
+                || !(route.startsWith("rtsp://") || route.startsWith("rtsps://"))) return route;
+        if (slot < 1 || slot > 3) return null;
+        String deviceId = assignedStreamDeviceIds[slot];
+        String[] credentials = assignedCameraCredentials(deviceId);
+        if (deviceId == null || credentials[0].isEmpty() || credentials[1].isEmpty()) {
+            showAssignedCameraMessage(layout, "Enter the camera admin login to connect");
+            promptForAssignedCameraCredentials(slot, deviceId, assignedStreamUsernames[slot]);
+            return null;
+        }
+        for (int i = layout.getChildCount() - 1; i >= 0; i--) {
+            View child = layout.getChildAt(i);
+            if (child instanceof TextView) layout.removeViewAt(i);
+        }
+        int schemeEnd = route.indexOf("://") + 3;
+        return route.substring(0, schemeEnd) + Uri.encode(credentials[0]) + ":" + Uri.encode(credentials[1])
+                + "@" + route.substring(schemeEnd);
+    }
+
+    private void showAssignedCameraMessage(VLCVideoLayout layout, String text) {
+        if (layout == null) return;
+        for (int i = layout.getChildCount() - 1; i >= 0; i--) {
+            View child = layout.getChildAt(i);
+            if (child instanceof TextView) layout.removeViewAt(i);
+        }
+        TextView message = new TextView(this);
+        message.setText(text);
+        message.setTextColor(Color.WHITE);
+        message.setGravity(Gravity.CENTER);
+        message.setPadding(dp(12), dp(8), dp(12), dp(8));
+        layout.addView(message, new FrameLayout.LayoutParams(-1, -1));
+    }
+
+    private void promptForAssignedCameraCredentials(int slot, String deviceId, String savedUsername) {
+        if (!activityResumed || isFinishing() || slot < 1 || slot > 3
+                || deviceId == null || !deviceId.matches("[A-Za-z0-9_-]{1,100}")) return;
+        assignedCameraPromptPending[slot] = true;
+        showNextAssignedCameraCredentialPrompt();
+    }
+
+    private void showNextAssignedCameraCredentialPrompt() {
+        if (!activityResumed || isFinishing() || assignedCameraPromptShowing) return;
+        for (int slot = 1; slot <= 3; slot++) {
+            if (!assignedCameraPromptPending[slot]) continue;
+            String deviceId = assignedStreamDeviceIds[slot];
+            if (deviceId == null || !assignedCameraCredentials(deviceId)[1].isEmpty()) {
+                assignedCameraPromptPending[slot] = false;
+                continue;
+            }
+            assignedCameraPromptPending[slot] = false;
+            assignedCameraPromptShowing = true;
+            String savedUsername = assignedStreamUsernames[slot];
+            LinearLayout form = new LinearLayout(this);
+            form.setOrientation(LinearLayout.VERTICAL);
+            form.setPadding(dp(24), dp(8), dp(24), dp(4));
+            TextView note = new TextView(this);
+            note.setText("Enter the admin account for " + deviceId + ". GrowPlot encrypts it on this device.");
+            form.addView(note, new LinearLayout.LayoutParams(-1, -2));
+            EditText username = new EditText(this);
+            username.setSingleLine(true);
+            username.setHint("Camera admin username");
+            username.setText(savedUsername == null ? "" : savedUsername);
+            form.addView(username, new LinearLayout.LayoutParams(-1, -2));
+            EditText password = new EditText(this);
+            password.setSingleLine(true);
+            password.setHint("Camera admin password");
+            password.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+            form.addView(password, new LinearLayout.LayoutParams(-1, -2));
+            android.app.AlertDialog dialog = new android.app.AlertDialog.Builder(this)
+                    .setTitle("Connect CCTV " + String.format(Locale.US, "%02d", slot) + " · VIGI")
+                    .setView(form)
+                    .setNegativeButton("Cancel", (d, which) -> { })
+                    .setPositiveButton("Connect", null)
+                    .create();
+            dialog.setOnDismissListener(d -> {
+                assignedCameraPromptShowing = false;
+                mainHandler.postDelayed(this::showNextAssignedCameraCredentialPrompt, 250L);
+            });
+            dialog.setOnShowListener(ignored -> dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener(view -> {
+                String user = username.getText().toString().trim();
+                String secret = password.getText().toString();
+                if (user.isEmpty()) { username.setError("Enter the camera admin username"); return; }
+                if (secret.isEmpty()) { password.setError("Enter the camera admin password"); return; }
+                if (!saveAssignedCameraCredentials(deviceId, user, secret)) {
+                    password.setError("Could not encrypt these credentials on this device");
+                    return;
+                }
+                username.setText("");
+                password.setText("");
+                dialog.dismiss();
+                reconnectAssignedCameraSlot(slot);
+            }));
+            dialog.show();
+            return;
+        }
+    }
+
+    private void reconnectAssignedCameraSlot(int slot) {
+        if (slot == 1) reconnectIpWebcamVlc();
+        else if (slot == 2) reconnectCctv02Vlc();
+        else if (slot == 3) reconnectCctv03Vlc();
     }
 
     private String[] vigiCctv03Credentials() {
@@ -1057,8 +1232,11 @@ public class MainActivity extends Activity {
                     }, 5000L);
                 }
             });
-            if (cctvStreamUrl(1).isEmpty()) { stopIpWebcamVlc(); return; }
-            Media media = new Media(ipWebcamVlc, Uri.parse(cctvStreamUrl(1)));
+            String route = cctvStreamUrl(1);
+            if (route.isEmpty()) { stopIpWebcamVlc(); return; }
+            route = routeWithAssignedCredentials(1, route, videoLayout);
+            if (route == null) { stopIpWebcamVlc(); return; }
+            Media media = new Media(ipWebcamVlc, Uri.parse(route));
             media.addOption(":network-caching=250");
             media.addOption(":live-caching=250");
             ipWebcamVlcPlayer.setMedia(media);
@@ -1269,18 +1447,8 @@ public class MainActivity extends Activity {
             });
             String route = cctvStreamUrl(2);
             if (route.isEmpty()) { stopCctv02Vlc(); return; }
-            if (userStreamMode && (route.startsWith("rtsp://") || route.startsWith("rtsps://"))) {
-                String[] credentials = vigiCctv03Credentials();
-                if (credentials[0].isEmpty() || credentials[1].isEmpty()) {
-                    stopCctv02Vlc();
-                    promptForAssignedVigiCctv02Credentials();
-                    return;
-                }
-                int schemeEnd = route.indexOf("://") + 3;
-                if (!route.substring(schemeEnd).split("/",2)[0].contains("@")) {
-                    route = route.substring(0,schemeEnd)+Uri.encode(credentials[0])+":"+Uri.encode(credentials[1])+"@"+route.substring(schemeEnd);
-                }
-            }
+            route = routeWithAssignedCredentials(2, route, videoLayout);
+            if (route == null) { stopCctv02Vlc(); return; }
             Media media = new Media(ipWebcam2Vlc, Uri.parse(route));
             media.addOption(":network-caching=250");
             media.addOption(":live-caching=250");
@@ -1343,22 +1511,8 @@ public class MainActivity extends Activity {
         if (userStreamMode) {
             String route = cctvStreamUrl(3);
             if (route == null || route.isEmpty()) { stopCctv03Vlc(); return; }
-            // Assigned RTSP feeds must request camera credentials at connection time.
-            // Never persist the camera password in Firebase or embed it in a log.
-            if (route.startsWith("rtsp://") || route.startsWith("rtsps://")) {
-                String[] credentials = vigiCctv03Credentials();
-                if (credentials[0].isEmpty() || credentials[1].isEmpty() || cctv03CredentialsRejected) {
-                    showCctv03VigiMessage(videoLayout, "Enter VIGI credentials to connect");
-                    promptForCctv03VigiCredentials();
-                    return;
-                }
-                if (!route.substring(route.indexOf("://") + 3).split("/", 2)[0].contains("@")) {
-                    int schemeEnd = route.indexOf("://") + 3;
-                    route = route.substring(0, schemeEnd)
-                            + Uri.encode(credentials[0]) + ":" + Uri.encode(credentials[1]) + "@"
-                            + route.substring(schemeEnd);
-                }
-            }
+            route = routeWithAssignedCredentials(3, route, videoLayout);
+            if (route == null) { stopCctv03Vlc(); return; }
             try {
                 ArrayList<String> options = new ArrayList<>();
                 options.add("--no-audio"); options.add("--network-caching=350");

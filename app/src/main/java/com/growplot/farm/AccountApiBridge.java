@@ -273,14 +273,20 @@ public final class AccountApiBridge {
                 if(!password.isEmpty()){
                     Map<String,Object> args=new com.google.gson.Gson().fromJson(input.toString(),java.util.Map.class);
                     FirebaseFunctions.getInstance("us-central1").getHttpsCallable("saveOwnedDevice").call(args)
-                        .addOnSuccessListener(result->respond(action,true,"Device and encrypted password saved.",null))
+                        .addOnSuccessListener(result->{
+                            if(activity instanceof MainActivity)((MainActivity)activity).saveAssignedCameraCredentials(deviceId,input.optString("username",""),password);
+                            respond(action,true,"Device and encrypted password saved.",null);
+                        })
                         .addOnFailureListener(e->{
                             // Cloud Functions may not be deployed. Save only non-secret device metadata.
                             // For the legacy VIGI CCTV03, keep credentials encrypted by Android Keystore.
                             // Never put the password in Firestore or logs.
                             boolean locallyProtected=false;
-                            if("CCTV03".equals(deviceId)&&activity instanceof MainActivity){
-                                locallyProtected=((MainActivity)activity).saveVigiCctv03Credentials(input.optString("username",""),password);
+                            if(activity instanceof MainActivity){
+                                MainActivity main=(MainActivity)activity;
+                                locallyProtected=main.saveAssignedCameraCredentials(deviceId,input.optString("username",""),password);
+                                if(!locallyProtected&&"CCTV03".equals(deviceId))
+                                    locallyProtected=main.saveVigiCctv03Credentials(input.optString("username",""),password);
                             }
                             final boolean protectedOnDevice=locallyProtected;
                             db.collection("data_feeds").document(user.getUid()+"_"+deviceId).set(record,SetOptions.merge())

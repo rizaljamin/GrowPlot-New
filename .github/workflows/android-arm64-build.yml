@@ -1,6 +1,6 @@
 name: GrowPlot ARM64 APK
-run-name: 'GrowPlot v0.7.03 Build 10 | ARM64 APK | ${{ github.event_name }}'
-# Build 13: CCTV picker and Firebase camera assignment safeguard (server function requires deployment).
+run-name: 'GrowPlot v0.7.03 Build 11 | ARM64 APK | ${{ github.event_name }}'
+# Build 11: Use per-device camera credentials for assigned VIGI RTSP streams.
 
 on:
   workflow_dispatch:

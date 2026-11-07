@@ -1,3 +1,7 @@
+2026-11-07 | v0.7.03 Build 11 | versionCode 315 | com.growplot.farm
+Changes: Make assigned RTSP cameras authenticate per device ID across CCTV01–CCTV03. Prompt for each camera's admin username/password when no local credential is present, encrypt the login on-device with Android Keystore, and use it in that section's VLC stream. Saving camera credentials through Camera & IoT Settings also protects a device-local copy so the stream starts immediately. Two VIGI cameras assigned to two sections now keep separate credentials.
+Validation: ARM64 build and on-device VIGI playback verification pending.
+
 2026-11-06 | v0.7.03 Build 10 | versionCode 314 | com.growplot.farm
 Changes: Resolve the plot feed from the configured Google Drive storage path before a cached API folder ID, preventing stale folder IDs from hiding current images. Align bundled Plot 2/Plot 3 paths with growplot2026@gmail.com Image_Feed folders. Show bundled sample photos and sample health copy only for Demo Plot; private plots show actual saved timeline photos and their configured feed path.
 Validation: Timeline/path regression checks and ARM64 build pending. Drive storage-paths.json points Plot 2 to Image_Feed/growplot2026@gmail.com/plot02_pp5, matching the saved CCTV01/CCTV02 images. Device confirmation of the tablet's folder grant and live scan pending.
