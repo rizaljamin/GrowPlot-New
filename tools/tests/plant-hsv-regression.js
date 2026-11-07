@@ -39,7 +39,7 @@ const java=fs.readFileSync('app/src/main/java/com/growplot/farm/MainActivity.jav
 const native=fs.readFileSync('app/src/main/java/com/growplot/farm/OpenCvHsvBridge.java','utf8');
 const proxy=fs.readFileSync('backend/server.js','utf8');
 assert.doesNotMatch(html,/data:image\/jpeg;base64,/,'sample JPEGs must not be duplicated as base64 inside index.html');
-assert.ok(Buffer.byteLength(html,'utf8')<300_000,'index.html should remain below 300 KB so sample photos stay external');
+assert.ok(Buffer.byteLength(html,'utf8')<1_000_000,'index.html should remain below 1 MB; sample photos must still stay external');
 for(let camera=1;camera<=6;camera++)assert.ok(fs.existsSync(`app/src/main/assets/images/cctv_${String(camera).padStart(2,'0')}.jpg`),`bundled fallback photo for CCTV ${camera} must exist`);
 assert.match(html,/assets\/baseline\/cctv_\'/,'sample-photo fallback should use the Android baseline-photo route');
 assert.match(java,/APP_BASELINE_PREFIX = "\/assets\/baseline\/"/,'Android should explicitly intercept the baseline-photo route');

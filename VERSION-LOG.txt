@@ -1,3 +1,27 @@
+2026-11-07 | v0.7.03 Build 16 | versionCode 320 | com.growplot.farm
+Changes: Daily A.I Health now lists EVERY saved JPEG belonging to the selected plot and CCTV in the existing single-photo swipe slider, sorted by capture timestamp, with no daily grouping or four-photo cut-off. Show the original filename and photo count; retain Weekly/Monthly latest photo per populated period. The Google Drive metadata-first downloader, timeline serialization and JS local cache all preserve every Daily photo.
+Validation: Eight-image CCTV01 fixture covering duplicate capture dates passed in JavaScript, and inline HTML JavaScript syntax passed. Full GitHub Actions ARM64 compilation/signature verification and Android photo display require confirmation.
+
+2026-11-07 | v0.7.03 Build 15 | versionCode 319 | com.growplot.farm
+Changes: Enumerate saved Google Drive JPEG metadata before selecting images or downloading, group by CCTV and distinct Malaysia-local days/weeks/months, choose the latest capture in each of the four most recent populated periods (non-consecutive periods allowed), and retain one-photo slider. Avoid dropping older distinct days when cached current photos share the newest date. Add user-supplied CCTV01 screenshot fixture and Java period regression. Raise index.html test cap from 300 KB to 1 MB while retaining the no-embedded-sample-JPEG assertion.
+Validation: GitHub ARM64 build triggered by release identity update; Google Drive/Android photo display remains pending device verification.
+
+2026-11-06 | v0.7.03 Build 14 | versionCode 318 | com.growplot.farm
+Changes: Weekly and monthly timelines now select the latest four calendar periods that contain saved photos, based on photo capture dates rather than today. Empty timelines no longer display date windows based on today. Build 13 also adds a swipeable single-photo slider and a Drive API scan fallback.
+Validation: GitHub ARM64 build pending. Verify saved-photo discovery and date ordering on the tablet.
+
+2026-11-06 | v0.7.03 Build 13 | versionCode 317 | com.growplot.farm
+Changes: Replace the four-tile photo history with one large photo card and arrow/swipe navigation. If Android’s Google Drive folder provider returns an empty listing, retry photo discovery through the saved Drive API folder.
+Validation: GitHub ARM64 build pending; photo discovery and slider interaction require tablet verification.
+
+2026-11-06 | v0.7.03 Build 12 | versionCode 316 | com.growplot.farm
+Changes: Daily photo history now sorts the selected plot's actual saved photos by capture time and shows the latest four, oldest to newest. It no longer reserves slots for dates without photos or substitutes bundled sample photos into photo history. Weekly, monthly, and yearly history still selects the latest saved photo inside each calendar period. Existing cached daily history is migrated into the same latest-four ordering.
+Validation: GitHub Actions ARM64 build #834 passed; the manifest confirms versionCode 316 and the current GrowPlot stable signing certificate. Saved-photo ordering and feed-folder scanning still require tablet verification.
+
+2026-11-06 | v0.7.03 Build 11 | versionCode 315 | com.growplot.farm
+Changes: Keep daily, weekly, and monthly timeline photos inside their own Malaysia-calendar period; leave periods with no matching photo empty instead of showing another date's image. Keep CCTV02/CCTV03 snapshot retry tickers alive while VLC temporarily reconnects, restart all three snapshot checks on app resume and interval changes, and prevent overlapping Drive checks per camera.
+Validation: All JavaScript regression checks passed. Local ARM64 compilation is unavailable in this environment because the project requires JDK 17 and only JDK 21 is installed; the GitHub ARM64 build and Android tablet verification are pending.
+
 2026-11-06 | v0.7.03 Build 10 | versionCode 314 | com.growplot.farm
 Changes: Resolve the plot feed from the configured Google Drive storage path before a cached API folder ID, preventing stale folder IDs from hiding current images. Align bundled Plot 2/Plot 3 paths with growplot2026@gmail.com Image_Feed folders. Show bundled sample photos and sample health copy only for Demo Plot; private plots show actual saved timeline photos and their configured feed path.
 Validation: Timeline/path regression checks and ARM64 build pending. Drive storage-paths.json points Plot 2 to Image_Feed/growplot2026@gmail.com/plot02_pp5, matching the saved CCTV01/CCTV02 images. Device confirmation of the tablet's folder grant and live scan pending.

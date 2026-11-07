@@ -3,30 +3,135 @@ const html=fs.readFileSync('app/src/main/assets/index.html','utf8');
 const java=fs.readFileSync('app/src/main/java/com/growplot/farm/MainActivity.java','utf8');
 const source=html.slice(html.indexOf('const timelineModes='),html.indexOf('const defaultPlots='));
 const values=new Map();
-function context(){const ctx={plantIds:Array(6).fill({}),imageData:Array.from({length:6},(_,i)=>'https://appassets.androidplatform.net/assets/baseline/cctv_'+String(i+1).padStart(2,'0')+'.jpg'),snapshotTimes:Array.from({length:6},(_,i)=>({iso:'2026-10-08T18:46:'+String(21+i*4).padStart(2,'0')+'+08:00'})),localStorage:{getItem:key=>values.has(key)?values.get(key):null,setItem:(key,value)=>values.set(key,value)},formatCapture:()=>({date:'today',time:'now'}),window:{GrowPlotBridge:{getTimelineInterval:()=> 'daily'}}};vm.createContext(ctx);vm.runInContext(source+';globalThis.timelineApi={loadCameraTimeline,saveCameraTimeline,emptyTimeline,timelineModes,addCachedCurrentPhotos,suppliedBaselineTimelines,applySuppliedBaselineIfEmpty}',ctx);return ctx.timelineApi}
+function context(){const ctx={plantIds:Array(6).fill({}),localStorage:{getItem:key=>values.has(key)?values.get(key):null,setItem:(key,value)=>values.set(key,value)},formatCapture:timestamp=>{const d=new Date(timestamp);return {date:new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Kuala_Lumpur',day:'2-digit',month:'short',year:'numeric'}).format(d).replaceAll(',',''),time:new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Kuala_Lumpur',hour:'2-digit',minute:'2-digit'}).format(d)}},window:{GrowPlotBridge:{getTimelineInterval:()=> 'daily'}}};vm.createContext(ctx);vm.runInContext(source+';globalThis.timelineApi={loadCameraTimeline,saveCameraTimeline,emptyTimeline,addCachedCurrentPhotos,applySuppliedBaselineIfEmpty}',ctx);return ctx.timelineApi}
 let api=context();
+const base=Date.parse('2026-10-01T12:00:00+08:00');
 const daily=Array.from({length:6},(_,i)=>api.emptyTimeline(i+1,'daily'));
-daily[1].slots[3]={label:'Day 4',expectedDate:'21 Oct 2026',available:true,imageUrl:'https://appassets.androidplatform.net/assets/history/plot-2/cctv_02_1792584000000_ab12.jpg',capturedAt:'21 Oct 2026'};
+daily[1].slots=Array.from({length:6},(_,i)=>({available:true,imageUrl:'saved-'+i+'.jpg',timestamp:base+i*86400000,capturedAt:'capture '+i,expectedDate:'date '+i}));
 api.saveCameraTimeline('plot-2','daily',daily);
 api=context();
-assert.strictEqual(api.loadCameraTimeline('plot-2','daily')[1].slots[3].imageUrl,daily[1].slots[3].imageUrl,'daily timeline should restore after a page reload');
-assert.strictEqual(api.loadCameraTimeline('plot-2','weekly')[1].slots[3].available,false,'weekly timeline should keep its own interval data');
-assert.strictEqual(api.loadCameraTimeline('plot-1','daily')[1].slots[3].available,false,'timeline cache must be scoped to the selected plot');
-for(const mode of ['daily','weekly','monthly','yearly']){const timeline=Array.from({length:6},(_,i)=>api.emptyTimeline(i+1,mode));assert(api.addCachedCurrentPhotos('plot-2',mode,[{camera:2,timestamp:Date.now()}],timeline),'latest cached photo should populate the current period when history is unavailable');assert(timeline[1].slots[3].available&&timeline[1].slots[3].imageUrl.includes('/assets/images/plot-2/cctv_02.jpg'),'fallback should use the local cached camera image');assert.strictEqual(timeline[1].slots[0].available,false,'fallback must not claim a photo for older periods');}
-for(const mode of ['daily','weekly','monthly','yearly']){const timeline=Array.from({length:6},(_,i)=>api.emptyTimeline(i+1,mode)),timestamp=Date.parse('2026-10-08T18:46:37+08:00');assert(api.addCachedCurrentPhotos('plot-2',mode,[{camera:2,timestamp}],timeline),'cached photos must populate a date-anchored period even when they are older than today');const chosen=timeline[1].slots.find(slot=>slot.available);assert(chosen,'an older cached photo should be visible in the interval timeline');assert.strictEqual(chosen.expectedDate,mode==='daily'?'08 Oct 2026':mode==='weekly'?'05 Oct 2026':mode==='monthly'?'01 Oct 2026':'01 Jan 2026','cached photo should be placed in its actual day/week/month/year bucket');}
-for(const mode of ['daily','weekly','monthly','yearly']){const baseline=api.suppliedBaselineTimelines(mode);assert.strictEqual(baseline.length,6,'supplied baseline should cover all six cameras');for(const camera of baseline){const shown=camera.slots.find(slot=>slot.available);assert(shown&&shown.suppliedBaseline,'each bundled baseline photo should appear in its capture period');assert(shown.imageUrl.startsWith('https://appassets.androidplatform.net/assets/baseline/cctv_'),'sample fallback should use the stable same-origin baseline route');}}
-assert(java.includes('APP_BASELINE_PREFIX = "/assets/baseline/"'),'Android must intercept the baseline photo route');assert(java.includes('getAssets().open("images/" + name)'),'baseline route must serve the bundled JPEG assets');for(let camera=1;camera<=6;camera++)assert(fs.existsSync('app/src/main/assets/images/cctv_'+String(camera).padStart(2,'0')+'.jpg'),'bundled baseline photo must exist for camera '+camera);
-const scan=html.slice(html.indexOf('window.onSnapshotScan=function'),html.indexOf("if(window.GrowPlotBridge){document.getElementById('refreshInterval')"));
-assert(scan.includes('saveCameraTimeline(selectedPlotId,timelineInterval,cameraTimeline)'),'successful scans should persist the selected interval timeline');
-assert(scan.includes('Array.isArray(data.timelinePhotos)'),'status-only scans should leave the saved timeline intact');
-assert(html.includes('cameraTimeline=loadCameraTimeline(selectedPlotId,value)'),'switching intervals should restore that interval while its scan runs');
-assert(java.includes('TimelineBuckets.latestPhotoIndices(periods, captureTimes)'),'timeline should choose the latest photo per period');
-assert(java.includes('slot.put("fallback", fallback)')&&java.includes('slot.put("repeated", repeated)'),'timeline should label gap-fill and repeated photos');
-assert(java.includes('for (int candidate : fallbackOrder)'),'missing periods should use other saved photos before repeating');
-assert(java.indexOf('if (treeUri != null) {',java.indexOf('private synchronized void scanSnapshotFolder(String requestedPlotId)'))<java.indexOf('else if (apiFolderId != null',java.indexOf('private synchronized void scanSnapshotFolder(String requestedPlotId)')),'configured Drive path should take precedence over a stale cached API folder');
+const restored=api.loadCameraTimeline('plot-2','daily')[1].slots;
+assert.strictEqual(restored.length,6,'daily history must retain every saved CCTV photo');
+assert.deepStrictEqual(Array.from(restored,slot=>slot.timestamp),[base,base+86400000,base+2*86400000,base+3*86400000,base+4*86400000,base+5*86400000],'daily history should list all saved photos in capture-time order');
+assert.strictEqual(api.loadCameraTimeline('plot-2','weekly')[1].slots.length,0,'weekly timeline should not show empty date windows without saved photos');
+assert.strictEqual(api.loadCameraTimeline('plot-1','daily')[1].slots.length,0,'timeline cache must be scoped to the selected plot');
+const cached=Array.from({length:6},(_,i)=>api.emptyTimeline(i+1,'daily'));
+assert(api.addCachedCurrentPhotos('plot-2','daily',[{camera:2,timestamp:base+8*86400000}],cached),'a cached current photo should populate an otherwise empty daily history');
+assert.strictEqual(cached[1].slots[0].timestamp,base+8*86400000,'cached daily photo should use its capture timestamp');
 const privateEmpty=Array.from({length:6},(_,i)=>api.emptyTimeline(i+1,'daily'));
-assert(!api.applySuppliedBaselineIfEmpty('plot-2','daily',privateEmpty).some(camera=>camera.slots.some(slot=>slot.suppliedBaseline)),'private plots must not substitute bundled sample photos');
-const demoEmpty=Array.from({length:6},(_,i)=>api.emptyTimeline(i+1,'daily'));
-assert(api.applySuppliedBaselineIfEmpty('plot-1','daily',demoEmpty).some(camera=>camera.slots.some(slot=>slot.suppliedBaseline)),'Demo Plot may retain its labeled sample baseline');
+assert.strictEqual(api.applySuppliedBaselineIfEmpty('plot-1','daily',privateEmpty),privateEmpty,'photo history must not replace saved photos with bundled samples');
+assert(!java.includes('TimelineBuckets.latestFourPhotoIndices(captureTimes)'),'daily timeline must not choose four individual files when some share the same day');
+assert(java.includes('TimelineBuckets.latestSavedPeriods(timelineInterval, captureTimes)'),'all interval modes must group saved photos before selecting');
+assert(java.includes('TimelineBuckets.latestPhotoIndices(periods, captureTimes)'),'weekly, monthly, and yearly history should keep calendar-period selection');
+assert(html.includes('All saved photos · oldest to newest'),'Daily view should explicitly list all saved CCTV images');
+assert(html.includes('No saved photos found'),'empty daily history should not show sample photos or blank calendar dates');
+assert(java.includes('selected.addAll(group);'),
+ 'Daily Google Drive scan must include all photos for the selected CCTV without date filtering');
+assert(java.includes('int slotCount = daily ? sorted.size() : periods.size()'),
+ 'Daily timeline must create one slot for every CCTV image');
+const dailyMethod=html.slice(html.indexOf('function normalizeDailyTimeline('),html.indexOf('function loadCameraTimeline('));
+assert(!dailyMethod.includes('latestByDay')&&!dailyMethod.includes('.slice(-4)'),
+ 'Daily cache must not group or truncate images by day');
 
-console.log('PASS: interval timelines restore by plot/interval; actual-period photos use the latest capture; missing periods fill from unused saved photos and repeats are marked.');
+assert(java.indexOf('if (treeUri != null) {',java.indexOf('private synchronized void scanSnapshotFolder(String requestedPlotId)'))<java.indexOf('else if (apiFolderId != null',java.indexOf('private synchronized void scanSnapshotFolder(String requestedPlotId)')),'configured Drive path should take precedence over a stale cached API folder');
+
+// The Drive scanner must list metadata before selecting photo timestamps and
+// downloading JPEG bytes. Date filtering belongs after discovery, never in listing.
+const drivePhase=java.slice(
+    java.indexOf('private List<FeedDocument> queryDriveImageFeed('),
+    java.indexOf('private void uploadDriveApiPhoto(')
+);
+const listingPhase=drivePhase.slice(
+    drivePhase.indexOf('private void collectDriveImageFeed('),
+    drivePhase.indexOf('private long parseDriveModifiedAt(')
+);
+assert(drivePhase.includes('List<DriveFeedCandidate> discovered = new ArrayList<>()'),
+    'Drive scan should first build an inventory of saved photo metadata');
+assert(drivePhase.indexOf('collectDriveImageFeed(folderId, discovered')
+    < drivePhase.indexOf('driveApiRequest("GET"'),
+    'Drive listing must finish before photos are downloaded');
+assert(!listingPhase.includes('driveApiRequest(')
+    && !listingPhase.includes('openInputStream('),
+    'discovery must not open, decode, or download JPEGs');
+assert(!listingPhase.includes('System.currentTimeMillis()')
+    && !listingPhase.includes('latestFour('),
+    'discovery must not compare a saved photo against today');
+assert(drivePhase.includes('group.sort((left, right) ->')
+    && drivePhase.includes('Long.compare(left.timestamp, right.timestamp)'),
+    'sort discovered image metadata by timestamp before choosing the latest');
+assert(!drivePhase.includes('latestFourPhotoIndices(captureTimes)')
+    && drivePhase.includes('latestSavedPeriods(timelineInterval, captureTimes)')
+    && drivePhase.includes('latestPhotoIndices(periods, captureTimes)'),
+    'all interval modes must group files by saved date/week/month before selecting one latest photo');
+assert(drivePhase.includes('indices.add(group.size() - 1)'),
+    'preserve the latest frame for the Home snapshot');
+assert(java.includes('document.modifiedAt > 0')
+    && java.includes('candidate.modifiedAt'),
+    'preserve actual Google Drive modifiedTime for files lacking an embedded capture date');
+assert(drivePhase.includes('catch (Exception downloadFailure)'),
+    'one inaccessible JPEG must not abort downloads for other saved photos');
+
+// Demo Plot fixture: five CCTV01 snapshots from 8–10 Oct 2026.
+// The current date must not affect the ordering.
+const samplePhotos=[
+    'CCTV01_20261008_184621.jpg',
+    'CCTV01_2026100800.jpg',
+    'CCTV01_20261009_104256.jpg',
+    'CCTV01_20261010_071851.jpg',
+    'CCTV01_20261010_103821_399.jpg'
+];
+const timestamp=name=>{
+    const match=name.match(/(\d{8})[_-]?(\d{6})/);
+    if(match)return Number(match[1]+match[2]);
+    const legacy=name.match(/(\d{8})[_-]?(\d{2})(?!\d)/);
+    return legacy?Number(legacy[1]+legacy[2]+'0000'):0;
+};
+const latest=samplePhotos.map(name=>({name,ts:timestamp(name)}))
+    .sort((a,b)=>a.ts-b.ts).slice(-4).map(photo=>photo.name);
+assert.deepStrictEqual(latest,[
+    'CCTV01_20261008_184621.jpg',
+    'CCTV01_20261009_104256.jpg',
+    'CCTV01_20261010_071851.jpg',
+    'CCTV01_20261010_103821_399.jpg'
+], 'source file inventory is ordered without referencing the current date');
+
+// CCTV01 user fixture: 8 files span FIVE distinct non-consecutive dates.
+// Daily must show ALL eight images, including multiple captures on 31 Oct, 1 Nov and 2 Nov.
+const sourceNames=[
+ 'CCTV01_20261026_145157_875.jpg',
+ 'CCTV01_20261031_083455_524.jpg',
+ 'CCTV01_20261031_124107_254.jpg',
+ 'CCTV01_20261101_222210_303.jpg',
+ 'CCTV01_20261101_224509_801.jpg',
+ 'CCTV01_20261102_165900_773.jpg',
+ 'CCTV01_20261102_211548_437.jpg',
+ 'CCTV01_20261104_100441_273.jpg'
+];
+const localTimestamp=name=>{
+ const m=name.match(/(\d{8})_(\d{6})/);
+ assert(m, 'photo fixture includes sortable timestamp: '+name);
+ const d=m[1],t=m[2];
+ return Date.parse(d.slice(0,4)+'-'+d.slice(4,6)+'-'+d.slice(6,8)+'T'
+    +t.slice(0,2)+':'+t.slice(2,4)+':'+t.slice(4,6)+'+08:00');
+};
+const dayTimeline=api.emptyTimeline(1,'daily');
+dayTimeline.slots=sourceNames.map((name,i)=>({
+ available:true,imageUrl:'saved-'+i+'.jpg',timestamp:localTimestamp(name),
+ capturedAt:name,expectedDate:name
+}));
+api.saveCameraTimeline('plot-1','daily',[dayTimeline]);
+const normalized=api.loadCameraTimeline('plot-1','daily')[0].slots;
+assert.strictEqual(normalized.length,8,'eight saved CCTV images should produce eight Daily slides');
+assert.deepStrictEqual(Array.from(normalized,photo=>photo.capturedAt),sourceNames,
+ 'Daily must preserve every saved file, even when multiple images share the same day');
+const newestCache=localTimestamp('CCTV01_20261104_100441_273.jpg');
+const olderSameDay=localTimestamp('CCTV01_20261104_094441_273.jpg');
+api.addCachedCurrentPhotos('plot-1','daily',[{camera:1,timestamp:olderSameDay}],api.loadCameraTimeline('plot-1','daily'));
+const deduped=api.loadCameraTimeline('plot-1','daily')[0].slots;
+assert.strictEqual(deduped.length,9,'cached additional same-day image must not hide any saved photo');
+assert.strictEqual(deduped[8].timestamp,newestCache,'older cached photo must not replace or remove the newest image');
+assert(java.includes('long timestampInName = timestampFromFileName(name)'),'metadata stage must sort by capture timestamp in filename when present');
+assert(java.includes('if (timestampInName <= 0) photo.capturedAt = parsed.getTime()'),
+ 'EXIF timestamp must not override a filename timestamp after Drive sorting');
+
+console.log('PASS: Daily lists all saved CCTV photos; Weekly and Monthly retain period grouping.');
