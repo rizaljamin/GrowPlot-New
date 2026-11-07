@@ -101,7 +101,7 @@ const sourceNames=[
  'CCTV01_20261104_100441_273.jpg'
 ];
 const localTimestamp=name=>{
- const m=name.match(/(\\d{8})_(\\d{6})/);
+ const m=name.match(/(\d{8})_(\d{6})/);
  assert(m, 'photo fixture includes sortable timestamp: '+name);
  const d=m[1],t=m[2];
  return Date.parse(d.slice(0,4)+'-'+d.slice(4,6)+'-'+d.slice(6,8)+'T'
