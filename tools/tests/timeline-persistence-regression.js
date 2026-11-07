@@ -11,8 +11,8 @@ daily[1].slots=Array.from({length:6},(_,i)=>({available:true,imageUrl:'saved-'+i
 api.saveCameraTimeline('plot-2','daily',daily);
 api=context();
 const restored=api.loadCameraTimeline('plot-2','daily')[1].slots;
-assert.strictEqual(restored.length,4,'daily history should retain exactly the latest four saved photos');
-assert.deepStrictEqual(Array.from(restored,slot=>slot.timestamp),[base+2*86400000,base+3*86400000,base+4*86400000,base+5*86400000],'daily history should sort saved photos by capture time, oldest to newest');
+assert.strictEqual(restored.length,6,'daily history must retain every saved CCTV photo');
+assert.deepStrictEqual(Array.from(restored,slot=>slot.timestamp),[base,base+86400000,base+2*86400000,base+3*86400000,base+4*86400000,base+5*86400000],'daily history should list all saved photos in capture-time order');
 assert.strictEqual(api.loadCameraTimeline('plot-2','weekly')[1].slots.length,0,'weekly timeline should not show empty date windows without saved photos');
 assert.strictEqual(api.loadCameraTimeline('plot-1','daily')[1].slots.length,0,'timeline cache must be scoped to the selected plot');
 const cached=Array.from({length:6},(_,i)=>api.emptyTimeline(i+1,'daily'));
@@ -23,8 +23,16 @@ assert.strictEqual(api.applySuppliedBaselineIfEmpty('plot-1','daily',privateEmpt
 assert(!java.includes('TimelineBuckets.latestFourPhotoIndices(captureTimes)'),'daily timeline must not choose four individual files when some share the same day');
 assert(java.includes('TimelineBuckets.latestSavedPeriods(timelineInterval, captureTimes)'),'all interval modes must group saved photos before selecting');
 assert(java.includes('TimelineBuckets.latestPhotoIndices(periods, captureTimes)'),'weekly, monthly, and yearly history should keep calendar-period selection');
-assert(html.includes('Latest 4 distinct saved days'),'Daily view should explicitly describe grouping by distinct saved dates');
+assert(html.includes('All saved photos · oldest to newest'),'Daily view should explicitly list all saved CCTV images');
 assert(html.includes('No saved photos found'),'empty daily history should not show sample photos or blank calendar dates');
+assert(java.includes('selected.addAll(group);'),
+ 'Daily Google Drive scan must include all photos for the selected CCTV without date filtering');
+assert(java.includes('int slotCount = daily ? sorted.size() : periods.size()'),
+ 'Daily timeline must create one slot for every CCTV image');
+const dailyMethod=html.slice(html.indexOf('function normalizeDailyTimeline('),html.indexOf('function loadCameraTimeline('));
+assert(!dailyMethod.includes('latestByDay')&&!dailyMethod.includes('.slice(-4)'),
+ 'Daily cache must not group or truncate images by day');
+
 assert(java.indexOf('if (treeUri != null) {',java.indexOf('private synchronized void scanSnapshotFolder(String requestedPlotId)'))<java.indexOf('else if (apiFolderId != null',java.indexOf('private synchronized void scanSnapshotFolder(String requestedPlotId)')),'configured Drive path should take precedence over a stale cached API folder');
 
 // The Drive scanner must list metadata before selecting photo timestamps and
@@ -88,8 +96,7 @@ assert.deepStrictEqual(latest,[
 ], 'source file inventory is ordered without referencing the current date');
 
 // CCTV01 user fixture: 8 files span FIVE distinct non-consecutive dates.
-// Cached slider must show the newest photo from each of the latest FOUR dates,
-// not the newest four files (which would incorrectly double up 1 and 2 Nov).
+// Daily must show ALL eight images, including multiple captures on 31 Oct, 1 Nov and 2 Nov.
 const sourceNames=[
  'CCTV01_20261026_145157_875.jpg',
  'CCTV01_20261031_083455_524.jpg',
@@ -114,21 +121,17 @@ dayTimeline.slots=sourceNames.map((name,i)=>({
 }));
 api.saveCameraTimeline('plot-1','daily',[dayTimeline]);
 const normalized=api.loadCameraTimeline('plot-1','daily')[0].slots;
-assert.strictEqual(normalized.length,4,'four distinct saved days should produce four slides');
-assert.deepStrictEqual(Array.from(normalized,photo=>photo.capturedAt),[
- 'CCTV01_20261031_124107_254.jpg',
- 'CCTV01_20261101_224509_801.jpg',
- 'CCTV01_20261102_211548_437.jpg',
- 'CCTV01_20261104_100441_273.jpg'
-], 'pick the newest photo per date, skip gaps and show four newest dates chronologically');
+assert.strictEqual(normalized.length,8,'eight saved CCTV images should produce eight Daily slides');
+assert.deepStrictEqual(Array.from(normalized,photo=>photo.capturedAt),sourceNames,
+ 'Daily must preserve every saved file, even when multiple images share the same day');
 const newestCache=localTimestamp('CCTV01_20261104_100441_273.jpg');
 const olderSameDay=localTimestamp('CCTV01_20261104_094441_273.jpg');
 api.addCachedCurrentPhotos('plot-1','daily',[{camera:1,timestamp:olderSameDay}],api.loadCameraTimeline('plot-1','daily'));
 const deduped=api.loadCameraTimeline('plot-1','daily')[0].slots;
-assert.strictEqual(deduped.length,4,'cached same-day photo must not create a fifth day');
-assert.strictEqual(deduped[3].timestamp,newestCache,'earlier same-day cached photo must not replace the latest photograph');
+assert.strictEqual(deduped.length,9,'cached additional same-day image must not hide any saved photo');
+assert.strictEqual(deduped[8].timestamp,newestCache,'older cached photo must not replace or remove the newest image');
 assert(java.includes('long timestampInName = timestampFromFileName(name)'),'metadata stage must sort by capture timestamp in filename when present');
 assert(java.includes('if (timestampInName <= 0) photo.capturedAt = parsed.getTime()'),
  'EXIF timestamp must not override a filename timestamp after Drive sorting');
 
-console.log('PASS: CCTV photo history groups distinct saved dates and selects the latest in each.');
+console.log('PASS: Daily lists all saved CCTV photos; Weekly and Monthly retain period grouping.');
