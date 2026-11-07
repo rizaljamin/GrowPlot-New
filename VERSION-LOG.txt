@@ -1,3 +1,7 @@
+2026-11-07 | v0.7.03 Build 15 | versionCode 319 | com.growplot.farm
+Changes: Enumerate saved Google Drive JPEG metadata before selecting images or downloading, group by CCTV and distinct Malaysia-local days/weeks/months, choose the latest capture in each of the four most recent populated periods (non-consecutive periods allowed), and retain one-photo slider. Avoid dropping older distinct days when cached current photos share the newest date. Add user-supplied CCTV01 screenshot fixture and Java period regression. Raise index.html test cap from 300 KB to 1 MB while retaining the no-embedded-sample-JPEG assertion.
+Validation: GitHub ARM64 build triggered by release identity update; Google Drive/Android photo display remains pending device verification.
+
 2026-11-06 | v0.7.03 Build 14 | versionCode 318 | com.growplot.farm
 Changes: Weekly and monthly timelines now select the latest four calendar periods that contain saved photos, based on photo capture dates rather than today. Empty timelines no longer display date windows based on today. Build 13 also adds a swipeable single-photo slider and a Drive API scan fallback.
 Validation: GitHub ARM64 build pending. Verify saved-photo discovery and date ordering on the tablet.
