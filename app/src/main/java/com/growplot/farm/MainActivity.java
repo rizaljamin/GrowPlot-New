@@ -824,6 +824,7 @@ public class MainActivity extends Activity {
             }
             assignedCameraPromptPending[slot] = false;
             assignedCameraPromptShowing = true;
+            final int targetSlot = slot;
             String savedUsername = assignedStreamUsernames[slot];
             LinearLayout form = new LinearLayout(this);
             form.setOrientation(LinearLayout.VERTICAL);
@@ -863,7 +864,7 @@ public class MainActivity extends Activity {
                 username.setText("");
                 password.setText("");
                 dialog.dismiss();
-                reconnectAssignedCameraSlot(slot);
+                reconnectAssignedCameraSlot(targetSlot);
             }));
             dialog.show();
             return;
