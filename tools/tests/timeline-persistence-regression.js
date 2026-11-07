@@ -26,4 +26,63 @@ assert(html.includes('Latest saved photos'),'Daily view should describe saved-ph
 assert(html.includes('No saved photos found'),'empty daily history should not show sample photos or blank calendar dates');
 assert(java.indexOf('if (treeUri != null) {',java.indexOf('private synchronized void scanSnapshotFolder(String requestedPlotId)'))<java.indexOf('else if (apiFolderId != null',java.indexOf('private synchronized void scanSnapshotFolder(String requestedPlotId)')),'configured Drive path should take precedence over a stale cached API folder');
 
+// The Drive scanner must list metadata before selecting photo timestamps and
+// downloading JPEG bytes. Date filtering belongs after discovery, never in listing.
+const drivePhase=java.slice(
+    java.indexOf('private List<FeedDocument> queryDriveImageFeed('),
+    java.indexOf('private void uploadDriveApiPhoto(')
+);
+const listingPhase=drivePhase.slice(
+    drivePhase.indexOf('private void collectDriveImageFeed('),
+    drivePhase.indexOf('private long parseDriveModifiedAt(')
+);
+assert(drivePhase.includes('List<DriveFeedCandidate> discovered = new ArrayList<>()'),
+    'Drive scan should first build an inventory of saved photo metadata');
+assert(drivePhase.indexOf('collectDriveImageFeed(folderId, discovered')
+    < drivePhase.indexOf('driveApiRequest("GET"'),
+    'Drive listing must finish before photos are downloaded');
+assert(!listingPhase.includes('driveApiRequest(')
+    && !listingPhase.includes('openInputStream('),
+    'discovery must not open, decode, or download JPEGs');
+assert(!listingPhase.includes('System.currentTimeMillis()')
+    && !listingPhase.includes('latestFour('),
+    'discovery must not compare a saved photo against today');
+assert(drivePhase.includes('group.sort((left, right) ->')
+    && drivePhase.includes('Long.compare(left.timestamp, right.timestamp)'),
+    'sort discovered image metadata by timestamp before choosing the latest');
+assert(drivePhase.includes('latestFourPhotoIndices(captureTimes)')
+    && drivePhase.includes('latestSavedPeriods(timelineInterval, captureTimes)'),
+    'daily/weekly/monthly/yearly should select newest saved photos or populated periods');
+assert(drivePhase.includes('indices.add(group.size() - 1)'),
+    'preserve the latest frame for the Home snapshot');
+assert(java.includes('document.modifiedAt > 0')
+    && java.includes('candidate.modifiedAt'),
+    'preserve actual Google Drive modifiedTime for files lacking an embedded capture date');
+assert(drivePhase.includes('catch (Exception downloadFailure)'),
+    'one inaccessible JPEG must not abort downloads for other saved photos');
+
+// Demo Plot fixture: five CCTV01 snapshots from 8–10 Oct 2026.
+// The current date must not affect the ordering.
+const samplePhotos=[
+    'CCTV01_20261008_184621.jpg',
+    'CCTV01_2026100800.jpg',
+    'CCTV01_20261009_104256.jpg',
+    'CCTV01_20261010_071851.jpg',
+    'CCTV01_20261010_103821_399.jpg'
+];
+const timestamp=name=>{
+    const match=name.match(/(\d{8})[_-]?(\d{6})/);
+    if(match)return Number(match[1]+match[2]);
+    const legacy=name.match(/(\d{8})[_-]?(\d{2})(?!\d)/);
+    return legacy?Number(legacy[1]+legacy[2]+'0000'):0;
+};
+const latest=samplePhotos.map(name=>({name,ts:timestamp(name)}))
+    .sort((a,b)=>a.ts-b.ts).slice(-4).map(photo=>photo.name);
+assert.deepStrictEqual(latest,[
+    'CCTV01_20261008_184621.jpg',
+    'CCTV01_20261009_104256.jpg',
+    'CCTV01_20261010_071851.jpg',
+    'CCTV01_20261010_103821_399.jpg'
+], 'select newest four saved photos independent of the current date');
+
 console.log('PASS: Daily history restores the latest four saved photos in capture-time order.');
