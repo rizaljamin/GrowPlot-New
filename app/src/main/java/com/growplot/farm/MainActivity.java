@@ -5613,11 +5613,11 @@ public class MainActivity extends Activity {
         List<DriveFeedCandidate> discovered = new ArrayList<>();
         collectDriveImageFeed(folderId, discovered, new HashSet<>(), 0, 0);
 
-        // PHASE 2: group by CCTV and sort the complete metadata listing by
-        // timestamp. Daily selects the newest four photos. Weekly/monthly/yearly
-        // select the newest photo in each of the four most recent SAVED periods.
-        // A current-date window is never used. Always include the newest frame
-        // so Home can show its latest capture even when the timeline is sparse.
+        // PHASE 2: group by CCTV, then by DISTINCT saved-date period.
+        // For daily/weekly/monthly/yearly, select the latest photo within each
+        // of the four latest periods containing at least one photo. Dates need
+        // not be consecutive; nothing is compared against the current date.
+        // Include the newest frame so Home can use the latest snapshot.
         Map<Integer, List<DriveFeedCandidate>> byCamera = new HashMap<>();
         for (DriveFeedCandidate candidate : discovered) {
             if (candidate.camera < 1 || candidate.camera > 6) continue;
@@ -5635,16 +5635,11 @@ public class MainActivity extends Activity {
             });
             List<Long> captureTimes = new ArrayList<>();
             for (DriveFeedCandidate candidate : group) captureTimes.add(candidate.timestamp);
+            List<TimelineBuckets.Period> periods =
+                    TimelineBuckets.latestSavedPeriods(timelineInterval, captureTimes);
             Set<Integer> indices = new HashSet<>();
-            if ("daily".equals(timelineInterval)) {
-                for (int index : TimelineBuckets.latestFourPhotoIndices(captureTimes))
-                    if (index >= 0) indices.add(index);
-            } else {
-                List<TimelineBuckets.Period> periods =
-                        TimelineBuckets.latestSavedPeriods(timelineInterval, captureTimes);
-                for (int index : TimelineBuckets.latestPhotoIndices(periods, captureTimes))
-                    if (index >= 0) indices.add(index);
-            }
+            for (int index : TimelineBuckets.latestPhotoIndices(periods, captureTimes))
+                if (index >= 0) indices.add(index);
             indices.add(group.size() - 1);
             List<Integer> order = new ArrayList<>(indices);
             Collections.sort(order);
@@ -6528,10 +6523,11 @@ public class MainActivity extends Activity {
 
     private JSONArray makeTimelinePhotos(Map<Integer, List<Photo>> photosByCamera) throws Exception {
         JSONArray timelines = new JSONArray();
-        // Daily shows the latest four saved photos, sorted by capture time.
-        // Other intervals use the latest four calendar periods that contain saved photos.
-        boolean daily = "daily".equals(timelineInterval);
-        String periodName = "monthly".equals(timelineInterval) ? "Month"
+        // All modes select one latest photo from each of the four most recent
+        // DISTINCT periods containing saved photos. Missing dates/weeks/months
+        // never create empty slots or require continuous history.
+        String periodName = "daily".equals(timelineInterval) ? "Day"
+                : "monthly".equals(timelineInterval) ? "Month"
                 : "yearly".equals(timelineInterval) ? "Year" : "Week";
         for (int camera = 1; camera <= 6; camera++) {
             List<Photo> group = photosByCamera.get(camera);
@@ -6541,28 +6537,28 @@ public class MainActivity extends Activity {
             JSONArray slots = new JSONArray();
             List<Long> captureTimes = new ArrayList<>();
             if (group != null) for (Photo photo : group) captureTimes.add(photo.capturedAt);
-            List<TimelineBuckets.Period> periods = daily ? new ArrayList<>()
-                    : TimelineBuckets.latestSavedPeriods(timelineInterval, captureTimes);
-            int[] selectedPhoto = daily ? TimelineBuckets.latestFourPhotoIndices(captureTimes)
-                    : TimelineBuckets.latestPhotoIndices(periods, captureTimes);
-            int slotCount = daily ? selectedPhoto.length : periods.size();
-            timeline.put("baselineDate", periods.isEmpty() ? "" : formatDay(periods.get(0).startMillis));
-            for (int slotIndex = 0; slotIndex < slotCount; slotIndex++) {
-                JSONObject slot = new JSONObject();
+            List<TimelineBuckets.Period> periods =
+                    TimelineBuckets.latestSavedPeriods(timelineInterval, captureTimes);
+            int[] selectedPhoto = TimelineBuckets.latestPhotoIndices(periods, captureTimes);
+            timeline.put("baselineDate", periods.isEmpty() ? ""
+                    : formatDay(periods.get(0).startMillis));
+            for (int slotIndex = 0; slotIndex < periods.size(); slotIndex++) {
+                TimelineBuckets.Period period = periods.get(slotIndex);
                 int chosenIndex = selectedPhoto[slotIndex];
                 Photo best = chosenIndex >= 0 && group != null ? group.get(chosenIndex) : null;
-                String startDate = daily && best != null ? formatDay(best.capturedAt)
-                        : formatDay(periods.get(slotIndex).startMillis);
-                slot.put("day", daily ? slotIndex + 1 : periods.get(slotIndex).index);
-                slot.put("label", daily ? "Photo " + (slotIndex + 1) + " (" + startDate + ")"
-                        : periodName + " " + periods.get(slotIndex).index + " (start " + startDate + ")");
+                String startDate = formatDay(period.startMillis);
+                JSONObject slot = new JSONObject();
+                slot.put("day", period.index);
+                slot.put("label", periodName + " " + period.index
+                        + " (" + startDate + ")");
                 slot.put("expectedDate", startDate);
                 if (best != null && best.historyFile == null) best.historyFile = archivePhoto(best);
                 slot.put("available", best != null && best.historyFile != null);
                 if (best != null && best.historyFile != null) {
                     slot.put("timestamp", best.capturedAt);
                     slot.put("capturedAt", best.displayTime);
-                    slot.put("imageUrl", "https://appassets.androidplatform.net/assets/history/" + safePlotId(best.plotId) + "/" + best.historyFile);
+                    slot.put("imageUrl", "https://appassets.androidplatform.net/assets/history/"
+                            + safePlotId(best.plotId) + "/" + best.historyFile);
                 }
                 slots.put(slot);
             }
@@ -6631,7 +6627,12 @@ public class MainActivity extends Activity {
         photo.camera = camera;
         photo.modifiedAt = modified;
         photo.sourceKey = sourceKey;
-        photo.capturedAt = modified > 0 ? modified : System.currentTimeMillis();
+        // Drive discovery sorts by the filename capture timestamp when present.
+        // Use the same primary timestamp here so grouping does not change
+        // after the selected images are downloaded and decoded.
+        long timestampInName = timestampFromFileName(name);
+        photo.capturedAt = timestampInName > 0 ? timestampInName
+                : modified > 0 ? modified : System.currentTimeMillis();
         boolean hasExifCaptureTime = false;
         try (InputStream input = getContentResolver().openInputStream(uri)) {
             if (input != null) {
@@ -6644,16 +6645,14 @@ public class MainActivity extends Activity {
                     parser.setTimeZone(TimeZone.getTimeZone(offset == null ? "Asia/Kuala_Lumpur" : "GMT" + offset));
                     Date parsed = parser.parse(raw);
                     if (parsed != null) {
-                        photo.capturedAt = parsed.getTime();
+                        if (timestampInName <= 0) photo.capturedAt = parsed.getTime();
                         hasExifCaptureTime = true;
                     }
                 }
             }
         } catch (ParseException ignored) { }
-        if (!hasExifCaptureTime) {
-            long fromName = timestampFromFileName(name);
-            if (fromName > 0) photo.capturedAt = fromName;
-            else if (modified <= 0) {
+        if (!hasExifCaptureTime && timestampInName <= 0) {
+            if (modified <= 0) {
                 // Legacy camera-only names have no embedded time. Use the known baseline only
                 // when the provider also supplied no usable modification timestamp.
                 long knownTime = knownCameraTimestamp(name);
