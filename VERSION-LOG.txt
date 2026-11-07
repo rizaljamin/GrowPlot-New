@@ -1,3 +1,7 @@
+2026-11-07 | v0.7.03 Build 12 | versionCode 316 | com.growplot.farm
+Changes: For assigned RTSP cameras, verify VLC failures using an RTSP authentication challenge against that camera's assigned host, port and path. On a confirmed rejected login, delete only that device's encrypted local credential, label the prompt as a rejected login, and ask again. Unavailable cameras and non-authentication RTSP errors retain credentials and retry.
+Validation: RTSP verifier accepted/rejected/unavailable response checks and ARM64 build pending.
+
 2026-11-07 | v0.7.03 Build 11 | versionCode 315 | com.growplot.farm
 Changes: Make assigned RTSP cameras authenticate per device ID across CCTV01–CCTV03. Prompt for each camera's admin username/password when no local credential is present, encrypt the login on-device with Android Keystore, and use it in that section's VLC stream. Saving camera credentials through Camera & IoT Settings also protects a device-local copy so the stream starts immediately. Two VIGI cameras assigned to two sections now keep separate credentials.
 Validation: ARM64 build and on-device VIGI playback verification pending.

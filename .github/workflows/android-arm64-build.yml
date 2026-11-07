@@ -1,6 +1,6 @@
 name: GrowPlot ARM64 APK
-run-name: 'GrowPlot v0.7.03 Build 11 | ARM64 APK | ${{ github.event_name }}'
-# Build 11: Use per-device camera credentials for assigned VIGI RTSP streams.
+run-name: 'GrowPlot v0.7.03 Build 12 | ARM64 APK | ${{ github.event_name }}'
+# Build 12: Re-prompt for per-device VIGI credentials after confirmed RTSP authentication rejection.
 
 on:
   workflow_dispatch:

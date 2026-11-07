@@ -571,6 +571,8 @@ public class MainActivity extends Activity {
     private final String[] assignedStreamUsernames = new String[4];
     private boolean assignedCameraPromptShowing = false;
     private final boolean[] assignedCameraPromptPending = new boolean[4];
+    private final boolean[] assignedCameraAuthCheckInProgress = new boolean[4];
+    private final boolean[] assignedCameraCredentialsRejected = new boolean[4];
     private volatile boolean userStreamMode = false;
     private int assignedStreamGeneration = 0;
     private String activeStreamScope = "";
@@ -772,6 +774,86 @@ public class MainActivity extends Activity {
         } catch (Exception ignored) { return false; }
     }
 
+    private void clearAssignedCameraCredentials(String deviceId) {
+        String identity = assignedCredentialIdentity(deviceId);
+        if (identity.isEmpty()) return;
+        getPrefs().edit().remove("assigned_camera_credentials_" + identity).apply();
+        try {
+            KeyStore store = KeyStore.getInstance("AndroidKeyStore");
+            store.load(null);
+            String alias = assignedCredentialKeyAlias(identity);
+            if (store.containsAlias(alias)) store.deleteEntry(alias);
+        } catch (Exception ignored) { }
+    }
+
+    private boolean isRtspRoute(String route) {
+        return route != null && (route.startsWith("rtsp://") || route.startsWith("rtsps://"));
+    }
+
+    private org.videolan.libvlc.MediaPlayer assignedPlayer(int slot) {
+        if (slot == 1) return ipWebcamVlcPlayer;
+        if (slot == 2) return ipWebcam2VlcPlayer;
+        if (slot == 3) return ipWebcam3VlcPlayer;
+        return null;
+    }
+
+    private VLCVideoLayout assignedPlayerLayout(int slot) {
+        if (slot == 1) return ipWebcamVlcLayout;
+        if (slot == 2) return ipWebcam2VlcLayout;
+        if (slot == 3) return ipWebcam3VlcLayout;
+        return null;
+    }
+
+    private void stopAssignedPlayer(int slot) {
+        if (slot == 1) stopIpWebcamVlc();
+        else if (slot == 2) stopCctv02Vlc();
+        else if (slot == 3) stopCctv03Vlc();
+    }
+
+    private void checkAssignedCameraLogin(org.videolan.libvlc.MediaPlayer player, int slot) {
+        if (slot < 1 || slot > 3 || player != assignedPlayer(slot) || assignedCameraAuthCheckInProgress[slot]) return;
+        String deviceId = assignedStreamDeviceIds[slot];
+        String route = assignedStreamUrls[slot];
+        String[] credentials = assignedCameraCredentials(deviceId);
+        if (deviceId == null || route == null || credentials[0].isEmpty() || credentials[1].isEmpty()) return;
+        Uri uri = Uri.parse(route);
+        String host = uri.getHost();
+        int port = uri.getPort() > 0 ? uri.getPort() : 554;
+        String path = uri.getEncodedPath();
+        if (host == null || path == null) return;
+        assignedCameraAuthCheckInProgress[slot] = true;
+        cctvSnapshotWorker.execute(() -> {
+            RtspCredentialVerifier.Result result = RtspCredentialVerifier.verify(host, port, path,
+                    credentials[0], credentials[1]);
+            mainHandler.post(() -> {
+                assignedCameraAuthCheckInProgress[slot] = false;
+                if (isFinishing() || !activityResumed || player != assignedPlayer(slot)
+                        || !deviceId.equals(assignedStreamDeviceIds[slot])
+                        || !route.equals(assignedStreamUrls[slot])) return;
+                VLCVideoLayout layout = assignedPlayerLayout(slot);
+                if (result == RtspCredentialVerifier.Result.REJECTED) {
+                    stopAssignedPlayer(slot);
+                    clearAssignedCameraCredentials(deviceId);
+                    assignedCameraCredentialsRejected[slot] = true;
+                    if (layout != null) showAssignedCameraMessage(layout,
+                            "Camera rejected this login. Re-enter the admin username and password.");
+                    promptForAssignedCameraCredentials(slot, deviceId, assignedStreamUsernames[slot]);
+                    return;
+                }
+                if (layout != null) showAssignedCameraMessage(layout,
+                        "Camera stream unavailable. Checking the connection again…");
+                final VLCVideoLayout retryLayout = layout;
+                mainHandler.postDelayed(() -> {
+                    if (!isFinishing() && activityResumed && cctvVlcFeedsAllowedOnActiveScreen
+                            && userStreamMode && player == assignedPlayer(slot)
+                            && route.equals(assignedStreamUrls[slot]) && assignedPlayerLayout(slot) == retryLayout) {
+                        reconnectAssignedCameraSlot(slot);
+                    }
+                }, 5000L);
+            });
+        });
+    }
+
     private String routeWithAssignedCredentials(int slot, String route, VLCVideoLayout layout) {
         if (!userStreamMode || route == null
                 || !(route.startsWith("rtsp://") || route.startsWith("rtsps://"))) return route;
@@ -830,7 +912,9 @@ public class MainActivity extends Activity {
             form.setOrientation(LinearLayout.VERTICAL);
             form.setPadding(dp(24), dp(8), dp(24), dp(4));
             TextView note = new TextView(this);
-            note.setText("Enter the admin account for " + deviceId + ". GrowPlot encrypts it on this device.");
+            note.setText((assignedCameraCredentialsRejected[slot]
+                    ? "The camera rejected the previous login. Re-enter the admin account for "
+                    : "Enter the admin account for ") + deviceId + ". GrowPlot encrypts it on this device.");
             form.addView(note, new LinearLayout.LayoutParams(-1, -2));
             EditText username = new EditText(this);
             username.setSingleLine(true);
@@ -843,7 +927,8 @@ public class MainActivity extends Activity {
             password.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
             form.addView(password, new LinearLayout.LayoutParams(-1, -2));
             android.app.AlertDialog dialog = new android.app.AlertDialog.Builder(this)
-                    .setTitle("Connect CCTV " + String.format(Locale.US, "%02d", slot) + " · VIGI")
+                    .setTitle((assignedCameraCredentialsRejected[slot] ? "Login rejected · " : "Connect ")
+                            + "CCTV " + String.format(Locale.US, "%02d", slot) + " · VIGI")
                     .setView(form)
                     .setNegativeButton("Cancel", (d, which) -> { })
                     .setPositiveButton("Connect", null)
@@ -861,6 +946,7 @@ public class MainActivity extends Activity {
                     password.setError("Could not encrypt these credentials on this device");
                     return;
                 }
+                assignedCameraCredentialsRejected[targetSlot] = false;
                 username.setText("");
                 password.setText("");
                 dialog.dismiss();
@@ -1225,6 +1311,10 @@ public class MainActivity extends Activity {
             final org.videolan.libvlc.MediaPlayer sessionPlayer = ipWebcamVlcPlayer;
             sessionPlayer.setEventListener(event -> {
                 if (event.type == org.videolan.libvlc.MediaPlayer.Event.EncounteredError) {
+                    if (userStreamMode && isRtspRoute(assignedStreamUrls[1])) {
+                        mainHandler.post(() -> checkAssignedCameraLogin(sessionPlayer, 1));
+                        return;
+                    }
                     mainHandler.postDelayed(() -> {
                         if (!isFinishing() && activityResumed && ipWebcamVlcPlayer == sessionPlayer
                                 && ipWebcamVlcLayout == videoLayout) {
@@ -1438,6 +1528,10 @@ public class MainActivity extends Activity {
             final org.videolan.libvlc.MediaPlayer sessionPlayer = ipWebcam2VlcPlayer;
             sessionPlayer.setEventListener(event -> {
                 if (event.type == org.videolan.libvlc.MediaPlayer.Event.EncounteredError) {
+                    if (userStreamMode && isRtspRoute(assignedStreamUrls[2])) {
+                        mainHandler.post(() -> checkAssignedCameraLogin(sessionPlayer, 2));
+                        return;
+                    }
                     mainHandler.postDelayed(() -> {
                         if (!isFinishing() && activityResumed && ipWebcam2VlcPlayer == sessionPlayer
                                 && ipWebcam2VlcLayout == videoLayout) {
@@ -1520,6 +1614,12 @@ public class MainActivity extends Activity {
                 ipWebcam3Vlc = new LibVLC(this, options);
                 ipWebcam3VlcPlayer = new org.videolan.libvlc.MediaPlayer(ipWebcam3Vlc);
                 ipWebcam3VlcPlayer.attachViews(videoLayout, null, true, false);
+                final org.videolan.libvlc.MediaPlayer sessionPlayer = ipWebcam3VlcPlayer;
+                sessionPlayer.setEventListener(event -> {
+                    if (event.type == org.videolan.libvlc.MediaPlayer.Event.EncounteredError) {
+                        mainHandler.post(() -> checkAssignedCameraLogin(sessionPlayer, 3));
+                    }
+                });
                 Media media = new Media(ipWebcam3Vlc, Uri.parse(route));
                 media.addOption(":network-caching=350");
                 ipWebcam3VlcPlayer.setMedia(media); media.release(); ipWebcam3VlcPlayer.play();
