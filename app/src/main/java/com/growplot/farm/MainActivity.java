@@ -5613,10 +5613,9 @@ public class MainActivity extends Activity {
         List<DriveFeedCandidate> discovered = new ArrayList<>();
         collectDriveImageFeed(folderId, discovered, new HashSet<>(), 0, 0);
 
-        // PHASE 2: group by CCTV, then by DISTINCT saved-date period.
-        // For daily/weekly/monthly/yearly, select the latest photo within each
-        // of the four latest periods containing at least one photo. Dates need
-        // not be consecutive; nothing is compared against the current date.
+        // PHASE 2: group by CCTV first. Daily lists EVERY saved image for
+        // that camera, oldest to newest, without a date-group or four-photo cap.
+        // Weekly/monthly/yearly retain latest-photo-per-populated-period selection.
         // Include the newest frame so Home can use the latest snapshot.
         Map<Integer, List<DriveFeedCandidate>> byCamera = new HashMap<>();
         for (DriveFeedCandidate candidate : discovered) {
@@ -5633,6 +5632,12 @@ public class MainActivity extends Activity {
                 int byTime = Long.compare(left.timestamp, right.timestamp);
                 return byTime != 0 ? byTime : left.id.compareTo(right.id);
             });
+            if ("daily".equals(timelineInterval)) {
+                // Do not filter by date, limit to four files, or deduplicate
+                // snapshots taken on the same day: Daily lists ALL camera files.
+                selected.addAll(group);
+                continue;
+            }
             List<Long> captureTimes = new ArrayList<>();
             for (DriveFeedCandidate candidate : group) captureTimes.add(candidate.timestamp);
             List<TimelineBuckets.Period> periods =
@@ -6523,43 +6528,56 @@ public class MainActivity extends Activity {
 
     private JSONArray makeTimelinePhotos(Map<Integer, List<Photo>> photosByCamera) throws Exception {
         JSONArray timelines = new JSONArray();
-        // All modes select one latest photo from each of the four most recent
-        // DISTINCT periods containing saved photos. Missing dates/weeks/months
-        // never create empty slots or require continuous history.
-        String periodName = "daily".equals(timelineInterval) ? "Day"
-                : "monthly".equals(timelineInterval) ? "Month"
+        // Daily enumerates ALL files belonging to each camera. Weekly, monthly
+        // and yearly continue selecting one latest capture per populated period.
+        final boolean daily = "daily".equals(timelineInterval);
+        String periodName = "monthly".equals(timelineInterval) ? "Month"
                 : "yearly".equals(timelineInterval) ? "Year" : "Week";
         for (int camera = 1; camera <= 6; camera++) {
             List<Photo> group = photosByCamera.get(camera);
+            List<Photo> sorted = group == null ? new ArrayList<>() : new ArrayList<>(group);
+            sorted.sort((left, right) -> {
+                int order = Long.compare(left.capturedAt, right.capturedAt);
+                return order != 0 ? order : left.name.compareTo(right.name);
+            });
+
             JSONObject timeline = new JSONObject();
             timeline.put("camera", camera);
             timeline.put("interval", timelineInterval);
+            timeline.put("photoCount", sorted.size());
             JSONArray slots = new JSONArray();
+
             List<Long> captureTimes = new ArrayList<>();
-            if (group != null) for (Photo photo : group) captureTimes.add(photo.capturedAt);
-            List<TimelineBuckets.Period> periods =
-                    TimelineBuckets.latestSavedPeriods(timelineInterval, captureTimes);
-            int[] selectedPhoto = TimelineBuckets.latestPhotoIndices(periods, captureTimes);
+            if (!daily) for (Photo photo : sorted) captureTimes.add(photo.capturedAt);
+            List<TimelineBuckets.Period> periods = daily ? new ArrayList<>()
+                    : TimelineBuckets.latestSavedPeriods(timelineInterval, captureTimes);
+            int[] selectedPhoto = daily ? new int[0]
+                    : TimelineBuckets.latestPhotoIndices(periods, captureTimes);
+            int slotCount = daily ? sorted.size() : periods.size();
             timeline.put("baselineDate", periods.isEmpty() ? ""
                     : formatDay(periods.get(0).startMillis));
-            for (int slotIndex = 0; slotIndex < periods.size(); slotIndex++) {
-                TimelineBuckets.Period period = periods.get(slotIndex);
-                int chosenIndex = selectedPhoto[slotIndex];
-                Photo best = chosenIndex >= 0 && group != null ? group.get(chosenIndex) : null;
-                String startDate = formatDay(period.startMillis);
+
+            for (int slotIndex = 0; slotIndex < slotCount; slotIndex++) {
+                Photo best = daily ? sorted.get(slotIndex)
+                        : selectedPhoto[slotIndex] < 0 ? null : sorted.get(selectedPhoto[slotIndex]);
+                String startDate = daily ? formatDay(best.capturedAt)
+                        : formatDay(periods.get(slotIndex).startMillis);
                 JSONObject slot = new JSONObject();
-                slot.put("day", period.index);
-                slot.put("label", periodName + " " + period.index
-                        + " (" + startDate + ")");
+                slot.put("day", slotIndex + 1);
+                slot.put("label", daily
+                        ? "Photo " + (slotIndex + 1) + " (" + startDate + ")"
+                        : periodName + " " + (slotIndex + 1) + " (" + startDate + ")");
                 slot.put("expectedDate", startDate);
-                if (best != null && best.historyFile == null) best.historyFile = archivePhoto(best);
-                slot.put("available", best != null && best.historyFile != null);
-                if (best != null && best.historyFile != null) {
+                if (best != null) {
                     slot.put("timestamp", best.capturedAt);
                     slot.put("capturedAt", best.displayTime);
+                    slot.put("fileName", best.name);
+                    if (best.historyFile == null) best.historyFile = archivePhoto(best);
+                }
+                slot.put("available", best != null && best.historyFile != null);
+                if (best != null && best.historyFile != null)
                     slot.put("imageUrl", "https://appassets.androidplatform.net/assets/history/"
                             + safePlotId(best.plotId) + "/" + best.historyFile);
-                }
                 slots.put(slot);
             }
             timeline.put("slots", slots);
