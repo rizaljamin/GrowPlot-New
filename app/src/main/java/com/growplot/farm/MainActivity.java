@@ -283,7 +283,32 @@ public class MainActivity extends Activity {
         Uri uri;
         String name;
         int cameraHint;
-        FeedDocument(Uri uri, String name, int cameraHint) { this.uri = uri; this.name = name; this.cameraHint = cameraHint; }
+        long modifiedAt;
+        FeedDocument(Uri uri, String name, int cameraHint) { this(uri, name, cameraHint, 0L); }
+        FeedDocument(Uri uri, String name, int cameraHint, long modifiedAt) {
+            this.uri = uri;
+            this.name = name;
+            this.cameraHint = cameraHint;
+            this.modifiedAt = modifiedAt;
+        }
+    }
+
+    // The Drive discovery phase stores metadata only. No JPEGs are read until
+    // we have listed every eligible file and selected the newest candidates.
+    private static final class DriveFeedCandidate {
+        final String id, name, modifiedMarker;
+        final int camera;
+        final long modifiedAt, timestamp;
+
+        DriveFeedCandidate(String id, String name, String modifiedMarker,
+                           int camera, long modifiedAt, long timestamp) {
+            this.id = id;
+            this.name = name;
+            this.modifiedMarker = modifiedMarker;
+            this.camera = camera;
+            this.modifiedAt = modifiedAt;
+            this.timestamp = timestamp;
+        }
     }
 
     private WebResourceResponse localImageResponse(String url) {
@@ -5583,13 +5608,92 @@ public class MainActivity extends Activity {
     }
 
     private List<FeedDocument> queryDriveImageFeed(String folderId, String plotId) throws Exception {
+        // PHASE 1: discover all JPEG metadata first. No date-window tests, downloads
+        // or EXIF comparisons are performed while enumerating Google Drive.
+        List<DriveFeedCandidate> discovered = new ArrayList<>();
+        collectDriveImageFeed(folderId, discovered, new HashSet<>(), 0, 0);
+
+        // PHASE 2: group by CCTV and sort the complete metadata listing by
+        // timestamp. Daily selects the newest four photos. Weekly/monthly/yearly
+        // select the newest photo in each of the four most recent SAVED periods.
+        // A current-date window is never used. Always include the newest frame
+        // so Home can show its latest capture even when the timeline is sparse.
+        Map<Integer, List<DriveFeedCandidate>> byCamera = new HashMap<>();
+        for (DriveFeedCandidate candidate : discovered) {
+            if (candidate.camera < 1 || candidate.camera > 6) continue;
+            if (!byCamera.containsKey(candidate.camera))
+                byCamera.put(candidate.camera, new ArrayList<>());
+            byCamera.get(candidate.camera).add(candidate);
+        }
+        List<DriveFeedCandidate> selected = new ArrayList<>();
+        for (int camera = 1; camera <= 6; camera++) {
+            List<DriveFeedCandidate> group = byCamera.get(camera);
+            if (group == null || group.isEmpty()) continue;
+            group.sort((left, right) -> {
+                int byTime = Long.compare(left.timestamp, right.timestamp);
+                return byTime != 0 ? byTime : left.id.compareTo(right.id);
+            });
+            List<Long> captureTimes = new ArrayList<>();
+            for (DriveFeedCandidate candidate : group) captureTimes.add(candidate.timestamp);
+            Set<Integer> indices = new HashSet<>();
+            if ("daily".equals(timelineInterval)) {
+                for (int index : TimelineBuckets.latestFourPhotoIndices(captureTimes))
+                    if (index >= 0) indices.add(index);
+            } else {
+                List<TimelineBuckets.Period> periods =
+                        TimelineBuckets.latestSavedPeriods(timelineInterval, captureTimes);
+                for (int index : TimelineBuckets.latestPhotoIndices(periods, captureTimes))
+                    if (index >= 0) indices.add(index);
+            }
+            indices.add(group.size() - 1);
+            List<Integer> order = new ArrayList<>(indices);
+            Collections.sort(order);
+            for (int index : order) selected.add(group.get(index));
+        }
+
+        // PHASE 3: download only the selected files after listing and sorting.
+        // A failed individual download must not hide other saved photos.
         List<FeedDocument> images = new ArrayList<>();
-        Set<String> visited = new HashSet<>();
-        collectDriveImageFeed(folderId, plotId, images, visited, 0, 0);
+        File cacheDirectory = new File(new File(getCacheDir(), "drive_image_feed"), plotId);
+        if (!selected.isEmpty() && !cacheDirectory.exists() && !cacheDirectory.mkdirs())
+            throw new IllegalStateException("Cannot create the Drive image cache");
+        int failedDownloads = 0;
+        for (DriveFeedCandidate candidate : selected) {
+            File cached = new File(cacheDirectory,
+                    candidate.id.replaceAll("[^A-Za-z0-9_-]", "_")
+                            + "_" + candidate.modifiedMarker + ".jpg");
+            try {
+                if (!cached.isFile() || cached.length() == 0) {
+                    byte[] bytes = driveApiRequest("GET",
+                            "/drive/v3/files/" + URLEncoder.encode(candidate.id, "UTF-8")
+                                    + "?alt=media&supportsAllDrives=true", null, null);
+                    try (OutputStream output = new FileOutputStream(cached)) {
+                        output.write(bytes);
+                    }
+                }
+                if (cached.length() <= 0) throw new IllegalStateException("Empty JPEG");
+                images.add(new FeedDocument(Uri.fromFile(cached), candidate.name,
+                        candidate.camera, candidate.modifiedAt));
+            } catch (Exception downloadFailure) {
+                failedDownloads++;
+                if (cached.exists() && cached.length() == 0) cached.delete();
+                android.util.Log.w("GrowPlotFeed",
+                        "Could not cache " + candidate.name + ": "
+                                + downloadFailure.getClass().getSimpleName());
+            }
+        }
+        android.util.Log.i("GrowPlotFeed", "Discovered " + discovered.size()
+                + " JPEG files, selected " + selected.size()
+                + ", cached " + images.size() + ", failed " + failedDownloads
+                + " for plot " + plotId);
+        if (images.isEmpty() && !selected.isEmpty()) {
+            throw new IllegalStateException("Listed " + discovered.size()
+                    + " JPEG files but could not download any selected photos");
+        }
         return images;
     }
 
-    private void collectDriveImageFeed(String parentId, String plotId, List<FeedDocument> images,
+    private void collectDriveImageFeed(String parentId, List<DriveFeedCandidate> images,
                                        Set<String> visited, int depth, int inheritedCamera) throws Exception {
         if (depth > 6 || images.size() >= MAX_FEED_FILES || !visited.add(parentId)) return;
         String query = "'" + parentId.replace("'", "\\'") + "' in parents and trashed=false";
@@ -5605,22 +5709,39 @@ public class MainActivity extends Activity {
             if (cameraHint == 0) cameraHint = quadrantNumber(name);
             if (cameraHint == 0) cameraHint = inheritedCamera;
             if ("application/vnd.google-apps.folder".equals(mime)) {
-                collectDriveImageFeed(id, plotId, images, visited, depth + 1, cameraHint);
+                collectDriveImageFeed(id, images, visited, depth + 1, cameraHint);
             } else if ("image/jpeg".equalsIgnoreCase(mime)
                     || name.toLowerCase(Locale.US).endsWith(".jpg")
                     || name.toLowerCase(Locale.US).endsWith(".jpeg")) {
-                String modified = item.optString("modifiedTime", "0").replaceAll("[^0-9]", "");
-                File cacheDirectory = new File(new File(getCacheDir(), "drive_image_feed"), plotId);
-                if (!cacheDirectory.exists() && !cacheDirectory.mkdirs())
-                    throw new IllegalStateException("Cannot create the Drive image cache");
-                File cached = new File(cacheDirectory,
-                        id.replaceAll("[^A-Za-z0-9_-]", "_") + "_" + modified + ".jpg");
-                if (!cached.isFile() || cached.length() == 0) {
-                    byte[] photo = driveApiRequest("GET",
-                            "/drive/v3/files/" + URLEncoder.encode(id, "UTF-8") + "?alt=media&supportsAllDrives=true", null, null);
-                    try (OutputStream output = new FileOutputStream(cached)) { output.write(photo); }
-                }
-                images.add(new FeedDocument(Uri.fromFile(cached), name, cameraHint));
+                String modified = item.optString("modifiedTime", "0");
+                long modifiedAt = parseDriveModifiedAt(modified);
+                long fromName = timestampFromFileName(name);
+                // Sort by filename capture time when available; otherwise use
+                // Drive's modifiedTime. Neither source is compared against today.
+                long timestamp = fromName > 0 ? fromName : modifiedAt;
+                images.add(new DriveFeedCandidate(id, name,
+                        modified.replaceAll("[^0-9]", ""), cameraHint, modifiedAt, timestamp));
+            }
+        }
+    }
+
+    private long parseDriveModifiedAt(String modified) {
+        if (modified == null || modified.isEmpty()) return 0L;
+        try {
+            SimpleDateFormat format = new SimpleDateFormat(
+                    "yyyy-MM-dd'T'HH:mm:ss.SSSX", Locale.US);
+            format.setTimeZone(TimeZone.getTimeZone("UTC"));
+            Date parsed = format.parse(modified);
+            return parsed == null ? 0L : parsed.getTime();
+        } catch (ParseException ignored) {
+            try {
+                SimpleDateFormat format = new SimpleDateFormat(
+                        "yyyy-MM-dd'T'HH:mm:ssX", Locale.US);
+                format.setTimeZone(TimeZone.getTimeZone("UTC"));
+                Date parsed = format.parse(modified);
+                return parsed == null ? 0L : parsed.getTime();
+            } catch (ParseException invalid) {
+                return 0L;
             }
         }
     }
@@ -6270,7 +6391,8 @@ public class MainActivity extends Activity {
             if (camera == 0) camera = knownTimestampCamera(name);
             if (camera == 0) unmatchedCount++;
             long size = getDocumentSize(fileUri);
-            long modifiedAt = getDocumentLastModified(fileUri);
+            long modifiedAt = document.modifiedAt > 0
+                    ? document.modifiedAt : getDocumentLastModified(fileUri);
             String sourceKey = fileUri + "|" + size + "|" + modifiedAt;
             Photo photo;
             try {
