@@ -42,7 +42,7 @@ public final class TimelineBucketsSmokeTest {
                 captured(2026,11,2,16,59,0),
                 captured(2026,11,2,21,15,48),
                 captured(2026,11,4,10,4,41));
-        verify("daily", cctv01, 2, 4, 6, 7);  // Oct31, Nov1, Nov2, Nov4
+        // Daily intentionally bypasses TimelineBuckets: it lists all source photos.
         verify("weekly", cctv01, 4, 7);       // weeks of Oct26, Nov2
         verify("monthly", cctv01, 2, 7);      // Oct and Nov
         verify("yearly", cctv01, 7);          // 2026
@@ -54,9 +54,8 @@ public final class TimelineBucketsSmokeTest {
                 captured(2026,10,9,10,42,56),
                 captured(2026,10,10,7,18,51),
                 captured(2026,10,10,10,38,21));
-        verify("daily", oldDemo, 0, 2, 4);
         verify("weekly", oldDemo, 4);
         verify("monthly", oldDemo, 4);
-        System.out.println("PASS: photo timeline selects newest image per populated day/week/month.");
+        System.out.println("PASS: Weekly and Monthly select newest photo per populated period.");
     }
 }
